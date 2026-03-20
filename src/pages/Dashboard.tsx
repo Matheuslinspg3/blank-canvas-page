@@ -30,8 +30,8 @@ import { formatCurrency } from "@/lib/utils";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { useDashboardPeriod } from "@/hooks/useDashboardPeriod";
 import { useUserRoles } from "@/hooks/useUserRole";
-import { useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+
+
 
 export default function Dashboard() {
   const { isDemoMode, demoStats } = useDemo();
