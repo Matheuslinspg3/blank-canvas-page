@@ -38,7 +38,7 @@ export function useDashboardStats() {
       return (data as unknown as DashboardStats) || EMPTY_STATS;
     },
     enabled: !!profile?.organization_id,
-    staleTime: 30_000,
-    refetchInterval: 60_000,
+    staleTime: 2 * 60_000, // PERF: 2min stale, realtime invalidates on changes
+    refetchInterval: 5 * 60_000, // PERF: reduced from 60s to 5min background poll
   });
 }

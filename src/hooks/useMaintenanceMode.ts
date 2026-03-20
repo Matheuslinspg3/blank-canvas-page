@@ -26,9 +26,9 @@ export function useMaintenanceMode() {
       if (error) throw error;
       return data as MaintenanceConfig;
     },
-    staleTime: 15_000,
-    refetchOnWindowFocus: true,
-    refetchInterval: 30_000,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    refetchInterval: 120_000, // PERF: reduced from 30s to 2min, realtime handles instant updates
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   });

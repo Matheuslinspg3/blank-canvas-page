@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from "react";
+import { lazy, Suspense } from "react";
 import { Home, Users, FileText, DollarSign } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -30,34 +30,22 @@ import { formatCurrency } from "@/lib/utils";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { useDashboardPeriod } from "@/hooks/useDashboardPeriod";
 import { useUserRoles } from "@/hooks/useUserRole";
-import { useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+
+
 
 export default function Dashboard() {
   const { isDemoMode, demoStats } = useDemo();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
+  
   const { isAdminOrAbove } = useUserRoles();
   const { periodKey, setPeriodKey, dateRange, customRange, setCustomRange } = useDashboardPeriod();
 
   // Single lightweight RPC instead of 4 heavy queries
   const { data: realStats, isLoading } = useDashboardStats();
 
-  // Realtime — only invalidate the lightweight stats RPC
-  useEffect(() => {
-    const channel = supabase
-      .channel("dashboard-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["dashboard_stats"] });
-        queryClient.invalidateQueries({ queryKey: ["kpi_metrics"] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "appointments" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["kpi_metrics"] });
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [queryClient]);
+  // PERF: Removed heavy realtime subscription that listened to ALL lead/appointment changes.
+  // Dashboard data refreshes via staleTime (2min) and refetchInterval (5min).
+  // Individual pages handle their own realtime needs.
 
   // Analytics
   useScreenTime("dashboard");
