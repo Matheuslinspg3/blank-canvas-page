@@ -455,6 +455,25 @@ Deno.serve(async (req) => {
       return json({ success: true, imported, errors, has_more, next_offset: offset + page_size });
     }
 
+    // ── ACTION: query_lead_brokers ──
+    if (action === "query_lead_brokers") {
+      const { data: srcLeads } = await source.from("leads").select("id, broker_id, name")
+        .eq("organization_id", source_organization_id)
+        .not("broker_id", "is", null)
+        .order("created_at", { ascending: true })
+        .range(offset, offset + page_size - 1);
+      if (!srcLeads || srcLeads.length === 0) return json({ success: true, leads: [], has_more: false });
+      const has_more = srcLeads.length >= page_size;
+      return json({ success: true, leads: srcLeads, has_more, next_offset: offset + page_size });
+    }
+
+    // ── ACTION: query_source_profiles ──
+    if (action === "query_source_profiles") {
+      const { data: profiles } = await source.from("profiles").select("user_id, full_name, phone")
+        .eq("organization_id", source_organization_id);
+      return json({ success: true, profiles: profiles || [] });
+    }
+
     throw new Error("action inválida");
   } catch (error) {
     console.error("Import error:", error);
