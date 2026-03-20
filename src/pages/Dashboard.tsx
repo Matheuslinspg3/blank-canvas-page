@@ -36,7 +36,7 @@ import { useUserRoles } from "@/hooks/useUserRole";
 export default function Dashboard() {
   const { isDemoMode, demoStats } = useDemo();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
+  
   const { isAdminOrAbove } = useUserRoles();
   const { periodKey, setPeriodKey, dateRange, customRange, setCustomRange } = useDashboardPeriod();
 
