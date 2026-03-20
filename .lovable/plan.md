@@ -1,58 +1,69 @@
 
 
-# Plan: Resolve All Audited Migration Errors
+## Redesign da Seção de Marketing - Padronização Meta Ads e RD Station
 
-## Overview
+### Problema
+As abas de Meta Ads e RD Station têm estruturas completamente diferentes: conexão OAuth fica em abas diferentes, a organização das sub-abas não segue um padrão, e a experiência é confusa.
 
-Based on the 5 audit reports, there are actionable fixes split into two categories: **database fixes** (migrations/inserts) and **secrets/dashboard config** (manual). This plan covers everything fixable from Lovable.
+### Novo Layout Padronizado
 
-## Fixes to Apply
+Ambas as plataformas seguirão a **mesma estrutura de abas**:
 
-### 1. Enable 8 disabled triggers on `properties` (Migration)
-All 8 custom triggers are confirmed disabled (`tgenabled=D`). A single migration:
-```sql
-ALTER TABLE properties ENABLE TRIGGER ALL;
+```text
+Marketing
+├── Meta Ads
+│   ├── Conexão        ← OAuth + status + automação CRM
+│   ├── Leads          ← inbox de leads recebidos
+│   ├── Estatísticas   ← métricas e desempenho
+│   └── Anúncios       ← lista de ads sincronizados
+│
+├── RD Station
+│   ├── Conexão        ← OAuth + webhook + chaves API + automação CRM
+│   ├── Leads          ← leads recebidos via webhook/OAuth (stats atual)
+│   ├── Estatísticas   ← métricas e conversões
+│   └── Webhook Logs   ← histórico de webhooks
+│
+├── Gerador IA
+├── Artes
+├── Vídeo
+└── Marca
 ```
 
-### 2. Fix cron jobs with old anon key (SQL Insert tool)
-Both jobs (#7, #8) use the old project's anon key (`aiflmkkjitvssyswdfga`). Unschedule and recreate with the correct key (`zpajuxxsxrwuqregdzjm`).
+### Mudanças por Arquivo
 
-### 3. Drop or secure `exec_sql` function (Migration)
-The function already checks for `service_role`, but it still allows arbitrary SQL execution. Drop it as a safety measure:
-```sql
-DROP FUNCTION IF EXISTS public.exec_sql(text);
-```
+**1. `src/pages/Anuncios.tsx`** — Reorganizar sub-abas
+- Meta Ads: renomear abas para `conexao`, `leads`, `estatisticas`, `anuncios` (nesta ordem)
+- RD Station: renomear abas para `conexao`, `leads`, `estatisticas`, `webhook_logs`
+- A primeira aba de ambos será "Conexão" (padronizado)
 
-### 4. Add DELETE and UPDATE storage policies for `property-images` (Migration)
-Currently only SELECT and INSERT policies exist. Add:
-- DELETE policy for authenticated users on `property-images` bucket
-- UPDATE policy for authenticated users on `property-images` bucket
+**2. Criar `src/components/ads/MetaConnectionTab.tsx`** — Nova aba unificada de conexão Meta
+- Mover o conteúdo de `MetaSettingsContent.tsx` para cá
+- Inclui: OAuth connect/disconnect, status, automação CRM, botões de sync
+- Renomear visualmente para "Conexão"
 
-### 5. Fix `storage_provider` inconsistency (SQL Insert tool)
-1,286 images have `storage_provider='cloudinary'` but their URLs point to R2. Update them:
-```sql
-UPDATE property_images SET storage_provider = 'r2' 
-WHERE storage_provider = 'cloudinary' AND (url LIKE '%r2.dev%' OR url LIKE '%r2.cloudflarestorage%');
-```
+**3. Criar `src/components/ads/rdstation/RDConnectionTab.tsx`** — Nova aba unificada de conexão RD
+- Combinar conteúdo de `RDSettingsTab` + `RDOAuthTab` numa única aba
+- Ordem: Status/ativar → OAuth connect → Chaves API → Automação CRM → Salvar
+- Tudo numa aba só, eliminando a fragmentação
 
-### 6. Seed `subscription_plans` with default plans (SQL Insert tool)
-Table is empty. Insert standard plans (Gratuito, Starter, Professional, Enterprise) with reasonable limits based on the schema structure and code usage patterns.
+**4. Criar `src/components/ads/rdstation/RDLeadsTab.tsx`** — Nova aba de leads RD
+- Extrair a seção de leads/contatos do `RDStationStatsContent` e `RDOAuthTab` (botão "Abrir Lista de Contatos")
+- Criar uma inbox similar ao `MetaLeadsInboxContent` para leads vindos do RD Station
 
-### 7. Seed `admin_allowlist` with primary admin emails (SQL Insert tool)
-Table is empty. Insert the primary admin email(s) from `auth.users` (e.g., `portocaicaraimoveis@gmail.com`).
+**5. Atualizar `src/components/ads/rdstation/RDWebhookTab.tsx`** — Renomear para "Webhook Logs"
+- Manter apenas os logs de webhook (remover URL setup que vai para a aba Conexão)
+- Ou manter a URL de webhook aqui por ser operacional
 
-## Items That Require Manual Dashboard Action (Not Code)
-These will be documented but cannot be executed from Lovable:
-- **~15 secrets** (R2, Resend, OpenAI, OneSignal, Cloudinary, Meta, etc.) — must be added in Supabase Dashboard > Settings > Edge Functions
-- **SITE_URL and Redirect URLs** — Dashboard Auth config
-- **OAuth callback URL update** — Google Cloud Console
-- **Orphan data decision** — business decision (import 4 missing orgs or clean up ~13,500 records)
+**6. Padrão visual de "Connection Card"**
+- Criar um componente reutilizável `IntegrationConnectionCard` usado por ambos Meta e RD
+- Props: `platform`, `isConnected`, `onConnect`, `onDisconnect`, `statusBadge`, `accountInfo`
+- Garante visual idêntico entre plataformas
 
-## Execution Order
-1. Migration: Enable triggers + drop exec_sql + add storage policies
-2. Insert: Fix cron jobs (unschedule old, schedule new)
-3. Insert: Fix storage_provider data
-4. Insert: Seed subscription_plans
-5. Insert: Seed admin_allowlist
-6. Update PARECER_FINAL document with corrected statuses
+### Resumo das Ações
+1. Criar componente `IntegrationConnectionCard` reutilizável
+2. Criar `MetaConnectionTab` consolidando conexão + automação + sync
+3. Criar `RDConnectionTab` consolidando OAuth + API keys + automação + status
+4. Criar `RDLeadsTab` com inbox de leads do RD Station
+5. Atualizar `Anuncios.tsx` com nova estrutura de abas padronizada (Conexão → Leads → Estatísticas → ...)
+6. Limpar componentes antigos que foram consolidados
 
