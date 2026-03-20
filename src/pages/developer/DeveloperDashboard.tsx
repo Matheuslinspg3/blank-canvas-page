@@ -23,6 +23,7 @@ import { AIUsageDashboard } from "@/components/developer/AIUsageDashboard";
 import { AILogsTable } from "@/components/developer/AILogsTable";
 import { SecurityAuditCard } from "@/components/developer/SecurityAuditCard";
 import { BillingDashboardTab } from "@/components/developer/billing/BillingDashboardTab";
+import { MigrationTab } from "@/components/developer/MigrationTab";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 
