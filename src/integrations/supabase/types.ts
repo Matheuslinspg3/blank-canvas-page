@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.4"
   }
   public: {
     Tables: {
@@ -5125,6 +5125,36 @@ export type Database = {
           },
         ]
       }
+      users: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          email_confirmed_at: string | null
+          id: string | null
+          last_sign_in_at: string | null
+          raw_user_meta_data: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          email_confirmed_at?: string | null
+          id?: string | null
+          last_sign_in_at?: string | null
+          raw_user_meta_data?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          email_confirmed_at?: string | null
+          id?: string | null
+          last_sign_in_at?: string | null
+          raw_user_meta_data?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       accept_organization_invite: {
@@ -5166,6 +5196,7 @@ export type Database = {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
       }
+      exec_sql: { Args: { sql_query: string }; Returns: Json }
       fix_user_without_organization: {
         Args: { p_email: string; p_full_name?: string; p_user_id: string }
         Returns: string
@@ -5412,10 +5443,6 @@ export type Database = {
       get_subscription_plan_id: { Args: { org_id: string }; Returns: string }
       get_subscription_plan_slug: { Args: { org_id: string }; Returns: string }
       get_user_organization_id: { Args: never; Returns: string }
-      get_user_role: {
-        Args: never
-        Returns: Database["public"]["Enums"]["app_role"]
-      }
       has_active_subscription: { Args: { org_id: string }; Returns: boolean }
       has_role: {
         Args: {
@@ -5663,6 +5690,8 @@ export type Database = {
         | "developer"
         | "leader"
         | "sub_admin"
+        | "atendente"
+        | "desenvolvedor"
       billing_cycle: "monthly" | "yearly"
       commission_type: "valor" | "percentual"
       contract_status: "rascunho" | "ativo" | "encerrado" | "cancelado"
@@ -5851,6 +5880,8 @@ export const Constants = {
         "developer",
         "leader",
         "sub_admin",
+        "atendente",
+        "desenvolvedor",
       ],
       billing_cycle: ["monthly", "yearly"],
       commission_type: ["valor", "percentual"],
