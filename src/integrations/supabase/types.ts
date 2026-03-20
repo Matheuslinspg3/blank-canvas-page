@@ -5196,7 +5196,6 @@ export type Database = {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
       }
-      exec_sql: { Args: { sql_query: string }; Returns: Json }
       fix_user_without_organization: {
         Args: { p_email: string; p_full_name?: string; p_user_id: string }
         Returns: string
