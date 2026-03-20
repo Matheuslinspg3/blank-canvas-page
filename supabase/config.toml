@@ -104,3 +104,6 @@ verify_jwt = false
 
 [functions.generate-contract-template]
 verify_jwt = false
+
+[functions.import-from-source]
+verify_jwt = false
