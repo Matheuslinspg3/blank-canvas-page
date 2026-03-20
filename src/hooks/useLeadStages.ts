@@ -22,11 +22,9 @@ export function useLeadStages() {
 
   const { data: leadStages = [], isLoading, error } = useQuery({
     queryKey: ['lead-stages', profile?.organization_id],
+    staleTime: 5 * 60_000, // PERF: stages rarely change, cache 5min
     queryFn: async () => {
       if (!profile?.organization_id) return [];
-
-      // Seed default stages for this org if none exist
-      await supabase.rpc('seed_org_lead_stages', { p_org_id: profile.organization_id });
 
       const { data, error } = await supabase
         .from('lead_stages')
@@ -35,6 +33,18 @@ export function useLeadStages() {
         .order('position', { ascending: true });
 
       if (error) throw error;
+      
+      // Only seed if no stages exist (first time setup)
+      if (data.length === 0) {
+        await supabase.rpc('seed_org_lead_stages', { p_org_id: profile.organization_id });
+        const { data: seeded } = await supabase
+          .from('lead_stages')
+          .select('*')
+          .eq('organization_id', profile.organization_id)
+          .order('position', { ascending: true });
+        return (seeded || []) as LeadStage[];
+      }
+      
       return data as LeadStage[];
     },
     enabled: !!profile?.organization_id,
