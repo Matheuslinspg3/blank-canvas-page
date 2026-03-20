@@ -5443,6 +5443,10 @@ export type Database = {
       get_subscription_plan_id: { Args: { org_id: string }; Returns: string }
       get_subscription_plan_slug: { Args: { org_id: string }; Returns: string }
       get_user_organization_id: { Args: never; Returns: string }
+      get_user_role: {
+        Args: never
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
       has_active_subscription: { Args: { org_id: string }; Returns: boolean }
       has_role: {
         Args: {
