@@ -1,74 +1,58 @@
 
 
-# Plano: Corrigir Banco de Dados e Contas
+# Plan: Resolve All Audited Migration Errors
 
-## Diagnóstico
+## Overview
 
-O problema principal: **o trigger `handle_new_user` NÃO está conectado à tabela `auth.users`**. A função existe, mas nunca dispara. Por isso:
+Based on the 5 audit reports, there are actionable fixes split into two categories: **database fixes** (migrations/inserts) and **secrets/dashboard config** (manual). This plan covers everything fixable from Lovable.
 
-- **0 profiles** (tabela vazia)
-- **0 organizations** (tabela vazia)  
-- **0 user_roles** (tabela vazia)
-- Login falha com **"Database error querying schema"** porque o sistema tenta buscar perfil/role que não existe
+## Fixes to Apply
 
-### Contas existentes (10 usuários)
-
-| Email | Nome | Tipo |
-|-------|------|------|
-| matheuslinspg@gmail.com | Matheus | corretor_individual |
-| portocaicaraimoveis@gmail.com | Rodrigo Brito Lima | imobiliaria |
-| matheuslinsrecu@gmail.com | Matheus Lins | corretor_individual |
-| matheuslinsrecu2@gmail.com | Teste Corretor | corretor_individual |
-| costa.azulnegocios@gmail.com | Rebeca Adriana Cyrieco | corretor_individual |
-| raul.limalara@gmail.com | Raul Correa de Lara | corretor_individual |
-| anaclaudia.delfino@gmail.com | Claudia Delfino | corretor_individual |
-| jars01@jarsdesign.com | Clodoaldo | corretor_individual |
-| matheuslinskr@gmail.com | aaaaaaa | corretor_individual |
-| tabelasportocaicara2@gmail.com | Tabelas Porto Caiçara | corretor_individual |
-
----
-
-## Plano de Execução
-
-### Passo 1 — Reconectar o trigger `handle_new_user`
-
-Criar migration que reconecta o trigger à tabela `auth.users`:
-
+### 1. Enable 8 disabled triggers on `properties` (Migration)
+All 8 custom triggers are confirmed disabled (`tgenabled=D`). A single migration:
 ```sql
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW
-  EXECUTE FUNCTION public.handle_new_user();
+ALTER TABLE properties ENABLE TRIGGER ALL;
 ```
 
-### Passo 2 — Criar dados faltantes para os 10 usuários existentes
+### 2. Fix cron jobs with old anon key (SQL Insert tool)
+Both jobs (#7, #8) use the old project's anon key (`aiflmkkjitvssyswdfga`). Unschedule and recreate with the correct key (`zpajuxxsxrwuqregdzjm`).
 
-Uma migration que, para cada usuário:
+### 3. Drop or secure `exec_sql` function (Migration)
+The function already checks for `service_role`, but it still allows arbitrary SQL execution. Drop it as a safety measure:
+```sql
+DROP FUNCTION IF EXISTS public.exec_sql(text);
+```
 
-1. **Cria a organização** (usando `company_name` ou `full_name` do metadata)
-2. **Cria o profile** vinculado à organização
-3. **Cria o user_role** como `admin`
+### 4. Add DELETE and UPDATE storage policies for `property-images` (Migration)
+Currently only SELECT and INSERT policies exist. Add:
+- DELETE policy for authenticated users on `property-images` bucket
+- UPDATE policy for authenticated users on `property-images` bucket
 
-Isso será feito com um bloco PL/pgSQL que percorre `auth.users` e insere os registros faltantes, respeitando os triggers existentes (slug automático, etc).
+### 5. Fix `storage_provider` inconsistency (SQL Insert tool)
+1,286 images have `storage_provider='cloudinary'` but their URLs point to R2. Update them:
+```sql
+UPDATE property_images SET storage_provider = 'r2' 
+WHERE storage_provider = 'cloudinary' AND (url LIKE '%r2.dev%' OR url LIKE '%r2.cloudflarestorage%');
+```
 
-### Passo 3 — Resetar senhas de todos os usuários
+### 6. Seed `subscription_plans` with default plans (SQL Insert tool)
+Table is empty. Insert standard plans (Gratuito, Starter, Professional, Enterprise) with reasonable limits based on the schema structure and code usage patterns.
 
-Criar uma **edge function temporária** ou usar a edge function `admin-users` existente para resetar as senhas. Como você disse "a primeira senha digitada será a nova senha", vou alterar a página de login (`/auth`) para que, quando o login falhar com erro de senha, o sistema tente atualizar a senha via edge function.
+### 7. Seed `admin_allowlist` with primary admin emails (SQL Insert tool)
+Table is empty. Insert the primary admin email(s) from `auth.users` (e.g., `portocaicaraimoveis@gmail.com`).
 
-**Alternativa mais segura**: Criar uma migration/script que reseta todas as senhas para um valor temporário padrão (ex: `Habitae2026!`) e informar os usuários para trocar na primeira vez.
+## Items That Require Manual Dashboard Action (Not Code)
+These will be documented but cannot be executed from Lovable:
+- **~15 secrets** (R2, Resend, OpenAI, OneSignal, Cloudinary, Meta, etc.) — must be added in Supabase Dashboard > Settings > Edge Functions
+- **SITE_URL and Redirect URLs** — Dashboard Auth config
+- **OAuth callback URL update** — Google Cloud Console
+- **Orphan data decision** — business decision (import 4 missing orgs or clean up ~13,500 records)
 
-### Passo 4 — Verificar que o login funciona
-
-Após os passos anteriores, o fluxo será:
-1. Usuário acessa `/auth`
-2. Digita email + nova senha
-3. Login funciona, profile/org/role já existem
-
----
-
-## Detalhes Técnicos
-
-- O trigger será criado no schema `public` referenciando `auth.users` (padrão Supabase, permitido para triggers AFTER INSERT)
-- A função `handle_new_user` já lida com criação de org + profile + role, então novos cadastros futuros funcionarão automaticamente
-- As senhas serão resetadas via `auth.admin.updateUserById` na edge function `admin-users` (que já tem esse endpoint PATCH)
+## Execution Order
+1. Migration: Enable triggers + drop exec_sql + add storage policies
+2. Insert: Fix cron jobs (unschedule old, schedule new)
+3. Insert: Fix storage_provider data
+4. Insert: Seed subscription_plans
+5. Insert: Seed admin_allowlist
+6. Update PARECER_FINAL document with corrected statuses
 
