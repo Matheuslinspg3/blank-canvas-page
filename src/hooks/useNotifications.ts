@@ -36,7 +36,8 @@ export function useNotifications() {
       return data as Notification[];
     },
     enabled: !!user,
-    refetchInterval: 60000, // fallback only, realtime handles instant updates
+    staleTime: 2 * 60_000, // PERF: added staleTime
+    refetchInterval: 5 * 60_000, // PERF: reduced from 60s to 5min, realtime handles instant updates
   });
 
   // Realtime subscription for instant notifications
