@@ -28,8 +28,9 @@ export function useMaintenanceMode() {
     },
     staleTime: 15_000,
     refetchOnWindowFocus: true,
-    refetchInterval: 30_000, // Reduced from 60s to 30s as fallback
-    retry: 1,
+    refetchInterval: 30_000,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   });
 
   // Realtime subscription for instant propagation
@@ -56,8 +57,9 @@ export function useMaintenanceMode() {
     };
   }, [queryClient]);
 
-  // Fail-secure: if query fails, assume maintenance is active
-  const isMaintenanceMode = error ? true : (data?.maintenance_mode ?? false);
+  // Fail-OPEN: if query fails (e.g. Supabase 504 timeout), do NOT block users.
+  // Previously fail-secure caused false maintenance pages during Supabase slowdowns.
+  const isMaintenanceMode = data?.maintenance_mode ?? false;
   const maintenanceMessage = data?.maintenance_message ?? "Estamos em manutenção. Tente novamente em alguns minutos.";
 
   return {
