@@ -278,6 +278,15 @@ Diretrizes:
 
     const generatedContent = JSON.parse(toolCall.function.arguments);
 
+    // Fix: Groq sometimes returns key_features as a JSON string instead of array
+    if (typeof generatedContent.key_features === "string") {
+      try {
+        generatedContent.key_features = JSON.parse(generatedContent.key_features);
+      } catch {
+        generatedContent.key_features = [];
+      }
+    }
+
     // Upsert the generated content
     const { data: savedContent, error: saveError } = await supabase
       .from("property_landing_content")
