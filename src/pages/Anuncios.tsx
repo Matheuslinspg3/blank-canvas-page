@@ -3,16 +3,17 @@ import { PageHeader } from "@/components/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTabParam } from "@/hooks/useTabParam";
 import { useAdLeadsCount } from "@/hooks/useAdLeads";
-import { Loader2, Megaphone, BarChart3, Sparkles, Palette, Video, Stamp } from "lucide-react";
+import { Loader2, Megaphone, BarChart3, Sparkles, Palette, Video, Stamp, Link2, Users, TrendingUp, LayoutList, ScrollText } from "lucide-react";
 
-import MetaAdsListContent from "@/components/ads/MetaAdsListContent";
+import MetaConnectionTab from "@/components/ads/MetaConnectionTab";
 import MetaLeadsInboxContent from "@/components/ads/MetaLeadsInboxContent";
 import MetaStatsContent from "@/components/ads/MetaStatsContent";
-import MetaSettingsContent from "@/components/ads/MetaSettingsContent";
+import MetaAdsListContent from "@/components/ads/MetaAdsListContent";
+
+import RDConnectionTab from "@/components/ads/rdstation/RDConnectionTab";
+import RDLeadsTab from "@/components/ads/rdstation/RDLeadsTab";
 import RDStationStatsContent from "@/components/ads/RDStationStatsContent";
 import RDWebhookTab from "@/components/ads/rdstation/RDWebhookTab";
-import RDOAuthTab from "@/components/ads/rdstation/RDOAuthTab";
-import RDSettingsTab from "@/components/ads/rdstation/RDSettingsTab";
 
 const GeradorAnunciosContent = lazy(() => import("../pages/GeradorAnuncios").then(m => ({ default: () => <m.default embedded /> })));
 const GeradorArtesContent = lazy(() => import("@/components/ads/GeradorArtesContent"));
@@ -27,8 +28,8 @@ const TabLoader = () => (
 
 export default function Anuncios() {
   const [section, setSection] = useTabParam("section", "meta");
-  const [metaTab, setMetaTab] = useTabParam("meta_tab", "ads");
-  const [rdTab, setRdTab] = useTabParam("rd_tab", "config");
+  const [metaTab, setMetaTab] = useTabParam("meta_tab", "conexao");
+  const [rdTab, setRdTab] = useTabParam("rd_tab", "conexao");
   const { data: totalNew = 0 } = useAdLeadsCount();
 
   return (
@@ -77,23 +78,33 @@ export default function Anuncios() {
           <TabsContent value="meta" className="mt-4 space-y-4">
             <Tabs value={metaTab} onValueChange={setMetaTab}>
               <TabsList className="w-full sm:w-auto">
-                <TabsTrigger value="ads" className="flex-1 sm:flex-initial min-h-[40px]">Anúncios</TabsTrigger>
-                <TabsTrigger value="leads" className="flex-1 sm:flex-initial min-h-[40px] relative">
+                <TabsTrigger value="conexao" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5">
+                  <Link2 className="h-3.5 w-3.5" />
+                  Conexão
+                </TabsTrigger>
+                <TabsTrigger value="leads" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5 relative">
+                  <Users className="h-3.5 w-3.5" />
                   Leads
                   {totalNew > 0 && (
-                    <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] rounded-full bg-destructive text-destructive-foreground">
+                    <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] rounded-full bg-destructive text-destructive-foreground">
                       {totalNew}
                     </span>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="estatisticas" className="flex-1 sm:flex-initial min-h-[40px]">Estatísticas</TabsTrigger>
-                <TabsTrigger value="configuracoes" className="flex-1 sm:flex-initial min-h-[40px]">Configurações</TabsTrigger>
+                <TabsTrigger value="estatisticas" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5">
+                  <TrendingUp className="h-3.5 w-3.5" />
+                  Estatísticas
+                </TabsTrigger>
+                <TabsTrigger value="anuncios" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5">
+                  <LayoutList className="h-3.5 w-3.5" />
+                  Anúncios
+                </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="ads" className="mt-4"><MetaAdsListContent /></TabsContent>
+              <TabsContent value="conexao" className="mt-4"><MetaConnectionTab /></TabsContent>
               <TabsContent value="leads" className="mt-4"><MetaLeadsInboxContent /></TabsContent>
               <TabsContent value="estatisticas" className="mt-4"><MetaStatsContent /></TabsContent>
-              <TabsContent value="configuracoes" className="mt-4"><MetaSettingsContent /></TabsContent>
+              <TabsContent value="anuncios" className="mt-4"><MetaAdsListContent /></TabsContent>
             </Tabs>
           </TabsContent>
 
@@ -101,16 +112,28 @@ export default function Anuncios() {
           <TabsContent value="rdstation" className="mt-4 space-y-4">
             <Tabs value={rdTab} onValueChange={setRdTab}>
               <TabsList className="w-full sm:w-auto">
-                <TabsTrigger value="config" className="flex-1 sm:flex-initial min-h-[40px]">Configurações</TabsTrigger>
-                <TabsTrigger value="webhook" className="flex-1 sm:flex-initial min-h-[40px]">Webhook</TabsTrigger>
-                <TabsTrigger value="oauth" className="flex-1 sm:flex-initial min-h-[40px]">Sincronização</TabsTrigger>
-                <TabsTrigger value="estatisticas" className="flex-1 sm:flex-initial min-h-[40px]">Estatísticas</TabsTrigger>
+                <TabsTrigger value="conexao" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5">
+                  <Link2 className="h-3.5 w-3.5" />
+                  Conexão
+                </TabsTrigger>
+                <TabsTrigger value="leads" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5">
+                  <Users className="h-3.5 w-3.5" />
+                  Leads
+                </TabsTrigger>
+                <TabsTrigger value="estatisticas" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5">
+                  <TrendingUp className="h-3.5 w-3.5" />
+                  Estatísticas
+                </TabsTrigger>
+                <TabsTrigger value="webhook_logs" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5">
+                  <ScrollText className="h-3.5 w-3.5" />
+                  Webhook Logs
+                </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="config" className="mt-4"><RDSettingsTab /></TabsContent>
-              <TabsContent value="webhook" className="mt-4"><RDWebhookTab /></TabsContent>
-              <TabsContent value="oauth" className="mt-4"><RDOAuthTab /></TabsContent>
+              <TabsContent value="conexao" className="mt-4"><RDConnectionTab /></TabsContent>
+              <TabsContent value="leads" className="mt-4"><RDLeadsTab /></TabsContent>
               <TabsContent value="estatisticas" className="mt-4"><RDStationStatsContent /></TabsContent>
+              <TabsContent value="webhook_logs" className="mt-4"><RDWebhookTab /></TabsContent>
             </Tabs>
           </TabsContent>
 
