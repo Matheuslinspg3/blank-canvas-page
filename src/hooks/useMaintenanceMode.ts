@@ -28,8 +28,9 @@ export function useMaintenanceMode() {
     },
     staleTime: 15_000,
     refetchOnWindowFocus: true,
-    refetchInterval: 30_000, // Reduced from 60s to 30s as fallback
-    retry: 1,
+    refetchInterval: 30_000,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   });
 
   // Realtime subscription for instant propagation
