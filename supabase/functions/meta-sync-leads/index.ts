@@ -1,0 +1,360 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+Deno.serve(async (req) => {
+  console.log("[meta-sync-leads] Request received:", req.method);
+
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    // Auth check
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      console.error("[meta-sync-leads] No auth header");
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+    }
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    const token = authHeader.replace("Bearer ", "");
+    const payloadB64 = token.split(".")[1];
+    if (!payloadB64) {
+      console.error("[meta-sync-leads] Invalid token format");
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+    }
+    const payload = JSON.parse(atob(payloadB64));
+    const userId = payload.sub;
+    const exp = payload.exp;
+    if (!userId || (exp && exp < Math.floor(Date.now() / 1000))) {
+      console.error("[meta-sync-leads] Token expired or invalid, userId:", userId);
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+    }
+    console.log("[meta-sync-leads] Auth OK, user:", userId);
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("organization_id")
+      .eq("user_id", userId)
+      .single();
+
+    if (!profile?.organization_id) {
+      return new Response(JSON.stringify({ error: "No organization" }), { status: 400, headers: corsHeaders });
+    }
+
+    const orgId = profile.organization_id;
+    const supa = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    const { data: account } = await supa
+      .from("ad_accounts")
+      .select("*")
+      .eq("organization_id", orgId)
+      .eq("provider", "meta")
+      .eq("is_active", true)
+      .single();
+
+    if (!account?.auth_payload?.access_token) {
+      return new Response(JSON.stringify({ error: "Meta account not connected" }), { status: 400, headers: corsHeaders });
+    }
+
+    const { data: organization } = await supa
+      .from("organizations")
+      .select("name")
+      .eq("id", orgId)
+      .maybeSingle();
+
+    const resolvedAccount = resolveMetaAccount(account, organization?.name);
+    const accessToken = account.auth_payload.access_token;
+
+    if (resolvedAccount.id !== account.external_account_id) {
+      await supa
+        .from("ad_accounts")
+        .update({
+          external_account_id: resolvedAccount.id,
+          name: resolvedAccount.name || account.name,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", account.id);
+      console.log("[meta-sync-leads] Updated selected ad account:", resolvedAccount.id, resolvedAccount.name);
+    }
+
+    // Parse request body for options
+    let daysBack = 7;
+    try {
+      const body = await req.json();
+      if (body.days_back) daysBack = Math.min(body.days_back, 90);
+    } catch {}
+
+    // Step 1: Get Pages the user manages (leadgen_forms belong to Pages, not Ad Accounts)
+    console.log("[meta-sync-leads] Fetching pages, daysBack:", daysBack);
+    const pagesUrl = `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,access_token&limit=100&access_token=${accessToken}`;
+    const pagesRes = await fetch(pagesUrl);
+    const pagesData = await pagesRes.json();
+
+    if (pagesData.error) {
+      console.error("[meta-sync-leads] Meta API error (pages):", JSON.stringify(pagesData.error));
+      return new Response(JSON.stringify({ error: "Meta API error", details: pagesData.error.message }), { status: 502, headers: corsHeaders });
+    }
+
+    const pages = pagesData.data || [];
+    console.log("[meta-sync-leads] Found", pages.length, "pages:", pages.map((p: any) => ({ id: p.id, name: p.name })));
+    if (pages.length === 0) {
+      return new Response(
+        JSON.stringify({ synced: 0, skipped: 0, auto_sent: 0, forms: 0, message: "Nenhuma página encontrada. Verifique se o token possui permissão pages_read_engagement." }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    let totalSynced = 0;
+    let totalSkipped = 0;
+    let totalForms = 0;
+
+    for (const page of pages) {
+      // Use page-specific access token for better permissions
+      const pageToken = page.access_token || accessToken;
+
+      // Step 2: Get leadgen forms for each page
+      console.log(`[meta-sync-leads] Fetching forms for page ${page.id} (${page.name})`);
+      const formsUrl = `https://graph.facebook.com/v21.0/${page.id}/leadgen_forms?fields=id,name&access_token=${pageToken}`;
+      const formsRes = await fetch(formsUrl);
+      const formsData = await formsRes.json();
+
+      if (formsData.error) {
+        console.error(`[meta-sync-leads] Meta API error (forms for page ${page.id}):`, JSON.stringify(formsData.error));
+        continue; // Skip this page, try next
+      }
+
+      const forms = formsData.data || [];
+      console.log(`[meta-sync-leads] Page ${page.name}: ${forms.length} forms found:`, forms.map((f: any) => ({ id: f.id, name: f.name })));
+      totalForms += forms.length;
+
+      for (const form of forms) {
+        // Step 3: Fetch leads for each form
+        console.log(`[meta-sync-leads] Fetching leads for form ${form.id} (${form.name})`);
+        let leadsUrl: string | null = `https://graph.facebook.com/v21.0/${form.id}/leads?fields=id,created_time,field_data,ad_id&limit=100&access_token=${pageToken}`;
+
+        while (leadsUrl) {
+          const leadsRes = await fetch(leadsUrl);
+          const leadsData = await leadsRes.json();
+
+          if (leadsData.error) {
+            console.error(`[meta-sync-leads] Meta API error (leads for form ${form.id}):`, JSON.stringify(leadsData.error));
+            break;
+          }
+
+          const leads = leadsData.data || [];
+          console.log(`[meta-sync-leads] Form ${form.name}: fetched ${leads.length} leads in this page`);
+
+          for (const lead of leads) {
+            // Check date filter
+            const createdTime = new Date(lead.created_time);
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - daysBack);
+            if (createdTime < cutoff) continue;
+
+            // Extract fields
+            const fieldData = lead.field_data || [];
+            const getField = (name: string) => {
+              const f = fieldData.find((fd: any) => fd.name === name);
+              return f?.values?.[0] || null;
+            };
+
+            const name = getField("full_name") || getField("nome") || getField("name");
+            const email = getField("email");
+            const phone = getField("phone_number") || getField("telefone") || getField("phone");
+
+            // Upsert lead
+            const { error: upsertError } = await supa
+              .from("ad_leads")
+              .upsert({
+                organization_id: orgId,
+                provider: "meta",
+                external_lead_id: lead.id,
+                external_ad_id: lead.ad_id || "unknown",
+                external_form_id: form.id,
+                name,
+                email,
+                phone,
+                created_time: lead.created_time,
+                raw_payload: lead,
+                updated_at: new Date().toISOString(),
+              }, { onConflict: "organization_id,external_lead_id" });
+
+            if (upsertError) {
+              console.error("Lead upsert error:", upsertError);
+              totalSkipped++;
+            } else {
+              totalSynced++;
+            }
+          }
+
+          // Pagination
+          leadsUrl = leadsData.paging?.next || null;
+        }
+      }
+    }
+
+    // Check auto-send setting
+    const { data: adSettings } = await supa
+      .from("ad_settings")
+      .select("auto_send_to_crm, crm_stage_id")
+      .eq("organization_id", orgId)
+      .single();
+
+    let autoSent = 0;
+    if (adSettings?.auto_send_to_crm && adSettings?.crm_stage_id) {
+      // Get new leads that haven't been sent to CRM
+      const { data: newLeads } = await supa
+        .from("ad_leads")
+        .select("id, name, email, phone, external_ad_id")
+        .eq("organization_id", orgId)
+        .eq("status", "new");
+
+      for (const nl of (newLeads || [])) {
+        // Deduplication: check if a CRM lead with the same email or phone already exists
+        let existingCrmLead: any = null;
+
+        if (nl.email) {
+          const { data: byEmail } = await supa
+            .from("leads")
+            .select("id")
+            .eq("organization_id", orgId)
+            .eq("email", nl.email)
+            .eq("is_active", true)
+            .limit(1)
+            .maybeSingle();
+          if (byEmail) existingCrmLead = byEmail;
+        }
+
+        if (!existingCrmLead && nl.phone) {
+          const normalizedPhone = nl.phone.replace(/\D/g, "");
+          if (normalizedPhone.length >= 8) {
+            const { data: allLeads } = await supa
+              .from("leads")
+              .select("id, phone")
+              .eq("organization_id", orgId)
+              .eq("is_active", true)
+              .not("phone", "is", null);
+            const match = (allLeads || []).find((l: any) => {
+              const lPhone = (l.phone || "").replace(/\D/g, "");
+              return lPhone.length >= 8 && (lPhone === normalizedPhone || lPhone.endsWith(normalizedPhone) || normalizedPhone.endsWith(lPhone));
+            });
+            if (match) existingCrmLead = match;
+          }
+        }
+
+        if (existingCrmLead) {
+          // Mark ad_lead as sent_to_crm linking to existing CRM lead (avoid duplicate)
+          await supa.from("ad_leads").update({
+            status: "sent_to_crm",
+            crm_record_id: existingCrmLead.id,
+            updated_at: new Date().toISOString(),
+          }).eq("id", nl.id);
+          autoSent++;
+          continue;
+        }
+
+        const { data: crmLead, error: crmError } = await supa
+          .from("leads")
+          .insert({
+            name: nl.name || "Lead de Anúncio",
+            email: nl.email,
+            phone: nl.phone,
+            organization_id: orgId,
+            created_by: userId,
+            lead_stage_id: adSettings.crm_stage_id,
+            stage: "novo",
+            source: "anuncio",
+            notes: `Lead importado automaticamente de Meta Ads (Ad ID: ${nl.external_ad_id})`,
+          })
+          .select("id")
+          .single();
+
+        if (!crmError && crmLead) {
+          await supa.from("ad_leads").update({
+            status: "sent_to_crm",
+            crm_record_id: crmLead.id,
+            updated_at: new Date().toISOString(),
+          }).eq("id", nl.id);
+          autoSent++;
+        }
+      }
+    }
+
+    return new Response(
+      JSON.stringify({ synced: totalSynced, skipped: totalSkipped, auto_sent: autoSent, forms: totalForms, pages: pages.length }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (err) {
+    console.error("Unexpected error:", err);
+    return new Response(JSON.stringify({ error: "Internal error" }), { status: 500, headers: corsHeaders });
+  }
+});
+
+function normalizeName(value?: string | null) {
+  return (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function selectBestAdAccount(
+  adAccounts: Array<{ id: string; name?: string | null; status?: number; account_status?: number }>,
+  organizationName?: string | null,
+) {
+  if (!adAccounts.length) return null;
+
+  const activeAccounts = adAccounts.filter((account) => (account.account_status ?? account.status) === 1);
+  const candidates = activeAccounts.length ? activeAccounts : adAccounts;
+  const normalizedOrgName = normalizeName(organizationName);
+
+  if (normalizedOrgName) {
+    const directMatch = candidates.find((account) => {
+      const normalizedAccountName = normalizeName(account.name);
+      return normalizedAccountName.includes(normalizedOrgName) || normalizedOrgName.includes(normalizedAccountName);
+    });
+
+    if (directMatch) return directMatch;
+
+    const orgTokens = normalizedOrgName.match(/[a-z0-9]+/g) || [];
+    const tokenMatch = candidates.find((account) => {
+      const normalizedAccountName = normalizeName(account.name);
+      return orgTokens.filter((token) => token.length >= 4).some((token) => normalizedAccountName.includes(token));
+    });
+
+    if (tokenMatch) return tokenMatch;
+  }
+
+  return candidates[0];
+}
+
+function resolveMetaAccount(account: any, organizationName?: string | null) {
+  const availableAccounts = Array.isArray(account?.auth_payload?.ad_accounts)
+    ? account.auth_payload.ad_accounts
+    : [];
+
+  const matchedAccount = selectBestAdAccount(availableAccounts, organizationName);
+  if (matchedAccount?.id) {
+    return {
+      id: matchedAccount.id,
+      name: matchedAccount.name || account.name,
+    };
+  }
+
+  return {
+    id: account.external_account_id,
+    name: account.name,
+  };
+}
