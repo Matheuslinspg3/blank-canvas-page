@@ -5179,6 +5179,7 @@ export type Database = {
         Returns: string[]
       }
       cleanup_expired_import_tokens: { Args: never; Returns: number }
+      cleanup_old_logs: { Args: never; Returns: undefined }
       consume_import_token: {
         Args: { p_org_id: string; p_property_id: string; p_token: string }
         Returns: boolean
