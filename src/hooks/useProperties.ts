@@ -74,9 +74,10 @@ export function useProperties() {
         return [];
       }
       
-      // Fetch all properties using pagination (Supabase default limit is 1000)
+      // Fetch properties in pages of 200 to avoid statement timeouts
+      // The join with property_images (25k+ rows) makes large pages very slow
       const allData: PropertyWithDetails[] = [];
-      const PAGE_SIZE = 1000;
+      const PAGE_SIZE = 200;
       let from = 0;
       let hasMore = true;
 
