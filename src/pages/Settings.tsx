@@ -140,7 +140,7 @@ export default function Settings() {
 
         const members: TeamMember[] = profiles.map((p) => {
           const userRole = roles?.find((r) => r.user_id === p.user_id);
-          const memberEmail = (emails as any[])?.find((e: any) => e.user_id === p.user_id)?.email || "";
+          const memberEmail = (emails as { user_id: string; email: string }[] | null)?.find((e) => e.user_id === p.user_id)?.email || "";
           return {
             user_id: p.user_id,
             full_name: p.full_name,
