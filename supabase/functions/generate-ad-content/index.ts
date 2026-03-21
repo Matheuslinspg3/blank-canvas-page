@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { checkAiRateLimit } from "../_shared/ai-rate-limit.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { trackAiBilling } from "../_shared/ai-billing.ts";
 import { callGeminiOpenAIChat, getGeminiApiKeys } from "../_shared/gemini.ts";
