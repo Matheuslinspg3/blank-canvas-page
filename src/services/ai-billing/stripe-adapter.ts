@@ -52,7 +52,7 @@ export async function sendMeterEvent(event: MeterEvent): Promise<{ success: bool
       .update({
         stripe_sync_status: "mock_synced",
         stripe_meter_event_id: `mock_${event.eventId}`,
-      } as any)
+      })
       .eq("id", event.eventId);
 
     return { success: true, mode, stripeEventId: `mock_${event.eventId}` };
