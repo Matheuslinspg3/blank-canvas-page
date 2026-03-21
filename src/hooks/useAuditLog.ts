@@ -48,7 +48,7 @@ export function useAuditLog() {
           p_parent_entity_type: event.parent_entity_type || null,
           p_parent_entity_id: event.parent_entity_id || null,
           p_route: location.pathname,
-          p_metadata: event.metadata || {},
+          p_metadata: (event.metadata || {}) as Record<string, string>,
         });
       } catch {
         // Audit logging should never break the user flow
