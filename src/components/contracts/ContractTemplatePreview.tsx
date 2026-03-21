@@ -1,3 +1,4 @@
+import DOMPurify from "dompurify";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
