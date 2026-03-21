@@ -183,7 +183,7 @@ export default function Financial() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-success">{formatCurrency(stats.monthlyRevenue)}</div>
-              <p className="text-xs text-muted-foreground">{transactions.filter(t => t.type === 'receita').length} receitas</p>
+              <p className="text-xs text-muted-foreground">{receitaCount} receitas</p>
             </CardContent>
           </Card>
 
