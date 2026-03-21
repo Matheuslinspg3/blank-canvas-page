@@ -260,4 +260,4 @@ export const AppointmentCard = React.memo(function AppointmentCard({
       </Dialog>
     </>
   );
-}
+});
