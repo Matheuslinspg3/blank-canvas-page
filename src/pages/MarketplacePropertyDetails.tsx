@@ -122,11 +122,13 @@ function PropertyImageCarousel({ images }: { images: Array<{ url: string; alt: s
                 className="flex-[0_0_100%] min-w-0 relative aspect-[16/9] cursor-pointer"
                 onClick={() => { setSelectedIndex(index); setViewerOpen(true); }}
               >
-                <img
+                <OptimizedImage
                   src={image.url}
                   alt={image.alt || `Imagem ${index + 1}`}
-                  className="w-full h-full object-cover"
                   loading={index === 0 ? "eager" : "lazy"}
+                  fetchPriority={index === 0 ? "high" : undefined}
+                  aspectRatio="16/9"
+                  wrapperClassName="w-full h-full"
                 />
               </div>
             ))}
