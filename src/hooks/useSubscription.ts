@@ -194,7 +194,7 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [orgId, queryClient]);
+  }, [orgId, queryClient, enabled]);
   const isActive = subscription?.status === "active" || 
     subscription?.status === "pending" ||
     (subscription?.status === "trial" && subscription.trial_end && new Date(subscription.trial_end) > new Date());
