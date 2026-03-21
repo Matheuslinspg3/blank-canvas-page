@@ -11,7 +11,7 @@ interface VirtualizedPropertyGridProps {
   selectedIds: Set<string>;
   isSelectionMode: boolean;
   publishedIds: Set<string>;
-  onSelect: (id: string) => void;
+  onSelect: (id: string, selected: boolean) => void;
   onEdit: (property: PropertyWithDetails) => void;
   onDelete: (id: string) => void;
   onLongPressSelect: (id: string) => void;
