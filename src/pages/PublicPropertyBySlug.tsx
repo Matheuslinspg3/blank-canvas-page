@@ -89,9 +89,6 @@ export default function PublicPropertyBySlug() {
         setNotFound(true);
       } else {
         setData(result);
-        if (result.property?.title) {
-          document.title = `${result.property.title} | Imóvel`;
-        }
       }
       setLoading(false);
     }
