@@ -688,7 +688,10 @@ export default function Properties() {
         )}
 
         {/* Properties View */}
-        {!isLoading && paginatedProperties.length > 0 && (
+        {propertiesError && (
+          <QueryErrorState message="Erro ao carregar imóveis" onRetry={() => refetch()} />
+        )}
+        {!propertiesError && !isLoading && paginatedProperties.length > 0 && (
           <>
             {viewMode === "grid" && (
               <VirtualizedPropertyGrid
