@@ -41,7 +41,7 @@ export default function Dashboard() {
   const { periodKey, setPeriodKey, dateRange, customRange, setCustomRange } = useDashboardPeriod();
 
   // Single lightweight RPC instead of 4 heavy queries
-  const { data: realStats, isLoading } = useDashboardStats();
+  const { data: realStats, isLoading, error: statsError, refetch: refetchStats } = useDashboardStats();
 
   // PERF: Removed heavy realtime subscription that listened to ALL lead/appointment changes.
   // Dashboard data refreshes via staleTime (2min) and refetchInterval (5min).
