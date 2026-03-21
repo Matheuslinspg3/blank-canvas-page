@@ -58,6 +58,34 @@ export default defineConfig(({ mode }) => ({
             handler: "CacheFirst",
             options: { cacheName: "gstatic-fonts-cache", expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 } },
           },
+          {
+            urlPattern: /^https:\/\/pub-.*\.r2\.dev\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "r2-images-cache",
+              expiration: { maxEntries: 200, maxAgeSeconds: 7 * 24 * 3600 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            urlPattern: /\/functions\/v1\/cloudinary-image-proxy/,
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "cloudinary-proxy-cache",
+              expiration: { maxEntries: 100, maxAgeSeconds: 24 * 3600 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            urlPattern: /\/rest\/v1\/.*/,
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "supabase-api-cache",
+              networkTimeoutSeconds: 5,
+              expiration: { maxEntries: 50, maxAgeSeconds: 5 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
         ],
       },
     }),
