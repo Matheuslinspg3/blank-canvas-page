@@ -107,3 +107,6 @@ verify_jwt = false
 
 [functions.import-from-source]
 verify_jwt = false
+
+[functions.og-metadata]
+verify_jwt = false
