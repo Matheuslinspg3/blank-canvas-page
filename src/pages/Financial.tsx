@@ -66,13 +66,13 @@ export default function Financial() {
   const [finTab, setFinTab] = useTabParam("tab", "transactions");
 
   // Financial data
-  const { transactions, stats, chartData, deleteTransaction, error: txError, isLoading: loadingTx } = useTransactions();
+  const { transactions, stats, chartData, deleteTransaction, error: txError, refetch: refetchTx } = useTransactions();
   const { invoices, pendingAmount, pendingCount } = useInvoices();
   const { commissions } = useCommissions();
 
   // Contracts data
   const { 
-    contracts, isLoading: loadingContracts, stats: contractStats, error: contractsError,
+    contracts, isLoading: loadingContracts, stats: contractStats, error: contractsError, refetch: refetchContracts,
     createContract, updateContract, deleteContract: deleteContractFn,
     isCreating, isUpdating 
   } = useContracts();
