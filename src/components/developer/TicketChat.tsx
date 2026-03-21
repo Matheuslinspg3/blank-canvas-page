@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { Send, Bot, User, Headset, Loader2, Paperclip, X, FileText, Image as ImageIcon, Video } from "lucide-react";
-import ReactMarkdown from "react-markdown";
+import LazyMarkdown from "@/components/markdown/LazyMarkdown";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -329,7 +329,7 @@ export function TicketChat({ ticketId, ticketSubject, showSupportButton = true }
                     }`}
                   >
                     <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:m-0 [&>ul]:m-0 [&>ol]:m-0">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      <LazyMarkdown>{msg.content}</LazyMarkdown>
                     </div>
                   </div>
                   {attachments.length > 0 && (

@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Eye, Pencil, Sparkles } from "lucide-react"; // AI icon
-import { RichTextEditor, AVAILABLE_VARIABLES } from "./RichTextEditor";
+import LazyRichTextEditor, { AVAILABLE_VARIABLES } from "@/components/editors/LazyRichTextEditor";
 import { supabase } from "@/integrations/supabase/client";
 import type { ContractTemplate, ContractTemplateFormData } from "@/hooks/useContractTemplates";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -196,7 +196,7 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSubmit, i
         )}
       </div>
       <div className="flex-1 min-h-0">
-        <RichTextEditor
+        <LazyRichTextEditor
           content={bodyHtml}
           onChange={setBodyHtml}
           placeholder="Escreva o modelo do contrato aqui. Use o botão 'Inserir Variável' para adicionar campos dinâmicos..."
