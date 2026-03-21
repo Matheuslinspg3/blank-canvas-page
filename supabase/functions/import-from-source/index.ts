@@ -11,6 +11,37 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Auth check — admin only (admin_allowlist)
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const authClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user: authUser }, error: authError } = await authClient.auth.getUser();
+    if (authError || !authUser) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    // Verify admin access
+    const adminCheck = createClient(supabaseUrl, serviceKey);
+    const { data: allowed } = await adminCheck.from("admin_allowlist").select("id").eq("email", authUser.email!).maybeSingle();
+    if (!allowed) {
+      return new Response(JSON.stringify({ error: "Forbidden: admin only" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const sourceUrl = Deno.env.get("SOURCE_SUPABASE_URL");
     const sourceKey = Deno.env.get("SOURCE_SUPABASE_SERVICE_ROLE_KEY");
     const destUrl = Deno.env.get("SUPABASE_URL");
