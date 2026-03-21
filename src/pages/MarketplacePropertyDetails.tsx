@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { ImageViewer } from "@/components/properties/ImageViewer";
 import { ContactDialog } from "@/components/marketplace/ContactDialog";
+import { OptimizedImage } from "@/components/ui/optimized-image";
 import { proxyDriveImageUrl, formatCurrency } from "@/lib/utils";
 import type { MarketplaceProperty } from "@/hooks/useMarketplace";
 import { useAuth } from "@/contexts/AuthContext";
