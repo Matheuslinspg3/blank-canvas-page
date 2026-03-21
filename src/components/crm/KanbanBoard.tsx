@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
+import { QueryErrorState } from '@/components/QueryErrorState';
 import {
   DndContext,
   DragEndEvent,
