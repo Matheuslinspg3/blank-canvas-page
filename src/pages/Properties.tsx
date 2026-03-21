@@ -88,7 +88,7 @@ export default function Properties() {
   const { data: searchResults, isLoading: isSearching } = useAdvancedPropertySearch(filters);
 
   const {
-    properties: allProperties, isLoading: isLoadingAll, createProperty, updateProperty, deleteProperty,
+    properties: allProperties, isLoading: isLoadingAll, error: propertiesError, createProperty, updateProperty, deleteProperty,
     bulkDeleteProperties, bulkInactivateProperties, publishToMarketplace,
     bulkPublishToMarketplace, bulkHideFromMarketplace,
     isCreating, isUpdating, isDeleting, isBulkDeleting, isBulkInactivating,
