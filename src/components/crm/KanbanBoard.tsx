@@ -411,6 +411,10 @@ export function KanbanBoard() {
     clearSelection();
   }, [selectedIds, bulkMoveStage, leadStages, toast, clearSelection]);
 
+  if (leadsError) {
+    return <QueryErrorState message="Erro ao carregar leads" onRetry={() => refetch()} />;
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-6">
