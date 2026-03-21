@@ -1,0 +1,13 @@
+CREATE INDEX IF NOT EXISTS idx_commissions_contract ON commissions(contract_id);
+CREATE INDEX IF NOT EXISTS idx_commissions_broker ON commissions(broker_id);
+CREATE INDEX IF NOT EXISTS idx_commissions_org ON commissions(organization_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_org_status ON invoices(organization_id, status);
+CREATE INDEX IF NOT EXISTS idx_invoices_contract ON invoices(contract_id);
+CREATE INDEX IF NOT EXISTS idx_lead_stages_org ON lead_stages(organization_id);
+CREATE INDEX IF NOT EXISTS idx_lead_types_org ON lead_types(organization_id);
+CREATE INDEX IF NOT EXISTS idx_property_types_org ON property_types(organization_id);
+CREATE INDEX IF NOT EXISTS idx_property_visits_org_date ON property_visits(organization_id, scheduled_at);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_org ON support_tickets(organization_id);
+CREATE INDEX IF NOT EXISTS idx_contract_documents_contract ON contract_documents(contract_id);
+CREATE INDEX IF NOT EXISTS idx_saved_searches_user ON saved_searches(user_id);
+CREATE INDEX IF NOT EXISTS idx_verification_codes_user ON verification_codes(user_id);
