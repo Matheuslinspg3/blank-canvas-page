@@ -130,6 +130,7 @@ export function AppSidebar() {
             className="flex items-center gap-3"
             activeClassName="text-primary font-medium"
             onMouseEnter={() => prefetchRoute(item.url)}
+            aria-label={`Ir para ${item.title}`}
           >
             <item.icon className={`h-4 w-4 ${active ? "text-primary" : ""}`} />
             <span>{item.title}</span>
@@ -265,6 +266,7 @@ export function AppSidebar() {
             variant="ghost" 
             className="flex-1 justify-start gap-3 text-muted-foreground hover:text-destructive"
             onClick={signOut}
+            aria-label="Sair da conta"
           >
             <LogOut className="h-4 w-4" />
             {!collapsed && <span>Sair</span>}

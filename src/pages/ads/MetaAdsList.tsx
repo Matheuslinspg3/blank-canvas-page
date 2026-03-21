@@ -23,7 +23,7 @@ export default function MetaAdsList() {
         <PageHeader title="Meta Ads" description="Gerencie seus anúncios do Meta" />
         <Card className="max-w-lg mx-auto">
           <CardContent className="flex flex-col items-center gap-4 py-12">
-            <ImageIcon className="h-16 w-16 text-muted-foreground/40" />
+            <ImageIcon className="h-16 w-16 text-muted-foreground/60" />
             <h3 className="text-lg font-semibold">Meta Ads não conectado</h3>
             <p className="text-muted-foreground text-center text-sm">
               Conecte sua conta do Meta Ads nas configurações para visualizar seus anúncios e leads.
@@ -59,7 +59,7 @@ export default function MetaAdsList() {
       ) : ads.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-4 py-12">
-            <ImageIcon className="h-12 w-12 text-muted-foreground/40" />
+            <ImageIcon className="h-12 w-12 text-muted-foreground/60" />
             <p className="text-muted-foreground text-sm">Nenhum anúncio encontrado. Sincronize seus ads nas configurações.</p>
             <Button variant="outline" onClick={() => navigate("/anuncios/meta/configuracoes")}>
               Sincronizar Ads

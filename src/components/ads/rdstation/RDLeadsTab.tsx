@@ -108,7 +108,7 @@ export default function RDLeadsTab() {
       ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-4 py-12">
-            <Inbox className="h-12 w-12 text-muted-foreground/40" />
+            <Inbox className="h-12 w-12 text-muted-foreground/60" />
             <p className="text-muted-foreground text-sm">
               {search ? "Nenhum lead encontrado para essa busca." : "Nenhum lead do RD Station ainda."}
             </p>

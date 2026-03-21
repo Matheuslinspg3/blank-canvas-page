@@ -169,7 +169,7 @@ function MobileLeadCardComponent({ lead, onClick, isSelected, onToggleSelect, se
               Ligar
             </button>
             <div className="flex-1" />
-            <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
           </div>
         )}
       </CardContent>

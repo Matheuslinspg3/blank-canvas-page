@@ -61,7 +61,7 @@ export function ConsumerPropertyCard({
             )}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-muted-foreground/40 text-sm">Sem foto</div>
+          <div className="w-full h-full flex items-center justify-center text-muted-foreground/60 text-sm">Sem foto</div>
         )}
         <Badge className="absolute top-3 left-3 text-xs rounded-lg font-medium scale-pop">{label}</Badge>
         <button

@@ -48,7 +48,7 @@ export default function MetaStats() {
         <PageHeader title="Estatísticas" description="Métricas dos seus anúncios Meta" />
         <Card className="max-w-lg mx-auto">
           <CardContent className="flex flex-col items-center gap-4 py-12">
-            <BarChart3 className="h-16 w-16 text-muted-foreground/40" />
+            <BarChart3 className="h-16 w-16 text-muted-foreground/60" />
             <h3 className="text-lg font-semibold">Meta Ads não conectado</h3>
             <p className="text-muted-foreground text-center text-sm">Conecte sua conta para ver estatísticas.</p>
             <Button onClick={() => navigate("/anuncios/meta/configuracoes")}>
@@ -85,7 +85,7 @@ export default function MetaStats() {
       ) : insights.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-4 py-12">
-            <BarChart3 className="h-12 w-12 text-muted-foreground/40" />
+            <BarChart3 className="h-12 w-12 text-muted-foreground/60" />
             <p className="text-muted-foreground text-sm">Nenhum dado de estatísticas encontrado. Sincronize nas configurações.</p>
             <Button variant="outline" onClick={() => navigate("/anuncios/meta/configuracoes")}>Sincronizar Estatísticas</Button>
           </CardContent>
