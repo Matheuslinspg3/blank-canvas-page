@@ -703,21 +703,16 @@ export default function Properties() {
             )}
 
             {viewMode === "list" && (
-              <div className="flex flex-col gap-2">
-                {paginatedProperties.map((property) => (
-                  <PropertyListItem
-                    key={property.id}
-                    property={property}
-                    isSelected={selectedIds.has(property.id)}
-                    isSelectionMode={isSelectionMode}
-                    onSelect={handleSelectProperty}
-                    onEdit={handleEditClick}
-                    onDelete={handleDeleteClick}
-                    onDuplicate={(id) => navigate(`/imoveis/${id}?duplicate=true`)}
-                    isPublished={publishedIds.has(property.id)}
-                  />
-                ))}
-              </div>
+              <VirtualizedPropertyList
+                properties={paginatedProperties}
+                selectedIds={selectedIds}
+                isSelectionMode={isSelectionMode}
+                publishedIds={publishedIds}
+                onSelect={handleSelectProperty}
+                onEdit={handleEditClick}
+                onDelete={handleDeleteClick}
+                onDuplicate={(id) => navigate(`/imoveis/${id}?duplicate=true`)}
+              />
             )}
 
             {viewMode === "map" && (
