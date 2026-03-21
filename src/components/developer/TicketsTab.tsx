@@ -221,7 +221,7 @@ export function TicketsTab() {
       {filtered.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <MessageSquare className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
+            <MessageSquare className="h-10 w-10 mx-auto text-muted-foreground/60 mb-3" />
             <p className="text-sm text-muted-foreground">Nenhum ticket encontrado</p>
           </CardContent>
         </Card>

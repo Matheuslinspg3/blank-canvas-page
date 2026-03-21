@@ -64,7 +64,7 @@ export function UserTicketsSection() {
     return (
       <Card>
         <CardContent className="py-10 text-center">
-          <MessageSquare className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+          <MessageSquare className="h-8 w-8 mx-auto text-muted-foreground/60 mb-2" />
           <p className="text-sm text-muted-foreground">Você ainda não abriu nenhum ticket.</p>
         </CardContent>
       </Card>

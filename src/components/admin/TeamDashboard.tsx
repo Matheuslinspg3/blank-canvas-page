@@ -202,7 +202,7 @@ export function TeamDashboard() {
                         m.last_sign_in_at &&
                         Date.now() - new Date(m.last_sign_in_at).getTime() < 15 * 60 * 1000
                           ? "text-green-500"
-                          : "text-muted-foreground/40"
+                          : "text-muted-foreground/60"
                       }`}
                     />
                   </div>

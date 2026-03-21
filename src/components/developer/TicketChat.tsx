@@ -292,7 +292,7 @@ export function TicketChat({ ticketId, ticketSubject, showSupportButton = true }
 
           {!isLoading && messages.length === 0 && (
             <div className="text-center py-8">
-              <Bot className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+              <Bot className="h-8 w-8 mx-auto text-muted-foreground/60 mb-2" />
               <p className="text-xs text-muted-foreground">
                 Envie uma mensagem para iniciar o atendimento.
                 <br />A IA tentará ajudar primeiro.

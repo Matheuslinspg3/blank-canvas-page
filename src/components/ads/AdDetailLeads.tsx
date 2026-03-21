@@ -32,7 +32,7 @@ export function AdDetailLeads({ externalAdId }: AdDetailLeadsProps) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center gap-4 py-12">
-          <Inbox className="h-12 w-12 text-muted-foreground/40" />
+          <Inbox className="h-12 w-12 text-muted-foreground/60" />
           <p className="text-muted-foreground text-sm">Nenhum lead recebido para este anúncio.</p>
         </CardContent>
       </Card>

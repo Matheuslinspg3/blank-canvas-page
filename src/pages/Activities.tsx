@@ -369,7 +369,7 @@ export default function Activities({ embedded }: { embedded?: boolean } = {}) {
             </div>
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Filter className="h-10 w-10 text-muted-foreground/40 mb-3" />
+              <Filter className="h-10 w-10 text-muted-foreground/60 mb-3" />
               <p className="text-sm text-muted-foreground">
                 {hasFilters ? "Nenhum evento encontrado com os filtros." : "Nenhum evento de auditoria registrado ainda."}
               </p>
@@ -424,7 +424,7 @@ export default function Activities({ embedded }: { embedded?: boolean } = {}) {
                           </span>
                         </div>
                       </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 self-center shrink-0" />
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/60 self-center shrink-0" />
                     </button>
                   );
                 })}

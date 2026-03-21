@@ -111,7 +111,7 @@ export const PropertyListItem = memo(function PropertyListItem({
               <OptimizedImage src={coverImage} alt={property.title || "Imóvel"} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
-                <Building2 className="h-5 w-5 text-muted-foreground/40" />
+                <Building2 className="h-5 w-5 text-muted-foreground/60" />
               </div>
             )}
           </div>

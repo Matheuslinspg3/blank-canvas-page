@@ -60,7 +60,7 @@ export function AdDetailStats({ externalAdId }: AdDetailStatsProps) {
       ) : insights.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-4 py-12">
-            <BarChart3 className="h-12 w-12 text-muted-foreground/40" />
+            <BarChart3 className="h-12 w-12 text-muted-foreground/60" />
             <p className="text-muted-foreground text-sm">Nenhum dado de estatísticas para este período.</p>
           </CardContent>
         </Card>

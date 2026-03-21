@@ -102,7 +102,7 @@ export const PropertyCard = memo(function PropertyCard({ property, onEdit, onDel
       <Card className="overflow-hidden border-border/40 opacity-75 touch-manipulation">
         <div className="flex items-center gap-3 p-3">
           <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
-            <Building2 className="h-5 w-5 text-muted-foreground/40" />
+            <Building2 className="h-5 w-5 text-muted-foreground/60" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
@@ -152,13 +152,13 @@ export const PropertyCard = memo(function PropertyCard({ property, onEdit, onDel
             className="transition-transform duration-500 group-hover:scale-105"
             fallback={
               <div className="aspect-video bg-muted flex items-center justify-center">
-                <Building2 className="h-12 w-12 text-muted-foreground/40" />
+                <Building2 className="h-12 w-12 text-muted-foreground/60" />
               </div>
             }
           />
         ) : (
           <div className="aspect-video bg-muted flex items-center justify-center">
-            <Building2 className="h-12 w-12 text-muted-foreground/40" />
+            <Building2 className="h-12 w-12 text-muted-foreground/60" />
           </div>
         )}
 

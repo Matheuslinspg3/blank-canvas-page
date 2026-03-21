@@ -109,7 +109,7 @@ export function MobileTodaySummary() {
                   <p className="text-[11px] text-muted-foreground truncate">{item.sub}</p>
                 )}
               </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+              <ChevronRight className="h-4 w-4 text-muted-foreground/60 shrink-0" />
             </button>
           ))}
         </CardContent>
