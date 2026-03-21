@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { SEOHead } from "@/components/SEOHead";
 import { Download, Smartphone, Share, MoreVertical, Plus, Check, Wrench, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
