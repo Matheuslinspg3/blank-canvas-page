@@ -196,7 +196,7 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSubmit, i
         )}
       </div>
       <div className="flex-1 min-h-0">
-        <RichTextEditor
+        <LazyRichTextEditor
           content={bodyHtml}
           onChange={setBodyHtml}
           placeholder="Escreva o modelo do contrato aqui. Use o botão 'Inserir Variável' para adicionar campos dinâmicos..."

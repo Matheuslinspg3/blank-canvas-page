@@ -329,7 +329,7 @@ export function TicketChat({ ticketId, ticketSubject, showSupportButton = true }
                     }`}
                   >
                     <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:m-0 [&>ul]:m-0 [&>ol]:m-0">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      <LazyMarkdown>{msg.content}</LazyMarkdown>
                     </div>
                   </div>
                   {attachments.length > 0 && (
