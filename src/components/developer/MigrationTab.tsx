@@ -22,9 +22,27 @@ interface LogEntry {
 
 const OPERATIONS = [
   {
-    id: "migrate_property_owners",
-    label: "Migrar Proprietários",
-    description: "Copia dados de proprietários da tabela properties para property_owners em lotes.",
+    id: "migrate_owners_to_porto",
+    label: "1. Migrar Owners → Porto",
+    description: "Copia owners centralizados (tabela owners) da org de origem para o Porto Caiçara, deduplicando por telefone.",
+    destructive: false,
+  },
+  {
+    id: "migrate_property_owners_to_porto",
+    label: "2. Migrar Property Owners → Porto",
+    description: "Migra vínculos property_owners da org de origem para o Porto, remapeando property_id via source_property_id e owner_id via telefone.",
+    destructive: false,
+  },
+  {
+    id: "migrate_aliases_to_porto",
+    label: "3. Migrar Aliases → Porto",
+    description: "Copia owner_aliases da org de origem para os owners correspondentes no Porto Caiçara.",
+    destructive: false,
+  },
+  {
+    id: "check_status",
+    label: "Verificar Status",
+    description: "Verifica o progresso atual da migração de proprietários entre orgs.",
     destructive: false,
   },
   {
@@ -32,12 +50,6 @@ const OPERATIONS = [
     label: "Limpar Estágios Órfãos",
     description: "Remove estágios de lead (lead_stages) que não possuem nenhum lead associado.",
     destructive: true,
-  },
-  {
-    id: "check_status",
-    label: "Verificar Status",
-    description: "Verifica o progresso atual da migração de proprietários.",
-    destructive: false,
   },
 ] as const;
 
