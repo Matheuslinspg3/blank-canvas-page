@@ -9,6 +9,7 @@ import { Plus, FileUp } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProperties, PropertyWithDetails, PropertyFormData } from "@/hooks/useProperties";
 import { SelectablePropertyCard } from "@/components/properties/SelectablePropertyCard";
+import { VirtualizedPropertyGrid } from "@/components/properties/VirtualizedPropertyGrid";
 import { PropertyListItem } from "@/components/properties/PropertyListItem";
 import { PropertyEmptyState } from "@/components/properties/PropertyEmptyState";
 import { BulkActionsToolbar } from "@/components/properties/BulkActionsToolbar";
@@ -689,21 +690,16 @@ export default function Properties() {
         {!isLoading && paginatedProperties.length > 0 && (
           <>
             {viewMode === "grid" && (
-              <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {paginatedProperties.map((property) => (
-                  <SelectablePropertyCard
-                    key={property.id}
-                    property={property}
-                    isSelected={selectedIds.has(property.id)}
-                    isSelectionMode={isSelectionMode}
-                    onSelect={handleSelectProperty}
-                    onEdit={handleEditClick}
-                    onDelete={handleDeleteClick}
-                    isPublished={publishedIds.has(property.id)}
-                    onLongPressSelect={handleLongPressSelect}
-                  />
-                ))}
-              </div>
+              <VirtualizedPropertyGrid
+                properties={paginatedProperties}
+                selectedIds={selectedIds}
+                isSelectionMode={isSelectionMode}
+                publishedIds={publishedIds}
+                onSelect={handleSelectProperty}
+                onEdit={handleEditClick}
+                onDelete={handleDeleteClick}
+                onLongPressSelect={handleLongPressSelect}
+              />
             )}
 
             {viewMode === "list" && (

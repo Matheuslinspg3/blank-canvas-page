@@ -1,23 +1,28 @@
-import { memo, useCallback, useState, useMemo } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Button } from '@/components/ui/button';
 import { Users } from 'lucide-react';
 import { LeadCard } from './LeadCard';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import type { Lead } from '@/hooks/useLeads';
 import type { LeadStage } from '@/hooks/useLeadStages';
 
-const INITIAL_VISIBLE = 20;
+const ESTIMATED_CARD_HEIGHT = 120;
+const OVERSCAN = 5;
 
 function KanbanColumnContent({ leads, onLeadClick }: { leads: Lead[]; onLeadClick: (lead: Lead) => void }) {
-  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
-  const visibleLeads = leads.slice(0, visibleCount);
-  const remaining = leads.length - visibleCount;
+  const parentRef = useRef<HTMLDivElement>(null);
 
-  const leadIds = useMemo(() => visibleLeads.map(l => l.id), [visibleLeads]);
+  const leadIds = useMemo(() => leads.map(l => l.id), [leads]);
+
+  const virtualizer = useVirtualizer({
+    count: leads.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ESTIMATED_CARD_HEIGHT,
+    overscan: OVERSCAN,
+  });
 
   if (leads.length === 0) {
     return (
@@ -30,20 +35,31 @@ function KanbanColumnContent({ leads, onLeadClick }: { leads: Lead[]; onLeadClic
 
   return (
     <SortableContext items={leadIds} strategy={verticalListSortingStrategy}>
-      <div className="space-y-2 pr-2">
-        {visibleLeads.map((lead) => (
-          <LeadCard key={lead.id} lead={lead} onClick={() => onLeadClick(lead)} />
-        ))}
-        {remaining > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full text-xs text-muted-foreground"
-            onClick={() => setVisibleCount((c) => c + 20)}
-          >
-            Mostrar mais {Math.min(remaining, 20)} leads
-          </Button>
-        )}
+      <div
+        ref={parentRef}
+        className="h-full max-h-[calc(100vh-320px)] overflow-y-auto"
+      >
+        <div
+          className="relative w-full"
+          style={{ height: `${virtualizer.getTotalSize()}px` }}
+        >
+          {virtualizer.getVirtualItems().map((virtualItem) => {
+            const lead = leads[virtualItem.index];
+            return (
+              <div
+                key={lead.id}
+                data-index={virtualItem.index}
+                ref={virtualizer.measureElement}
+                className="absolute top-0 left-0 w-full pb-2 pr-2"
+                style={{
+                  transform: `translateY(${virtualItem.start}px)`,
+                }}
+              >
+                <LeadCard lead={lead} onClick={() => onLeadClick(lead)} />
+              </div>
+            );
+          })}
+        </div>
       </div>
     </SortableContext>
   );
@@ -105,9 +121,7 @@ function KanbanColumnComponent({ stage, leads, stats, onLeadClick }: KanbanColum
           ref={setNodeRef}
           className="px-2 pb-2 flex-1 min-h-[200px]"
         >
-          <ScrollArea className="h-full max-h-[calc(100vh-320px)]">
-            <KanbanColumnContent leads={leads} onLeadClick={handleLeadClick} />
-          </ScrollArea>
+          <KanbanColumnContent leads={leads} onLeadClick={handleLeadClick} />
         </CardContent>
       </Card>
     </div>
