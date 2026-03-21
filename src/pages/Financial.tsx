@@ -369,6 +369,7 @@ export default function Financial() {
                 </CardContent>
               </Card>
             )}
+            </>)}
           </TabsContent>
 
           <TabsContent value="templates" className="mt-4">
