@@ -52,7 +52,7 @@ function SortablePhoto({ photo, onToggle }: { photo: PhotoItem; onToggle: (id: s
         photo.included ? "border-primary" : "border-muted opacity-60"
       )}
     >
-      <img src={photo.url} alt="Foto do imóvel para vídeo" className="w-full h-full object-cover" loading="lazy" />
+      <OptimizedImage src={photo.url} alt="Foto do imóvel para vídeo" aspectRatio="square" wrapperClassName="w-full h-full" />
       <div className="absolute top-1 left-1 cursor-grab active:cursor-grabbing" {...attributes} {...listeners}>
         <GripVertical className="h-4 w-4 text-white drop-shadow" />
       </div>
