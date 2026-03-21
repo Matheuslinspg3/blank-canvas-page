@@ -44,7 +44,9 @@ export default function CRM() {
           </TabsList>
 
           <TabsContent value="active" className="mt-0">
-            <KanbanBoard />
+            <SectionErrorBoundary section="KanbanBoard">
+              <KanbanBoard />
+            </SectionErrorBoundary>
           </TabsContent>
 
           <TabsContent value="inactive" className="mt-0">
