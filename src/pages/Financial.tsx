@@ -398,5 +398,6 @@ export default function Financial() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </SectionErrorBoundary>
   );
 }
