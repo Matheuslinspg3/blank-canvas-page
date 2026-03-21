@@ -2,6 +2,15 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type { Tables } from "@/integrations/supabase/types";
+
+type RDStationSettings = Tables<"rd_station_settings">;
+type RDStationUpdatePayload = Partial<Pick<RDStationSettings,
+  "auto_send_to_crm" | "default_stage_id" | "default_source" |
+  "api_public_key" | "api_private_key" | "is_active" |
+  "oauth_access_token" | "oauth_refresh_token" | "oauth_token_expires_at" | "oauth_client_id" |
+  "webhook_secret"
+>>;
 
 export function useRDStationSettings() {
   const { profile } = useAuth();
@@ -53,11 +62,11 @@ export function useRDStationSettings() {
   });
 
   const updateSettings = useMutation({
-    mutationFn: async (payload: Record<string, any>) => {
+    mutationFn: async (payload: RDStationUpdatePayload) => {
       if (!settings?.id) return;
       const { error } = await supabase
         .from("rd_station_settings")
-        .update(payload as any)
+        .update(payload)
         .eq("id", settings.id);
       if (error) throw error;
     },
@@ -66,9 +75,9 @@ export function useRDStationSettings() {
     },
   });
 
-  const hasOAuth = !!(settings as any)?.oauth_access_token;
-  const oauthExpired = hasOAuth && (settings as any)?.oauth_token_expires_at &&
-    new Date((settings as any).oauth_token_expires_at) < new Date();
+  const hasOAuth = !!settings?.oauth_access_token;
+  const oauthExpired = hasOAuth && settings?.oauth_token_expires_at &&
+    new Date(settings.oauth_token_expires_at) < new Date();
 
   return {
     settings,

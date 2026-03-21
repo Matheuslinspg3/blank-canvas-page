@@ -34,6 +34,15 @@ export interface MarketplaceProperty {
   organization_id: string | null;
 }
 
+// Minimal row type for filter queries on the view
+interface MarketplaceViewRow {
+  address_city?: string | null;
+  address_neighborhood?: string | null;
+  property_type_id?: string | null;
+  amenities?: string[] | null;
+  organization_id?: string | null;
+}
+
 const PAGE_SIZE = 12;
 
 export function useMarketplace(filters: MarketplaceFiltersState) {
