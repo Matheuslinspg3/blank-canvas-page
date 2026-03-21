@@ -181,13 +181,7 @@ export default function PropertyLandingPage() {
     fetchProperty();
   }, [id]);
 
-  useEffect(() => {
-    if (aiContent?.seo_title) {
-      document.title = aiContent.seo_title;
-    } else if (property?.title) {
-      document.title = `${property.title} | Habitae`;
-    }
-  }, [aiContent, property]);
+  // SEO is now handled via SEOHead in the return JSX below
 
   const formatPrice = (price: number | null, isRent = false) => {
     if (!price) return null;
