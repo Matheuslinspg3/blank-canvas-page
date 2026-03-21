@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { OptimizedImage } from "@/components/ui/optimized-image";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -52,7 +53,7 @@ function SortablePhoto({ photo, onToggle }: { photo: PhotoItem; onToggle: (id: s
         photo.included ? "border-primary" : "border-muted opacity-60"
       )}
     >
-      <img src={photo.url} alt="Foto do imóvel para vídeo" className="w-full h-full object-cover" loading="lazy" />
+      <OptimizedImage src={photo.url} alt="Foto do imóvel para vídeo" aspectRatio="square" wrapperClassName="w-full h-full" />
       <div className="absolute top-1 left-1 cursor-grab active:cursor-grabbing" {...attributes} {...listeners}>
         <GripVertical className="h-4 w-4 text-white drop-shadow" />
       </div>
@@ -407,7 +408,7 @@ export default function GeradorVideoContent() {
                 <DragOverlay>
                   {draggedPhoto && (
                     <div className="aspect-square rounded-lg overflow-hidden border-2 border-primary ring-2 ring-primary shadow-lg">
-                      <img src={draggedPhoto.url} alt="" className="w-full h-full object-cover" />
+                      <OptimizedImage src={draggedPhoto.url} alt="" aspectRatio="square" wrapperClassName="w-full h-full" />
                     </div>
                   )}
                 </DragOverlay>

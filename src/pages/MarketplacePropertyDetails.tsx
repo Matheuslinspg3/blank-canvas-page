@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { ImageViewer } from "@/components/properties/ImageViewer";
 import { ContactDialog } from "@/components/marketplace/ContactDialog";
+import { OptimizedImage } from "@/components/ui/optimized-image";
 import { proxyDriveImageUrl, formatCurrency } from "@/lib/utils";
 import type { MarketplaceProperty } from "@/hooks/useMarketplace";
 import { useAuth } from "@/contexts/AuthContext";
@@ -121,11 +122,13 @@ function PropertyImageCarousel({ images }: { images: Array<{ url: string; alt: s
                 className="flex-[0_0_100%] min-w-0 relative aspect-[16/9] cursor-pointer"
                 onClick={() => { setSelectedIndex(index); setViewerOpen(true); }}
               >
-                <img
+                <OptimizedImage
                   src={image.url}
                   alt={image.alt || `Imagem ${index + 1}`}
-                  className="w-full h-full object-cover"
                   loading={index === 0 ? "eager" : "lazy"}
+                  fetchPriority={index === 0 ? "high" : undefined}
+                  aspectRatio="16/9"
+                  wrapperClassName="w-full h-full"
                 />
               </div>
             ))}
@@ -178,11 +181,10 @@ function PropertyImageCarousel({ images }: { images: Array<{ url: string; alt: s
                   : "border-transparent opacity-50 hover:opacity-80"
               )}
             >
-              <img
+              <OptimizedImage
                 src={image.url}
                 alt={`Miniatura ${index + 1}`}
                 className="w-full h-full object-cover"
-                loading="lazy"
               />
             </button>
           ))}

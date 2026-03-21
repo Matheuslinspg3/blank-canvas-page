@@ -13,6 +13,7 @@ import { Palette, Download, Copy, Check, Loader2, Image as ImageIcon, CheckCircl
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getImageUrl, type ImageRecord } from "@/lib/imageUrl";
 import { cn } from "@/lib/utils";
+import { OptimizedImage } from "@/components/ui/optimized-image";
 import { useNavigate } from "react-router-dom";
 
 interface ArtConfig {
@@ -302,11 +303,11 @@ export default function GeradorArtes() {
                               : "border-border hover:border-primary/50"
                           )}
                         >
-                          <img
+                          <OptimizedImage
                             src={thumbUrl}
                             alt={`Foto do imóvel ${img.display_order || ""}`}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
+                            aspectRatio="square"
+                            wrapperClassName="w-full h-full"
                           />
                           {isSelected && (
                             <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
@@ -492,7 +493,7 @@ export default function GeradorArtes() {
                       </div>
                     ) : url ? (
                       <>
-                        <img
+                        <OptimizedImage
                           src={url}
                           alt={`Arte gerada no formato ${label}`}
                           className={cn("w-full rounded-lg border object-cover", aspect)}
@@ -553,11 +554,11 @@ export default function GeradorArtes() {
                   const date = new Date(item.created_at);
                   return (
                     <div key={item.id} className="relative group rounded-lg overflow-hidden">
-                      <img
+                      <OptimizedImage
                         src={thumb}
                         alt={`Arte gerada em ${date.toLocaleDateString("pt-BR")}`}
-                        className="w-full aspect-square object-cover border rounded-lg"
-                        loading="lazy"
+                        aspectRatio="square"
+                        wrapperClassName="w-full border rounded-lg"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-end p-2 gap-1">
                         <p className="text-[10px] text-white">
