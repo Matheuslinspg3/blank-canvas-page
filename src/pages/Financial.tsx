@@ -262,6 +262,9 @@ export default function Financial() {
           </TabsContent>
 
           <TabsContent value="contracts" className="mt-4 space-y-4">
+            {contractsError ? (
+              <QueryErrorState message="Erro ao carregar contratos" onRetry={() => refetchContracts()} />
+            ) : (<>
             {/* Contract Stats */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Total</p><p className="text-xl font-bold">{contractStats.total}</p></CardContent></Card>
