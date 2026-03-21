@@ -1,4 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from "react";
+import { SectionErrorBoundary } from "@/components/SectionErrorBoundary";
 import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -845,26 +846,30 @@ export default function PropertyDetails() {
       </div>
 
       {/* Inline Edit Form */}
-      <Suspense fallback={null}>
-        <PropertyForm
-          open={formOpen}
-          onOpenChange={setFormOpen}
-          property={property}
-          onSubmit={handleFormSubmit}
-          isSubmitting={isUpdating}
-        />
-      </Suspense>
+      <SectionErrorBoundary section="PropertyForm">
+        <Suspense fallback={null}>
+          <PropertyForm
+            open={formOpen}
+            onOpenChange={setFormOpen}
+            property={property}
+            onSubmit={handleFormSubmit}
+            isSubmitting={isUpdating}
+          />
+        </Suspense>
+      </SectionErrorBoundary>
 
       {/* Landing Page Editor */}
       {id && (
-        <Suspense fallback={null}>
-          <LandingPageEditor
-            propertyId={id}
-            propertyCode={property?.property_code}
-            open={editorOpen}
-            onOpenChange={setEditorOpen}
-          />
-        </Suspense>
+        <SectionErrorBoundary section="LandingPageEditor">
+          <Suspense fallback={null}>
+            <LandingPageEditor
+              propertyId={id}
+              propertyCode={property?.property_code}
+              open={editorOpen}
+              onOpenChange={setEditorOpen}
+            />
+          </Suspense>
+        </SectionErrorBoundary>
       )}
       {id && (
         <PropertyQRCode

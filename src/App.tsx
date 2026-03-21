@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -95,12 +96,14 @@ const queryClient = new QueryClient({
 });
 
 const App = () => (
+  <ErrorBoundary>
   <QueryClientProvider client={queryClient}>
   <ThemeProvider>
     <CarnivalThemeProvider>
       <AuthProvider>
         <ImportProgressProvider>
             <BrowserRouter>
+              <ErrorBoundary>
               <DemoProvider>
                 <TooltipProvider>
                   <Toaster />
@@ -192,12 +195,14 @@ const App = () => (
                   </Suspense>
                 </TooltipProvider>
               </DemoProvider>
+              </ErrorBoundary>
             </BrowserRouter>
         </ImportProgressProvider>
     </AuthProvider>
     </CarnivalThemeProvider>
   </ThemeProvider>
 </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

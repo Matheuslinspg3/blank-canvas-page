@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/PageHeader";
 import { KanbanBoard } from "@/components/crm/KanbanBoard";
 import { InactiveLeadsList } from "@/components/crm/InactiveLeadsList";
+import { SectionErrorBoundary } from "@/components/SectionErrorBoundary";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useLeads } from "@/hooks/useLeads";
@@ -43,7 +44,9 @@ export default function CRM() {
           </TabsList>
 
           <TabsContent value="active" className="mt-0">
-            <KanbanBoard />
+            <SectionErrorBoundary section="KanbanBoard">
+              <KanbanBoard />
+            </SectionErrorBoundary>
           </TabsContent>
 
           <TabsContent value="inactive" className="mt-0">
