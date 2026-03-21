@@ -4,7 +4,7 @@ import { SelectablePropertyCard } from "./SelectablePropertyCard";
 import type { PropertyWithDetails } from "@/hooks/useProperties";
 
 const ESTIMATED_ROW_HEIGHT = 340;
-const OVERSCAN = 5;
+const OVERSCAN = 3;
 
 interface VirtualizedPropertyGridProps {
   properties: PropertyWithDetails[];
