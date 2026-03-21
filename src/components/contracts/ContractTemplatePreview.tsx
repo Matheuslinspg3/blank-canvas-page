@@ -34,7 +34,7 @@ export function ContractTemplatePreview({ template, open, onOpenChange }: Contra
 
         <div
           className="prose prose-sm max-w-none border rounded-md p-6 bg-card"
-          dangerouslySetInnerHTML={{ __html: template.body_html || "<p class='text-muted-foreground'>Template vazio</p>" }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(template.body_html || "<p class='text-muted-foreground'>Template vazio</p>") }}
         />
 
         {template.variables.length > 0 && (
