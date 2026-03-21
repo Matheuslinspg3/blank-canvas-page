@@ -13,6 +13,7 @@ export function useBrokers() {
 
   const { data: brokers = [], isLoading, error } = useQuery({
     queryKey: ['brokers'],
+    staleTime: 10 * 60_000, // PERF: broker list rarely changes
     queryFn: async () => {
       // Use the public view to avoid exposing sensitive fields (phone, creci, etc.)
       const { data, error } = await supabase

@@ -160,6 +160,7 @@ export function useLeads() {
   const { data: leads = [], isLoading: isLoadingLeads, error, refetch } = useQuery({
     queryKey: ['leads', profile?.organization_id],
     staleTime: 2 * 60_000,
+    placeholderData: keepPreviousData,
     queryFn: async ({ signal }) => {
       const { data, error } = await supabase
         .from('leads')

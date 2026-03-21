@@ -13,6 +13,7 @@ export function useConsumerProperties(filters?: ConsumerFilters) {
   return useQuery({
     queryKey: ["consumer-properties", filters],
     staleTime: 3 * 60_000,
+    placeholderData: keepPreviousData,
     queryFn: async ({ signal }) => {
       let query = supabase
         .from("marketplace_properties_public")
