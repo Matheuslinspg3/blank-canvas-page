@@ -150,13 +150,10 @@ export interface AutomationService {
 export const automationService: AutomationService = {
   trigger: (type, data) => {
     // Will be implemented when automation feature is developed
-    console.log('[Automation] Trigger:', type, data);
   },
   registerRule: (rule) => {
-    console.log('[Automation] Rule registered:', rule.name);
   },
   unregisterRule: (ruleId) => {
-    console.log('[Automation] Rule unregistered:', ruleId);
   },
   getRules: () => [],
   getPresets: () => PRESET_AUTOMATIONS,

@@ -205,7 +205,6 @@ export default function Properties() {
 
         if (data?.saved) {
           totalSaved += data.saved;
-          console.log(`${data.saved} referências de fotos salvas para ${label}`);
         } else if (data?.error) {
           console.warn(`Sem fotos para ${label}:`, data.error);
         }
@@ -520,7 +519,6 @@ export default function Properties() {
   };
 
   const executePropertySubmit = useCallback(async (data: PropertyFormData, images: PropertyImage[], ownerData?: any, publishMarketplace?: boolean) => {
-    console.log(`[executePropertySubmit] images count: ${images.length}, has r2 keys: ${images.filter(i => (i as any).r2_key_full).length}`);
     let propertyId: string | undefined;
     if (editingProperty) {
       await updateProperty(editingProperty.id, data, images, ownerData);

@@ -89,7 +89,7 @@ export async function normalizeImageBeforeUpload(
 
             // Safety: if normalized is LARGER, keep original
             if (blob.size >= file.size) {
-              console.log(`[NORMALIZE] Skipped: ${blob.size}B >= original ${file.size}B`);
+              if (import.meta.env.DEV) console.log(`[NORMALIZE] Skipped: ${blob.size}B >= original ${file.size}B`);
               resolve(file);
               return;
             }
@@ -102,7 +102,7 @@ export async function normalizeImageBeforeUpload(
             );
 
             const reduction = Math.round((1 - normalizedFile.size / file.size) * 100);
-            console.log(
+            if (import.meta.env.DEV) console.log(
               `[NORMALIZE] ${(file.size / 1024).toFixed(0)}KB → ${(normalizedFile.size / 1024).toFixed(0)}KB (${reduction}% reduction, ${width}×${height})`
             );
 

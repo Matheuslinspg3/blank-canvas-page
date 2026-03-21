@@ -152,9 +152,6 @@ export function useProperties() {
           ...(img.r2_key_thumb ? { r2_key_thumb: img.r2_key_thumb } : {}),
           ...(img.storage_provider ? { storage_provider: img.storage_provider } : {}),
         }));
-
-        console.log(`[createProperty] Salvando ${imagesToInsert.length} imagens para property ${data.id}`);
-
         // Insert in chunks of 20 to avoid payload size issues
         const CHUNK = 20;
         let totalSaved = 0;
@@ -177,7 +174,6 @@ export function useProperties() {
           totalSaved += insertedData?.length || chunk.length;
         }
 
-        console.log(`[createProperty] ${totalSaved}/${imagesToInsert.length} imagens salvas com sucesso`);
       }
 
       // Salvar proprietário se fornecido (com deduplicação)

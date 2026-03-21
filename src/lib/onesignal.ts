@@ -307,7 +307,6 @@ export async function initOneSignal(): Promise<boolean> {
   };
 
   if (window.OneSignal && typeof window.OneSignal.init === "function") {
-    console.log("[OneSignal] SDK already loaded, initializing directly");
     await doInit(window.OneSignal);
   } else {
     window.OneSignalDeferred = window.OneSignalDeferred || [];
@@ -405,7 +404,6 @@ export async function requestPushPermission(): Promise<boolean> {
 
   try {
     if (Notification.permission === "granted") {
-      console.log("[OneSignal] Permission already granted, opting in...");
       try {
         if (window.OneSignal.User?.PushSubscription?.optedIn === false) {
           await window.OneSignal.User.PushSubscription.optIn();
