@@ -235,12 +235,16 @@ export default function Financial() {
           </TabsList>
 
           <TabsContent value="transactions" className="mt-4">
-            <TransactionsTab
-              transactions={transactions}
-              onEdit={handleEditTransaction}
-              onDelete={setDeleteId}
-              formatCurrency={formatCurrency}
-            />
+            {txError ? (
+              <QueryErrorState message="Erro ao carregar transações" onRetry={() => refetchTx()} />
+            ) : (
+              <TransactionsTab
+                transactions={transactions}
+                onEdit={handleEditTransaction}
+                onDelete={setDeleteId}
+                formatCurrency={formatCurrency}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="invoices" className="mt-4">
