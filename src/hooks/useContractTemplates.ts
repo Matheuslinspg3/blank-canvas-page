@@ -33,6 +33,7 @@ export function useContractTemplates() {
 
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ["contract-templates"],
+    staleTime: 30 * 60_000, // PERF: templates rarely change
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contract_templates")

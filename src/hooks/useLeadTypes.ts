@@ -13,6 +13,7 @@ export function useLeadTypes() {
 
   const { data: leadTypes = [], isLoading, error } = useQuery({
     queryKey: ['lead-types', profile?.organization_id],
+    staleTime: 30 * 60_000, // PERF: lead types rarely change
     queryFn: async () => {
       if (!profile?.organization_id) return [];
 

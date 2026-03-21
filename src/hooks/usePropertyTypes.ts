@@ -13,6 +13,7 @@ export function usePropertyTypes() {
 
   const { data: propertyTypes = [], isLoading, error } = useQuery({
     queryKey: ['property-types'],
+    staleTime: 30 * 60_000, // PERF: property types rarely change
     queryFn: async () => {
       const { data, error } = await supabase
         .from('property_types')

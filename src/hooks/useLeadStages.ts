@@ -22,7 +22,7 @@ export function useLeadStages() {
 
   const { data: leadStages = [], isLoading, error } = useQuery({
     queryKey: ['lead-stages', profile?.organization_id],
-    staleTime: 5 * 60_000, // PERF: stages rarely change, cache 5min
+    staleTime: 30 * 60_000, // PERF: stages rarely change, cache 30min
     queryFn: async () => {
       if (!profile?.organization_id) return [];
 

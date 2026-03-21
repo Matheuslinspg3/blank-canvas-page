@@ -23,7 +23,7 @@ export function useOwners() {
 
   const { data: owners = [], isLoading } = useQuery({
     queryKey: ["owners", profile?.organization_id],
-    staleTime: 5 * 60_000,
+    staleTime: 10 * 60_000, // PERF: owners rarely change
     queryFn: async ({ signal }) => {
       if (!profile?.organization_id) return [];
 

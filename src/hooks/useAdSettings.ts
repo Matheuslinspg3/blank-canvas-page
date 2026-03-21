@@ -96,7 +96,7 @@ export function useAdSettings() {
       if (!profile?.organization_id) return null;
       const { data } = await supabase
         .from('ad_settings')
-        .select('*')
+        .select('id, organization_id, auto_send_to_crm, crm_stage_id, created_at, updated_at')
         .eq('organization_id', profile.organization_id)
         .maybeSingle();
       return data as AdSettings | null;

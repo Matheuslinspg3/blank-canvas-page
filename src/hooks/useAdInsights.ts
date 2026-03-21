@@ -42,7 +42,7 @@ export function useAdInsights(externalId?: string, dateRange?: { from: Date; to:
       if (!profile?.organization_id) return [];
       let query = supabase
         .from('ad_insights_daily')
-        .select('*')
+        .select('id, organization_id, provider, external_id, entity_type, date, impressions, clicks, spend, leads, cpc, cpl, ctr')
         .eq('organization_id', profile.organization_id)
         .gte('date', format(from, 'yyyy-MM-dd'))
         .lte('date', format(to, 'yyyy-MM-dd'))
@@ -72,7 +72,7 @@ export function useAggregatedInsights(dateRange?: { from: Date; to: Date }) {
 
       const { data: insights, error } = await supabase
         .from('ad_insights_daily')
-        .select('*')
+        .select('id, organization_id, provider, external_id, entity_type, date, impressions, clicks, spend, leads, cpc, cpl, ctr')
         .eq('organization_id', profile.organization_id)
         .gte('date', format(from, 'yyyy-MM-dd'))
         .lte('date', format(to, 'yyyy-MM-dd'));

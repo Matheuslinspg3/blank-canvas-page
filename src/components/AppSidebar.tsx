@@ -80,6 +80,13 @@ export function AppSidebar() {
       qc.prefetchQuery({ queryKey: ['transactions', orgId], staleTime: 60_000 });
     } else if (url === '/agenda') {
       qc.prefetchQuery({ queryKey: ['appointments', orgId], staleTime: 60_000 });
+    } else if (url === '/dashboard') {
+      qc.prefetchQuery({ queryKey: ['dashboard-stats', orgId], staleTime: 60_000 });
+      qc.prefetchQuery({ queryKey: ['dashboard-pipeline', orgId], staleTime: 60_000 });
+    } else if (url === '/marketplace') {
+      qc.prefetchQuery({ queryKey: ['marketplace-properties', {}, 0], staleTime: 60_000 });
+    } else if (url === '/marketing') {
+      qc.prefetchQuery({ queryKey: ['ad-entities', orgId], staleTime: 60_000 });
     }
   }, [qc, profile?.organization_id]);
 

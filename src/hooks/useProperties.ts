@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -69,6 +69,7 @@ export function useProperties() {
   const { data: properties = [], isLoading, error, refetch } = useQuery({
     queryKey: ['properties', profile?.organization_id],
     staleTime: 5 * 60_000,
+    placeholderData: keepPreviousData,
     queryFn: async ({ signal }) => {
       if (!profile?.organization_id) {
         return [];

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -160,6 +160,7 @@ export function useLeads() {
   const { data: leads = [], isLoading: isLoadingLeads, error, refetch } = useQuery({
     queryKey: ['leads', profile?.organization_id],
     staleTime: 2 * 60_000,
+    placeholderData: keepPreviousData,
     queryFn: async ({ signal }) => {
       const { data, error } = await supabase
         .from('leads')
