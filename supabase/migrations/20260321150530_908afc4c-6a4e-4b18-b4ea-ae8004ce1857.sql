@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_property_visits_org ON property_visits(organization_id, scheduled_at);
