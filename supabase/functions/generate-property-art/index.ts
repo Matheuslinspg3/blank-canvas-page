@@ -35,6 +35,10 @@ serve(async (req) => {
       });
     }
 
+    // Rate limit: 20 req/hour
+    const rateLimited = await checkAiRateLimit(user.id, "generate-property-art", corsHeaders);
+    if (rateLimited) return rateLimited;
+
     const { propertyId, imageUrl, config } = await req.json();
     if (!propertyId || !imageUrl) {
       return new Response(JSON.stringify({ error: "propertyId and imageUrl are required" }), {

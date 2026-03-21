@@ -36,6 +36,10 @@ serve(async (req) => {
       });
     }
 
+    // Rate limit: 20 req/hour
+    const rateLimitResp = await checkAiRateLimit(user.id, "validate-document", corsHeaders);
+    if (rateLimitResp) return rateLimitResp;
+
     const { document_id, storage_path, expected_type } = await req.json();
     if (!document_id || !storage_path) {
       return new Response(JSON.stringify({ error: "Missing params" }), {

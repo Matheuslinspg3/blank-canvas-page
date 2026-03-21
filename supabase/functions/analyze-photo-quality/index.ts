@@ -37,6 +37,10 @@ serve(async (req) => {
       });
     }
 
+    // Rate limit: 20 req/hour
+    const rateLimited = await checkAiRateLimit(user.id, "analyze-photo-quality", corsHeaders);
+    if (rateLimited) return rateLimited;
+
     const { imageUrl } = await req.json();
     if (!imageUrl) {
       return new Response(JSON.stringify({ error: "imageUrl is required" }), {
