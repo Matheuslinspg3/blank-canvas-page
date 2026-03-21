@@ -11,6 +11,7 @@ import { useProperties, PropertyWithDetails, PropertyFormData } from "@/hooks/us
 import { SelectablePropertyCard } from "@/components/properties/SelectablePropertyCard";
 import { VirtualizedPropertyGrid } from "@/components/properties/VirtualizedPropertyGrid";
 import { PropertyListItem } from "@/components/properties/PropertyListItem";
+import { VirtualizedPropertyList } from "@/components/properties/VirtualizedPropertyList";
 import { PropertyEmptyState } from "@/components/properties/PropertyEmptyState";
 import { BulkActionsToolbar } from "@/components/properties/BulkActionsToolbar";
 import { UnifiedPropertySearch } from "@/components/properties/UnifiedPropertySearch";
@@ -703,21 +704,16 @@ export default function Properties() {
             )}
 
             {viewMode === "list" && (
-              <div className="flex flex-col gap-2">
-                {paginatedProperties.map((property) => (
-                  <PropertyListItem
-                    key={property.id}
-                    property={property}
-                    isSelected={selectedIds.has(property.id)}
-                    isSelectionMode={isSelectionMode}
-                    onSelect={handleSelectProperty}
-                    onEdit={handleEditClick}
-                    onDelete={handleDeleteClick}
-                    onDuplicate={(id) => navigate(`/imoveis/${id}?duplicate=true`)}
-                    isPublished={publishedIds.has(property.id)}
-                  />
-                ))}
-              </div>
+              <VirtualizedPropertyList
+                properties={paginatedProperties}
+                selectedIds={selectedIds}
+                isSelectionMode={isSelectionMode}
+                publishedIds={publishedIds}
+                onSelect={handleSelectProperty}
+                onEdit={handleEditClick}
+                onDelete={handleDeleteClick}
+                onDuplicate={(id) => navigate(`/imoveis/${id}?duplicate=true`)}
+              />
             )}
 
             {viewMode === "map" && (
