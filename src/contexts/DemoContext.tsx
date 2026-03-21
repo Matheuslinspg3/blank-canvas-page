@@ -1,23 +1,13 @@
 import { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  demoProperties,
-  demoLeads,
-  demoContracts,
-  demoTransactions,
-  demoTasks,
-  demoAppointments,
-  demoActivities,
-  calculateDemoStats,
-  getTodayDemoTasks,
-  getTodayDemoAppointments,
-  type DemoProperty,
-  type DemoLead,
-  type DemoContract,
-  type DemoTransaction,
-  type DemoTask,
-  type DemoAppointment,
-  type DemoActivity,
+import type {
+  DemoProperty,
+  DemoLead,
+  DemoContract,
+  DemoTransaction,
+  DemoTask,
+  DemoAppointment,
+  DemoActivity,
 } from "@/data/demoData";
 
 export interface DemoUser {
@@ -56,6 +46,7 @@ export interface DemoData {
 
 interface DemoContextType {
   isDemoMode: boolean;
+  isDemoLoading: boolean;
   demoUser: DemoUser | null;
   startDemo: () => void;
   endDemo: () => void;
@@ -78,31 +69,72 @@ const DemoContext = createContext<DemoContextType | undefined>(undefined);
 
 const DEMO_SESSION_KEY = "habitae_demo_session";
 
-// Generate a unique demo session ID
 function generateDemoId(): string {
   return `demo-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
 
-// Initialize demo data
-const initialDemoData: DemoData = {
-  properties: demoProperties,
-  leads: demoLeads,
-  contracts: demoContracts,
-  transactions: demoTransactions,
-  tasks: demoTasks,
-  appointments: demoAppointments,
+const emptyDemoData: DemoData = {
+  properties: [],
+  leads: [],
+  contracts: [],
+  transactions: [],
+  tasks: [],
+  appointments: [],
+};
+
+const emptyStats: DemoStats = {
+  totalProperties: 0,
+  activeProperties: 0,
+  totalLeads: 0,
+  activeLeads: 0,
+  newLeadsThisWeek: 0,
+  activeContracts: 0,
+  pendingContracts: 0,
+  monthlyRevenue: 0,
+  monthlyExpenses: 0,
+  balance: 0,
+  pipelineValue: 0,
+  conversionRate: 0,
+  closedValue: 0,
 };
 
 export function DemoProvider({ children }: { children: ReactNode }) {
   const [demoUser, setDemoUser] = useState<DemoUser | null>(null);
+  const [loadedData, setLoadedData] = useState<{
+    data: DemoData;
+    stats: DemoStats;
+    activities: DemoActivity[];
+    todayTasks: DemoTask[];
+    todayAppointments: DemoAppointment[];
+  } | null>(null);
   const navigate = useNavigate();
 
-  // Calculate stats (memoized)
-  const demoStats = useMemo(() => calculateDemoStats(), []);
-  
-  // Get today's items (memoized)
-  const todayTasks = useMemo(() => getTodayDemoTasks(), []);
-  const todayAppointments = useMemo(() => getTodayDemoAppointments(), []);
+  const isDemoMode = demoUser !== null;
+
+  // PERF: Dynamic import — only loads ~50kb demo data when demo mode is active
+  useEffect(() => {
+    if (isDemoMode && !loadedData) {
+      import("@/data/demoData").then((mod) => {
+        setLoadedData({
+          data: {
+            properties: mod.demoProperties,
+            leads: mod.demoLeads,
+            contracts: mod.demoContracts,
+            transactions: mod.demoTransactions,
+            tasks: mod.demoTasks,
+            appointments: mod.demoAppointments,
+          },
+          stats: mod.calculateDemoStats(),
+          activities: mod.demoActivities,
+          todayTasks: mod.getTodayDemoTasks(),
+          todayAppointments: mod.getTodayDemoAppointments(),
+        });
+      });
+    }
+    if (!isDemoMode && loadedData) {
+      setLoadedData(null);
+    }
+  }, [isDemoMode, loadedData]);
 
   // Check for existing demo session on mount
   useEffect(() => {
@@ -141,19 +173,18 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     navigate("/demo");
   }, [navigate]);
 
-  const isDemoMode = demoUser !== null;
-
   const contextValue = useMemo(() => ({
     isDemoMode,
+    isDemoLoading: isDemoMode && !loadedData,
     demoUser,
     startDemo,
     endDemo,
-    demoData: initialDemoData,
-    demoStats,
-    recentActivities: demoActivities,
-    todayTasks,
-    todayAppointments,
-  }), [isDemoMode, demoUser, startDemo, endDemo, demoStats, todayTasks, todayAppointments]);
+    demoData: loadedData?.data ?? emptyDemoData,
+    demoStats: loadedData?.stats ?? emptyStats,
+    recentActivities: loadedData?.activities ?? [],
+    todayTasks: loadedData?.todayTasks ?? [],
+    todayAppointments: loadedData?.todayAppointments ?? [],
+  }), [isDemoMode, demoUser, startDemo, endDemo, loadedData]);
 
   return (
     <DemoContext.Provider value={contextValue}>
