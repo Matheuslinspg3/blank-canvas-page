@@ -73,10 +73,10 @@ export async function sendMeterEvent(event: MeterEvent): Promise<{ success: bool
       // Update local record
       await supabase
         .from("ai_token_usage_events")
-        .update({
+      .update({
           stripe_sync_status: "synced",
           stripe_meter_event_id: data?.stripe_event_id || null,
-        } as any)
+        })
         .eq("id", event.eventId);
 
       return { success: true, mode, stripeEventId: data?.stripe_event_id };
