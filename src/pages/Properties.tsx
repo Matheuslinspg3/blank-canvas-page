@@ -11,6 +11,7 @@ import { useProperties, PropertyWithDetails, PropertyFormData } from "@/hooks/us
 import { SelectablePropertyCard } from "@/components/properties/SelectablePropertyCard";
 import { VirtualizedPropertyGrid } from "@/components/properties/VirtualizedPropertyGrid";
 import { PropertyListItem } from "@/components/properties/PropertyListItem";
+import { VirtualizedPropertyList } from "@/components/properties/VirtualizedPropertyList";
 import { PropertyEmptyState } from "@/components/properties/PropertyEmptyState";
 import { BulkActionsToolbar } from "@/components/properties/BulkActionsToolbar";
 import { UnifiedPropertySearch } from "@/components/properties/UnifiedPropertySearch";
