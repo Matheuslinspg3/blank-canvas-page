@@ -152,8 +152,6 @@ export function useProperties() {
           ...(img.r2_key_thumb ? { r2_key_thumb: img.r2_key_thumb } : {}),
           ...(img.storage_provider ? { storage_provider: img.storage_provider } : {}),
         }));
-
-
         // Insert in chunks of 20 to avoid payload size issues
         const CHUNK = 20;
         let totalSaved = 0;

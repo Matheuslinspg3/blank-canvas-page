@@ -180,8 +180,6 @@ export function ImportProgressProvider({ children }: { children: ReactNode }) {
     if (!params || autoRetryCountRef.current >= MAX_AUTO_RETRIES) return;
 
     autoRetryCountRef.current++;
-
-
     try {
       await supabase.functions.invoke('imobzi-process', {
         body: {
@@ -322,8 +320,6 @@ export function ImportProgressProvider({ children }: { children: ReactNode }) {
           const targetRun = activeRun || runs[0];
           
           if (targetRun) {
-
-
             let recoveredParams: RetryParams | undefined;
             if (targetRun.organization_id) {
               const { data: keyData } = await supabase

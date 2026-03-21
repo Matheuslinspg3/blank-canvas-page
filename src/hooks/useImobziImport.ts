@@ -330,8 +330,6 @@ export function useImobziImport() {
       if (!data.success) {
         throw new Error(data.error || 'Erro ao iniciar processamento');
       }
-
-
       toast({
         title: 'Processamento iniciado',
         description: `Importando ${selectedPropertyIds.length} imóveis. O progresso é exibido em segundo plano.`,
