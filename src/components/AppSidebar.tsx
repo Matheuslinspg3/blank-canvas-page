@@ -130,6 +130,7 @@ export function AppSidebar() {
             className="flex items-center gap-3"
             activeClassName="text-primary font-medium"
             onMouseEnter={() => prefetchRoute(item.url)}
+            aria-label={`Ir para ${item.title}`}
           >
             <item.icon className={`h-4 w-4 ${active ? "text-primary" : ""}`} />
             <span>{item.title}</span>
