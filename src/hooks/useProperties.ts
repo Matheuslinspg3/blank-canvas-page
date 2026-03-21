@@ -153,7 +153,6 @@ export function useProperties() {
           ...(img.storage_provider ? { storage_provider: img.storage_provider } : {}),
         }));
 
-        console.log(`[createProperty] Salvando ${imagesToInsert.length} imagens para property ${data.id}`);
 
         // Insert in chunks of 20 to avoid payload size issues
         const CHUNK = 20;
@@ -177,7 +176,6 @@ export function useProperties() {
           totalSaved += insertedData?.length || chunk.length;
         }
 
-        console.log(`[createProperty] ${totalSaved}/${imagesToInsert.length} imagens salvas com sucesso`);
       }
 
       // Salvar proprietário se fornecido (com deduplicação)

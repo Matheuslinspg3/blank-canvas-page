@@ -185,7 +185,6 @@ export function useImobziImport() {
     setProperties([]);
 
     try {
-      console.log('[IMPORT] Fetching properties from Imobzi...');
       
       const { data, error } = await supabase.functions.invoke('imobzi-list', {
         body: { api_key: apiKey },
@@ -205,7 +204,6 @@ export function useImobziImport() {
         description: `${fetchedProperties.length} imóveis encontrados.`,
       });
 
-      console.log(`[IMPORT] Fetched ${fetchedProperties.length} properties`);
       return fetchedProperties;
 
     } catch (error) {
@@ -295,7 +293,6 @@ export function useImobziImport() {
       }
 
       const runId = runData.id;
-      console.log(`[IMPORT] Created import run: ${runId}`);
 
       // Create import run items
       const items = selectedPropertyIds.map(propertyId => ({
@@ -318,7 +315,6 @@ export function useImobziImport() {
       startTracking(runId, selectedPropertyIds.length, 'imobzi', retryParams);
 
       // AH-01: Only send api_key and run_id — org/user resolved server-side from JWT
-      console.log(`[IMPORT] Starting processing for ${selectedPropertyIds.length} properties...`);
       
       const { data, error } = await supabase.functions.invoke('imobzi-process', {
         body: {
@@ -335,7 +331,6 @@ export function useImobziImport() {
         throw new Error(data.error || 'Erro ao iniciar processamento');
       }
 
-      console.log(`[IMPORT] Processing started: ${data.message}`);
 
       toast({
         title: 'Processamento iniciado',
@@ -408,7 +403,6 @@ export function useImobziImport() {
       }
 
       const failedPropertyIds = failedItems.map(item => item.source_property_id);
-      console.log(`[IMPORT] Retrying ${failedPropertyIds.length} failed properties`);
 
       // Create a new import run for the retry
       const { data: newRun, error: runError } = await supabase

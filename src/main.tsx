@@ -29,7 +29,7 @@ function setupServiceWorkerUpdateRoutine() {
   if (!("serviceWorker" in navigator)) return;
 
   const handleNewVersion = (_registration: ServiceWorkerRegistration) => {
-    console.log("[SW Update] Nova versão detectada!");
+
     window.__newVersionAvailable = true;
     window.dispatchEvent(new CustomEvent("sw-update-available"));
     // Do NOT call skipWaiting here — let the UpdateBanner handle it on user click.
@@ -57,7 +57,7 @@ function setupServiceWorkerUpdateRoutine() {
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (refreshing) return;
     refreshing = true;
-    console.log("[SW Update] Novo SW ativo, recarregando...");
+
     window.location.reload();
   });
 

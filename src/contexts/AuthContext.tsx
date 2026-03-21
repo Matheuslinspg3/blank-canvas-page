@@ -109,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Função para corrigir usuários legados sem organização
   const fixLegacyUser = async (userId: string, email: string, fullName: string) => {
-    console.log('Corrigindo usuário legado sem organização...');
+
     
     const { data, error } = await supabase.rpc('fix_user_without_organization', {
       p_user_id: userId,

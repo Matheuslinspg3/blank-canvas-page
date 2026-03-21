@@ -176,7 +176,6 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
           const errBody = await oqfpResponse.text();
           console.error("[OQFP] HTTP error:", oqfpResponse.status, errBody);
         } else {
-          console.log("[OQFP] Ticket enviado com sucesso");
         }
       } catch (e) {
         console.error("[OQFP] Failed to send ticket:", e);
