@@ -116,6 +116,10 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Rate limit: 20 req/hour
+    const rateLimited = await checkAiRateLimit(claimsData.claims.sub as string, "generate-landing-content", corsHeaders);
+    if (rateLimited) return rateLimited;
+
     const { propertyId, forceRegenerate = false } = await req.json();
 
     if (!propertyId) {

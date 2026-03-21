@@ -30,6 +30,10 @@ Deno.serve(async (req) => {
     }
     const userId = claims.claims.sub as string;
 
+    // Rate limit: 20 req/hour
+    const rateLimited = await checkAiRateLimit(userId, "generate-property-video", corsHeaders);
+    if (rateLimited) return rateLimited;
+
     const { data: profile } = await supabase
       .from("profiles")
       .select("organization_id")

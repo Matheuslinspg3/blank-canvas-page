@@ -31,6 +31,10 @@ Deno.serve(async (req) => {
     }
     const userId = claims.claims.sub as string;
 
+    // Rate limit: 20 req/hour
+    const rateLimited = await checkAiRateLimit(userId, "summarize-lead", corsHeaders);
+    if (rateLimited) return rateLimited;
+
     const { lead_id } = await req.json();
     if (!lead_id) {
       return new Response(JSON.stringify({ error: "lead_id required" }), { status: 400, headers: corsHeaders });

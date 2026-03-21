@@ -145,6 +145,10 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Rate limit: 20 req/hour
+    const rateLimited = await checkAiRateLimit(user.id, "generate-ad-content", corsHeaders);
+    if (rateLimited) return rateLimited;
+
     const { formData, leadName, tone, channel } = await req.json();
     if (!formData?.tipo || !formData?.finalidade || !formData?.bairro_cidade) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });

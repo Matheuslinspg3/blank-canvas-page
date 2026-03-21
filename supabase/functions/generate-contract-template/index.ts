@@ -27,6 +27,10 @@ serve(async (req) => {
     } = await supabase.auth.getUser();
     if (authError || !user) throw new Error("Unauthorized");
 
+    // Rate limit: 20 req/hour
+    const rateLimited = await checkAiRateLimit(user.id, "generate-contract-template", corsHeaders);
+    if (rateLimited) return rateLimited;
+
     const { contractType, templateName, description } = await req.json();
     const typeLabel = contractType === "locacao" ? "Locação" : contractType === "ambos" ? "Venda e Locação" : "Venda";
 

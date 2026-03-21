@@ -259,6 +259,10 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Rate limit: 20 req/hour
+    const rateLimited = await checkAiRateLimit(user.id, "generate-ad-image", corsHeaders);
+    if (rateLimited) return rateLimited;
+
     const body: RequestBody = await req.json();
     const { imageUrl } = body;
     const provider = body.aiProvider || "openai";
