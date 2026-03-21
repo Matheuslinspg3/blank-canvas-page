@@ -407,7 +407,7 @@ export default function GeradorVideoContent() {
                 <DragOverlay>
                   {draggedPhoto && (
                     <div className="aspect-square rounded-lg overflow-hidden border-2 border-primary ring-2 ring-primary shadow-lg">
-                      <img src={draggedPhoto.url} alt="" className="w-full h-full object-cover" />
+                      <OptimizedImage src={draggedPhoto.url} alt="" aspectRatio="square" wrapperClassName="w-full h-full" />
                     </div>
                   )}
                 </DragOverlay>

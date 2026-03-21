@@ -553,11 +553,11 @@ export default function GeradorArtes() {
                   const date = new Date(item.created_at);
                   return (
                     <div key={item.id} className="relative group rounded-lg overflow-hidden">
-                      <img
+                      <OptimizedImage
                         src={thumb}
                         alt={`Arte gerada em ${date.toLocaleDateString("pt-BR")}`}
-                        className="w-full aspect-square object-cover border rounded-lg"
-                        loading="lazy"
+                        aspectRatio="square"
+                        wrapperClassName="w-full border rounded-lg"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-end p-2 gap-1">
                         <p className="text-[10px] text-white">

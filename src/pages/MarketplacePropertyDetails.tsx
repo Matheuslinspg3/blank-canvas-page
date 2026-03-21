@@ -181,11 +181,10 @@ function PropertyImageCarousel({ images }: { images: Array<{ url: string; alt: s
                   : "border-transparent opacity-50 hover:opacity-80"
               )}
             >
-              <img
+              <OptimizedImage
                 src={image.url}
                 alt={`Miniatura ${index + 1}`}
                 className="w-full h-full object-cover"
-                loading="lazy"
               />
             </button>
           ))}
