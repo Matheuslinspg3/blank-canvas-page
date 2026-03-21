@@ -238,7 +238,7 @@ export function useMarketplaceFilterData(cityFilter?: string) {
     queryKey: ["marketplace-property-types", organizationId],
     queryFn: async () => {
       let query = supabase
-        .from("marketplace_properties_public" as any)
+        .from("marketplace_properties_public")
         .select("property_type_id")
         .eq("status", "disponivel")
         .not("property_type_id", "is", null);
@@ -250,7 +250,7 @@ export function useMarketplaceFilterData(cityFilter?: string) {
       const { data, error } = await query;
       if (error) throw error;
 
-      const typeIds = [...new Set((data as any[]).map((d: any) => d.property_type_id).filter(Boolean))];
+      const typeIds = [...new Set((data as MarketplaceViewRow[]).map((d) => d.property_type_id).filter(Boolean))] as string[];
       if (typeIds.length === 0) return [];
 
       const { data: types, error: typesError } = await supabase
