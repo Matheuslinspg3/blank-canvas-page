@@ -133,6 +133,7 @@ export default function Financial() {
   };
 
   return (
+    <SectionErrorBoundary section="Financial">
     <div className="flex flex-col min-h-screen relative page-enter" data-clarity-mask="true">
       <div className="absolute inset-0 bg-gradient-mesh-vibrant pointer-events-none" />
       <PageHeader
