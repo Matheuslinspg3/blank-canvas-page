@@ -226,49 +226,12 @@ export function ChangelogSection() {
               ) : allItems.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">Nenhuma atividade registrada ainda.</p>
               ) : (
-                <div className="space-y-1">
-                  {allItems.map((item) => {
-                    const Icon = item.action_type === "interaction" ? MessageCircle : item.action_type === "viewed" ? Eye : (entityIcons[item.entity_type] || CheckCircle);
-                    const colorClass = actionColors[item.action_type] || "bg-muted text-muted-foreground";
-                    return (
-                      <div key={item.id} className="flex items-start gap-3 p-3 sm:p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                        <div className={`mt-0.5 p-2 sm:p-1.5 rounded-md shrink-0 ${colorClass}`}>
-                          <Icon className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm sm:text-sm leading-relaxed">
-                            <span className="font-medium">{entityLabels[item.entity_type] || item.entity_type}</span>
-                            {" "}
-                            <span className="text-muted-foreground">{actionLabels[item.action_type] || item.action_type}</span>
-                            {item.action_type === "interaction" && (item.metadata as any)?.interaction_label && (
-                              <span className="text-muted-foreground"> ({(item.metadata as any).interaction_label})</span>
-                            )}
-                            {item.entity_name && (
-                              <span className="font-medium">: {item.entity_name}</span>
-                            )}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            por <span className="font-medium">{String(item.author)}</span> · {formatDistanceToNow(new Date(item.created_at), { addSuffix: true, locale: ptBR })}
-                          </p>
-                        </div>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0 hidden sm:block">
-                          {format(new Date(item.created_at), "dd/MM HH:mm")}
-                        </span>
-                      </div>
-                    );
-                  })}
-                  {hasNextPage && (
-                    <Button
-                      variant="ghost"
-                      className="w-full mt-2 min-h-[44px]"
-                      onClick={() => fetchNextPage()}
-                      disabled={isFetchingNextPage}
-                    >
-                      {isFetchingNextPage && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                      Carregar mais
-                    </Button>
-                  )}
-                </div>
+                <VirtualizedActivityList
+                  items={allItems}
+                  hasNextPage={!!hasNextPage}
+                  isFetchingNextPage={isFetchingNextPage}
+                  fetchNextPage={fetchNextPage}
+                />
               )}
             </CardContent>
           </Card>
