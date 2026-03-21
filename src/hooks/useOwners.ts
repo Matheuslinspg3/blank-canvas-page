@@ -23,41 +23,47 @@ export function useOwners() {
 
   const { data: owners = [], isLoading } = useQuery({
     queryKey: ["owners", profile?.organization_id],
-    queryFn: async () => {
+    staleTime: 5 * 60_000,
+    queryFn: async ({ signal }) => {
       if (!profile?.organization_id) return [];
 
+      // PERF: Select only needed columns, fetch all 3 queries in parallel
       const { data, error } = await supabase
         .from("owners")
-        .select("*")
+        .select("id, primary_name, phone, email, document, notes, organization_id, created_at")
         .eq("organization_id", profile.organization_id)
-        .order("primary_name");
+        .order("primary_name")
+        .abortSignal(signal!);
 
       if (error) throw error;
+      if (!data || data.length === 0) return [];
 
-      // Fetch aliases for all owners
       const ownerIds = data.map((o) => o.id);
-      const { data: aliases = [] } = await supabase
-        .from("owner_aliases")
-        .select("*")
-        .in("owner_id", ownerIds.length > 0 ? ownerIds : ["__none__"]);
 
-      // Fetch property counts
-      const { data: propertyCounts = [] } = await supabase
-        .from("property_owners")
-        .select("owner_id")
-        .in("owner_id", ownerIds.length > 0 ? ownerIds : ["__none__"]);
+      const [aliasResult, countResult] = await Promise.all([
+        supabase
+          .from("owner_aliases")
+          .select("id, owner_id, name, occurrence_count")
+          .in("owner_id", ownerIds)
+          .abortSignal(signal!),
+        supabase
+          .from("property_owners")
+          .select("owner_id")
+          .in("owner_id", ownerIds)
+          .abortSignal(signal!),
+      ]);
 
       const countMap = new Map<string, number>();
-      propertyCounts?.forEach((po) => {
+      (countResult.data || []).forEach((po) => {
         if (po.owner_id) {
           countMap.set(po.owner_id, (countMap.get(po.owner_id) || 0) + 1);
         }
       });
 
       const aliasMap = new Map<string, OwnerAlias[]>();
-      aliases?.forEach((a) => {
+      (aliasResult.data || []).forEach((a) => {
         const list = aliasMap.get(a.owner_id) || [];
-        list.push(a);
+        list.push(a as OwnerAlias);
         aliasMap.set(a.owner_id, list);
       });
 

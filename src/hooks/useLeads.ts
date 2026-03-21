@@ -217,19 +217,23 @@ export function useLeads() {
   const { data: inactiveLeads = [], isLoading: isLoadingInactive } = useQuery({
     queryKey: ['leads', 'inactive', profile?.organization_id],
     staleTime: 5 * 60_000,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       if (!profile?.organization_id) return [];
       const { data, error } = await supabase
         .from('leads')
         .select(`
-          *,
-          lead_type:lead_types(*),
-          interested_property_type:property_types(*)
+          id, name, phone, email, source, temperature, estimated_value,
+          lead_stage_id, stage, position, property_id, broker_id,
+          lead_type_id, interested_property_type_id, transaction_interest,
+          notes, is_active, organization_id, created_by, created_at, updated_at,
+          lead_type:lead_types(id, name),
+          interested_property_type:property_types(id, name)
         `)
         .eq('is_active', false)
         .eq('organization_id', profile.organization_id)
         .order('updated_at', { ascending: false })
-        .limit(100);
+        .limit(100)
+        .abortSignal(signal!);
 
       if (error) throw error;
       return data as Lead[];
