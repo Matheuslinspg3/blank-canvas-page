@@ -195,12 +195,14 @@ const App = () => (
                   </Suspense>
                 </TooltipProvider>
               </DemoProvider>
+              </ErrorBoundary>
             </BrowserRouter>
         </ImportProgressProvider>
     </AuthProvider>
     </CarnivalThemeProvider>
   </ThemeProvider>
 </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
