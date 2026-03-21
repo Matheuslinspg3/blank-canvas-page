@@ -56,7 +56,7 @@ export interface BillingPayment {
   paid_at: string | null;
 }
 
-export function useSubscription() {
+export function useSubscription({ enabled = false }: { enabled?: boolean } = {}) {
   const { profile, session } = useAuth();
   const queryClient = useQueryClient();
   const orgId = profile?.organization_id;
@@ -167,7 +167,7 @@ export function useSubscription() {
 
   // Realtime: listen for subscription & payment status changes
   useEffect(() => {
-    if (!orgId) return;
+    if (!orgId || !enabled) return;
     const channel = supabase
       .channel(`billing-${orgId}`)
       .on('postgres_changes', {
@@ -194,7 +194,7 @@ export function useSubscription() {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [orgId, queryClient]);
+  }, [orgId, queryClient, enabled]);
   const isActive = subscription?.status === "active" || 
     subscription?.status === "pending" ||
     (subscription?.status === "trial" && subscription.trial_end && new Date(subscription.trial_end) > new Date());

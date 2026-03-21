@@ -25,7 +25,7 @@ interface CheckoutDialogProps {
 }
 
 export function CheckoutDialog({ open, onOpenChange, plan }: CheckoutDialogProps) {
-  const { subscribe } = useSubscription();
+  const { subscribe } = useSubscription({ enabled: true });
   const { profile } = useAuth();
 
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");

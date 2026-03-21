@@ -48,7 +48,7 @@ function groupPlans(plans: SubscriptionPlan[]) {
 }
 
 export function PlanCatalogDialog({ open, onOpenChange }: Props) {
-  const { plans, subscription, subscribe } = useSubscription();
+  const { plans, subscription, subscribe } = useSubscription({ enabled: open });
   const [isYearly, setIsYearly] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState("pix");

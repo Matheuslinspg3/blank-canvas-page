@@ -74,7 +74,7 @@ function isValidCpf(cpf: string): boolean {
 
 export function UnifiedPlanSection() {
   const { trialInfo, profile } = useAuth();
-  const { subscription, payments, plans, loadingSub, loadingPayments, subscribe, cancel, isOverdue, isCancelled } = useSubscription();
+  const { subscription, payments, plans, loadingSub, loadingPayments, subscribe, cancel, isOverdue, isCancelled } = useSubscription({ enabled: true });
 
   const [showCheckout, setShowCheckout] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("pix");
