@@ -16,7 +16,7 @@ export function useConsumerProperties(filters?: ConsumerFilters) {
     queryFn: async ({ signal }) => {
       let query = supabase
         .from("marketplace_properties_public")
-        .select("id, title, property_code, status, transaction_type, sale_price, rent_price, bedrooms, bathrooms, parking_spaces, total_area, address_city, address_neighborhood, address_state, cover_image_url, organization_id, created_at")
+        .select("id, title, status, transaction_type, sale_price, rent_price, bedrooms, bathrooms, parking_spots, area_total, address_city, address_neighborhood, address_state, images, is_featured, organization_id, created_at")
         .eq("status", "disponivel")
         .order("created_at", { ascending: false })
         .limit(50)

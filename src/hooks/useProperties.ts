@@ -87,12 +87,12 @@ export function useProperties() {
           .select(`
             id, title, property_code, status, transaction_type,
             sale_price, rent_price, condominium_fee,
-            bedrooms, bathrooms, parking_spaces, total_area, useful_area,
-            address_street, address_number, address_neighborhood, address_city, address_state, address_zip,
+            bedrooms, bathrooms, parking_spots, area_total, area_useful, suites,
+            address_street, address_number, address_neighborhood, address_city, address_state, address_zipcode,
             description, property_type_id, organization_id, created_by, created_at, updated_at,
-            is_highlighted, cover_image_url,
+            featured, amenities,
             property_type:property_types(id, name),
-            images:property_images!inner(id, url, is_cover, display_order, r2_key_thumb, cached_thumbnail_url)
+            images:property_images(id, url, is_cover, display_order, r2_key_thumb, cached_thumbnail_url)
           `)
           .eq('organization_id', profile.organization_id)
           .eq('images.is_cover', true)
@@ -111,25 +111,25 @@ export function useProperties() {
         }
       }
 
-      // Also fetch properties without any cover image (so they aren't hidden)
+      // Also fetch properties without any cover image (LEFT JOIN misses them with the filter above)
       const idsWithImages = new Set(allData.map(p => p.id));
-      const { data: noImageProps } = await supabase
+      const { data: allProps } = await supabase
         .from('properties')
         .select(`
           id, title, property_code, status, transaction_type,
           sale_price, rent_price, condominium_fee,
-          bedrooms, bathrooms, parking_spaces, total_area, useful_area,
-          address_street, address_number, address_neighborhood, address_city, address_state, address_zip,
+          bedrooms, bathrooms, parking_spots, area_total, area_useful, suites,
+          address_street, address_number, address_neighborhood, address_city, address_state, address_zipcode,
           description, property_type_id, organization_id, created_by, created_at, updated_at,
-          is_highlighted, cover_image_url,
+          featured, amenities,
           property_type:property_types(id, name)
         `)
         .eq('organization_id', profile.organization_id)
         .order('created_at', { ascending: false })
         .abortSignal(signal!);
 
-      if (noImageProps) {
-        for (const p of noImageProps) {
+      if (allProps) {
+        for (const p of allProps) {
           if (!idsWithImages.has(p.id)) {
             allData.push({ ...p, images: [] } as unknown as PropertyWithDetails);
           }
