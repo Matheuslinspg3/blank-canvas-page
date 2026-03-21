@@ -64,7 +64,7 @@ const NotificationItem = React.memo(function NotificationItem({
       </div>
     </button>
   );
-}
+});
 
 export function NotificationBell() {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();

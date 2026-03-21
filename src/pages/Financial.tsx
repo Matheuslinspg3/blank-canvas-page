@@ -194,7 +194,7 @@ export default function Financial() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-destructive">{formatCurrency(stats.monthlyExpenses)}</div>
-              <p className="text-xs text-muted-foreground">{transactions.filter(t => t.type === 'despesa').length} despesas</p>
+              <p className="text-xs text-muted-foreground">{despesaCount} despesas</p>
             </CardContent>
           </Card>
 

@@ -74,4 +74,4 @@ export const MobileContractCard = React.memo(function MobileContractCard({
       </CardContent>
     </Card>
   );
-}
+});

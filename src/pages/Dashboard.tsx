@@ -58,7 +58,7 @@ export default function Dashboard() {
     monthly_revenue: 0, balance: 0,
   };
 
-  const stats = isDemoMode
+  const stats = useMemo(() => isDemoMode
     ? {
         properties: { value: demoStats.activeProperties, subtitle: `${demoStats.totalProperties} imóveis em portfólio`, trend: { value: "+15%", positive: true } },
         leads: { value: demoStats.activeLeads, subtitle: `${demoStats.newLeadsThisWeek} novos esta semana`, trend: { value: `+${demoStats.newLeadsThisWeek}`, positive: true } },
@@ -70,7 +70,7 @@ export default function Dashboard() {
         leads: { value: s.active_leads, subtitle: s.new_leads_week > 0 ? `${s.new_leads_week} novos esta semana` : "Adicione leads e gerencie seu funil", trend: s.new_leads_week > 0 ? { value: `+${s.new_leads_week}`, positive: true } : undefined },
         contracts: { value: s.active_contracts, subtitle: s.pending_contracts > 0 ? `${s.pending_contracts} pendente${s.pending_contracts > 1 ? 's' : ''}` : s.active_contracts > 0 ? "Todos finalizados" : "Nenhum contrato ativo", trend: undefined },
         revenue: { value: formatCurrency(s.monthly_revenue), subtitle: `Saldo: ${formatCurrency(s.balance)}`, trend: undefined },
-      };
+      }, [isDemoMode, demoStats, s]);
 
   return (
     <div className="flex flex-col min-h-screen relative page-enter">

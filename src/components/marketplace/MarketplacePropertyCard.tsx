@@ -137,4 +137,4 @@ export const MarketplacePropertyCard = React.memo(function MarketplacePropertyCa
       </CardContent>
     </Card>
   );
-}
+});
