@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, lazy, Suspense } from "react";
+import { QueryErrorState } from "@/components/QueryErrorState";
 import { SectionErrorBoundary } from "@/components/SectionErrorBoundary";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -66,13 +67,13 @@ export default function Financial() {
   const [finTab, setFinTab] = useTabParam("tab", "transactions");
 
   // Financial data
-  const { transactions, stats, chartData, deleteTransaction } = useTransactions();
+  const { transactions, stats, chartData, deleteTransaction, error: txError, refetch: refetchTx } = useTransactions();
   const { invoices, pendingAmount, pendingCount } = useInvoices();
   const { commissions } = useCommissions();
 
   // Contracts data
   const { 
-    contracts, isLoading: loadingContracts, stats: contractStats, 
+    contracts, isLoading: loadingContracts, stats: contractStats, error: contractsError, refetch: refetchContracts,
     createContract, updateContract, deleteContract: deleteContractFn,
     isCreating, isUpdating 
   } = useContracts();
@@ -235,12 +236,16 @@ export default function Financial() {
           </TabsList>
 
           <TabsContent value="transactions" className="mt-4">
-            <TransactionsTab
-              transactions={transactions}
-              onEdit={handleEditTransaction}
-              onDelete={setDeleteId}
-              formatCurrency={formatCurrency}
-            />
+            {txError ? (
+              <QueryErrorState message="Erro ao carregar transações" onRetry={() => refetchTx()} />
+            ) : (
+              <TransactionsTab
+                transactions={transactions}
+                onEdit={handleEditTransaction}
+                onDelete={setDeleteId}
+                formatCurrency={formatCurrency}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="invoices" className="mt-4">
@@ -257,6 +262,9 @@ export default function Financial() {
           </TabsContent>
 
           <TabsContent value="contracts" className="mt-4 space-y-4">
+            {contractsError ? (
+              <QueryErrorState message="Erro ao carregar contratos" onRetry={() => refetchContracts()} />
+            ) : (<>
             {/* Contract Stats */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Total</p><p className="text-xl font-bold">{contractStats.total}</p></CardContent></Card>
@@ -361,6 +369,7 @@ export default function Financial() {
                 </CardContent>
               </Card>
             )}
+            </>)}
           </TabsContent>
 
           <TabsContent value="templates" className="mt-4">

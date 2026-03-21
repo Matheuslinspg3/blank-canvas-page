@@ -1,4 +1,5 @@
 import { lazy, Suspense, useMemo, useCallback } from "react";
+import { QueryErrorState } from "@/components/QueryErrorState";
 import { Home, Users, FileText, DollarSign } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -41,7 +42,7 @@ export default function Dashboard() {
   const { periodKey, setPeriodKey, dateRange, customRange, setCustomRange } = useDashboardPeriod();
 
   // Single lightweight RPC instead of 4 heavy queries
-  const { data: realStats, isLoading } = useDashboardStats();
+  const { data: realStats, isLoading, error: statsError, refetch: refetchStats } = useDashboardStats();
 
   // PERF: Removed heavy realtime subscription that listened to ALL lead/appointment changes.
   // Dashboard data refreshes via staleTime (2min) and refetchInterval (5min).
@@ -110,6 +111,9 @@ export default function Dashboard() {
         <MobileTodaySummary />
 
         {/* Desktop Stats Grid */}
+        {statsError ? (
+          <QueryErrorState message="Erro ao carregar estatísticas" onRetry={() => refetchStats()} />
+        ) : (
         <div className="hidden md:grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4 stagger-children">
           {/* PERF: colorIndex prop replaces non-deterministic module-level counter */}
           <StatCard title="Imóveis Ativos" value={stats.properties.value} subtitle={stats.properties.subtitle} icon={Home} trend={stats.properties.trend} onClick={() => { trackAction('stat_click', { card: 'properties' }); navigate('/imoveis'); }} isLoading={isLoading} colorIndex={0} />
@@ -117,6 +121,7 @@ export default function Dashboard() {
           <StatCard title="Contratos Ativos" value={stats.contracts.value} subtitle={stats.contracts.subtitle} icon={FileText} trend={stats.contracts.trend} onClick={() => { trackAction('stat_click', { card: 'contracts' }); navigate('/contratos'); }} isLoading={isLoading} colorIndex={2} />
           <StatCard title="Receita do Mês" value={stats.revenue.value} subtitle={stats.revenue.subtitle} icon={DollarSign} trend={stats.revenue.trend} onClick={() => { trackAction('stat_click', { card: 'revenue' }); navigate('/financeiro'); }} isLoading={isLoading} colorIndex={3} />
         </div>
+        )}
 
         {/* Advanced KPIs */}
         <AdvancedKPIs dateRange={dateRange} />

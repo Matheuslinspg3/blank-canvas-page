@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, FileUp } from "lucide-react";
+import { QueryErrorState } from "@/components/QueryErrorState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProperties, PropertyWithDetails, PropertyFormData } from "@/hooks/useProperties";
 import { SelectablePropertyCard } from "@/components/properties/SelectablePropertyCard";
@@ -88,7 +89,7 @@ export default function Properties() {
   const { data: searchResults, isLoading: isSearching } = useAdvancedPropertySearch(filters);
 
   const {
-    properties: allProperties, isLoading: isLoadingAll, createProperty, updateProperty, deleteProperty,
+    properties: allProperties, isLoading: isLoadingAll, error: propertiesError, createProperty, updateProperty, deleteProperty,
     bulkDeleteProperties, bulkInactivateProperties, publishToMarketplace,
     bulkPublishToMarketplace, bulkHideFromMarketplace,
     isCreating, isUpdating, isDeleting, isBulkDeleting, isBulkInactivating,
@@ -688,7 +689,10 @@ export default function Properties() {
         )}
 
         {/* Properties View */}
-        {!isLoading && paginatedProperties.length > 0 && (
+        {propertiesError && (
+          <QueryErrorState message="Erro ao carregar imóveis" onRetry={() => refetch()} />
+        )}
+        {!propertiesError && !isLoading && paginatedProperties.length > 0 && (
           <>
             {viewMode === "grid" && (
               <VirtualizedPropertyGrid

@@ -36,7 +36,7 @@ export function useContracts() {
   const { profile, user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: contracts = [], isLoading, error } = useQuery({
+  const { data: contracts = [], isLoading, error, refetch } = useQuery({
     queryKey: ['contracts', profile?.organization_id],
     staleTime: 5 * 60_000,
     queryFn: async () => {
@@ -216,6 +216,7 @@ export function useContracts() {
     contracts,
     isLoading,
     error,
+    refetch,
     stats,
     generateCode,
     createContract: createContract.mutate,

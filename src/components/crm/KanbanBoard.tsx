@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
+import { QueryErrorState } from '@/components/QueryErrorState';
 import {
   DndContext,
   DragEndEvent,
@@ -85,6 +86,7 @@ export function KanbanBoard() {
     leadsByStage,
     stageStats,
     isLoading,
+    error: leadsError,
     refetch,
     createLead,
     updateLead,
@@ -409,6 +411,10 @@ export function KanbanBoard() {
     toast({ title: 'Leads movidos', description: `${selectedIds.size} lead(s) movidos para "${stage?.name}".` });
     clearSelection();
   }, [selectedIds, bulkMoveStage, leadStages, toast, clearSelection]);
+
+  if (leadsError) {
+    return <QueryErrorState message="Erro ao carregar leads" onRetry={() => refetch()} />;
+  }
 
   if (isLoading) {
     return (

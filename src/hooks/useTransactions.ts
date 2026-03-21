@@ -27,7 +27,7 @@ export function useTransactions() {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: transactions = [], isLoading, error } = useQuery({
+  const { data: transactions = [], isLoading, error, refetch } = useQuery({
     queryKey: ['transactions', profile?.organization_id],
     staleTime: 5 * 60_000,
     queryFn: async () => {
@@ -191,6 +191,7 @@ export function useTransactions() {
     transactions,
     isLoading,
     error,
+    refetch,
     stats,
     chartData,
     createTransaction: createTransaction.mutate,
