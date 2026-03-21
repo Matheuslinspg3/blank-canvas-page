@@ -216,6 +216,7 @@ export function useContracts() {
     contracts,
     isLoading,
     error,
+    refetch,
     stats,
     generateCode,
     createContract: createContract.mutate,
