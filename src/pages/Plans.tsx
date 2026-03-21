@@ -135,7 +135,7 @@ const planUIMap: Record<string, PlanUI> = {
 /* ─── Current Plan Section ─── */
 function CurrentPlanSection() {
   const { trialInfo } = useAuth();
-  const { subscription, payments, loadingSub, loadingPayments, cancel, isOverdue, isCancelled } = useSubscription();
+  const { subscription, payments, loadingSub, loadingPayments, cancel, isOverdue, isCancelled } = useSubscription({ enabled: true });
 
   const status = subscription?.status || "cancelled";
   const cfg = statusConfig[status] || statusConfig.cancelled;
