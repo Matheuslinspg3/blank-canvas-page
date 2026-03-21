@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { trackAiBilling } from "../_shared/ai-billing.ts";
 import { callGeminiOpenAIChat, fetchImageAsDataUrl, getGeminiApiKeys } from "../_shared/gemini.ts";
+import { checkAiRateLimit } from "../_shared/ai-rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,6 +35,10 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Rate limit: 20 req/hour
+    const rateLimitResp = await checkAiRateLimit(user.id, "validate-document", corsHeaders);
+    if (rateLimitResp) return rateLimitResp;
 
     const { document_id, storage_path, expected_type } = await req.json();
     if (!document_id || !storage_path) {

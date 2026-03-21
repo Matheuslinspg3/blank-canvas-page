@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { trackAiBilling } from "../_shared/ai-billing.ts";
 import { callGeminiOpenAIChat } from "../_shared/gemini.ts";
+import { checkAiRateLimit } from "../_shared/ai-rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,6 +30,10 @@ serve(async (req) => {
       error: authErr,
     } = await anonClient.auth.getUser(token);
     if (authErr || !user) throw new Error("Não autorizado");
+
+    // Rate limit: 20 req/hour
+    const rateLimited = await checkAiRateLimit(user.id, "contract-ai-fill", corsHeaders);
+    if (rateLimited) return rateLimited;
 
     const { data: profile } = await supabase.from("profiles").select("organization_id").eq("user_id", user.id).single();
     if (!profile?.organization_id) throw new Error("Organização não encontrada");

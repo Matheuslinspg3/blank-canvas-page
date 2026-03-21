@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { trackAiBilling } from "../_shared/ai-billing.ts";
+import { checkAiRateLimit } from "../_shared/ai-rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,6 +30,10 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
     const userId = claims.claims.sub as string;
+
+    // Rate limit: 20 req/hour
+    const rateLimited = await checkAiRateLimit(userId, "summarize-lead", corsHeaders);
+    if (rateLimited) return rateLimited;
 
     const { lead_id } = await req.json();
     if (!lead_id) {

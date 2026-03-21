@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { checkAiRateLimit } from "../_shared/ai-rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -114,6 +115,10 @@ Deno.serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Rate limit: 20 req/hour
+    const rateLimited = await checkAiRateLimit(claimsData.claims.sub as string, "generate-landing-content", corsHeaders);
+    if (rateLimited) return rateLimited;
 
     const { propertyId, forceRegenerate = false } = await req.json();
 

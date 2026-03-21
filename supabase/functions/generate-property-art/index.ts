@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { checkAiRateLimit } from "../_shared/ai-rate-limit.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -33,6 +34,10 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Rate limit: 20 req/hour
+    const rateLimited = await checkAiRateLimit(user.id, "generate-property-art", corsHeaders);
+    if (rateLimited) return rateLimited;
 
     const { propertyId, imageUrl, config } = await req.json();
     if (!propertyId || !imageUrl) {

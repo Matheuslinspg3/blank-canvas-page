@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callGeminiOpenAIChat } from "../_shared/gemini.ts";
+import { checkAiRateLimit } from "../_shared/ai-rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,6 +26,10 @@ serve(async (req) => {
       error: authError,
     } = await supabase.auth.getUser();
     if (authError || !user) throw new Error("Unauthorized");
+
+    // Rate limit: 20 req/hour
+    const rateLimited = await checkAiRateLimit(user.id, "generate-contract-template", corsHeaders);
+    if (rateLimited) return rateLimited;
 
     const { contractType, templateName, description } = await req.json();
     const typeLabel = contractType === "locacao" ? "Locação" : contractType === "ambos" ? "Venda e Locação" : "Venda";

@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { checkAiRateLimit } from "../_shared/ai-rate-limit.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { trackAiBilling } from "../_shared/ai-billing.ts";
 import { callGeminiOpenAIChat, getGeminiApiKeys } from "../_shared/gemini.ts";
@@ -143,6 +144,10 @@ serve(async (req) => {
     if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+
+    // Rate limit: 20 req/hour
+    const rateLimited = await checkAiRateLimit(user.id, "generate-ad-content", corsHeaders);
+    if (rateLimited) return rateLimited;
 
     const { formData, leadName, tone, channel } = await req.json();
     if (!formData?.tipo || !formData?.finalidade || !formData?.bairro_cidade) {
