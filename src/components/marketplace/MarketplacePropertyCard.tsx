@@ -14,7 +14,7 @@ interface MarketplacePropertyCardProps {
   onContactClick: (property: MarketplaceProperty) => void;
 }
 
-export function MarketplacePropertyCard({ property, onContactClick }: MarketplacePropertyCardProps) {
+export const MarketplacePropertyCard = React.memo(function MarketplacePropertyCard({ property, onContactClick }: MarketplacePropertyCardProps) {
   const navigate = useNavigate();
 
   const getDisplayPrice = () => {
