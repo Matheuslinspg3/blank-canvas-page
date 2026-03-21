@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -56,10 +56,45 @@ export interface BillingPayment {
   paid_at: string | null;
 }
 
+export type PlanLine = "marketplace" | "erp" | "combo";
+
+export function getPlanLine(plan: SubscriptionPlan | null | undefined): PlanLine | null {
+  if (!plan?.features) return null;
+  return (plan.features as Record<string, any>).line as PlanLine ?? null;
+}
+
+export function hasFeature(plan: SubscriptionPlan | null | undefined, key: string): boolean {
+  if (!plan?.features) return false;
+  const features = plan.features as Record<string, any>;
+  // For combo plans, check both marketplace and erp sub-objects
+  if (features.line === "combo") {
+    if (features.marketplace?.[key]) return true;
+    if (features.erp?.[key]) return true;
+    return false;
+  }
+  return !!features[key];
+}
+
+export function getFeatureLimit(plan: SubscriptionPlan | null | undefined, key: string): number | null {
+  if (!plan?.features) return 0;
+  const features = plan.features as Record<string, any>;
+  // For combo plans, check both sub-objects and return max
+  if (features.line === "combo") {
+    const mpVal = features.marketplace?.[key];
+    const erpVal = features.erp?.[key];
+    if (mpVal === null || erpVal === null) return null; // null = unlimited
+    return Math.max(mpVal ?? 0, erpVal ?? 0);
+  }
+  const val = features[key];
+  if (val === null) return null; // null = unlimited
+  return typeof val === "number" ? val : 0;
+}
+
 export function useSubscription({ enabled = false }: { enabled?: boolean } = {}) {
   const { profile, session } = useAuth();
   const queryClient = useQueryClient();
   const orgId = profile?.organization_id;
+
   const { data: plans = [], isLoading: loadingPlans } = useQuery({
     queryKey: ["subscription-plans"],
     queryFn: async () => {
@@ -125,12 +160,10 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
 
   const subscribe = useMutation({
     mutationFn: async (params: { planId: string; billingCycle: string; paymentMethod: string; customerName?: string; customerCpf?: string }) => {
-      // Step 1: Create customer with CPF
       const { customerId } = await callBilling("create-customer", {
         customerName: params.customerName,
         customerCpf: params.customerCpf,
       });
-      // Step 2: Create subscription
       return callBilling("create-subscription", { ...params, customerId });
     },
     onSuccess: (data) => {
@@ -165,7 +198,6 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Realtime: listen for subscription & payment status changes
   useEffect(() => {
     if (!orgId || !enabled) return;
     const channel = supabase
@@ -195,14 +227,28 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [orgId, queryClient, enabled]);
+
   const isActive = subscription?.status === "active" || 
     subscription?.status === "pending" ||
     (subscription?.status === "trial" && subscription.trial_end && new Date(subscription.trial_end) > new Date());
   const isOverdue = subscription?.status === "overdue";
   const isCancelled = subscription?.status === "cancelled";
 
+  const currentPlan = subscription?.plan as SubscriptionPlan | undefined;
+
+  const checkFeature = useCallback((key: string) => hasFeature(currentPlan, key), [currentPlan]);
+  const checkLimit = useCallback((key: string) => getFeatureLimit(currentPlan, key), [currentPlan]);
+
+  // Helpers to group plans by line
+  const marketplacePlans = plans.filter(p => (p.features as any)?.line === "marketplace");
+  const erpPlans = plans.filter(p => (p.features as any)?.line === "erp");
+  const comboPlans = plans.filter(p => (p.features as any)?.line === "combo");
+
   return {
     plans,
+    marketplacePlans,
+    erpPlans,
+    comboPlans,
     subscription,
     payments,
     loadingPlans,
@@ -214,5 +260,8 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
     isActive,
     isOverdue,
     isCancelled,
+    currentPlan,
+    hasFeature: checkFeature,
+    getFeatureLimit: checkLimit,
   };
 }
