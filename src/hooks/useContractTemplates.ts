@@ -37,7 +37,7 @@ export function useContractTemplates() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contract_templates")
-        .select("*")
+        .select("id, organization_id, name, description, contract_type, body_html, variables, is_default, created_by, created_at, updated_at")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data || []) as ContractTemplate[];
