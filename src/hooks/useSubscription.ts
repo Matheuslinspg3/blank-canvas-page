@@ -56,7 +56,7 @@ export interface BillingPayment {
   paid_at: string | null;
 }
 
-export function useSubscription() {
+export function useSubscription({ enabled = false }: { enabled?: boolean } = {}) {
   const { profile, session } = useAuth();
   const queryClient = useQueryClient();
   const orgId = profile?.organization_id;
