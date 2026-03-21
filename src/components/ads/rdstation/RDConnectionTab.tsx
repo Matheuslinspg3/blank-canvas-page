@@ -23,11 +23,11 @@ export default function RDConnectionTab() {
 
   useEffect(() => {
     if (settings) {
-      setApiPublicKey((settings as any).api_public_key || "");
-      setApiPrivateKey((settings as any).api_private_key || "");
+      setApiPublicKey(settings.api_public_key || "");
+      setApiPrivateKey(settings.api_private_key || "");
       setAutoSend(settings.auto_send_to_crm);
-      setStageId((settings as any).default_stage_id || "");
-      setDefaultSource((settings as any).default_source || "RD Station");
+      setStageId(settings.default_stage_id || "");
+      setDefaultSource(settings.default_source || "RD Station");
     }
   }, [settings]);
 
