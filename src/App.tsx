@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { HelmetProvider } from "react-helmet-async";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -96,6 +97,7 @@ const queryClient = new QueryClient({
 });
 
 const App = () => (
+  <HelmetProvider>
   <ErrorBoundary>
   <QueryClientProvider client={queryClient}>
   <ThemeProvider>
@@ -203,6 +205,7 @@ const App = () => (
   </ThemeProvider>
 </QueryClientProvider>
   </ErrorBoundary>
+  </HelmetProvider>
 );
 
 export default App;

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
+import { SEOHead } from "@/components/SEOHead";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -180,13 +181,7 @@ export default function PropertyLandingPage() {
     fetchProperty();
   }, [id]);
 
-  useEffect(() => {
-    if (aiContent?.seo_title) {
-      document.title = aiContent.seo_title;
-    } else if (property?.title) {
-      document.title = `${property.title} | Habitae`;
-    }
-  }, [aiContent, property]);
+  // SEO is now handled via SEOHead in the return JSX below
 
   const formatPrice = (price: number | null, isRent = false) => {
     if (!price) return null;
@@ -265,9 +260,18 @@ export default function PropertyLandingPage() {
   const ctaText = ctaPrimary || (isAvailable ? "Agendar visita" : "Receber novidades");
   const hasImages = property.images && property.images.length > 0;
 
+  const coverImage = property.images?.find(i => i.is_cover) || property.images?.[0];
+  const ogImage = coverImage ? getImageUrl(coverImage as ImageRecord, 'full') : undefined;
+  const seoTitle = aiContent?.seo_title || property.title || "Imóvel";
+  const seoDescription = aiContent?.seo_description || property.description?.substring(0, 160) || undefined;
+
   return (
     <div className="min-h-screen bg-background">
-      {aiContent?.seo_description && <meta name="description" content={aiContent.seo_description} />}
+      <SEOHead
+        title={seoTitle}
+        description={seoDescription}
+        ogImage={ogImage}
+      />
 
       {/* Minimal sticky header — Vizcom-style */}
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/30">

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { SEOHead } from "@/components/SEOHead";
 import { Download, Smartphone, Share, MoreVertical, Plus, Check, Wrench, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -79,6 +80,7 @@ export default function Install() {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-6 bg-background">
+      <SEOHead title="Instalar" description="Instale o Porta do Corretor como app no seu celular. Acesso rápido, tela cheia e funciona offline." />
       <div className="w-full max-w-md space-y-8 pt-8">
         <div className="flex flex-col items-center gap-4 text-center">
           <HabitaeLogo size="lg" variant="horizontal" />

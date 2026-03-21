@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { SEOHead } from "@/components/SEOHead";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -88,9 +89,6 @@ export default function PublicPropertyBySlug() {
         setNotFound(true);
       } else {
         setData(result);
-        if (result.property?.title) {
-          document.title = `${result.property.title} | Imóvel`;
-        }
       }
       setLoading(false);
     }
@@ -178,8 +176,16 @@ export default function PublicPropertyBySlug() {
 
   const location = [prop.neighborhood, prop.city, prop.state].filter(Boolean).join(", ");
 
+  const coverImg = data.images?.find(i => i.is_cover) || data.images?.[0];
+  const ogImage = coverImg ? resolveImageUrl(coverImg) : undefined;
+
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead
+        title={prop.title || "Imóvel"}
+        description={prop.description?.substring(0, 160) || undefined}
+        ogImage={ogImage}
+      />
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/30">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
