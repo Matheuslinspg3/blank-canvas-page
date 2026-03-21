@@ -160,16 +160,20 @@ export function useLeads() {
   const { data: leads = [], isLoading: isLoadingLeads, error, refetch } = useQuery({
     queryKey: ['leads', profile?.organization_id],
     staleTime: 2 * 60_000,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await supabase
         .from('leads')
         .select(`
-          *,
-          lead_type:lead_types(*),
-          interested_property_type:property_types(*)
+          id, name, phone, email, source, temperature, estimated_value,
+          lead_stage_id, stage, position, property_id, broker_id,
+          lead_type_id, interested_property_type_id, transaction_interest,
+          notes, is_active, organization_id, created_by, created_at, updated_at,
+          lead_type:lead_types(id, name),
+          interested_property_type:property_types(id, name)
         `)
         .eq('is_active', true)
-        .order('position', { ascending: true });
+        .order('position', { ascending: true })
+        .abortSignal(signal!);
 
       if (error) throw error;
       
@@ -179,10 +183,10 @@ export function useLeads() {
       
       const [propertiesResult, brokersResult] = await Promise.all([
         propertyIds.length > 0
-          ? supabase.from('properties').select('id, title').in('id', propertyIds)
+          ? supabase.from('properties').select('id, title').in('id', propertyIds).abortSignal(signal!)
           : Promise.resolve({ data: [] as { id: string; title: string }[] }),
         brokerIds.length > 0
-          ? supabase.from('profiles_public' as any).select('id, user_id, full_name').in('user_id', brokerIds)
+          ? supabase.from('profiles_public' as any).select('id, user_id, full_name').in('user_id', brokerIds).abortSignal(signal!)
           : Promise.resolve({ data: [] }),
       ]);
 
