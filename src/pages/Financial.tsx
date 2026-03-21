@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, useMemo, useCallback, lazy, Suspense } from "react";
 import { SectionErrorBoundary } from "@/components/SectionErrorBoundary";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -85,52 +85,58 @@ export default function Financial() {
   const [deleteContractDialogOpen, setDeleteContractDialogOpen] = useState(false);
   const [contractToDelete, setContractToDelete] = useState<string | null>(null);
 
-  const handleEditTransaction = (transaction: Transaction) => {
+  // PERF: memoized inline counts
+  const paidCount = useMemo(() => transactions.filter(t => t.paid).length, [transactions]);
+  const receitaCount = useMemo(() => transactions.filter(t => t.type === 'receita').length, [transactions]);
+  const despesaCount = useMemo(() => transactions.filter(t => t.type === 'despesa').length, [transactions]);
+
+  const handleEditTransaction = useCallback((transaction: Transaction) => {
     setEditingTransaction(transaction);
     setTransactionFormOpen(true);
-  };
+  }, []);
 
-  const handleEditInvoice = (invoice: Invoice) => {
+  const handleEditInvoice = useCallback((invoice: Invoice) => {
     setEditingInvoice(invoice);
     setInvoiceFormOpen(true);
-  };
+  }, []);
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = useCallback(() => {
     if (deleteId) deleteTransaction(deleteId);
     setDeleteId(null);
-  };
+  }, [deleteId, deleteTransaction]);
 
-  // Contract helpers
-  const filteredContracts = contracts.filter((contract) => {
+  // Contract helpers — memoized
+  const filteredContracts = useMemo(() => contracts.filter((contract) => {
+    const searchLower = contractSearch.toLowerCase();
     const matchesSearch = 
-      contract.code.toLowerCase().includes(contractSearch.toLowerCase()) ||
-      contract.property?.title?.toLowerCase().includes(contractSearch.toLowerCase()) ||
-      contract.lead?.name?.toLowerCase().includes(contractSearch.toLowerCase());
+      contract.code.toLowerCase().includes(searchLower) ||
+      contract.property?.title?.toLowerCase().includes(searchLower) ||
+      contract.lead?.name?.toLowerCase().includes(searchLower);
     const matchesType = contractTypeFilter === "all" || contract.type === contractTypeFilter;
     const matchesStatus = contractStatusFilter === "all" || contract.status === contractStatusFilter;
     return matchesSearch && matchesType && matchesStatus;
-  });
+  }), [contracts, contractSearch, contractTypeFilter, contractStatusFilter]);
 
-  const handleCreateContract = () => { setSelectedContract(null); setContractFormOpen(true); };
-  const handleEditContract = (contract: ContractWithDetails) => { setSelectedContract(contract); setContractFormOpen(true); };
-  const handleViewContract = (contract: ContractWithDetails) => { setSelectedContract(contract); setContractDetailsOpen(true); };
-  const handleSubmitContract = (data: ContractFormData) => {
+  const handleCreateContract = useCallback(() => { setSelectedContract(null); setContractFormOpen(true); }, []);
+  const handleEditContract = useCallback((contract: ContractWithDetails) => { setSelectedContract(contract); setContractFormOpen(true); }, []);
+  const handleViewContract = useCallback((contract: ContractWithDetails) => { setSelectedContract(contract); setContractDetailsOpen(true); }, []);
+  const handleSubmitContract = useCallback((data: ContractFormData) => {
     if (selectedContract) {
       updateContract({ id: selectedContract.id, data });
     } else {
       createContract(data);
     }
-  };
+  }, [selectedContract, updateContract, createContract]);
 
-  const formatDate = (date: string | null | undefined) => {
+  const formatDate = useCallback((date: string | null | undefined) => {
     if (!date) return "-";
     return format(new Date(date), "dd/MM/yyyy", { locale: ptBR });
-  };
+  }, []);
 
-  const formatContractCurrency = (value: number | null | undefined) => {
+  const formatContractCurrency = useCallback((value: number | null | undefined) => {
     if (!value) return "R$ 0";
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
-  };
+  }, []);
 
   return (
     <SectionErrorBoundary section="Financial">
@@ -166,7 +172,7 @@ export default function Financial() {
               <div className={`text-2xl font-bold ${stats.balance >= 0 ? 'text-success' : 'text-destructive'}`}>
                 {formatCurrency(stats.balance)}
               </div>
-              <p className="text-xs text-muted-foreground">{transactions.filter(t => t.paid).length} transações pagas</p>
+              <p className="text-xs text-muted-foreground">{paidCount} transações pagas</p>
             </CardContent>
           </Card>
 
@@ -177,7 +183,7 @@ export default function Financial() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-success">{formatCurrency(stats.monthlyRevenue)}</div>
-              <p className="text-xs text-muted-foreground">{transactions.filter(t => t.type === 'receita').length} receitas</p>
+              <p className="text-xs text-muted-foreground">{receitaCount} receitas</p>
             </CardContent>
           </Card>
 
@@ -188,7 +194,7 @@ export default function Financial() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-destructive">{formatCurrency(stats.monthlyExpenses)}</div>
-              <p className="text-xs text-muted-foreground">{transactions.filter(t => t.type === 'despesa').length} despesas</p>
+              <p className="text-xs text-muted-foreground">{despesaCount} despesas</p>
             </CardContent>
           </Card>
 

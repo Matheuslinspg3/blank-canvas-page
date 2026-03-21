@@ -1,3 +1,4 @@
+import React from "react";
 import { Bell, CheckCheck, Home, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +26,7 @@ const entityRouteMap: Record<string, (id: string) => string> = {
   appointment: (id) => `/agenda?id=${id}`,
 };
 
-function NotificationItem({
+const NotificationItem = React.memo(function NotificationItem({
   notification,
   onRead,
   onNavigate,
@@ -64,7 +65,7 @@ function NotificationItem({
       </div>
     </button>
   );
-}
+});
 
 export function NotificationBell() {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();

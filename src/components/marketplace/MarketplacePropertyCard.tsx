@@ -1,3 +1,4 @@
+import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ interface MarketplacePropertyCardProps {
   onContactClick: (property: MarketplaceProperty) => void;
 }
 
-export function MarketplacePropertyCard({ property, onContactClick }: MarketplacePropertyCardProps) {
+export const MarketplacePropertyCard = React.memo(function MarketplacePropertyCard({ property, onContactClick }: MarketplacePropertyCardProps) {
   const navigate = useNavigate();
 
   const getDisplayPrice = () => {
@@ -136,4 +137,4 @@ export function MarketplacePropertyCard({ property, onContactClick }: Marketplac
       </CardContent>
     </Card>
   );
-}
+});

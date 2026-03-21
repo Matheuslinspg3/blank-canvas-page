@@ -1,3 +1,4 @@
+import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,7 +20,7 @@ interface MobileContractCardProps {
   onDelete: (id: string) => void;
 }
 
-export function MobileContractCard({
+export const MobileContractCard = React.memo(function MobileContractCard({
   contract, statusConfig, typeLabels, formatCurrency, formatDate,
   onView, onEdit, onDelete,
 }: MobileContractCardProps) {
@@ -73,4 +74,4 @@ export function MobileContractCard({
       </CardContent>
     </Card>
   );
-}
+});

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Clock, MapPin, User, Home, Check, MoreVertical, Phone, Mail, MessageCircle, Users as UsersIcon, FileText, CalendarCheck } from 'lucide-react';
@@ -46,7 +46,7 @@ interface AppointmentCardProps {
   onDelete: (id: string) => void;
 }
 
-export function AppointmentCard({
+export const AppointmentCard = React.memo(function AppointmentCard({
   appointment,
   onToggleComplete,
   onEdit,
@@ -260,4 +260,4 @@ export function AppointmentCard({
       </Dialog>
     </>
   );
-}
+});
