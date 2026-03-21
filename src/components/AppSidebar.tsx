@@ -266,6 +266,7 @@ export function AppSidebar() {
             variant="ghost" 
             className="flex-1 justify-start gap-3 text-muted-foreground hover:text-destructive"
             onClick={signOut}
+            aria-label="Sair da conta"
           >
             <LogOut className="h-4 w-4" />
             {!collapsed && <span>Sair</span>}
