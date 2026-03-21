@@ -270,7 +270,7 @@ export function useMarketplaceFilterData(cityFilter?: string) {
     queryKey: ["marketplace-amenities", organizationId],
     queryFn: async () => {
       let query = supabase
-        .from("marketplace_properties_public" as any)
+        .from("marketplace_properties_public")
         .select("amenities")
         .eq("status", "disponivel")
         .not("amenities", "is", null);
@@ -283,8 +283,8 @@ export function useMarketplaceFilterData(cityFilter?: string) {
       if (error) throw error;
 
       const allAmenities = new Set<string>();
-      (data as any[]).forEach((d: any) => {
-        if (d.amenities) (d.amenities as string[]).forEach((a: string) => allAmenities.add(a));
+      (data as MarketplaceViewRow[]).forEach((d) => {
+        if (d.amenities) d.amenities.forEach((a: string) => allAmenities.add(a));
       });
 
       return Array.from(allAmenities).sort();
