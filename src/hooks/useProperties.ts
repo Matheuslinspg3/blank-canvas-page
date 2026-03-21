@@ -75,10 +75,10 @@ export function useProperties() {
         return [];
       }
       
-      // PERF: Only fetch cover image per property in listing to avoid 25k+ row JOIN
-      // Full images are fetched on-demand in detail views
+      // PERF: Single paginated query fetching properties with cover image via LEFT JOIN.
+      // Properties without cover images get images: [] automatically from the LEFT JOIN.
       const allData: PropertyWithDetails[] = [];
-      const PAGE_SIZE = 100;
+      const PAGE_SIZE = 200;
       let from = 0;
       let hasMore = true;
 
@@ -93,47 +93,27 @@ export function useProperties() {
             description, property_type_id, organization_id, created_by, created_at, updated_at,
             featured, amenities,
             property_type:property_types(id, name),
-            images:property_images(id, url, is_cover, display_order, r2_key_thumb, cached_thumbnail_url)
+            images:property_images!left(id, url, is_cover, display_order, r2_key_thumb, cached_thumbnail_url)
           `)
           .eq('organization_id', profile.organization_id)
-          .eq('images.is_cover', true)
           .order('created_at', { ascending: false })
           .range(from, from + PAGE_SIZE - 1)
           .abortSignal(signal!);
 
         if (error) throw error;
+
+        // Filter to keep only cover images client-side (avoids the double-query problem)
+        const processed = (data as unknown as PropertyWithDetails[]).map(p => ({
+          ...p,
+          images: (p.images || []).filter((img: any) => img.is_cover).slice(0, 1),
+        }));
         
-        allData.push(...(data as unknown as PropertyWithDetails[]));
+        allData.push(...processed);
         
         if (!data || data.length < PAGE_SIZE) {
           hasMore = false;
         } else {
           from += PAGE_SIZE;
-        }
-      }
-
-      // Also fetch properties without any cover image (LEFT JOIN misses them with the filter above)
-      const idsWithImages = new Set(allData.map(p => p.id));
-      const { data: allProps } = await supabase
-        .from('properties')
-        .select(`
-          id, title, property_code, status, transaction_type,
-          sale_price, rent_price, condominium_fee,
-          bedrooms, bathrooms, parking_spots, area_total, area_useful, suites,
-          address_street, address_number, address_neighborhood, address_city, address_state, address_zipcode,
-          description, property_type_id, organization_id, created_by, created_at, updated_at,
-          featured, amenities,
-          property_type:property_types(id, name)
-        `)
-        .eq('organization_id', profile.organization_id)
-        .order('created_at', { ascending: false })
-        .abortSignal(signal!);
-
-      if (allProps) {
-        for (const p of allProps) {
-          if (!idsWithImages.has(p.id)) {
-            allData.push({ ...p, images: [] } as unknown as PropertyWithDetails);
-          }
         }
       }
 
