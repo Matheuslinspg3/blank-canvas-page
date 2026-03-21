@@ -43,7 +43,7 @@ const paymentStatusConfig: Record<string, { label: string; variant: "default" | 
 };
 
 export function SubscriptionSection() {
-  const { subscription, payments, loadingSub, loadingPayments, cancel, renew, isOverdue, isCancelled } = useSubscription();
+  const { subscription, payments, loadingSub, loadingPayments, cancel, renew, isOverdue, isCancelled } = useSubscription({ enabled: true });
   const [showPlanDialog, setShowPlanDialog] = useState(false);
   const [showPixDialog, setShowPixDialog] = useState(false);
 

@@ -355,7 +355,7 @@ function CurrentPlanSection() {
 
 /* ─── Main Page ─── */
 export default function Plans() {
-  const { plans, subscription, loadingPlans } = useSubscription();
+  const { plans, subscription, loadingPlans } = useSubscription({ enabled: true });
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
 
