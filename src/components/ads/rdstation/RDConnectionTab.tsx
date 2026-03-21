@@ -76,7 +76,7 @@ export default function RDConnectionTab() {
       if (!settings?.id) return;
       const { error } = await supabase
         .from("rd_station_settings")
-        .update({ oauth_access_token: null, oauth_refresh_token: null, oauth_token_expires_at: null, oauth_client_id: null } as any)
+        .update({ oauth_access_token: null, oauth_refresh_token: null, oauth_token_expires_at: null, oauth_client_id: null })
         .eq("id", settings.id);
       if (error) throw error;
     },
