@@ -30,7 +30,7 @@ export function useAuditLog() {
       if (!user?.id || !profile?.organization_id) return;
 
       try {
-        await supabase.rpc("insert_audit_event" as any, {
+        await supabase.rpc("insert_audit_event", {
           p_organization_id: profile.organization_id,
           p_user_id: user.id,
           p_acting_role: roles?.[0] || "unknown",

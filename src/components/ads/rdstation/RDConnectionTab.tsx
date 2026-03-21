@@ -105,7 +105,7 @@ export default function RDConnectionTab() {
 
   // Webhook URL
   const webhookUrl = settings
-    ? `https://api.portadocorretor.com.br/rd-station-webhook?org=${orgId?.slice(0, 8)}&token=${(settings as any).webhook_secret}`
+    ? `https://api.portadocorretor.com.br/rd-station-webhook?org=${orgId?.slice(0, 8)}&token=${settings.webhook_secret}`
     : "";
 
   const regenerateWebhook = useMutation({

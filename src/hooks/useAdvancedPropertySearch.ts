@@ -38,7 +38,7 @@ export function useAdvancedPropertySearch(
     queryFn: async () => {
       if (!profile?.organization_id) return [];
 
-      const { data, error } = await (supabase.rpc as any)('search_properties_advanced', {
+      const { data, error } = await supabase.rpc('search_properties_advanced', {
         p_organization_id: profile.organization_id,
         p_search_text: filters.searchText || null,
         p_transaction_type: filters.transactionType === 'all' ? null : filters.transactionType,

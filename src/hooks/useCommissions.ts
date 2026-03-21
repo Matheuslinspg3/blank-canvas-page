@@ -24,10 +24,10 @@ export function useCommissions() {
       // Fetch broker names separately since it's a profiles join
       const brokerIds = [...new Set(data.map(c => c.broker_id))];
       const { data: brokersRaw } = await supabase
-        .from('profiles_public' as any)
+        .from('profiles_public')
         .select('user_id, full_name')
         .in('user_id', brokerIds);
-      const brokers = (brokersRaw as unknown) as { user_id: string; full_name: string }[] | null;
+      const brokers = brokersRaw as { user_id: string | null; full_name: string | null }[] | null;
 
       const brokersMap = new Map(brokers?.map(b => [b.user_id, b]) || []);
 

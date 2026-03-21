@@ -86,7 +86,7 @@ export async function sendMeterEvent(event: MeterEvent): Promise<{ success: bool
       // Fallback: mark as failed
       await supabase
         .from("ai_token_usage_events")
-        .update({ stripe_sync_status: "failed" } as any)
+        .update({ stripe_sync_status: "failed" })
         .eq("id", event.eventId);
 
       return { success: false, mode };

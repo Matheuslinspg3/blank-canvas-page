@@ -305,7 +305,7 @@ export default function Settings() {
       toast.error("Erro ao alterar cargo");
       return;
     }
-    const { error: insertError } = await supabase.from("user_roles").insert({ user_id: memberId, role: newRole as any });
+    const { error: insertError } = await supabase.from("user_roles").insert({ user_id: memberId, role: newRole as Database["public"]["Enums"]["app_role"] });
     if (insertError) {
       toast.error("Erro ao alterar cargo");
       return;
