@@ -44,8 +44,8 @@ Deno.serve(async (req) => {
 
     const sourceUrl = Deno.env.get("SOURCE_SUPABASE_URL");
     const sourceKey = Deno.env.get("SOURCE_SUPABASE_SERVICE_ROLE_KEY");
-    const destUrl = Deno.env.get("SUPABASE_URL");
-    const destKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const destUrl = supabaseUrl;
+    const destKey = serviceKey;
 
     if (!sourceUrl || !sourceKey) throw new Error("SOURCE credentials missing");
     if (!destUrl || !destKey) throw new Error("DEST credentials missing");
