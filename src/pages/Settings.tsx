@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import type { Database } from "@/integrations/supabase/types";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -140,7 +141,7 @@ export default function Settings() {
 
         const members: TeamMember[] = profiles.map((p) => {
           const userRole = roles?.find((r) => r.user_id === p.user_id);
-          const memberEmail = (emails as any[])?.find((e: any) => e.user_id === p.user_id)?.email || "";
+          const memberEmail = (emails as { user_id: string; email: string }[] | null)?.find((e) => e.user_id === p.user_id)?.email || "";
           return {
             user_id: p.user_id,
             full_name: p.full_name,
@@ -305,7 +306,7 @@ export default function Settings() {
       toast.error("Erro ao alterar cargo");
       return;
     }
-    const { error: insertError } = await supabase.from("user_roles").insert({ user_id: memberId, role: newRole as any });
+    const { error: insertError } = await supabase.from("user_roles").insert({ user_id: memberId, role: newRole as Database["public"]["Enums"]["app_role"] });
     if (insertError) {
       toast.error("Erro ao alterar cargo");
       return;

@@ -70,7 +70,7 @@ export default function RDOAuthTab() {
           oauth_refresh_token: null,
           oauth_token_expires_at: null,
           oauth_client_id: null,
-        } as any)
+        })
         .eq("id", settings.id);
       if (error) throw error;
     },
@@ -110,9 +110,9 @@ export default function RDOAuthTab() {
                     <CheckCircle2 className="h-3 w-3" /> Conectado
                   </Badge>
                 )}
-                {(settings as any)?.oauth_token_expires_at && (
+                {settings?.oauth_token_expires_at && (
                   <span className="text-xs text-muted-foreground">
-                    Expira em {format(new Date((settings as any).oauth_token_expires_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                    Expira em {format(new Date(settings.oauth_token_expires_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                   </span>
                 )}
               </div>

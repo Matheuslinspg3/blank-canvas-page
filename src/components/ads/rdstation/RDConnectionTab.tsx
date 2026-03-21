@@ -23,11 +23,11 @@ export default function RDConnectionTab() {
 
   useEffect(() => {
     if (settings) {
-      setApiPublicKey((settings as any).api_public_key || "");
-      setApiPrivateKey((settings as any).api_private_key || "");
+      setApiPublicKey(settings.api_public_key || "");
+      setApiPrivateKey(settings.api_private_key || "");
       setAutoSend(settings.auto_send_to_crm);
-      setStageId((settings as any).default_stage_id || "");
-      setDefaultSource((settings as any).default_source || "RD Station");
+      setStageId(settings.default_stage_id || "");
+      setDefaultSource(settings.default_source || "RD Station");
     }
   }, [settings]);
 
@@ -76,7 +76,7 @@ export default function RDConnectionTab() {
       if (!settings?.id) return;
       const { error } = await supabase
         .from("rd_station_settings")
-        .update({ oauth_access_token: null, oauth_refresh_token: null, oauth_token_expires_at: null, oauth_client_id: null } as any)
+        .update({ oauth_access_token: null, oauth_refresh_token: null, oauth_token_expires_at: null, oauth_client_id: null })
         .eq("id", settings.id);
       if (error) throw error;
     },
@@ -105,7 +105,7 @@ export default function RDConnectionTab() {
 
   // Webhook URL
   const webhookUrl = settings
-    ? `https://api.portadocorretor.com.br/rd-station-webhook?org=${orgId?.slice(0, 8)}&token=${(settings as any).webhook_secret}`
+    ? `https://api.portadocorretor.com.br/rd-station-webhook?org=${orgId?.slice(0, 8)}&token=${settings.webhook_secret}`
     : "";
 
   const regenerateWebhook = useMutation({

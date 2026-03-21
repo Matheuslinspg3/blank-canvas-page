@@ -104,11 +104,13 @@ export default function RDWebhookTab() {
             </p>
           ) : (
             <div className="space-y-2 max-h-80 overflow-y-auto">
-              {webhookLogs.map((log: any) => (
+              {webhookLogs.map((log) => {
+                const payload = log.payload as Record<string, unknown> | null;
+                return (
                 <div key={log.id} className="flex items-center justify-between p-3 rounded-lg border bg-card text-sm">
                   <div className="min-w-0 flex-1">
                     <p className="font-medium truncate">
-                      {(log.payload as any)?.name || (log.payload as any)?.email || "Lead"}
+                      {(payload?.name as string) || (payload?.email as string) || "Lead"}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {format(new Date(log.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
@@ -127,7 +129,8 @@ export default function RDWebhookTab() {
                      log.status === "received_not_sent" ? "Recebido" : log.status}
                   </Badge>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

@@ -30,7 +30,7 @@ export function useAuditLog() {
       if (!user?.id || !profile?.organization_id) return;
 
       try {
-        await supabase.rpc("insert_audit_event" as any, {
+        await supabase.rpc("insert_audit_event", {
           p_organization_id: profile.organization_id,
           p_user_id: user.id,
           p_acting_role: roles?.[0] || "unknown",
@@ -48,7 +48,7 @@ export function useAuditLog() {
           p_parent_entity_type: event.parent_entity_type || null,
           p_parent_entity_id: event.parent_entity_id || null,
           p_route: location.pathname,
-          p_metadata: event.metadata || {},
+          p_metadata: (event.metadata || {}) as Record<string, string>,
         });
       } catch {
         // Audit logging should never break the user flow

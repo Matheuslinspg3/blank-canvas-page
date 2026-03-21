@@ -52,7 +52,7 @@ export async function sendMeterEvent(event: MeterEvent): Promise<{ success: bool
       .update({
         stripe_sync_status: "mock_synced",
         stripe_meter_event_id: `mock_${event.eventId}`,
-      } as any)
+      })
       .eq("id", event.eventId);
 
     return { success: true, mode, stripeEventId: `mock_${event.eventId}` };
@@ -73,10 +73,10 @@ export async function sendMeterEvent(event: MeterEvent): Promise<{ success: bool
       // Update local record
       await supabase
         .from("ai_token_usage_events")
-        .update({
+      .update({
           stripe_sync_status: "synced",
           stripe_meter_event_id: data?.stripe_event_id || null,
-        } as any)
+        })
         .eq("id", event.eventId);
 
       return { success: true, mode, stripeEventId: data?.stripe_event_id };
@@ -86,7 +86,7 @@ export async function sendMeterEvent(event: MeterEvent): Promise<{ success: bool
       // Fallback: mark as failed
       await supabase
         .from("ai_token_usage_events")
-        .update({ stripe_sync_status: "failed" } as any)
+        .update({ stripe_sync_status: "failed" })
         .eq("id", event.eventId);
 
       return { success: false, mode };
