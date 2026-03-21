@@ -102,7 +102,7 @@ export async function normalizeImageBeforeUpload(
             );
 
             const reduction = Math.round((1 - normalizedFile.size / file.size) * 100);
-            console.log(
+            if (import.meta.env.DEV) console.log(
               `[NORMALIZE] ${(file.size / 1024).toFixed(0)}KB → ${(normalizedFile.size / 1024).toFixed(0)}KB (${reduction}% reduction, ${width}×${height})`
             );
 
