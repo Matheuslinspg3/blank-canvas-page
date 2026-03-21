@@ -12,13 +12,15 @@ interface ConsumerFilters {
 export function useConsumerProperties(filters?: ConsumerFilters) {
   return useQuery({
     queryKey: ["consumer-properties", filters],
-    queryFn: async () => {
+    staleTime: 3 * 60_000,
+    queryFn: async ({ signal }) => {
       let query = supabase
         .from("marketplace_properties_public")
-        .select("*")
+        .select("id, title, status, transaction_type, sale_price, rent_price, bedrooms, bathrooms, parking_spots, area_total, address_city, address_neighborhood, address_state, images, is_featured, organization_id, created_at")
         .eq("status", "disponivel")
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(50)
+        .abortSignal(signal!);
 
       if (filters?.city) {
         query = query.ilike("address_city", `%${filters.city}%`);

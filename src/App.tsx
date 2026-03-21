@@ -71,13 +71,25 @@ const PageLoader = () => (
   </div>
 );
 
-// PERF: gcTime 10min keeps cache longer; staleTime 1min default
+// PERF: gcTime 10min, staleTime 2min, retry with exponential backoff for resilience
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 60 * 1000,
+      staleTime: 2 * 60 * 1000,
       gcTime: 10 * 60 * 1000,
+      retry: (failureCount, error) => {
+        // Don't retry on 4xx errors (auth, not found, etc.)
+        const msg = (error as any)?.message || '';
+        if (msg.includes('401') || msg.includes('403') || msg.includes('404')) return false;
+        return failureCount < 3;
+      },
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 15000),
+      refetchOnWindowFocus: false,
+      networkMode: 'offlineFirst',
+    },
+    mutations: {
       retry: 1,
+      retryDelay: 2000,
     },
   },
 });

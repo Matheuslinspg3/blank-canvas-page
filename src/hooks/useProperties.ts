@@ -69,15 +69,15 @@ export function useProperties() {
   const { data: properties = [], isLoading, error, refetch } = useQuery({
     queryKey: ['properties', profile?.organization_id],
     staleTime: 5 * 60_000,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       if (!profile?.organization_id) {
         return [];
       }
       
-      // Fetch properties in pages of 200 to avoid statement timeouts
-      // The join with property_images (25k+ rows) makes large pages very slow
+      // PERF: Only fetch cover image per property in listing to avoid 25k+ row JOIN
+      // Full images are fetched on-demand in detail views
       const allData: PropertyWithDetails[] = [];
-      const PAGE_SIZE = 200;
+      const PAGE_SIZE = 100;
       let from = 0;
       let hasMore = true;
 
@@ -85,22 +85,54 @@ export function useProperties() {
         const { data, error } = await supabase
           .from('properties')
           .select(`
-            *,
-            property_type:property_types(*),
-            images:property_images(id, url, is_cover, display_order, r2_key_full, r2_key_thumb, storage_provider, cached_thumbnail_url, image_type)
+            id, title, property_code, status, transaction_type,
+            sale_price, rent_price, condominium_fee,
+            bedrooms, bathrooms, parking_spots, area_total, area_useful, suites,
+            address_street, address_number, address_neighborhood, address_city, address_state, address_zipcode,
+            description, property_type_id, organization_id, created_by, created_at, updated_at,
+            featured, amenities,
+            property_type:property_types(id, name),
+            images:property_images(id, url, is_cover, display_order, r2_key_thumb, cached_thumbnail_url)
           `)
           .eq('organization_id', profile.organization_id)
+          .eq('images.is_cover', true)
           .order('created_at', { ascending: false })
-          .range(from, from + PAGE_SIZE - 1);
+          .range(from, from + PAGE_SIZE - 1)
+          .abortSignal(signal!);
 
         if (error) throw error;
         
-        allData.push(...(data as PropertyWithDetails[]));
+        allData.push(...(data as unknown as PropertyWithDetails[]));
         
         if (!data || data.length < PAGE_SIZE) {
           hasMore = false;
         } else {
           from += PAGE_SIZE;
+        }
+      }
+
+      // Also fetch properties without any cover image (LEFT JOIN misses them with the filter above)
+      const idsWithImages = new Set(allData.map(p => p.id));
+      const { data: allProps } = await supabase
+        .from('properties')
+        .select(`
+          id, title, property_code, status, transaction_type,
+          sale_price, rent_price, condominium_fee,
+          bedrooms, bathrooms, parking_spots, area_total, area_useful, suites,
+          address_street, address_number, address_neighborhood, address_city, address_state, address_zipcode,
+          description, property_type_id, organization_id, created_by, created_at, updated_at,
+          featured, amenities,
+          property_type:property_types(id, name)
+        `)
+        .eq('organization_id', profile.organization_id)
+        .order('created_at', { ascending: false })
+        .abortSignal(signal!);
+
+      if (allProps) {
+        for (const p of allProps) {
+          if (!idsWithImages.has(p.id)) {
+            allData.push({ ...p, images: [] } as unknown as PropertyWithDetails);
+          }
         }
       }
 
