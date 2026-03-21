@@ -167,7 +167,7 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
 
   // Realtime: listen for subscription & payment status changes
   useEffect(() => {
-    if (!orgId) return;
+    if (!orgId || !enabled) return;
     const channel = supabase
       .channel(`billing-${orgId}`)
       .on('postgres_changes', {
