@@ -25,7 +25,7 @@ const entityRouteMap: Record<string, (id: string) => string> = {
   appointment: (id) => `/agenda?id=${id}`,
 };
 
-function NotificationItem({
+const NotificationItem = React.memo(function NotificationItem({
   notification,
   onRead,
   onNavigate,
