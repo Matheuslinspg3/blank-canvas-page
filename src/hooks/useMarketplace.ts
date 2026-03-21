@@ -204,7 +204,7 @@ export function useMarketplaceFilterData(cityFilter?: string) {
     queryKey: ["marketplace-neighborhoods-filter", organizationId, cityFilter],
     queryFn: async () => {
       let query = supabase
-        .from("marketplace_properties_public" as any)
+        .from("marketplace_properties_public")
         .select("address_neighborhood")
         .eq("status", "disponivel")
         .not("address_neighborhood", "is", null);
@@ -221,8 +221,8 @@ export function useMarketplaceFilterData(cityFilter?: string) {
       if (error) throw error;
 
       const neighMap = new Map<string, number>();
-      (data as any[]).forEach((d: any) => {
-        const n = d.address_neighborhood?.trim();
+      (data as MarketplaceViewRow[]).forEach((d) => {
+        const n = (d.address_neighborhood as string | null)?.trim();
         if (n) neighMap.set(n, (neighMap.get(n) || 0) + 1);
       });
 
