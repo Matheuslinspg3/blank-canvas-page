@@ -172,7 +172,7 @@ export default function Financial() {
               <div className={`text-2xl font-bold ${stats.balance >= 0 ? 'text-success' : 'text-destructive'}`}>
                 {formatCurrency(stats.balance)}
               </div>
-              <p className="text-xs text-muted-foreground">{transactions.filter(t => t.paid).length} transações pagas</p>
+              <p className="text-xs text-muted-foreground">{paidCount} transações pagas</p>
             </CardContent>
           </Card>
 
