@@ -302,11 +302,11 @@ export default function GeradorArtes() {
                               : "border-border hover:border-primary/50"
                           )}
                         >
-                          <img
+                          <OptimizedImage
                             src={thumbUrl}
                             alt={`Foto do imóvel ${img.display_order || ""}`}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
+                            aspectRatio="square"
+                            wrapperClassName="w-full h-full"
                           />
                           {isSelected && (
                             <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
