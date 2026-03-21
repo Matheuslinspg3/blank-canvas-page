@@ -174,7 +174,7 @@ export function useMarketplaceFilterData(cityFilter?: string) {
     queryKey: ["marketplace-cities", organizationId],
     queryFn: async () => {
       let query = supabase
-        .from("marketplace_properties_public" as any)
+        .from("marketplace_properties_public")
         .select("address_city")
         .eq("status", "disponivel")
         .not("address_city", "is", null);
@@ -187,8 +187,8 @@ export function useMarketplaceFilterData(cityFilter?: string) {
       if (error) throw error;
 
       const cityMap = new Map<string, number>();
-      (data as any[]).forEach((d: any) => {
-        const city = d.address_city?.trim();
+      (data as MarketplaceViewRow[]).forEach((d) => {
+        const city = (d.address_city as string | null)?.trim();
         if (city) cityMap.set(city, (cityMap.get(city) || 0) + 1);
       });
 
