@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = body.action as "activate" | "deactivate";
     const message = body.message as string | undefined;
-    const autoPurgeCache = body.auto_purge_cache !== false; // default true
+    const autoPurgeCache = body.auto_purge_cache !== false;
     const sendPushNotification = body.send_push === true;
     const pushTitle = body.push_title as string | undefined;
     const pushMessage = body.push_message as string | undefined;
@@ -55,50 +55,56 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Use service_role for all admin operations
+    // C1 FIX: Require authentication for ALL actions (activate AND deactivate)
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized: missing token" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    let userId: string | null = null;
-
-    const authHeader = req.headers.get("Authorization");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const hasValidAuth = authHeader?.startsWith("Bearer ") && !authHeader.includes(anonKey);
-
-    if (hasValidAuth) {
-      const supabaseUser = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        anonKey,
-        { global: { headers: { Authorization: authHeader! } } }
-      );
-
-      const token = authHeader!.replace("Bearer ", "");
-      const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(token);
-      if (!claimsError && claimsData?.claims) {
-        userId = claimsData.claims.sub as string;
-
-        const userEmail = claimsData.claims.email as string;
-        const { data: allowlistRow } = await supabaseAdmin
-          .from("admin_allowlist")
-          .select("id")
-          .ilike("email", userEmail)
-          .maybeSingle();
-
-        if (!allowlistRow) {
-          return new Response(JSON.stringify({ error: "Forbidden: not a system admin" }), {
-            status: 403,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-      }
+    if (authHeader.includes(anonKey)) {
+      return new Response(JSON.stringify({ error: "Unauthorized: anon key not accepted" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // Allow unauthenticated DEACTIVATE only (session may be force-logged-out)
-    if (!userId && action !== "deactivate") {
-      return new Response(JSON.stringify({ error: "Unauthorized: session required for activation" }), {
+    const supabaseUser = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      anonKey,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: "Unauthorized: invalid token" }), {
         status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const userId = claimsData.claims.sub as string;
+    const userEmail = claimsData.claims.email as string;
+
+    // Verify system admin via allowlist
+    const { data: allowlistRow } = await supabaseAdmin
+      .from("admin_allowlist")
+      .select("id")
+      .ilike("email", userEmail)
+      .maybeSingle();
+
+    if (!allowlistRow) {
+      return new Response(JSON.stringify({ error: "Forbidden: not a system admin" }), {
+        status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -148,11 +154,9 @@ Deno.serve(async (req) => {
     const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || "unknown";
     const userAgent = req.headers.get("user-agent") || "unknown";
 
-    const auditUserId = userId ?? (currentConfig?.maintenance_started_by as string | null) ?? "00000000-0000-0000-0000-000000000000";
-
     await supabaseAdmin.from("maintenance_audit_log").insert({
       action: action,
-      performed_by: auditUserId,
+      performed_by: userId,
       previous_value: previousValue,
       new_value: newValue,
       maintenance_message: message || currentConfig?.maintenance_message,
@@ -160,13 +164,13 @@ Deno.serve(async (req) => {
       user_agent: userAgent,
     });
 
-    // Auto-purge Cloudflare cache on activation to force clients to fetch fresh resources
+    // Auto-purge Cloudflare cache
     let cachePurgeResult = null;
     if (autoPurgeCache) {
       cachePurgeResult = await purgeCloudflareCache();
     }
 
-    // Send push notification to all users
+    // Send push notification
     let pushResult = null;
     if (sendPushNotification && pushTitle) {
       try {

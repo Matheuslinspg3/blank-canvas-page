@@ -61,6 +61,9 @@ REGRAS:
 
     let html = data.choices?.[0]?.message?.content || "";
     html = html.replace(/^```html?\n?/i, "").replace(/\n?```$/i, "").trim();
+    // Strip any script/event-handler injection from AI output
+    html = html.replace(/<script[\s\S]*?<\/script>/gi, "");
+    html = html.replace(/\son\w+\s*=\s*["'][^"']*["']/gi, "");
 
     return new Response(JSON.stringify({ html }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

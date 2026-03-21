@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import DOMPurify from "dompurify";
 import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
@@ -242,7 +243,7 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSubmit, i
           {/* Body */}
           <div
             className="prose prose-sm max-w-none px-8 py-6 text-foreground [&_p]:leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: renderPreviewHtml(bodyHtml) }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(renderPreviewHtml(bodyHtml)) }}
           />
           {/* Signature area pinned at bottom */}
           <div className="border-t px-8 py-8 mt-auto">

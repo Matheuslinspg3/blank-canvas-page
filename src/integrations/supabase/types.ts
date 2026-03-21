@@ -1246,13 +1246,6 @@ export type Database = {
             referencedRelation: "marketplace_properties"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "consumer_favorites_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "marketplace_properties_public"
-            referencedColumns: ["id"]
-          },
         ]
       }
       contract_documents: {
@@ -2571,13 +2564,6 @@ export type Database = {
             columns: ["marketplace_property_id"]
             isOneToOne: false
             referencedRelation: "marketplace_properties"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "marketplace_contact_access_marketplace_property_id_fkey"
-            columns: ["marketplace_property_id"]
-            isOneToOne: false
-            referencedRelation: "marketplace_properties_public"
             referencedColumns: ["id"]
           },
           {
@@ -4995,94 +4981,13 @@ export type Database = {
           property_type_id: string | null
           rent_price: number | null
           sale_price: number | null
-          status: Database["public"]["Enums"]["property_status"] | null
+          status: string | null
           suites: number | null
           title: string | null
-          transaction_type:
-            | Database["public"]["Enums"]["transaction_type"]
-            | null
+          transaction_type: string | null
           updated_at: string | null
         }
-        Insert: {
-          address_city?: string | null
-          address_complement?: string | null
-          address_neighborhood?: string | null
-          address_number?: string | null
-          address_state?: string | null
-          address_street?: string | null
-          address_zipcode?: string | null
-          amenities?: string[] | null
-          area_built?: number | null
-          area_total?: number | null
-          bathrooms?: number | null
-          bedrooms?: number | null
-          created_at?: string | null
-          description?: string | null
-          external_code?: string | null
-          id?: string | null
-          images?: string[] | null
-          is_featured?: boolean | null
-          organization_id?: string | null
-          parking_spots?: number | null
-          property_type_id?: string | null
-          rent_price?: number | null
-          sale_price?: number | null
-          status?: Database["public"]["Enums"]["property_status"] | null
-          suites?: number | null
-          title?: string | null
-          transaction_type?:
-            | Database["public"]["Enums"]["transaction_type"]
-            | null
-          updated_at?: string | null
-        }
-        Update: {
-          address_city?: string | null
-          address_complement?: string | null
-          address_neighborhood?: string | null
-          address_number?: string | null
-          address_state?: string | null
-          address_street?: string | null
-          address_zipcode?: string | null
-          amenities?: string[] | null
-          area_built?: number | null
-          area_total?: number | null
-          bathrooms?: number | null
-          bedrooms?: number | null
-          created_at?: string | null
-          description?: string | null
-          external_code?: string | null
-          id?: string | null
-          images?: string[] | null
-          is_featured?: boolean | null
-          organization_id?: string | null
-          parking_spots?: number | null
-          property_type_id?: string | null
-          rent_price?: number | null
-          sale_price?: number | null
-          status?: Database["public"]["Enums"]["property_status"] | null
-          suites?: number | null
-          title?: string | null
-          transaction_type?:
-            | Database["public"]["Enums"]["transaction_type"]
-            | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "marketplace_properties_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "marketplace_properties_property_type_id_fkey"
-            columns: ["property_type_id"]
-            isOneToOne: false
-            referencedRelation: "property_types"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       profiles_public: {
         Row: {
@@ -5199,6 +5104,39 @@ export type Database = {
       get_marketplace_contact: {
         Args: { p_property_id: string }
         Returns: Json
+      }
+      get_marketplace_properties_public: {
+        Args: never
+        Returns: {
+          address_city: string
+          address_complement: string
+          address_neighborhood: string
+          address_number: string
+          address_state: string
+          address_street: string
+          address_zipcode: string
+          amenities: string[]
+          area_built: number
+          area_total: number
+          bathrooms: number
+          bedrooms: number
+          created_at: string
+          description: string
+          external_code: string
+          id: string
+          images: string[]
+          is_featured: boolean
+          organization_id: string
+          parking_spots: number
+          property_type_id: string
+          rent_price: number
+          sale_price: number
+          status: string
+          suites: number
+          title: string
+          transaction_type: string
+          updated_at: string
+        }[]
       }
       get_marketplace_properties_safe: {
         Args: { p_organization_id: string }
