@@ -1,5 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import type { AutomationRule } from "@/types/automation";
+import { useSubscription, getFeatureLimit } from "@/hooks/useSubscription";
 
 export type AutomationPlan = "free" | "pro" | "enterprise";
 
@@ -16,7 +17,16 @@ export interface AutomationStats {
 
 export function useAutomations() {
   const [automations, setAutomations] = useState<AutomationRule[]>([]);
-  const [plan] = useState<AutomationPlan>("free");
+  const { currentPlan } = useSubscription();
+
+  // Derive plan tier from subscription features
+  const automationsLimit = getFeatureLimit(currentPlan, "automations_limit");
+
+  const plan: AutomationPlan = useMemo(() => {
+    if (automationsLimit === null) return "enterprise"; // unlimited
+    if (automationsLimit > 0) return "pro";
+    return "free";
+  }, [automationsLimit]);
 
   const stats: AutomationStats = {
     totalActive: automations.filter((a) => a.enabled).length,
@@ -65,7 +75,7 @@ export function useAutomations() {
     setAutomations((prev) => [...prev, newRule]);
   }, []);
 
-  const maxAutomations = plan === "free" ? 2 : Infinity;
+  const maxAutomations = automationsLimit ?? Infinity;
   const canCreate = automations.filter((a) => a.enabled).length < maxAutomations;
 
   return {
