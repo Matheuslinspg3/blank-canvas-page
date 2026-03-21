@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/PageHeader";
 import { KanbanBoard } from "@/components/crm/KanbanBoard";
 import { InactiveLeadsList } from "@/components/crm/InactiveLeadsList";
+import { SectionErrorBoundary } from "@/components/SectionErrorBoundary";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useLeads } from "@/hooks/useLeads";
