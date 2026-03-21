@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
@@ -66,6 +67,18 @@ function setupServiceWorkerUpdateRoutine() {
       observeRegistration(reg);
       reg.update().catch(() => {});
     });
+  });
+}
+
+// Sentry initialization — runs before React mounts
+if (import.meta.env.VITE_SENTRY_DSN) {
+  Sentry.init({
+    dsn: import.meta.env.VITE_SENTRY_DSN,
+    environment: import.meta.env.MODE,
+    tracesSampleRate: 0.1,
+    replaysSessionSampleRate: 0,
+    replaysOnErrorSampleRate: 0.5,
+    release: `porta@${APP_VERSION}`,
   });
 }
 
