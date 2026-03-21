@@ -70,7 +70,7 @@ export default function RDOAuthTab() {
           oauth_refresh_token: null,
           oauth_token_expires_at: null,
           oauth_client_id: null,
-        } as any)
+        })
         .eq("id", settings.id);
       if (error) throw error;
     },
