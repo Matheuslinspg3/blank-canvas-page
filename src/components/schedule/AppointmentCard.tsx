@@ -46,7 +46,7 @@ interface AppointmentCardProps {
   onDelete: (id: string) => void;
 }
 
-export function AppointmentCard({
+export const AppointmentCard = React.memo(function AppointmentCard({
   appointment,
   onToggleComplete,
   onEdit,
