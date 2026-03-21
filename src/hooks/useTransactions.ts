@@ -191,6 +191,7 @@ export function useTransactions() {
     transactions,
     isLoading,
     error,
+    refetch,
     stats,
     chartData,
     createTransaction: createTransaction.mutate,
