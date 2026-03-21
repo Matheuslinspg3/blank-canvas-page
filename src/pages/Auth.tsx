@@ -109,6 +109,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
 
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden bg-background" data-clarity-mask="true">
+      <SEOHead title="Login" description="Acesse o Porta do Corretor — plataforma completa para corretores e imobiliárias." />
       {/* Warm mesh background */}
       <div className="absolute inset-0 pointer-events-none bg-gradient-mesh-vibrant" />
 

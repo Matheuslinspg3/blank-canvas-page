@@ -260,9 +260,18 @@ export default function PropertyLandingPage() {
   const ctaText = ctaPrimary || (isAvailable ? "Agendar visita" : "Receber novidades");
   const hasImages = property.images && property.images.length > 0;
 
+  const coverImage = property.images?.find(i => i.is_cover) || property.images?.[0];
+  const ogImage = coverImage ? getImageUrl(coverImage as ImageRecord, 'full') : undefined;
+  const seoTitle = aiContent?.seo_title || property.title || "Imóvel";
+  const seoDescription = aiContent?.seo_description || property.description?.substring(0, 160) || undefined;
+
   return (
     <div className="min-h-screen bg-background">
-      {aiContent?.seo_description && <meta name="description" content={aiContent.seo_description} />}
+      <SEOHead
+        title={seoTitle}
+        description={seoDescription}
+        ogImage={ogImage}
+      />
 
       {/* Minimal sticky header — Vizcom-style */}
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/30">
