@@ -13,6 +13,7 @@ import { Palette, Download, Copy, Check, Loader2, Image as ImageIcon, CheckCircl
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getImageUrl, type ImageRecord } from "@/lib/imageUrl";
 import { cn } from "@/lib/utils";
+import { OptimizedImage } from "@/components/ui/optimized-image";
 import { useNavigate } from "react-router-dom";
 
 interface ArtConfig {
