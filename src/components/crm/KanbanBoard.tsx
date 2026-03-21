@@ -85,6 +85,7 @@ export function KanbanBoard() {
     leadsByStage,
     stageStats,
     isLoading,
+    error: leadsError,
     refetch,
     createLead,
     updateLead,
