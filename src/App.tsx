@@ -97,6 +97,7 @@ const queryClient = new QueryClient({
 });
 
 const App = () => (
+  <HelmetProvider>
   <ErrorBoundary>
   <QueryClientProvider client={queryClient}>
   <ThemeProvider>
