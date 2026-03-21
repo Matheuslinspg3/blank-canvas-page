@@ -492,7 +492,7 @@ export default function GeradorArtes() {
                       </div>
                     ) : url ? (
                       <>
-                        <img
+                        <OptimizedImage
                           src={url}
                           alt={`Arte gerada no formato ${label}`}
                           className={cn("w-full rounded-lg border object-cover", aspect)}
