@@ -129,7 +129,8 @@ export default function RDWebhookTab() {
                      log.status === "received_not_sent" ? "Recebido" : log.status}
                   </Badge>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
