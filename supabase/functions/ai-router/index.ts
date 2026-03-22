@@ -231,14 +231,17 @@ async function callOpenAI(
       const imageBytes = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
       const imageBlob = new Blob([imageBytes], { type: "image/png" });
 
+      // OpenAI /images/edits does not accept dall-e-3; auto-switch to compatible model
+      const editModel = provider.model_id.includes("dall-e-3") ? "gpt-image-1" : provider.model_id;
+
       const formData = new FormData();
       formData.append("image", imageBlob, "photo.png");
       formData.append("prompt", prompt);
-      formData.append("model", provider.model_id);
+      formData.append("model", editModel);
       formData.append("size", size);
       formData.append("response_format", "b64_json");
 
-      console.log(`[ai-router] OpenAI image EDIT (${provider.model_id}, ${size})`);
+      console.log(`[ai-router] OpenAI image EDIT (${editModel}, ${size})`);
 
       const res = await fetch("https://api.openai.com/v1/images/edits", {
         method: "POST",
