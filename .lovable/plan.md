@@ -1,51 +1,49 @@
 
-Objetivo: eliminar o 502 em `generate-property-art` quando o AI Router tenta editar imagem com OpenAI.
 
-1) Diagnóstico confirmado (sem alterar código ainda)
-- Erro real já identificado nos logs:
-  - `OpenAI image-edit 400: Invalid value ... Value must be 'dall-e-2'`
-- Causa: `ai-router` está enviando modelo incompatível para `/v1/images/edits` (hoje tenta `dall-e-3` ou forçou `gpt-image-1`), mas essa conta aceita apenas `dall-e-2` para edit.
+# Landing Page de Vendas — portadocorretor.com.br
 
-2) Correção principal no `supabase/functions/ai-router/index.ts`
-- Ajustar a lógica de `callOpenAI` (ramo de image edit) para:
-  - resolver modelo efetivo de edição com prioridade segura:
-    1. `provider.model_id` se já for compatível,
-    2. fallback para `dall-e-2` quando vier `dall-e-3`/`gpt-image-1`.
-- Normalizar tamanho quando o modelo efetivo for `dall-e-2`:
-  - aceitar apenas tamanhos suportados (mapear story/banner para `1024x1024` no edit para evitar novo 400 por size inválido).
-- Manter retorno padronizado (`image_base64`) para não quebrar `generate-property-art`.
+## Resumo
 
-3) Hardening para evitar novo loop de falha
-- Adicionar retry controlado no `callOpenAI` para erros 400 de `invalid_value`:
-  - 1 tentativa extra com `model=dall-e-2` e size normalizado.
-- Melhorar logs internos no AI Router:
-  - logar `requested_model`, `effective_model`, `requested_size`, `effective_size`.
-  - isso acelera diagnóstico futuro sem adivinhação.
+Hoje, acessar `/` redireciona direto para `/dashboard` (área logada). Vamos criar uma landing page de vendas pública em `/` que só redireciona para `/dashboard` se o usuário já estiver logado. Usuários não logados veem a página de vendas.
 
-4) Ajuste de consistência de configuração (DB)
-- Atualizar provider de arte no AI Router para refletir capacidade real:
-  - `ai_router_providers` do provider OpenAI de arte com `supports_image_input = true` (coerente com uso de edit).
-- Revisar `ai_router_config.generate_art` e cadeia para evitar selecionar provider incompatível em futuras mudanças.
-- Observação: não muda fluxo do usuário, só evita regressão de roteamento.
+## O que será feito
 
-5) Validação pós-implementação (E2E)
-- Testar geração real no fluxo `/marketing?section=artes` com 1 imóvel/foto.
-- Critérios de aceite:
-  - não retornar 502;
-  - ao menos `url_feed` gerada;
-  - logs do `ai-router` sem `invalid_value` de model.
-- Confirmar também `generated_arts` gravando registro e UI exibindo resultado sem tela em branco.
+### 1. Nova página `LandingPage.tsx`
 
-Se aprovado, implemento nessa ordem: (1) patch do `ai-router` → (2) ajuste de config/provider → (3) validação E2E e confirmação nos logs.
-  
-Se você quiser, no mesmo pacote eu já incluo uma melhoria opcional: fallback visual para story/banner quando o provider só suportar edit quadrado (evita “Não disponível”).
-  
-Seção técnica (resumo)
-- Arquivo principal: `supabase/functions/ai-router/index.ts`
-- Ponto exato: função `callOpenAI(...)`, bloco `if (isImageModel && imageBase64)`
-- Falha atual observada:
-  - `model=dall-e-3` em `/images/edits` (inválido)
-  - `model=gpt-image-1` em `/images/edits` (inválido nesta conta)
-- Comportamento alvo:
-  - edição sempre com modelo aceito pela conta (`dall-e-2`)
-  - size edit compatível, sem quebrar retorno para `generate-property-art`
+Landing page de alta conversão com as seguintes seções:
+
+- **Navbar fixa**: Logo + links (Funcionalidades, Planos, FAQ) + botão "Entrar" (→ /auth) + botão CTA "Criar conta grátis" (→ /auth?tab=cadastro)
+- **Hero**: Título forte ("Gerencie sua imobiliária com Inteligência Artificial"), subtítulo, CTA grande "Comece grátis — 15 dias sem compromisso", imagem/mockup do dashboard
+- **Logos/Social proof**: "Usado por +X corretores" (badge simples)
+- **Funcionalidades** (grid 3 colunas): CRM, Marketplace, IA, WhatsApp, Automações, Landing Pages — ícone + título + descrição curta
+- **Como funciona** (3 passos): Crie sua conta → Configure seus imóveis → Gerencie tudo com IA
+- **Planos resumidos**: Puxar os 5 planos do banco, exibir cards simplificados com preço e CTA, link "Ver todos os detalhes" → /planos
+- **Depoimentos/Trust**: Seção com benefícios-chave em bullets
+- **FAQ resumido**: 5 perguntas mais comuns (accordion)
+- **CTA final**: "Pronto para transformar sua imobiliária?" + botão grande
+- **Footer**: Links (Planos, Privacidade, WhatsApp), copyright
+
+### 2. Rota `/` — lógica condicional
+
+No `App.tsx`, trocar:
+```
+<Route path="/" element={<Navigate to="/dashboard" replace />} />
+```
+Por um componente que verifica autenticação:
+- Logado → redireciona para `/dashboard`
+- Não logado → renderiza `<LandingPage />`
+
+### 3. Design
+
+- Seguir o design system existente (Tailwind, cores do tema, componentes shadcn)
+- Responsivo mobile-first
+- Seções com fundo alternado (background/muted) para ritmo visual
+- CTAs usando o variant `default` (accent) e `gold` para destaque
+
+### Detalhes técnicos
+
+- **Arquivo novo**: `src/pages/LandingPage.tsx`
+- **Edição**: `src/App.tsx` — nova lógica na rota `/`
+- **Dados**: Query aos `subscription_plans` para seção de planos (mesma query da página /planos)
+- **Sem backend**: Página 100% estática/client-side, sem novas Edge Functions
+
