@@ -132,7 +132,7 @@ const App = () => (
                       <Route path="/i/:slug" element={<PublicPropertyBySlug />} />
                       <Route path="/privacidade" element={<PrivacyPolicy />} />
                       <Route path="/planos" element={<Plans />} />
-                      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                      <Route path="/" element={<LandingPage />} />
                       <Route path="/acesso-negado" element={<AccessDenied />} />
 
                       {/* Consumer App routes */}
