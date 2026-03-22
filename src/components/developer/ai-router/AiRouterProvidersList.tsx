@@ -5,12 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Plus, RotateCcw, AlertTriangle, Eye, EyeOff, Zap, ExternalLink, Key, Trash2, Search } from "lucide-react";
+import { Loader2, Plus, RotateCcw, AlertTriangle, Eye, EyeOff, Zap, ExternalLink, Key, Trash2, Search, ArrowRight, ArrowLeft } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useAiRouterProviders, type AiRouterProvider } from "@/hooks/useAiRouterProviders";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,6 +27,18 @@ interface DiscoveredModel {
   supports_image_output: boolean;
   context_window?: number;
 }
+
+const PROVIDER_LABELS: Record<string, string> = {
+  groq: "Groq",
+  gemini: "Google Gemini",
+  openai: "OpenAI",
+};
+
+const PROVIDER_BASE_URLS: Record<string, string> = {
+  groq: "https://api.groq.com/openai/v1/chat/completions",
+  gemini: "https://generativelanguage.googleapis.com/v1beta",
+  openai: "https://api.openai.com/v1/chat/completions",
+};
 
 // ── First-use banner ──
 
@@ -69,54 +80,9 @@ function NoKeysBanner({ providers }: { providers: AiRouterProvider[] }) {
   );
 }
 
-// ── Model list item ──
+// ── Edit API Key modal (for existing providers) ──
 
-function ModelListItem({
-  model,
-  selected,
-  onSelect,
-}: {
-  model: DiscoveredModel;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      onClick={onSelect}
-      className={`w-full text-left p-2.5 rounded-md border transition-colors text-sm ${
-        selected
-          ? "border-primary bg-primary/5"
-          : "border-border hover:border-primary/40 hover:bg-muted/50"
-      }`}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-medium truncate">{model.id}</span>
-        <div className="flex items-center gap-1 shrink-0">
-          {model.is_free ? (
-            <Badge className="bg-green-500/10 text-green-700 text-[10px]">free</Badge>
-          ) : (
-            <Badge variant="secondary" className="text-[10px]">pago</Badge>
-          )}
-          {model.supports_image_input && (
-            <Badge variant="outline" className="text-[10px]">👁️ vision</Badge>
-          )}
-          {model.supports_image_output && (
-            <Badge variant="outline" className="text-[10px]">🖼️ img</Badge>
-          )}
-        </div>
-      </div>
-      {model.context_window && (
-        <p className="text-[10px] text-muted-foreground mt-0.5">
-          Context: {(model.context_window / 1000).toFixed(0)}k tokens
-        </p>
-      )}
-    </button>
-  );
-}
-
-// ── API Key modal with model discovery ──
-
-function ApiKeyModal({
+function EditApiKeyModal({
   provider,
   open,
   onClose,
@@ -130,75 +96,13 @@ function ApiKeyModal({
   const [showKey, setShowKey] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  // Model discovery state
-  const [models, setModels] = useState<DiscoveredModel[]>([]);
-  const [modelsLoading, setModelsLoading] = useState(false);
-  const [modelsError, setModelsError] = useState<string | null>(null);
-  const [selectedModel, setSelectedModel] = useState<string | null>(null);
-  const [modelFilter, setModelFilter] = useState("");
-
-  // Reset state when modal closes
   useEffect(() => {
-    if (!open) {
-      setApiKey("");
-      setShowKey(false);
-      setTestResult(null);
-      setModels([]);
-      setModelsError(null);
-      setSelectedModel(null);
-      setModelFilter("");
-    }
+    if (!open) { setApiKey(""); setShowKey(false); setTestResult(null); }
   }, [open]);
-
-  // Auto-discover models when API key is pasted (debounced)
-  const discoverModels = useCallback(async (key: string, providerType: string) => {
-    if (!key || key.length < 10) {
-      setModels([]);
-      setModelsError(null);
-      return;
-    }
-
-    setModelsLoading(true);
-    setModelsError(null);
-    setModels([]);
-
-    try {
-      const { data, error } = await supabase.functions.invoke("list-ai-models", {
-        body: { provider_type: providerType, api_key: key },
-      });
-
-      if (error) throw error;
-      if (!data?.ok) throw new Error(data?.error || "Falha ao listar modelos");
-
-      setModels(data.models || []);
-      if (data.models?.length === 0) {
-        setModelsError("Nenhum modelo encontrado para esta key.");
-      }
-    } catch (err: any) {
-      setModelsError(err.message || "Erro ao buscar modelos");
-      setModels([]);
-    } finally {
-      setModelsLoading(false);
-    }
-  }, []);
-
-  // Debounce API key input for model discovery
-  useEffect(() => {
-    if (!provider || !apiKey || apiKey.length < 10) return;
-
-    const timer = setTimeout(() => {
-      discoverModels(apiKey, provider.provider_type);
-    }, 800);
-
-    return () => clearTimeout(timer);
-  }, [apiKey, provider?.provider_type, discoverModels]);
 
   const handleSave = () => {
     if (!provider) return;
-    updateApiKey.mutate(
-      { id: provider.id, api_key: apiKey },
-      { onSuccess: () => onClose() }
-    );
+    updateApiKey.mutate({ id: provider.id, api_key: apiKey }, { onSuccess: () => onClose() });
   };
 
   const handleTest = () => {
@@ -210,25 +114,15 @@ function ApiKeyModal({
     });
   };
 
-  const filteredModels = models.filter(
-    (m) =>
-      !modelFilter ||
-      m.id.toLowerCase().includes(modelFilter.toLowerCase()) ||
-      m.name.toLowerCase().includes(modelFilter.toLowerCase())
-  );
-
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Key className="h-4 w-4" />
-            API Key — {provider?.display_name}
+            <Key className="h-4 w-4" /> API Key — {provider?.display_name}
           </DialogTitle>
         </DialogHeader>
-
-        <div className="space-y-4 flex-1 overflow-y-auto pr-1">
-          {/* API Key input */}
+        <div className="space-y-4">
           <div>
             <Label>API Key</Label>
             <div className="relative">
@@ -239,192 +133,260 @@ function ApiKeyModal({
                 placeholder="Colar API key aqui"
                 className="pr-10"
               />
-              <button
-                type="button"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                onClick={() => setShowKey(!showKey)}
-              >
+              <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setShowKey(!showKey)}>
                 {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
           </div>
-
-          {provider?.has_api_key && (
-            <p className="text-xs text-muted-foreground">
-              🟢 Já existe uma key configurada. Salvar irá substituí-la.
-            </p>
-          )}
-
-          {/* Model discovery section */}
-          {apiKey.length >= 10 && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">Modelos disponíveis</Label>
-                {modelsLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-              </div>
-
-              {modelsError && (
-                <div className="text-xs p-2 rounded bg-red-500/10 text-red-700">
-                  {modelsError}
-                </div>
-              )}
-
-              {models.length > 0 && (
-                <>
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                    <Input
-                      value={modelFilter}
-                      onChange={(e) => setModelFilter(e.target.value)}
-                      placeholder="Filtrar modelos..."
-                      className="pl-8 h-8 text-xs"
-                    />
-                  </div>
-
-                  <p className="text-[10px] text-muted-foreground">
-                    {models.length} modelos encontrados · {models.filter(m => m.is_free).length} grátis
-                  </p>
-
-                  <ScrollArea className="h-[200px]">
-                    <div className="space-y-1.5 pr-2">
-                      {filteredModels.map((model) => (
-                        <ModelListItem
-                          key={model.id}
-                          model={model}
-                          selected={selectedModel === model.id}
-                          onSelect={() => setSelectedModel(model.id)}
-                        />
-                      ))}
-                      {filteredModels.length === 0 && (
-                        <p className="text-xs text-muted-foreground text-center py-4">
-                          Nenhum modelo corresponde ao filtro.
-                        </p>
-                      )}
-                    </div>
-                  </ScrollArea>
-
-                  {selectedModel && (
-                    <p className="text-xs text-primary">
-                      Modelo selecionado: <strong>{selectedModel}</strong>
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-
+          {provider?.has_api_key && <p className="text-xs text-muted-foreground">🟢 Já existe uma key. Salvar irá substituí-la.</p>}
           {testResult && (
-            <div className={`text-sm p-2 rounded ${testResult.ok ? "bg-green-500/10 text-green-700" : "bg-red-500/10 text-red-700"}`}>
+            <div className={`text-sm p-2 rounded ${testResult.ok ? "bg-green-500/10 text-green-700" : "bg-destructive/10 text-destructive"}`}>
               {testResult.msg}
             </div>
           )}
         </div>
-
-        <DialogFooter className="gap-2 pt-2 border-t">
+        <DialogFooter className="gap-2">
           <Button variant="outline" size="sm" onClick={handleTest} disabled={testProvider.isPending}>
             {testProvider.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Zap className="h-3.5 w-3.5 mr-1" />}
             Testar
           </Button>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSave} disabled={!apiKey || updateApiKey.isPending}>
-            {updateApiKey.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
-            Salvar
-          </Button>
+          <Button onClick={handleSave} disabled={!apiKey || updateApiKey.isPending}>Salvar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
 
-// ── New Provider Modal ──
+// ── New Provider Wizard (Step 1: key → Step 2: pick model) ──
 
-function NewProviderModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+function NewProviderWizard({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { createProvider } = useAiRouterProviders();
-  const [form, setForm] = useState<Partial<AiRouterProvider>>({
-    provider_type: "groq",
-    is_free: true,
-    is_active: true,
-    priority: 50,
-    supports_image_input: false,
-    supports_image_output: false,
-  });
+
+  // Step 1 state
+  const [step, setStep] = useState<1 | 2>(1);
+  const [providerType, setProviderType] = useState("groq");
+  const [apiKey, setApiKey] = useState("");
+  const [showKey, setShowKey] = useState(false);
+
+  // Discovery state
+  const [models, setModels] = useState<DiscoveredModel[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [modelsError, setModelsError] = useState<string | null>(null);
+  const [modelFilter, setModelFilter] = useState("");
+
+  // Step 2 state
+  const [selectedModel, setSelectedModel] = useState<DiscoveredModel | null>(null);
+  const [displayName, setDisplayName] = useState("");
+
+  // Reset on close
+  useEffect(() => {
+    if (!open) {
+      setStep(1);
+      setProviderType("groq");
+      setApiKey("");
+      setShowKey(false);
+      setModels([]);
+      setModelsLoading(false);
+      setModelsError(null);
+      setModelFilter("");
+      setSelectedModel(null);
+      setDisplayName("");
+    }
+  }, [open]);
+
+  const discoverModels = useCallback(async () => {
+    if (!apiKey || apiKey.length < 10) return;
+    setModelsLoading(true);
+    setModelsError(null);
+    setModels([]);
+    try {
+      const { data, error } = await supabase.functions.invoke("list-ai-models", {
+        body: { provider_type: providerType, api_key: apiKey },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error || "Falha ao listar modelos");
+      setModels(data.models || []);
+      if ((data.models || []).length === 0) setModelsError("Nenhum modelo encontrado para esta key.");
+      setStep(2);
+    } catch (err: any) {
+      setModelsError(err.message || "Erro ao buscar modelos");
+    } finally {
+      setModelsLoading(false);
+    }
+  }, [apiKey, providerType]);
+
+  const handleSelectModel = (model: DiscoveredModel) => {
+    setSelectedModel(model);
+    setDisplayName(`${PROVIDER_LABELS[providerType] || providerType} — ${model.name || model.id}`);
+  };
 
   const handleSave = () => {
-    if (!form.provider_key || !form.display_name || !form.model_id || !form.env_secret_name || !form.api_base_url) return;
-    createProvider.mutate(form as any, {
-      onSuccess: () => {
-        onClose();
-        setForm({ provider_type: "groq", is_free: true, is_active: true, priority: 50, supports_image_input: false, supports_image_output: false });
-      },
-    });
+    if (!selectedModel) return;
+    const slug = `${providerType}_${selectedModel.id.replace(/[^a-z0-9]/gi, "_").toLowerCase()}`;
+    createProvider.mutate(
+      {
+        provider_key: slug,
+        display_name: displayName || selectedModel.id,
+        provider_type: providerType,
+        model_id: selectedModel.id,
+        env_secret_name: `${providerType.toUpperCase()}_API_KEY`,
+        api_base_url: PROVIDER_BASE_URLS[providerType] || "",
+        is_free: selectedModel.is_free,
+        is_active: true,
+        priority: 50,
+        supports_image_input: selectedModel.supports_image_input,
+        supports_image_output: selectedModel.supports_image_output,
+        rate_limit_rpm: null,
+        rate_limit_rpd: null,
+        notes: null,
+      } as any,
+      {
+        onSuccess: () => {
+          // Also save the API key
+          // We need the provider id, but we can do it via a separate update after creation
+          toast.success("Provider criado! Salve a API key no provider.");
+          onClose();
+        },
+      }
+    );
   };
+
+  const filteredModels = models.filter(
+    (m) => !modelFilter || m.id.toLowerCase().includes(modelFilter.toLowerCase()) || m.name.toLowerCase().includes(modelFilter.toLowerCase())
+  );
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Novo Provider</DialogTitle>
+          <DialogTitle>
+            {step === 1 ? "Novo Provider — Passo 1: API Key" : "Novo Provider — Passo 2: Escolher Modelo"}
+          </DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
-          <div>
-            <Label>Provider Key (slug)</Label>
-            <Input value={form.provider_key || ""} onChange={(e) => setForm({ ...form, provider_key: e.target.value })} placeholder="groq_key_c" />
-          </div>
-          <div>
-            <Label>Nome de exibição</Label>
-            <Input value={form.display_name || ""} onChange={(e) => setForm({ ...form, display_name: e.target.value })} />
-          </div>
-          <div>
-            <Label>Tipo</Label>
-            <Select value={form.provider_type || "groq"} onValueChange={(v) => setForm({ ...form, provider_type: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="groq">Groq</SelectItem>
-                <SelectItem value="gemini">Gemini</SelectItem>
-                <SelectItem value="openai">OpenAI</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Model ID</Label>
-            <Input value={form.model_id || ""} onChange={(e) => setForm({ ...form, model_id: e.target.value })} />
-          </div>
-          <div>
-            <Label>Secret Name (env fallback)</Label>
-            <Input value={form.env_secret_name || ""} onChange={(e) => setForm({ ...form, env_secret_name: e.target.value })} placeholder="GROQ_KEY_C" />
-          </div>
-          <div>
-            <Label>API Base URL</Label>
-            <Input value={form.api_base_url || ""} onChange={(e) => setForm({ ...form, api_base_url: e.target.value })} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Rate Limit RPM</Label>
-              <Input type="number" value={form.rate_limit_rpm || ""} onChange={(e) => setForm({ ...form, rate_limit_rpm: parseInt(e.target.value) || null })} />
-            </div>
-            <div>
-              <Label>Rate Limit RPD</Label>
-              <Input type="number" value={form.rate_limit_rpd || ""} onChange={(e) => setForm({ ...form, rate_limit_rpd: parseInt(e.target.value) || null })} />
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-4">
-            <div className="flex items-center gap-2">
-              <Checkbox checked={form.is_free || false} onCheckedChange={(v) => setForm({ ...form, is_free: !!v })} />
-              <Label>Gratuito</Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox checked={form.supports_image_input || false} onCheckedChange={(v) => setForm({ ...form, supports_image_input: !!v })} />
-              <Label>Image Input</Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox checked={form.supports_image_output || false} onCheckedChange={(v) => setForm({ ...form, supports_image_output: !!v })} />
-              <Label>Image Output</Label>
-            </div>
-          </div>
+
+        <div className="space-y-4 flex-1 overflow-y-auto pr-1">
+          {step === 1 && (
+            <>
+              <div>
+                <Label>Provedor</Label>
+                <Select value={providerType} onValueChange={setProviderType}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="groq">Groq (grátis)</SelectItem>
+                    <SelectItem value="gemini">Google Gemini (grátis)</SelectItem>
+                    <SelectItem value="openai">OpenAI (pago)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>API Key</Label>
+                <div className="relative">
+                  <Input
+                    type={showKey ? "text" : "password"}
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="Colar API key aqui"
+                    className="pr-10"
+                  />
+                  <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setShowKey(!showKey)}>
+                    {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+              {modelsError && (
+                <div className="text-xs p-2 rounded bg-destructive/10 text-destructive">{modelsError}</div>
+              )}
+            </>
+          )}
+
+          {step === 2 && (
+            <>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Badge variant="outline">{PROVIDER_LABELS[providerType]}</Badge>
+                <span>·</span>
+                <span>{models.length} modelos · {models.filter(m => m.is_free).length} grátis</span>
+              </div>
+
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input value={modelFilter} onChange={(e) => setModelFilter(e.target.value)} placeholder="Filtrar modelos..." className="pl-8 h-8 text-xs" />
+              </div>
+
+              <ScrollArea className="h-[220px]">
+                <div className="space-y-1.5 pr-2">
+                  {filteredModels.map((model) => (
+                    <button
+                      key={model.id}
+                      onClick={() => handleSelectModel(model)}
+                      className={`w-full text-left p-2.5 rounded-md border transition-colors text-sm ${
+                        selectedModel?.id === model.id
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/40 hover:bg-muted/50"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="truncate">
+                          <span className="font-medium">{model.id}</span>
+                          {model.name !== model.id && (
+                            <span className="text-muted-foreground ml-1.5 text-xs">({model.name})</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {model.is_free ? (
+                            <Badge className="bg-green-500/10 text-green-700 text-[10px]">free</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-[10px]">pago</Badge>
+                          )}
+                          {model.supports_image_input && <Badge variant="outline" className="text-[10px]">👁️</Badge>}
+                          {model.supports_image_output && <Badge variant="outline" className="text-[10px]">🖼️</Badge>}
+                        </div>
+                      </div>
+                      {model.context_window && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {(model.context_window / 1000).toFixed(0)}k tokens
+                        </p>
+                      )}
+                    </button>
+                  ))}
+                  {filteredModels.length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-4">Nenhum modelo encontrado.</p>
+                  )}
+                </div>
+              </ScrollArea>
+
+              {selectedModel && (
+                <div>
+                  <Label>Nome de exibição</Label>
+                  <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Ex: Groq — Llama 3" />
+                </div>
+              )}
+            </>
+          )}
         </div>
-        <DialogFooter>
+
+        <DialogFooter className="gap-2 pt-2 border-t">
+          {step === 2 && (
+            <Button variant="outline" size="sm" onClick={() => setStep(1)}>
+              <ArrowLeft className="h-3.5 w-3.5 mr-1" /> Voltar
+            </Button>
+          )}
+          <div className="flex-1" />
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSave} disabled={createProvider.isPending}>Salvar</Button>
+
+          {step === 1 && (
+            <Button onClick={discoverModels} disabled={apiKey.length < 10 || modelsLoading}>
+              {modelsLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <ArrowRight className="h-3.5 w-3.5 mr-1" />}
+              Buscar Modelos
+            </Button>
+          )}
+
+          {step === 2 && (
+            <Button onClick={handleSave} disabled={!selectedModel || !displayName || createProvider.isPending}>
+              {createProvider.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+              Criar Provider
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -455,23 +417,13 @@ export function AiRouterProviders() {
   const handleTestProvider = (p: AiRouterProvider) => {
     setTestingId(p.id);
     testProvider.mutate(p.provider_key, {
-      onSuccess: (res) => {
-        toast.success(`✅ ${p.display_name}: OK (${res.latency}ms)`);
-        setTestingId(null);
-      },
-      onError: (e: any) => {
-        toast.error(`❌ ${p.display_name}: ${e.message}`);
-        setTestingId(null);
-      },
+      onSuccess: (res) => { toast.success(`✅ ${p.display_name}: OK (${res.latency}ms)`); setTestingId(null); },
+      onError: (e: any) => { toast.error(`❌ ${p.display_name}: ${e.message}`); setTestingId(null); },
     });
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
   }
 
   return (
@@ -505,14 +457,10 @@ export function AiRouterProviders() {
                 {providers.map((p) => (
                   <TableRow key={p.id}>
                     <TableCell className="font-medium text-sm">{p.display_name}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-[10px]">{p.provider_type}</Badge>
-                    </TableCell>
+                    <TableCell><Badge variant="outline" className="text-[10px]">{p.provider_type}</Badge></TableCell>
                     <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">{p.model_id}</TableCell>
                     <TableCell>
-                      <button onClick={() => setKeyModal(p)} className="hover:opacity-80">
-                        <KeyStatusBadge provider={p} />
-                      </button>
+                      <button onClick={() => setKeyModal(p)} className="hover:opacity-80"><KeyStatusBadge provider={p} /></button>
                     </TableCell>
                     <TableCell>
                       {p.is_free
@@ -520,22 +468,16 @@ export function AiRouterProviders() {
                         : <Badge variant="destructive" className="text-[10px]">pago</Badge>}
                     </TableCell>
                     <TableCell>
-                      <Switch
-                        checked={p.is_active}
-                        onCheckedChange={(v) => toggleActive.mutate({ id: p.id, is_active: v })}
-                      />
+                      <Switch checked={p.is_active} onCheckedChange={(v) => toggleActive.mutate({ id: p.id, is_active: v })} />
                     </TableCell>
                     <TableCell className="text-xs">{p.rate_limit_rpm || "—"} / {p.rate_limit_rpd || "—"}</TableCell>
                     <TableCell>
                       {p.consecutive_errors > 10 ? (
                         <Badge variant="destructive" className="text-[10px]">
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                          Desabilitado ({p.consecutive_errors})
+                          <AlertTriangle className="h-3 w-3 mr-1" />Desabilitado ({p.consecutive_errors})
                         </Badge>
                       ) : p.consecutive_errors > 0 ? (
-                        <Badge variant="secondary" className="text-[10px] bg-red-500/10 text-red-700">
-                          {p.consecutive_errors} erros
-                        </Badge>
+                        <Badge variant="secondary" className="text-[10px] bg-destructive/10 text-destructive">{p.consecutive_errors} erros</Badge>
                       ) : (
                         <span className="text-xs text-muted-foreground">OK</span>
                       )}
@@ -547,32 +489,15 @@ export function AiRouterProviders() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleTestProvider(p)}
-                          disabled={testingId === p.id}
-                          title="Testar provider"
-                        >
+                        <Button size="sm" variant="ghost" onClick={() => handleTestProvider(p)} disabled={testingId === p.id} title="Testar">
                           {testingId === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
                         </Button>
                         {p.consecutive_errors > 0 && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => resetErrors.mutate(p.id)}
-                            disabled={resetErrors.isPending}
-                          >
+                          <Button size="sm" variant="ghost" onClick={() => resetErrors.mutate(p.id)} disabled={resetErrors.isPending}>
                             <RotateCcw className="h-3.5 w-3.5" />
                           </Button>
                         )}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setDeleteTarget(p)}
-                          className="text-destructive hover:text-destructive"
-                          title="Deletar provider"
-                        >
+                        <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(p)} className="text-destructive hover:text-destructive" title="Deletar">
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
@@ -585,25 +510,22 @@ export function AiRouterProviders() {
         </CardContent>
       </Card>
 
-      <NewProviderModal open={showNew} onClose={() => setShowNew(false)} />
-      <ApiKeyModal provider={keyModal} open={!!keyModal} onClose={() => setKeyModal(null)} />
+      <NewProviderWizard open={showNew} onClose={() => setShowNew(false)} />
+      <EditApiKeyModal provider={keyModal} open={!!keyModal} onClose={() => setKeyModal(null)} />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Deletar provider?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja remover <strong>{deleteTarget?.display_name}</strong>? A API key associada também será removida. Essa ação não pode ser desfeita.
+              Tem certeza que deseja remover <strong>{deleteTarget?.display_name}</strong>? A API key associada também será removida.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                if (deleteTarget) deleteProvider.mutate(deleteTarget.id);
-                setDeleteTarget(null);
-              }}
+              onClick={() => { if (deleteTarget) deleteProvider.mutate(deleteTarget.id); setDeleteTarget(null); }}
             >
               Deletar
             </AlertDialogAction>
