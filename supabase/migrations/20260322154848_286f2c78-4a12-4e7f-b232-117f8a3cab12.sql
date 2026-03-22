@@ -1,0 +1,1 @@
+UPDATE public.ai_router_config SET requires_image = false WHERE task_type = 'generate_art';
