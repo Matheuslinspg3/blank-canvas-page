@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { AwsClient } from "npm:aws4fetch@1.0.20";
 import { checkAiRateLimit } from "../_shared/ai-rate-limit.ts";
 import { fetchImageAsDataUrl } from "../_shared/gemini.ts";
 
@@ -22,6 +23,14 @@ interface CloudinaryConfig {
   apiKey: string;
   apiSecret: string;
   source: "primary" | "secondary";
+}
+
+interface R2Config {
+  accessKey: string;
+  secretKey: string;
+  endpoint: string;
+  bucket: string;
+  publicUrl: string;
 }
 
 function getCloudinaryConfigs(): CloudinaryConfig[] {
@@ -57,6 +66,20 @@ function getCloudinaryConfigs(): CloudinaryConfig[] {
 function formatPrice(value: number | null): string {
   if (!value) return "";
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0 });
+}
+
+function getR2Config(): R2Config | null {
+  const accessKey = (Deno.env.get("R2_ACCESS_KEY_ID") ?? "").trim();
+  const secretKey = (Deno.env.get("R2_SECRET_ACCESS_KEY") ?? "").trim();
+  const endpoint = (Deno.env.get("R2_ENDPOINT") ?? "").trim().replace(/\/$/, "");
+  const bucket = (Deno.env.get("R2_BUCKET_NAME") ?? "").trim();
+  const publicUrl = (Deno.env.get("R2_PUBLIC_URL") ?? "").trim().replace(/\/$/, "");
+
+  if (!accessKey || !secretKey || !endpoint || !bucket) {
+    return null;
+  }
+
+  return { accessKey, secretKey, endpoint, bucket, publicUrl };
 }
 
 function buildArtPrompt(
@@ -109,6 +132,7 @@ ${config.slogan ? `- Slogan: "${config.slogan}" (subtle, elegant)` : ""}
 - Brand: "${orgName}" (bottom corner, subtle)
 
 IMPORTANT: All text must be perfectly legible and spelled correctly in Portuguese.
+MANDATORY: Render all listed text directly in the image as visible typography (do not omit text blocks).
 Do NOT add any text that is not listed above. Keep it clean and professional.`;
 }
 
@@ -205,30 +229,75 @@ async function uploadRemoteImageToCloudinary(
   return null;
 }
 
-function ensureCloudinaryPngUrl(url: string): string {
-  try {
-    const parsed = new URL(url);
-    if (!parsed.hostname.includes("res.cloudinary.com")) return url;
+function extensionFromContentType(contentType: string): string {
+  if (contentType.includes("png")) return "png";
+  if (contentType.includes("webp")) return "webp";
+  if (contentType.includes("jpeg") || contentType.includes("jpg")) return "jpg";
+  return "png";
+}
 
-    // Force Cloudinary delivery as PNG32 (RGBA) so OpenAI /images/edits accepts it.
-    parsed.pathname = parsed.pathname.replace("/upload/", "/upload/f_png/fl_png32/");
-    return parsed.toString();
+async function getImagePayloadFromResult(resultData: string): Promise<{ bytes: Uint8Array; contentType: string } | null> {
+  if (resultData.startsWith("data:")) {
+    const match = resultData.match(/^data:(.*?);base64,(.*)$/s);
+    if (!match) return null;
+
+    const contentType = match[1] || "image/png";
+    const bytes = Uint8Array.from(atob(match[2]), (c) => c.charCodeAt(0));
+    return { bytes, contentType };
+  }
+
+  if (resultData.startsWith("http://") || resultData.startsWith("https://")) {
+    const res = await fetch(resultData);
+    if (!res.ok) return null;
+    const contentType = res.headers.get("content-type") || "image/png";
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    return { bytes, contentType };
+  }
+
+  try {
+    const bytes = Uint8Array.from(atob(resultData), (c) => c.charCodeAt(0));
+    return { bytes, contentType: "image/png" };
   } catch {
-    return url;
+    return null;
   }
 }
 
-function isPngBase64(base64Data: string): boolean {
-  try {
-    const header = atob(base64Data.slice(0, 24));
-    return header.length >= 4
-      && header.charCodeAt(0) === 0x89
-      && header.charCodeAt(1) === 0x50
-      && header.charCodeAt(2) === 0x4E
-      && header.charCodeAt(3) === 0x47;
-  } catch {
-    return false;
+async function uploadBytesToR2(
+  bytes: Uint8Array,
+  objectKey: string,
+  contentType: string,
+): Promise<string | null> {
+  const cfg = getR2Config();
+  if (!cfg) {
+    console.warn("[art-gen] R2 config not available, skipping R2 upload");
+    return null;
   }
+
+  const aws = new AwsClient({
+    accessKeyId: cfg.accessKey,
+    secretAccessKey: cfg.secretKey,
+    region: "auto",
+    service: "s3",
+  });
+
+  const uploadUrl = `${cfg.endpoint}/${cfg.bucket}/${objectKey}`;
+  const res = await aws.fetch(uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": contentType },
+    body: bytes,
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error(`[art-gen] R2 upload failed (${objectKey}): ${res.status} ${errorText}`);
+    return null;
+  }
+
+  const publicBase = cfg.publicUrl && !cfg.publicUrl.includes("r2.cloudflarestorage.com")
+    ? cfg.publicUrl
+    : `${cfg.endpoint}/${cfg.bucket}`;
+
+  return `${publicBase}/${objectKey}`;
 }
 
 Deno.serve(async (req) => {
@@ -294,19 +363,8 @@ Deno.serve(async (req) => {
       phone: config.phone || profile.phone || "",
     };
 
-    // Convert source image to PNG32 (RGBA) via Cloudinary when available (required by OpenAI image edits)
-    let sourceImageUrl = imageUrl;
-    const sourceFolder = `habitae/artes/${profile.organization_id}/source-images`;
-    const sourcePublicId = `source_${propertyId}_${Date.now()}`;
-    const cloudinarySourceUrl = await uploadRemoteImageToCloudinary(imageUrl, sourceFolder, sourcePublicId);
-    if (cloudinarySourceUrl) {
-      sourceImageUrl = ensureCloudinaryPngUrl(cloudinarySourceUrl);
-    } else {
-      console.warn("[art-gen] Cloudinary source conversion unavailable, using original URL");
-    }
-
-    // Fetch the final source image as data URL
-    const imageDataUrl = await fetchImageAsDataUrl(sourceImageUrl);
+    // Keep source flow as R2/original URL; AI Router handles PNG normalization when needed.
+    const imageDataUrl = await fetchImageAsDataUrl(imageUrl);
     const base64Match = imageDataUrl.match(/^data:.*?;base64,(.*)$/);
     const imageBase64 = base64Match ? base64Match[1] : "";
 
@@ -348,12 +406,23 @@ Deno.serve(async (req) => {
         const resultDataUrl = data.image_base64 || data.image_url;
         if (!resultDataUrl) throw new Error("No image returned from AI Router");
 
-        // Upload to Cloudinary
+        const imagePayload = await getImagePayloadFromResult(resultDataUrl);
+
+        // Upload order: R2 first, then Cloudinary mirror
+        let r2Url: string | null = null;
+        if (imagePayload) {
+          const ext = extensionFromContentType(imagePayload.contentType);
+          const r2Key = `artes/${profile.organization_id}/${propertyId}_${format}_${Date.now()}.${ext}`;
+          r2Url = await uploadBytesToR2(imagePayload.bytes, r2Key, imagePayload.contentType);
+        }
+
         const folder = `habitae/artes/${profile.organization_id}`;
         const publicId = `${propertyId}_${format}_${Date.now()}`;
-        const cloudinaryUrl = await uploadBase64ToCloudinary(resultDataUrl, folder, publicId);
+        const cloudinaryUrl = r2Url
+          ? await uploadRemoteImageToCloudinary(r2Url, folder, publicId)
+          : await uploadBase64ToCloudinary(resultDataUrl, folder, publicId);
 
-        return cloudinaryUrl || resultDataUrl;
+        return cloudinaryUrl || r2Url || resultDataUrl;
       }),
     );
 
