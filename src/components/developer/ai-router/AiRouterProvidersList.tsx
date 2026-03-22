@@ -232,6 +232,7 @@ function NewProviderWizard({ open, onClose }: { open: boolean; onClose: () => vo
         model_id: selectedModel.id,
         env_secret_name: `${providerType.toUpperCase()}_API_KEY`,
         api_base_url: PROVIDER_BASE_URLS[providerType] || "",
+        api_key: apiKey,
         is_free: selectedModel.is_free,
         is_active: true,
         priority: 50,
@@ -241,14 +242,7 @@ function NewProviderWizard({ open, onClose }: { open: boolean; onClose: () => vo
         rate_limit_rpd: null,
         notes: null,
       } as any,
-      {
-        onSuccess: () => {
-          // Also save the API key
-          // We need the provider id, but we can do it via a separate update after creation
-          toast.success("Provider criado! Salve a API key no provider.");
-          onClose();
-        },
-      }
+      { onSuccess: () => onClose() }
     );
   };
 
