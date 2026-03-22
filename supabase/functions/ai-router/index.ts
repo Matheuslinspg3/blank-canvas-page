@@ -24,6 +24,7 @@ interface Provider {
   model_id: string;
   env_secret_name: string;
   api_base_url: string;
+  api_key: string | null;
   is_free: boolean;
   is_active: boolean;
   supports_image_input: boolean;
