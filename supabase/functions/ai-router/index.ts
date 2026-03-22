@@ -405,12 +405,24 @@ async function callOpenAI(
       };
 
       const attemptEdit = async (model: string, size: string, editPrompt: string): Promise<any> => {
+        const isGptImage = model.startsWith("gpt-image");
         const formData = new FormData();
-        formData.append("image", imageBlob, `photo.${fileExt}`);
-        formData.append("prompt", editPrompt);
-        formData.append("model", model);
-        formData.append("size", size);
-        formData.append("response_format", "b64_json");
+        
+        if (isGptImage) {
+          // gpt-image-1 uses image[] array format and supports more sizes
+          formData.append("image[]", imageBlob, `photo.png`);
+          formData.append("prompt", editPrompt);
+          formData.append("model", model);
+          formData.append("size", size);
+          formData.append("quality", "low");
+        } else {
+          // dall-e-2 uses image (single) format
+          formData.append("image", imageBlob, `photo.${fileExt}`);
+          formData.append("prompt", editPrompt);
+          formData.append("model", model);
+          formData.append("size", size);
+          formData.append("response_format", "b64_json");
+        }
 
         console.log(`[ai-router] OpenAI image EDIT (requested=${provider.model_id}, effective=${model}, size=${requestedSize}→${size}, prompt=${prompt.length}→${editPrompt.length})`);
 
@@ -422,6 +434,7 @@ async function callOpenAI(
         });
         if (!res.ok) {
           const body = await res.text();
+          console.error(`[ai-router] OpenAI image-edit ${model} error ${res.status}: ${body.slice(0, 500)}`);
           const err = Object.assign(new Error(`OpenAI image-edit ${res.status}: ${body.slice(0, 300)}`), {
             is429: res.status === 429,
             isRetryableModelError: res.status === 400 || res.status === 404,
@@ -429,6 +442,20 @@ async function callOpenAI(
           throw err;
         }
         const data = await res.json();
+        
+        if (isGptImage) {
+          // gpt-image-1 returns b64_json by default
+          const b64 = data.data?.[0]?.b64_json;
+          const url = data.data?.[0]?.url;
+          if (b64) {
+            return { image_base64: `data:image/png;base64,${b64}`, text: "", tokens_input: 0, tokens_output: 0 };
+          }
+          if (url) {
+            return { image_url: url, text: "", tokens_input: 0, tokens_output: 0 };
+          }
+          throw new Error("OpenAI gpt-image-1 edit: no image data returned");
+        }
+        
         const b64 = data.data?.[0]?.b64_json;
         if (!b64) throw new Error("OpenAI image edit: no image data returned");
         return { image_base64: `data:image/png;base64,${b64}`, text: "", tokens_input: 0, tokens_output: 0 };
