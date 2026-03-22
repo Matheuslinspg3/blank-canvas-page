@@ -359,13 +359,15 @@ Deno.serve(async (req) => {
     const orgId = body.organization_id || null;
     const userId = body.user_id || authUserId;
 
-    // Provider chain
-    const chain: string[] = Array.isArray(config.provider_chain)
-      ? config.provider_chain
-      : JSON.parse(config.provider_chain as unknown as string);
-
-    const providersAttempted: string[] = [];
-    let lastError = "";
+    // Provider chain — respect force_provider if set
+    let chain: string[];
+    if (force_provider) {
+      chain = [force_provider];
+    } else {
+      chain = Array.isArray(config.provider_chain)
+        ? config.provider_chain
+        : JSON.parse(config.provider_chain as unknown as string);
+    }
 
     for (const providerKey of chain) {
       const provider = providerMap.get(providerKey);
