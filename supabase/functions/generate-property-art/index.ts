@@ -92,7 +92,6 @@ async function uploadBase64ToCloudinary(
   const timestamp = Math.floor(Date.now() / 1000).toString();
   const paramsToSign = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}`;
 
-  // Generate SHA1 signature
   const encoder = new TextEncoder();
   const data = encoder.encode(paramsToSign + apiSecret);
   const hashBuffer = await crypto.subtle.digest("SHA-1", data);
@@ -120,55 +119,6 @@ async function uploadBase64ToCloudinary(
 
   const result = await res.json();
   return result.secure_url;
-}
-
-// Call OpenAI gpt-image-1 to edit property photo with marketing overlay
-async function callOpenAIImageEdit(
-  prompt: string,
-  imageBase64: string,
-  format: string,
-): Promise<string> {
-  const apiKey = Deno.env.get("OPENAI_IMAGE_API_KEY");
-  if (!apiKey) throw new Error("OPENAI_IMAGE_API_KEY não configurada");
-
-  // Map format to OpenAI supported sizes
-  const sizeMap: Record<string, string> = {
-    feed: "1024x1024",
-    story: "1024x1536",
-    banner: "1536x1024",
-  };
-  const size = sizeMap[format] || "1024x1024";
-
-  // Convert base64 to Blob for multipart upload
-  const imageBytes = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
-  const imageBlob = new Blob([imageBytes], { type: "image/png" });
-
-  const formData = new FormData();
-  formData.append("image", imageBlob, "property.png");
-  formData.append("prompt", prompt);
-  formData.append("model", "gpt-image-1");
-  formData.append("size", size);
-  formData.append("response_format", "b64_json");
-
-  console.log(`[art-gen] Calling OpenAI gpt-image-1 for ${format} (${size})`);
-
-  const response = await fetch("https://api.openai.com/v1/images/edits", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}` },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    console.error(`[art-gen] OpenAI error for ${format}: ${response.status} ${errText.slice(0, 300)}`);
-    throw new Error(`OpenAI image edit error ${response.status}: ${errText.slice(0, 300)}`);
-  }
-
-  const data = await response.json();
-  const b64 = data.data?.[0]?.b64_json;
-  if (!b64) throw new Error("OpenAI não retornou dados de imagem");
-
-  return `data:image/png;base64,${b64}`;
 }
 
 Deno.serve(async (req) => {
@@ -239,13 +189,43 @@ Deno.serve(async (req) => {
     const base64Match = imageDataUrl.match(/^data:.*?;base64,(.*)$/);
     const imageBase64 = base64Match ? base64Match[1] : "";
 
-    // Generate 3 formats in parallel via OpenAI gpt-image-1 (image editing)
+    if (!imageBase64) {
+      return new Response(JSON.stringify({ error: "Falha ao processar imagem do imóvel" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Map format to OpenAI compatible sizes
+    const sizeMap: Record<string, string> = {
+      feed: "1024x1024",
+      story: "1024x1536",
+      banner: "1536x1024",
+    };
+
+    // Generate 3 formats in parallel via AI Router (with image editing)
     const formats = ["feed", "story", "banner"] as const;
     const results = await Promise.allSettled(
       formats.map(async (format) => {
         const prompt = buildArtPrompt(format, property, orgName, artConfig);
 
-        const resultDataUrl = await callOpenAIImageEdit(prompt, imageBase64, format);
+        console.log(`[art-gen] Calling AI Router for ${format} (${sizeMap[format]})`);
+
+        const { data, error } = await authClient.functions.invoke("ai-router", {
+          body: {
+            task_type: "generate_art",
+            prompt,
+            image_base64: imageBase64,
+            image_size: sizeMap[format],
+            organization_id: profile.organization_id,
+          },
+        });
+
+        if (error) throw new Error(`AI Router error: ${error.message}`);
+        if (!data?.success) throw new Error(data?.error || "AI Router failed");
+
+        // Get the image result (could be base64 or URL)
+        const resultDataUrl = data.image_base64 || data.image_url;
+        if (!resultDataUrl) throw new Error("No image returned from AI Router");
 
         // Upload to Cloudinary
         const folder = `habitae/artes/${profile.organization_id}`;
