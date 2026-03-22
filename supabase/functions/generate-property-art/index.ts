@@ -80,9 +80,9 @@ async function uploadBase64ToCloudinary(
   folder: string,
   publicId: string,
 ): Promise<string | null> {
-  const cloudName = Deno.env.get("CLOUDINARY_CLOUD_NAME");
-  const apiKey = Deno.env.get("CLOUDINARY_API_KEY");
-  const apiSecret = Deno.env.get("CLOUDINARY_API_SECRET");
+  const cloudName = Deno.env.get("CLOUDINARY_CLOUD_NAME") || Deno.env.get("CLOUDINARY2_CLOUD_NAME");
+  const apiKey = Deno.env.get("CLOUDINARY_API_KEY") || Deno.env.get("CLOUDINARY2_API_KEY");
+  const apiSecret = Deno.env.get("CLOUDINARY_API_SECRET") || Deno.env.get("CLOUDINARY2_API_SECRET");
 
   if (!cloudName || !apiKey || !apiSecret) {
     console.warn("[art-gen] Cloudinary not configured, returning data URL");
@@ -126,9 +126,9 @@ async function uploadRemoteImageToCloudinary(
   folder: string,
   publicId: string,
 ): Promise<string | null> {
-  const cloudName = Deno.env.get("CLOUDINARY_CLOUD_NAME");
-  const apiKey = Deno.env.get("CLOUDINARY_API_KEY");
-  const apiSecret = Deno.env.get("CLOUDINARY_API_SECRET");
+  const cloudName = Deno.env.get("CLOUDINARY_CLOUD_NAME") || Deno.env.get("CLOUDINARY2_CLOUD_NAME");
+  const apiKey = Deno.env.get("CLOUDINARY_API_KEY") || Deno.env.get("CLOUDINARY2_API_KEY");
+  const apiSecret = Deno.env.get("CLOUDINARY_API_SECRET") || Deno.env.get("CLOUDINARY2_API_SECRET");
 
   if (!cloudName || !apiKey || !apiSecret) {
     return null;
@@ -171,8 +171,8 @@ function ensureCloudinaryPngUrl(url: string): string {
     const parsed = new URL(url);
     if (!parsed.hostname.includes("res.cloudinary.com")) return url;
 
-    // Force Cloudinary delivery as PNG so OpenAI /images/edits accepts it.
-    parsed.pathname = parsed.pathname.replace("/upload/", "/upload/f_png/");
+    // Force Cloudinary delivery as PNG32 (RGBA) so OpenAI /images/edits accepts it.
+    parsed.pathname = parsed.pathname.replace("/upload/", "/upload/f_png/fl_png32/");
     return parsed.toString();
   } catch {
     return url;
@@ -255,8 +255,19 @@ Deno.serve(async (req) => {
       phone: config.phone || profile.phone || "",
     };
 
-    // Fetch property image as data URL (any format — gpt-image-1 accepts PNG/JPEG/WebP)
-    const imageDataUrl = await fetchImageAsDataUrl(imageUrl);
+    // Convert source image to PNG32 (RGBA) via Cloudinary when available (required by OpenAI image edits)
+    let sourceImageUrl = imageUrl;
+    const sourceFolder = `habitae/artes/${profile.organization_id}/source-images`;
+    const sourcePublicId = `source_${propertyId}_${Date.now()}`;
+    const cloudinarySourceUrl = await uploadRemoteImageToCloudinary(imageUrl, sourceFolder, sourcePublicId);
+    if (cloudinarySourceUrl) {
+      sourceImageUrl = ensureCloudinaryPngUrl(cloudinarySourceUrl);
+    } else {
+      console.warn("[art-gen] Cloudinary source conversion unavailable, using original URL");
+    }
+
+    // Fetch the final source image as data URL
+    const imageDataUrl = await fetchImageAsDataUrl(sourceImageUrl);
     const base64Match = imageDataUrl.match(/^data:.*?;base64,(.*)$/);
     const imageBase64 = base64Match ? base64Match[1] : "";
 
