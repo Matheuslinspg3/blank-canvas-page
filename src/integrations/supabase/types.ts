@@ -533,6 +533,182 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_router_config: {
+        Row: {
+          complexity: string
+          created_at: string | null
+          description: string | null
+          display_name: string
+          id: string
+          is_active: boolean | null
+          max_tokens: number | null
+          provider_chain: Json
+          requires_image: boolean | null
+          system_prompt: string | null
+          task_type: string
+          temperature: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          complexity?: string
+          created_at?: string | null
+          description?: string | null
+          display_name: string
+          id?: string
+          is_active?: boolean | null
+          max_tokens?: number | null
+          provider_chain: Json
+          requires_image?: boolean | null
+          system_prompt?: string | null
+          task_type: string
+          temperature?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          complexity?: string
+          created_at?: string | null
+          description?: string | null
+          display_name?: string
+          id?: string
+          is_active?: boolean | null
+          max_tokens?: number | null
+          provider_chain?: Json
+          requires_image?: boolean | null
+          system_prompt?: string | null
+          task_type?: string
+          temperature?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      ai_router_logs: {
+        Row: {
+          created_at: string | null
+          error_message: string | null
+          estimated_cost_usd: number | null
+          id: string
+          is_free: boolean | null
+          latency_ms: number | null
+          model_used: string | null
+          organization_id: string | null
+          prompt_preview: string | null
+          provider_used: string | null
+          providers_attempted: string[] | null
+          success: boolean | null
+          task_type: string
+          tokens_input: number | null
+          tokens_output: number | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          error_message?: string | null
+          estimated_cost_usd?: number | null
+          id?: string
+          is_free?: boolean | null
+          latency_ms?: number | null
+          model_used?: string | null
+          organization_id?: string | null
+          prompt_preview?: string | null
+          provider_used?: string | null
+          providers_attempted?: string[] | null
+          success?: boolean | null
+          task_type: string
+          tokens_input?: number | null
+          tokens_output?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          error_message?: string | null
+          estimated_cost_usd?: number | null
+          id?: string
+          is_free?: boolean | null
+          latency_ms?: number | null
+          model_used?: string | null
+          organization_id?: string | null
+          prompt_preview?: string | null
+          provider_used?: string | null
+          providers_attempted?: string[] | null
+          success?: boolean | null
+          task_type?: string
+          tokens_input?: number | null
+          tokens_output?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_router_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_router_providers: {
+        Row: {
+          api_base_url: string
+          consecutive_errors: number | null
+          created_at: string | null
+          display_name: string
+          env_secret_name: string
+          id: string
+          is_active: boolean | null
+          is_free: boolean | null
+          last_error_at: string | null
+          model_id: string
+          notes: string | null
+          priority: number | null
+          provider_key: string
+          provider_type: string
+          rate_limit_rpd: number | null
+          rate_limit_rpm: number | null
+          supports_image_input: boolean | null
+          supports_image_output: boolean | null
+        }
+        Insert: {
+          api_base_url: string
+          consecutive_errors?: number | null
+          created_at?: string | null
+          display_name: string
+          env_secret_name: string
+          id?: string
+          is_active?: boolean | null
+          is_free?: boolean | null
+          last_error_at?: string | null
+          model_id: string
+          notes?: string | null
+          priority?: number | null
+          provider_key: string
+          provider_type: string
+          rate_limit_rpd?: number | null
+          rate_limit_rpm?: number | null
+          supports_image_input?: boolean | null
+          supports_image_output?: boolean | null
+        }
+        Update: {
+          api_base_url?: string
+          consecutive_errors?: number | null
+          created_at?: string | null
+          display_name?: string
+          env_secret_name?: string
+          id?: string
+          is_active?: boolean | null
+          is_free?: boolean | null
+          last_error_at?: string | null
+          model_id?: string
+          notes?: string | null
+          priority?: number | null
+          provider_key?: string
+          provider_type?: string
+          rate_limit_rpd?: number | null
+          rate_limit_rpm?: number | null
+          supports_image_input?: boolean | null
+          supports_image_output?: boolean | null
+        }
+        Relationships: []
+      }
       ai_token_usage_events: {
         Row: {
           created_at: string
