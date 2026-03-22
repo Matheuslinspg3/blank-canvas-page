@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 
 /* ─── Helpers ─── */
 const fmt = (value: number) =>
-  value.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  (value / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /* ─── Section wrapper ─── */
 const Section = ({ children, className, id }: { children: React.ReactNode; className?: string; id?: string }) => (
