@@ -229,8 +229,47 @@ async function callOpenAI(
 
     // If we have a base image, use the /images/edits endpoint to preserve the original photo
     if (imageBase64) {
-      const imageBytes = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
-      const imageBlob = new Blob([imageBytes], { type: "image/png" });
+      // Detect format and convert to PNG if needed (DALL-E 2 requires PNG)
+      let pngBytes: Uint8Array;
+      const rawBytes = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
+      
+      // Check if already PNG (magic bytes: 89 50 4E 47)
+      const isPng = rawBytes[0] === 0x89 && rawBytes[1] === 0x50 && rawBytes[2] === 0x4E && rawBytes[3] === 0x47;
+      
+      if (isPng) {
+        pngBytes = rawBytes;
+      } else {
+        // Convert JPEG/WebP → PNG using imagescript
+        console.log(`[ai-router] Converting image to PNG (original ${rawBytes.length} bytes, first bytes: ${rawBytes.slice(0,4).join(',')})`);
+        try {
+          const img = await Image.decode(rawBytes);
+          // Resize if > 4MP to stay under 4MB PNG limit
+          const maxDim = 1024;
+          if (img.width > maxDim || img.height > maxDim) {
+            const scale = maxDim / Math.max(img.width, img.height);
+            img.resize(Math.round(img.width * scale), Math.round(img.height * scale));
+          }
+          pngBytes = await img.encode(1); // encode as PNG (format 1 = PNG)
+          console.log(`[ai-router] Converted to PNG: ${pngBytes.length} bytes`);
+        } catch (convErr) {
+          console.error(`[ai-router] Image conversion failed:`, convErr);
+          throw new Error(`Failed to convert image to PNG: ${convErr}`);
+        }
+      }
+      
+      // Ensure under 4MB
+      if (pngBytes.length > 4 * 1024 * 1024) {
+        console.warn(`[ai-router] PNG too large (${pngBytes.length} bytes), resizing further`);
+        try {
+          const img = await Image.decode(pngBytes);
+          const scale = 0.7;
+          img.resize(Math.round(img.width * scale), Math.round(img.height * scale));
+          pngBytes = await img.encode(1);
+          console.log(`[ai-router] Resized PNG: ${pngBytes.length} bytes`);
+        } catch (_) { /* proceed anyway */ }
+      }
+      
+      const imageBlob = new Blob([pngBytes], { type: "image/png" });
 
       // Resolve edit-compatible model: /images/edits only accepts dall-e-2 on most accounts
       // gpt-image-1 may work on newer accounts, so try it first if configured, with dall-e-2 fallback
