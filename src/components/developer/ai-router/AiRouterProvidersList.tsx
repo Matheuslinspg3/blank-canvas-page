@@ -374,6 +374,15 @@ export function AiRouterProviders() {
                             <RotateCcw className="h-3.5 w-3.5" />
                           </Button>
                         )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDeleteTarget(p)}
+                          className="text-destructive hover:text-destructive"
+                          title="Deletar provider"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
