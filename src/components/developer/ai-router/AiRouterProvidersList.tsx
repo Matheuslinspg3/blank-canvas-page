@@ -222,7 +222,9 @@ function NewProviderWizard({ open, onClose }: { open: boolean; onClose: () => vo
   };
 
   const handleSave = () => {
+    if (!selectedModel) return;
     const slug = `${providerType}_${selectedModel.id.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_${Date.now().toString(36)}`;
+    createProvider.mutate(
       {
         provider_key: slug,
         display_name: displayName || selectedModel.id,
