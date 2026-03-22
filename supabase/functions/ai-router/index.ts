@@ -41,6 +41,7 @@ interface RouterRequest {
   user_id?: string;
   max_tokens?: number;
   temperature?: number;
+  force_provider?: string;
 }
 
 interface RouterResponse {
