@@ -121,6 +121,51 @@ async function uploadBase64ToCloudinary(
   return result.secure_url;
 }
 
+async function uploadRemoteImageToCloudinary(
+  imageUrl: string,
+  folder: string,
+  publicId: string,
+): Promise<string | null> {
+  const cloudName = Deno.env.get("CLOUDINARY_CLOUD_NAME");
+  const apiKey = Deno.env.get("CLOUDINARY_API_KEY");
+  const apiSecret = Deno.env.get("CLOUDINARY_API_SECRET");
+
+  if (!cloudName || !apiKey || !apiSecret) {
+    return null;
+  }
+
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const paramsToSign = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}`;
+
+  const encoder = new TextEncoder();
+  const data = encoder.encode(paramsToSign + apiSecret);
+  const hashBuffer = await crypto.subtle.digest("SHA-1", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const signature = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+
+  const formData = new FormData();
+  formData.append("file", imageUrl);
+  formData.append("folder", folder);
+  formData.append("public_id", publicId);
+  formData.append("timestamp", timestamp);
+  formData.append("api_key", apiKey);
+  formData.append("signature", signature);
+
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("[art-gen] Cloudinary remote upload failed:", errText);
+    return null;
+  }
+
+  const result = await res.json();
+  return result.secure_url || null;
+}
+
 function ensureCloudinaryPngUrl(url: string): string {
   try {
     const parsed = new URL(url);
@@ -131,6 +176,19 @@ function ensureCloudinaryPngUrl(url: string): string {
     return parsed.toString();
   } catch {
     return url;
+  }
+}
+
+function isPngBase64(base64Data: string): boolean {
+  try {
+    const header = atob(base64Data.slice(0, 24));
+    return header.length >= 4
+      && header.charCodeAt(0) === 0x89
+      && header.charCodeAt(1) === 0x50
+      && header.charCodeAt(2) === 0x4E
+      && header.charCodeAt(3) === 0x47;
+  } catch {
+    return false;
   }
 }
 
@@ -198,13 +256,34 @@ Deno.serve(async (req) => {
     };
 
     // Fetch property image as PNG when possible (Cloudinary), then convert to base64
-    const sourceImageUrl = ensureCloudinaryPngUrl(imageUrl);
+    let sourceImageUrl = ensureCloudinaryPngUrl(imageUrl);
+
+    // R2 URLs are usually WebP. Upload once to Cloudinary and force PNG delivery for OpenAI edits.
+    if (sourceImageUrl === imageUrl) {
+      const cloudinarySource = await uploadRemoteImageToCloudinary(
+        imageUrl,
+        `habitae/artes/${profile.organization_id}/source-images`,
+        `source_${propertyId}_${Date.now()}`,
+      );
+      if (cloudinarySource) {
+        sourceImageUrl = ensureCloudinaryPngUrl(cloudinarySource);
+      }
+    }
+
     const imageDataUrl = await fetchImageAsDataUrl(sourceImageUrl);
     const base64Match = imageDataUrl.match(/^data:.*?;base64,(.*)$/);
     const imageBase64 = base64Match ? base64Match[1] : "";
 
     if (!imageBase64) {
       return new Response(JSON.stringify({ error: "Falha ao processar imagem do imóvel" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!isPngBase64(imageBase64)) {
+      return new Response(JSON.stringify({
+        error: "Falha ao converter imagem para PNG. Tente outra foto do imóvel.",
+      }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
