@@ -375,10 +375,10 @@ Deno.serve(async (req) => {
       if (!provider.is_active) continue;
       if (provider.consecutive_errors > 10) continue;
 
-      // Check API key
-      const apiKey = Deno.env.get(provider.env_secret_name);
+      // Check API key: prefer api_key from DB, fallback to env secret
+      const apiKey = provider.api_key || Deno.env.get(provider.env_secret_name || '');
       if (!apiKey) {
-        console.warn(`[ai-router] Missing secret: ${provider.env_secret_name}`);
+        console.warn(`[ai-router] No API key for ${providerKey} (db or env:${provider.env_secret_name})`);
         continue;
       }
 
