@@ -435,8 +435,12 @@ Deno.serve(async (req) => {
         return true;
       });
 
+      console.log(`[ai-router] Auto-routing for '${task_type}': ${allProviders.length} total, ${eligible.length} eligible`);
+
       scores = eligible.map(p => calculateProviderScore(p, statsMap.get(p.provider_key) || null));
       scores = scores.filter(s => s.score >= 0).sort((a, b) => b.score - a.score);
+
+      console.log(`[ai-router] Scores:`, scores.map(s => `${s.provider_key}=${s.score}`).join(', '));
 
       orderedProviders = scores.map(s => ({
         provider: providerMap.get(s.provider_key)!,
