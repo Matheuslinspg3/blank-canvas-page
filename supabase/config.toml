@@ -110,3 +110,6 @@ verify_jwt = false
 
 [functions.og-metadata]
 verify_jwt = false
+
+[functions.ai-router]
+verify_jwt = true
