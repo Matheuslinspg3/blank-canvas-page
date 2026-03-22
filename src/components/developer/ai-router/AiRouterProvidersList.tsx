@@ -604,6 +604,7 @@ export function AiRouterProviders() {
 
       <NewProviderWizard open={showNew} onClose={() => setShowNew(false)} />
       <EditApiKeyModal provider={keyModal} open={!!keyModal} onClose={() => setKeyModal(null)} />
+      <EditProviderModal provider={editTarget} open={!!editTarget} onClose={() => setEditTarget(null)} />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
         <AlertDialogContent>
