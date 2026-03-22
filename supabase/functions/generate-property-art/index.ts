@@ -210,7 +210,6 @@ Deno.serve(async (req) => {
         const result = await callGeminiImageEdit({
           prompt,
           imageUrl,
-          model: "gemini-2.0-flash-exp",
           preferredKeys,
         });
 

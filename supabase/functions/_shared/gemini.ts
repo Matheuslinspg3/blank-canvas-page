@@ -1,6 +1,11 @@
 const GEMINI_OPENAI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 const DEFAULT_TEXT_MODEL = "gemini-2.5-flash";
-const DEFAULT_IMAGE_MODEL = "gemini-2.0-flash-exp";
+const DEFAULT_IMAGE_MODELS = [
+  "gemini-2.5-flash-image",
+  "gemini-3.1-flash-image-preview",
+  "gemini-2.0-flash-exp-image-generation",
+  "gemini-2.0-flash-exp",
+];
 
 interface RetryableGeminiOptions {
   preferredKeys?: Array<string | null | undefined>;
