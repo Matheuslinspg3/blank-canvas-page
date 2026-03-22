@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDemo } from "@/contexts/DemoContext";
 import { useUserRoles } from "@/hooks/useUserRole";
@@ -11,9 +11,10 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { user, loading, trialInfo } = useAuth();
+  const { user, loading, profile, trialInfo } = useAuth();
   const { isDemoMode } = useDemo();
   const { isDeveloperOrLeader, isLoading: rolesLoading } = useUserRoles();
+  const location = useLocation();
 
   // Permitir acesso em modo demo
   if (isDemoMode) {
@@ -33,6 +34,11 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   if (!user) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // Redirect to onboarding if not completed (unless already on onboarding)
+  if (profile && !profile.onboarding_completed && location.pathname !== "/onboarding") {
+    return <Navigate to="/onboarding" replace />;
   }
 
   // Trial expired check - developers/leaders bypass
