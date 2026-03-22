@@ -119,8 +119,11 @@ const App = () => (
                     <Routes>
                       <Route path="/manutencao" element={<Maintenance />} />
                       <Route path="/auth" element={<Auth />} />
+                      <Route path="/cadastro" element={<Auth />} />
                       <Route path="/convite/:id" element={<AcceptInvite />} />
                       <Route path="/cadastro/:id" element={<PlatformSignup />} />
+                      <Route path="/onboarding" element={<ProtectedRoute><OnboardingWizard /></ProtectedRoute>} />
+                      <Route path="/demo" element={<Demo />} />
                       <Route path="/demo" element={<Demo />} />
                       <Route path="/imovel/:id" element={<PropertyLandingPage />} />
                       <Route path="/instalar" element={<Install />} />
