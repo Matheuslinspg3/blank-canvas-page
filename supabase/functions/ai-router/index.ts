@@ -53,6 +53,7 @@ interface RouterRequest {
   prompt: string;
   system_prompt?: string;
   image_base64?: string;
+  image_size?: string; // e.g. "1024x1024", "1024x1536", "1536x1024"
   organization_id?: string;
   user_id?: string;
   max_tokens?: number;
