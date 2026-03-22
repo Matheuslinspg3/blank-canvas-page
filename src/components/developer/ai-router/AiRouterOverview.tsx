@@ -20,21 +20,9 @@ function scoreColor(score: number) {
   return "text-red-500";
 }
 
-function scoreBg(score: number) {
-  if (score >= 80) return "bg-green-500";
-  if (score >= 50) return "bg-yellow-500";
-  return "bg-red-500";
-}
-
 function rpdPercent(used: number, limit: number | null) {
   const rpd = limit || 10000;
   return Math.min(Math.round((used / rpd) * 100), 100);
-}
-
-function rpdColor(pct: number) {
-  if (pct >= 80) return "bg-red-500";
-  if (pct >= 50) return "bg-yellow-500";
-  return "bg-green-500";
 }
 
 function StatusDot({ score }: { score: number }) {
