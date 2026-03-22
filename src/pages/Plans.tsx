@@ -214,7 +214,7 @@ export default function Plans() {
         <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory md:grid md:grid-cols-3 lg:grid-cols-5 md:overflow-visible md:pb-0">
           {mainPlans.map((plan) => {
             const f = plan.features as Record<string, any> || {};
-            const meta = planMeta[plan.slug] || { icon: Star, ctaLabel: "Selecionar", ctaVariant: "default" as const };
+            const meta: PlanMeta = planMeta[plan.slug] || { icon: Star, ctaLabel: "Selecionar", ctaVariant: "default" as const };
             const Icon = meta.icon;
             const isCurrent = currentSlug === plan.slug;
             const monthlyPrice = annual ? Math.round(plan.price_yearly / 12) : plan.price_monthly;
