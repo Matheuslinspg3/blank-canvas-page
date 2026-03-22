@@ -544,6 +544,7 @@ export type Database = {
           max_tokens: number | null
           provider_chain: Json
           requires_image: boolean | null
+          routing_mode: string | null
           system_prompt: string | null
           task_type: string
           temperature: number | null
@@ -559,6 +560,7 @@ export type Database = {
           max_tokens?: number | null
           provider_chain: Json
           requires_image?: boolean | null
+          routing_mode?: string | null
           system_prompt?: string | null
           task_type: string
           temperature?: number | null
@@ -574,6 +576,7 @@ export type Database = {
           max_tokens?: number | null
           provider_chain?: Json
           requires_image?: boolean | null
+          routing_mode?: string | null
           system_prompt?: string | null
           task_type?: string
           temperature?: number | null
@@ -645,6 +648,72 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ai_router_provider_stats: {
+        Row: {
+          avg_latency_ms: number | null
+          estimated_cost_usd: number | null
+          failed_requests: number | null
+          id: string
+          max_latency_ms: number | null
+          min_latency_ms: number | null
+          period_date: string
+          provider_key: string
+          quality_score: number | null
+          quality_votes: number | null
+          rate_limit_hits: number | null
+          requests_today: number | null
+          successful_requests: number | null
+          task_type: string | null
+          total_latency_ms: number | null
+          total_requests: number | null
+          total_tokens_in: number | null
+          total_tokens_out: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          avg_latency_ms?: number | null
+          estimated_cost_usd?: number | null
+          failed_requests?: number | null
+          id?: string
+          max_latency_ms?: number | null
+          min_latency_ms?: number | null
+          period_date?: string
+          provider_key: string
+          quality_score?: number | null
+          quality_votes?: number | null
+          rate_limit_hits?: number | null
+          requests_today?: number | null
+          successful_requests?: number | null
+          task_type?: string | null
+          total_latency_ms?: number | null
+          total_requests?: number | null
+          total_tokens_in?: number | null
+          total_tokens_out?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          avg_latency_ms?: number | null
+          estimated_cost_usd?: number | null
+          failed_requests?: number | null
+          id?: string
+          max_latency_ms?: number | null
+          min_latency_ms?: number | null
+          period_date?: string
+          provider_key?: string
+          quality_score?: number | null
+          quality_votes?: number | null
+          rate_limit_hits?: number | null
+          requests_today?: number | null
+          successful_requests?: number | null
+          task_type?: string | null
+          total_latency_ms?: number | null
+          total_requests?: number | null
+          total_tokens_in?: number | null
+          total_tokens_out?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       ai_router_providers: {
         Row: {
