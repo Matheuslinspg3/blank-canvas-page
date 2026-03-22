@@ -27,6 +27,7 @@ import { TeamInviteSection } from "@/components/settings/TeamInviteSection";
 import { PlatformInviteSection } from "@/components/settings/PlatformInviteSection";
 
 import { VerificationSection } from "@/components/settings/VerificationSection";
+import { BillingTab } from "@/components/settings/BillingTab";
 import { ChangelogSection } from "@/components/settings/ChangelogSection";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
