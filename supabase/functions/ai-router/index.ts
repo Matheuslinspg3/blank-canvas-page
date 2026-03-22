@@ -263,7 +263,7 @@ async function callOpenAI(
 
       const attemptEdit = async (model: string, size: string): Promise<any> => {
         const formData = new FormData();
-        formData.append("image", imageBlob, "photo.png");
+        formData.append("image", imageBlob, `photo.${fileExt}`);
         formData.append("prompt", editPrompt);
         formData.append("model", model);
         formData.append("size", size);
