@@ -255,35 +255,13 @@ Deno.serve(async (req) => {
       phone: config.phone || profile.phone || "",
     };
 
-    // Fetch property image as PNG when possible (Cloudinary), then convert to base64
-    let sourceImageUrl = ensureCloudinaryPngUrl(imageUrl);
-
-    // R2 URLs are usually WebP. Upload once to Cloudinary and force PNG delivery for OpenAI edits.
-    if (sourceImageUrl === imageUrl) {
-      const cloudinarySource = await uploadRemoteImageToCloudinary(
-        imageUrl,
-        `habitae/artes/${profile.organization_id}/source-images`,
-        `source_${propertyId}_${Date.now()}`,
-      );
-      if (cloudinarySource) {
-        sourceImageUrl = ensureCloudinaryPngUrl(cloudinarySource);
-      }
-    }
-
-    const imageDataUrl = await fetchImageAsDataUrl(sourceImageUrl);
+    // Fetch property image as data URL (any format — gpt-image-1 accepts PNG/JPEG/WebP)
+    const imageDataUrl = await fetchImageAsDataUrl(imageUrl);
     const base64Match = imageDataUrl.match(/^data:.*?;base64,(.*)$/);
     const imageBase64 = base64Match ? base64Match[1] : "";
 
     if (!imageBase64) {
       return new Response(JSON.stringify({ error: "Falha ao processar imagem do imóvel" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    if (!isPngBase64(imageBase64)) {
-      return new Response(JSON.stringify({
-        error: "Falha ao converter imagem para PNG. Tente outra foto do imóvel.",
-      }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
