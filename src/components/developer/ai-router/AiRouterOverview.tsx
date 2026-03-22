@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import { ColorProgress } from "@/components/ui/color-progress";
 import { Loader2, Zap, DollarSign, TrendingUp, PieChart as PieIcon, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useAiRouterStats } from "@/hooks/useAiRouterStats";
 import { useAiRouterProviderStats, ProviderStatRow } from "@/hooks/useAiRouterProviderStats";
