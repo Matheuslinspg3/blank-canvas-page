@@ -25,6 +25,8 @@ export function getGeminiApiKeys(options: RetryableGeminiOptions = {}): string[]
     ...(options.preferredKeys || []),
     Deno.env.get("GOOGLE_AI_KEY_1"),
     Deno.env.get("GOOGLE_AI_KEY_2"),
+    Deno.env.get("GEMINI_API_KEY"),
+    Deno.env.get("GOOGLE_GEMINI_KEY"),
   ]);
 }
 
