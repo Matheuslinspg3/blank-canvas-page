@@ -137,7 +137,14 @@ export function useAiRouterProviders() {
       });
       const latency = Date.now() - startMs;
       if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || "Falha no teste");
+      if (!data?.success) {
+        const errMsg = data?.error || "Falha no teste";
+        // Provide clearer error for quota/rate limit issues
+        if (errMsg.includes("429") || errMsg.includes("quota")) {
+          throw new Error(`Quota excedida para este provider. A chave API atingiu o limite de uso. Verifique o plano/billing do provedor.`);
+        }
+        throw new Error(errMsg);
+      }
       return { latency, provider: data.provider, model: data.model };
     },
   });
