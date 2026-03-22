@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkAiRateLimit } from "../_shared/ai-rate-limit.ts";
-import { callGeminiImageEdit, fetchImageAsDataUrl, getGeminiApiKeys } from "../_shared/gemini.ts";
+import { fetchImageAsDataUrl } from "../_shared/gemini.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -122,16 +122,43 @@ async function uploadBase64ToCloudinary(
   return result.secure_url;
 }
 
-// Load Gemini keys from ai_router_providers (image-capable Gemini providers)
-async function getGeminiKeysFromRouter(supabase: any): Promise<string[]> {
-  const { data } = await supabase
-    .from("ai_router_providers")
-    .select("api_key")
-    .eq("provider_type", "gemini")
-    .eq("is_active", true)
-    .not("api_key", "is", null);
+// Call AI Router for image generation with smart fallback
+async function callAiRouter(
+  supabaseUrl: string,
+  authHeader: string,
+  prompt: string,
+  imageBase64: string,
+): Promise<{ imageDataUrl: string; text: string }> {
+  const routerUrl = `${supabaseUrl}/functions/v1/ai-router`;
 
-  return (data || []).map((r: any) => r.api_key).filter(Boolean);
+  const response = await fetch(routerUrl, {
+    method: "POST",
+    headers: {
+      Authorization: authHeader,
+      "Content-Type": "application/json",
+      apikey: Deno.env.get("SUPABASE_ANON_KEY")!,
+    },
+    body: JSON.stringify({
+      task_type: "generate_art",
+      prompt,
+      image_base64: imageBase64,
+    }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || `AI Router error ${response.status}`);
+  }
+
+  if (!data.image_base64) {
+    throw new Error("AI Router não retornou imagem gerada");
+  }
+
+  return {
+    imageDataUrl: data.image_base64,
+    text: data.text || "",
+  };
 }
 
 Deno.serve(async (req) => {
@@ -173,12 +200,11 @@ Deno.serve(async (req) => {
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
     // Load data in parallel
-    const [profileRes, propertyRes, routerKeysRes] = await Promise.all([
+    const [profileRes, propertyRes] = await Promise.all([
       serviceClient.from("profiles").select("organization_id, phone").eq("user_id", user.id).single(),
       serviceClient.from("properties")
         .select("title, sale_price, rent_price, transaction_type, bedrooms, parking_spots, area_built, area_total, address_neighborhood, address_city")
         .eq("id", propertyId).single(),
-      getGeminiKeysFromRouter(serviceClient),
     ]);
 
     const profile = profileRes.data;
@@ -198,20 +224,18 @@ Deno.serve(async (req) => {
       phone: config.phone || profile.phone || "",
     };
 
-    // Get available Gemini keys (from router providers + env)
-    const preferredKeys = routerKeysRes;
+    // Fetch property image once and convert to base64
+    const imageDataUrl = await fetchImageAsDataUrl(imageUrl);
+    const base64Match = imageDataUrl.match(/^data:.*?;base64,(.*)$/);
+    const imageBase64 = base64Match ? base64Match[1] : "";
 
-    // Generate 3 formats in parallel using Gemini image editing
+    // Generate 3 formats in parallel via AI Router (smart fallback across providers)
     const formats = ["feed", "story", "banner"] as const;
     const results = await Promise.allSettled(
       formats.map(async (format) => {
         const prompt = buildArtPrompt(format, property, orgName, artConfig);
 
-        const result = await callGeminiImageEdit({
-          prompt,
-          imageUrl,
-          preferredKeys,
-        });
+        const result = await callAiRouter(supabaseUrl, authHeader!, prompt, imageBase64);
 
         // Upload to Cloudinary
         const folder = `habitae/artes/${profile.organization_id}`;

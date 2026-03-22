@@ -1,0 +1,1 @@
+INSERT INTO public.ai_router_config (task_type, display_name, complexity, provider_chain, system_prompt, max_tokens, temperature, is_active, requires_image, routing_mode) VALUES ('generate_art', 'Geração de Arte Imobiliária', 'image', '[]'::jsonb, NULL, 4096, 0.7, true, true, 'auto') ON CONFLICT DO NOTHING;
