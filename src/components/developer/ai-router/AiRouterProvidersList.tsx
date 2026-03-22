@@ -9,7 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Plus, RotateCcw, AlertTriangle, Eye, EyeOff, Zap, ExternalLink, Key } from "lucide-react";
+import { Loader2, Plus, RotateCcw, AlertTriangle, Eye, EyeOff, Zap, ExternalLink, Key, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useAiRouterProviders, type AiRouterProvider } from "@/hooks/useAiRouterProviders";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -253,10 +254,11 @@ function KeyStatusBadge({ provider }: { provider: AiRouterProvider }) {
 // ── Main component ──
 
 export function AiRouterProviders() {
-  const { providers, isLoading, toggleActive, resetErrors, testProvider } = useAiRouterProviders();
+  const { providers, isLoading, toggleActive, resetErrors, testProvider, deleteProvider } = useAiRouterProviders();
   const [showNew, setShowNew] = useState(false);
   const [keyModal, setKeyModal] = useState<AiRouterProvider | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AiRouterProvider | null>(null);
 
   const handleTestProvider = (p: AiRouterProvider) => {
     setTestingId(p.id);
@@ -372,6 +374,15 @@ export function AiRouterProviders() {
                             <RotateCcw className="h-3.5 w-3.5" />
                           </Button>
                         )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDeleteTarget(p)}
+                          className="text-destructive hover:text-destructive"
+                          title="Deletar provider"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -384,6 +395,29 @@ export function AiRouterProviders() {
 
       <NewProviderModal open={showNew} onClose={() => setShowNew(false)} />
       <ApiKeyModal provider={keyModal} open={!!keyModal} onClose={() => setKeyModal(null)} />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deletar provider?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover <strong>{deleteTarget?.display_name}</strong>? A API key associada também será removida. Essa ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteTarget) deleteProvider.mutate(deleteTarget.id);
+                setDeleteTarget(null);
+              }}
+            >
+              Deletar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
