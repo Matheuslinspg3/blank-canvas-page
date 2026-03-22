@@ -113,7 +113,9 @@ async function callGemini(
   imageBase64?: string,
   signal?: AbortSignal
 ) {
-  const isImageGen = provider.supports_image_output;
+  // Only enable image output for models that explicitly support it (e.g. imagen, image-generation variants)
+  const imageGenModels = ["imagen", "image-generation", "gemini-2.0-flash-exp-image"];
+  const isImageGen = provider.supports_image_output && imageGenModels.some(m => provider.model_id.includes(m));
   const url = `${provider.api_base_url}/models/${provider.model_id}:generateContent?key=${apiKey}`;
 
   const parts: any[] = [{ text: prompt }];
