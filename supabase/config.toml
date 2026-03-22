@@ -112,4 +112,4 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.ai-router]
-verify_jwt = true
+verify_jwt = false
