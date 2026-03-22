@@ -1,6 +1,11 @@
 const GEMINI_OPENAI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 const DEFAULT_TEXT_MODEL = "gemini-2.5-flash";
-const DEFAULT_IMAGE_MODEL = "gemini-2.0-flash-exp";
+const DEFAULT_IMAGE_MODELS = [
+  "gemini-2.5-flash-image",
+  "gemini-3.1-flash-image-preview",
+  "gemini-2.0-flash-exp-image-generation",
+  "gemini-2.0-flash-exp",
+];
 
 interface RetryableGeminiOptions {
   preferredKeys?: Array<string | null | undefined>;
@@ -105,66 +110,85 @@ export async function callGeminiImageEdit(options: GeminiImageEditOptions): Prom
     throw new Error("Google AI keys not configured");
   }
 
+  const modelCandidates = uniqueKeys([options.model, ...DEFAULT_IMAGE_MODELS]);
   const imageDataUrl = await fetchImageAsDataUrl(options.imageUrl);
   const [, mimeType = "image/png", base64Data = ""] = imageDataUrl.match(/^data:(.*?);base64,(.*)$/) || [];
-  const model = options.model || DEFAULT_IMAGE_MODEL;
   let lastError: Error | null = null;
 
-  for (const [index, apiKey] of keys.entries()) {
-    try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{
-              role: "user",
-              parts: [
-                { text: options.prompt },
-                {
-                  inline_data: {
-                    mime_type: mimeType,
-                    data: base64Data,
+  for (const [keyIndex, apiKey] of keys.entries()) {
+    for (const [modelIndex, model] of modelCandidates.entries()) {
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{
+                role: "user",
+                parts: [
+                  { text: options.prompt },
+                  {
+                    inline_data: {
+                      mime_type: mimeType,
+                      data: base64Data,
+                    },
                   },
-                },
-              ],
-            }],
-            generationConfig: {
-              responseModalities: ["TEXT", "IMAGE"],
-            },
-          }),
-        },
-      );
+                ],
+              }],
+              generationConfig: {
+                responseModalities: ["TEXT", "IMAGE"],
+              },
+            }),
+          },
+        );
 
-      if (response.status === 429 || response.status >= 500) {
-        const errorText = await response.text();
-        console.warn(`Gemini image key ${index + 1} retryable error: ${response.status} ${errorText.slice(0, 300)}`);
-        lastError = new Error(`Gemini image retryable error: ${response.status}`);
-        continue;
+        if (!response.ok) {
+          const errorText = await response.text();
+          const errorPreview = errorText.slice(0, 500);
+          const isModelNotFound = response.status === 404 && /not found|not supported/i.test(errorText);
+          const isInvalidKey = response.status === 400 && /API_KEY_INVALID|API Key not found/i.test(errorText);
+          const isRetryable = response.status === 429 || response.status >= 500;
+
+          if (isModelNotFound) {
+            lastError = new Error(`Gemini image model not available (${model}): ${response.status}`);
+            console.warn(`Gemini image model unavailable key ${keyIndex + 1}, model ${modelIndex + 1} (${model}): ${response.status}`);
+            continue;
+          }
+
+          if (isInvalidKey) {
+            lastError = new Error(`Gemini image invalid API key (${keyIndex + 1})`);
+            console.warn(`Gemini image invalid key ${keyIndex + 1}; trying next key`);
+            break;
+          }
+
+          if (isRetryable) {
+            lastError = new Error(`Gemini image retryable error (${model}): ${response.status}`);
+            console.warn(`Gemini image retryable error key ${keyIndex + 1}, model ${model}: ${response.status} ${errorPreview}`);
+            break;
+          }
+
+          throw new Error(`Gemini image error ${response.status}: ${errorPreview}`);
+        }
+
+        const data = await response.json();
+        const parts = data.candidates?.[0]?.content?.parts || [];
+        const text = parts.filter((part: any) => typeof part.text === "string").map((part: any) => part.text).join("\n").trim();
+        const imagePart = parts.find((part: any) => part.inlineData?.data);
+
+        if (!imagePart?.inlineData?.data) {
+          throw new Error("Gemini image response did not include image data");
+        }
+
+        return {
+          imageDataUrl: `data:${imagePart.inlineData.mimeType || "image/png"};base64,${imagePart.inlineData.data}`,
+          text,
+        };
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        console.warn(`Gemini image request failed with key ${keyIndex + 1}, model ${model}:`, lastError.message);
+        break;
       }
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Gemini image error ${response.status}: ${errorText.slice(0, 500)}`);
-      }
-
-      const data = await response.json();
-      const parts = data.candidates?.[0]?.content?.parts || [];
-      const text = parts.filter((part: any) => typeof part.text === "string").map((part: any) => part.text).join("\n").trim();
-      const imagePart = parts.find((part: any) => part.inlineData?.data);
-
-      if (!imagePart?.inlineData?.data) {
-        throw new Error("Gemini image response did not include image data");
-      }
-
-      return {
-        imageDataUrl: `data:${imagePart.inlineData.mimeType || "image/png"};base64,${imagePart.inlineData.data}`,
-        text,
-      };
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      console.warn(`Gemini image request failed with key ${index + 1}:`, lastError.message);
     }
   }
 
