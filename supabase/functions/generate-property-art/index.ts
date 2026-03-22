@@ -121,6 +121,19 @@ async function uploadBase64ToCloudinary(
   return result.secure_url;
 }
 
+function ensureCloudinaryPngUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (!parsed.hostname.includes("res.cloudinary.com")) return url;
+
+    // Force Cloudinary delivery as PNG so OpenAI /images/edits accepts it.
+    parsed.pathname = parsed.pathname.replace("/upload/", "/upload/f_png/");
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -184,8 +197,9 @@ Deno.serve(async (req) => {
       phone: config.phone || profile.phone || "",
     };
 
-    // Fetch property image once and convert to base64
-    const imageDataUrl = await fetchImageAsDataUrl(imageUrl);
+    // Fetch property image as PNG when possible (Cloudinary), then convert to base64
+    const sourceImageUrl = ensureCloudinaryPngUrl(imageUrl);
+    const imageDataUrl = await fetchImageAsDataUrl(sourceImageUrl);
     const base64Match = imageDataUrl.match(/^data:.*?;base64,(.*)$/);
     const imageBase64 = base64Match ? base64Match[1] : "";
 
