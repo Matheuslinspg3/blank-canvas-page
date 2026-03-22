@@ -310,7 +310,7 @@ Deno.serve(async (req) => {
 
     // Parse body
     const body: RouterRequest = await req.json();
-    const { task_type, prompt, image_base64 } = body;
+    const { task_type, prompt, image_base64, force_provider } = body;
 
     if (!task_type || !prompt) {
       return new Response(
