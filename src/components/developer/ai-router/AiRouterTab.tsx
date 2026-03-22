@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart3, Settings2, Server, ScrollText } from "lucide-react";
 import { AiRouterOverview } from "./AiRouterOverview";
 import { AiRouterTasks } from "./AiRouterTasks";
-import { AiRouterProvidersList } from "./AiRouterProvidersList";
+import { AiRouterProviders as AiRouterProvidersList } from "./AiRouterProvidersList";
 import { AiRouterLogs } from "./AiRouterLogs";
 
 const subTabs = [
