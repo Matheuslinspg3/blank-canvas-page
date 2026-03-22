@@ -176,9 +176,12 @@ export function AiRouterOverview() {
                         <TableCell>
                           <div className="flex items-center gap-2 min-w-[120px]">
                             <div className="flex-1">
-                              <Progress
+                              <ColorProgress
                                 value={rpdPct}
-                                className={`h-2 [&>div]:${rpdColor(rpdPct)}`}
+                                className="h-2"
+                                indicatorColor={
+                                  rpdPct >= 80 ? "hsl(var(--destructive))" : rpdPct >= 50 ? "hsl(var(--chart-4))" : "hsl(var(--chart-2))"
+                                }
                               />
                             </div>
                             <span className="text-xs text-muted-foreground whitespace-nowrap">
