@@ -254,10 +254,11 @@ function KeyStatusBadge({ provider }: { provider: AiRouterProvider }) {
 // ── Main component ──
 
 export function AiRouterProviders() {
-  const { providers, isLoading, toggleActive, resetErrors, testProvider } = useAiRouterProviders();
+  const { providers, isLoading, toggleActive, resetErrors, testProvider, deleteProvider } = useAiRouterProviders();
   const [showNew, setShowNew] = useState(false);
   const [keyModal, setKeyModal] = useState<AiRouterProvider | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AiRouterProvider | null>(null);
 
   const handleTestProvider = (p: AiRouterProvider) => {
     setTestingId(p.id);
