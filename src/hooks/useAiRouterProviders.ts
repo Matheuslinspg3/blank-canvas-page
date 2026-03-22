@@ -127,11 +127,17 @@ export function useAiRouterProviders() {
 
   const testProvider = useMutation({
     mutationFn: async (providerKey: string) => {
+      // Find the provider to determine if it's an image model
+      const provider = query.data?.find(p => p.provider_key === providerKey);
+      const isImageProvider = provider?.supports_image_output && !provider?.supports_image_input;
+      
       const startMs = Date.now();
       const { data, error } = await supabase.functions.invoke("ai-router", {
         body: {
-          task_type: "summarize",
-          prompt: "Responda apenas: OK",
+          task_type: isImageProvider ? "ad_image" : "summarize",
+          prompt: isImageProvider
+            ? "A beautiful modern house with a garden, professional real estate photography"
+            : "Responda apenas: OK",
           force_provider: providerKey,
         },
       });
@@ -139,7 +145,6 @@ export function useAiRouterProviders() {
       if (error) throw error;
       if (!data?.success) {
         const errMsg = data?.error || "Falha no teste";
-        // Provide clearer error for quota/rate limit issues
         if (errMsg.includes("429") || errMsg.includes("quota")) {
           throw new Error(`Quota excedida para este provider. A chave API atingiu o limite de uso. Verifique o plano/billing do provedor.`);
         }
