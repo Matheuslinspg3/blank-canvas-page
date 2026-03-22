@@ -95,6 +95,21 @@ export function useAiRouterProviders() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const deleteProvider = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("ai_router_providers")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["ai-router-providers"] });
+      toast.success("Provider removido");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const testProvider = useMutation({
     mutationFn: async (providerKey: string) => {
       const startMs = Date.now();
