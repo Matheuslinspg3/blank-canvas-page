@@ -43,6 +43,7 @@ const AdminAudit = lazy(() => import("./pages/admin/AdminAudit"));
 const DeveloperDashboard = lazy(() => import("./pages/developer/DeveloperDashboard"));
 const ImportPendencies = lazy(() => import("./pages/ImportPendencies"));
 const Integrations = lazy(() => import("./pages/Integrations"));
+const LandingPage = lazy(() => import("./pages/LandingPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const AccessDenied = lazy(() => import("./pages/AccessDenied"));
 const PlatformSignup = lazy(() => import("./pages/PlatformSignup"));
@@ -131,7 +132,7 @@ const App = () => (
                       <Route path="/i/:slug" element={<PublicPropertyBySlug />} />
                       <Route path="/privacidade" element={<PrivacyPolicy />} />
                       <Route path="/planos" element={<Plans />} />
-                      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                      <Route path="/" element={<LandingPage />} />
                       <Route path="/acesso-negado" element={<AccessDenied />} />
 
                       {/* Consumer App routes */}
