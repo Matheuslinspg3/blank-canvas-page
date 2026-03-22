@@ -116,7 +116,7 @@ function calculateProviderScore(
   }
 
   // Auto-disable cooldown
-  if (provider.consecutive_errors >= 10) {
+  if (provider.consecutive_errors > 10) {
     const lastError = provider.last_error_at ? new Date(provider.last_error_at) : null;
     const cooldownMs = Math.min(provider.consecutive_errors * 10 * 60 * 1000, 4 * 3600 * 1000);
     if (lastError && (Date.now() - lastError.getTime()) < cooldownMs) {
@@ -531,10 +531,24 @@ Deno.serve(async (req) => {
 
       console.log(`[ai-router] Scores:`, scores.map(s => `${s.provider_key}=${s.score}`).join(', '));
 
-      orderedProviders = scores.map(s => ({
-        provider: providerMap.get(s.provider_key)!,
-        score: s,
-      }));
+      if (scores.length === 0 && eligible.length > 0) {
+        console.warn("[ai-router] All eligible providers were penalized; forcing retry with lowest-error provider.");
+        orderedProviders = [...eligible]
+          .sort((a, b) => (a.consecutive_errors || 0) - (b.consecutive_errors || 0))
+          .map((p) => ({
+            provider: p,
+            score: {
+              provider_key: p.provider_key,
+              score: 0,
+              breakdown: { cost: 0, speed: 0, reliability: 0, quality: 0, penalties: 0 },
+            },
+          }));
+      } else {
+        orderedProviders = scores.map(s => ({
+          provider: providerMap.get(s.provider_key)!,
+          score: s,
+        }));
+      }
     } else {
       // MANUAL: use provider_chain
       const chain = Array.isArray(config.provider_chain)
@@ -553,7 +567,7 @@ Deno.serve(async (req) => {
 
     for (const { provider, score } of orderedProviders) {
       if (!provider.is_active && !force_provider) continue;
-      if (provider.consecutive_errors > 10 && !force_provider) {
+      if (provider.consecutive_errors > 10 && !force_provider && orderedProviders.length > 1) {
         // Check cooldown
         const lastErr = provider.last_error_at ? new Date(provider.last_error_at) : null;
         const cooldownMs = Math.min(provider.consecutive_errors * 10 * 60 * 1000, 4 * 3600 * 1000);
@@ -659,6 +673,12 @@ Deno.serve(async (req) => {
     }
 
     // All providers failed
+    if (!lastError) {
+      lastError = providersAttempted.length === 0
+        ? "No provider attempt was executed (cooldown/penalty/API-key filtering)."
+        : "All providers failed without details.";
+    }
+
     const latencyMs = Date.now() - startMs;
     supabase.from("ai_router_logs").insert({
       organization_id: orgId, user_id: userId, task_type,

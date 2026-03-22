@@ -17,6 +17,43 @@ interface ArtConfig {
   logo_position?: string;
 }
 
+interface CloudinaryConfig {
+  cloudName: string;
+  apiKey: string;
+  apiSecret: string;
+  source: "primary" | "secondary";
+}
+
+function getCloudinaryConfigs(): CloudinaryConfig[] {
+  const configs: CloudinaryConfig[] = [];
+
+  const primaryCloudName = Deno.env.get("CLOUDINARY_CLOUD_NAME");
+  const primaryApiKey = Deno.env.get("CLOUDINARY_API_KEY");
+  const primaryApiSecret = Deno.env.get("CLOUDINARY_API_SECRET");
+  if (primaryCloudName && primaryApiKey && primaryApiSecret) {
+    configs.push({
+      cloudName: primaryCloudName,
+      apiKey: primaryApiKey,
+      apiSecret: primaryApiSecret,
+      source: "primary",
+    });
+  }
+
+  const secondaryCloudName = Deno.env.get("CLOUDINARY2_CLOUD_NAME");
+  const secondaryApiKey = Deno.env.get("CLOUDINARY2_API_KEY");
+  const secondaryApiSecret = Deno.env.get("CLOUDINARY2_API_SECRET");
+  if (secondaryCloudName && secondaryApiKey && secondaryApiSecret) {
+    configs.push({
+      cloudName: secondaryCloudName,
+      apiKey: secondaryApiKey,
+      apiSecret: secondaryApiSecret,
+      source: "secondary",
+    });
+  }
+
+  return configs;
+}
+
 function formatPrice(value: number | null): string {
   if (!value) return "";
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0 });
@@ -80,45 +117,46 @@ async function uploadBase64ToCloudinary(
   folder: string,
   publicId: string,
 ): Promise<string | null> {
-  const cloudName = Deno.env.get("CLOUDINARY_CLOUD_NAME");
-  const apiKey = Deno.env.get("CLOUDINARY_API_KEY");
-  const apiSecret = Deno.env.get("CLOUDINARY_API_SECRET");
-
-  if (!cloudName || !apiKey || !apiSecret) {
+  const configs = getCloudinaryConfigs();
+  if (configs.length === 0) {
     console.warn("[art-gen] Cloudinary not configured, returning data URL");
     return null;
   }
 
-  const timestamp = Math.floor(Date.now() / 1000).toString();
-  const paramsToSign = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}`;
+  for (const cfg of configs) {
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const paramsToSign = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}`;
 
-  const encoder = new TextEncoder();
-  const data = encoder.encode(paramsToSign + apiSecret);
-  const hashBuffer = await crypto.subtle.digest("SHA-1", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const signature = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+    const encoder = new TextEncoder();
+    const data = encoder.encode(paramsToSign + cfg.apiSecret);
+    const hashBuffer = await crypto.subtle.digest("SHA-1", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const signature = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
 
-  const formData = new FormData();
-  formData.append("file", base64Data);
-  formData.append("folder", folder);
-  formData.append("public_id", publicId);
-  formData.append("timestamp", timestamp);
-  formData.append("api_key", apiKey);
-  formData.append("signature", signature);
+    const formData = new FormData();
+    formData.append("file", base64Data);
+    formData.append("folder", folder);
+    formData.append("public_id", publicId);
+    formData.append("timestamp", timestamp);
+    formData.append("api_key", cfg.apiKey);
+    formData.append("signature", signature);
 
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-    method: "POST",
-    body: formData,
-  });
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${cfg.cloudName}/image/upload`, {
+      method: "POST",
+      body: formData,
+    });
 
-  if (!res.ok) {
-    const errText = await res.text();
-    console.error("[art-gen] Cloudinary upload failed:", errText);
-    return null;
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`[art-gen] Cloudinary upload failed (${cfg.source}):`, errText);
+      continue;
+    }
+
+    const result = await res.json();
+    return result.secure_url || null;
   }
 
-  const result = await res.json();
-  return result.secure_url;
+  return null;
 }
 
 async function uploadRemoteImageToCloudinary(
@@ -126,44 +164,45 @@ async function uploadRemoteImageToCloudinary(
   folder: string,
   publicId: string,
 ): Promise<string | null> {
-  const cloudName = Deno.env.get("CLOUDINARY_CLOUD_NAME");
-  const apiKey = Deno.env.get("CLOUDINARY_API_KEY");
-  const apiSecret = Deno.env.get("CLOUDINARY_API_SECRET");
-
-  if (!cloudName || !apiKey || !apiSecret) {
+  const configs = getCloudinaryConfigs();
+  if (configs.length === 0) {
     return null;
   }
 
-  const timestamp = Math.floor(Date.now() / 1000).toString();
-  const paramsToSign = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}`;
+  for (const cfg of configs) {
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const paramsToSign = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}`;
 
-  const encoder = new TextEncoder();
-  const data = encoder.encode(paramsToSign + apiSecret);
-  const hashBuffer = await crypto.subtle.digest("SHA-1", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const signature = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+    const encoder = new TextEncoder();
+    const data = encoder.encode(paramsToSign + cfg.apiSecret);
+    const hashBuffer = await crypto.subtle.digest("SHA-1", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const signature = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
 
-  const formData = new FormData();
-  formData.append("file", imageUrl);
-  formData.append("folder", folder);
-  formData.append("public_id", publicId);
-  formData.append("timestamp", timestamp);
-  formData.append("api_key", apiKey);
-  formData.append("signature", signature);
+    const formData = new FormData();
+    formData.append("file", imageUrl);
+    formData.append("folder", folder);
+    formData.append("public_id", publicId);
+    formData.append("timestamp", timestamp);
+    formData.append("api_key", cfg.apiKey);
+    formData.append("signature", signature);
 
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-    method: "POST",
-    body: formData,
-  });
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${cfg.cloudName}/image/upload`, {
+      method: "POST",
+      body: formData,
+    });
 
-  if (!res.ok) {
-    const errText = await res.text();
-    console.error("[art-gen] Cloudinary remote upload failed:", errText);
-    return null;
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`[art-gen] Cloudinary remote upload failed (${cfg.source}):`, errText);
+      continue;
+    }
+
+    const result = await res.json();
+    return result.secure_url || null;
   }
 
-  const result = await res.json();
-  return result.secure_url || null;
+  return null;
 }
 
 function ensureCloudinaryPngUrl(url: string): string {
@@ -171,8 +210,8 @@ function ensureCloudinaryPngUrl(url: string): string {
     const parsed = new URL(url);
     if (!parsed.hostname.includes("res.cloudinary.com")) return url;
 
-    // Force Cloudinary delivery as PNG so OpenAI /images/edits accepts it.
-    parsed.pathname = parsed.pathname.replace("/upload/", "/upload/f_png/");
+    // Force Cloudinary delivery as PNG32 (RGBA) so OpenAI /images/edits accepts it.
+    parsed.pathname = parsed.pathname.replace("/upload/", "/upload/f_png/fl_png32/");
     return parsed.toString();
   } catch {
     return url;
@@ -255,8 +294,19 @@ Deno.serve(async (req) => {
       phone: config.phone || profile.phone || "",
     };
 
-    // Fetch property image as data URL (any format — gpt-image-1 accepts PNG/JPEG/WebP)
-    const imageDataUrl = await fetchImageAsDataUrl(imageUrl);
+    // Convert source image to PNG32 (RGBA) via Cloudinary when available (required by OpenAI image edits)
+    let sourceImageUrl = imageUrl;
+    const sourceFolder = `habitae/artes/${profile.organization_id}/source-images`;
+    const sourcePublicId = `source_${propertyId}_${Date.now()}`;
+    const cloudinarySourceUrl = await uploadRemoteImageToCloudinary(imageUrl, sourceFolder, sourcePublicId);
+    if (cloudinarySourceUrl) {
+      sourceImageUrl = ensureCloudinaryPngUrl(cloudinarySourceUrl);
+    } else {
+      console.warn("[art-gen] Cloudinary source conversion unavailable, using original URL");
+    }
+
+    // Fetch the final source image as data URL
+    const imageDataUrl = await fetchImageAsDataUrl(sourceImageUrl);
     const base64Match = imageDataUrl.match(/^data:.*?;base64,(.*)$/);
     const imageBase64 = base64Match ? base64Match[1] : "";
 
