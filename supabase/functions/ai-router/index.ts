@@ -377,8 +377,12 @@ async function callOpenAI(
 
       const imageBlob = new Blob([imageBytes], { type: mimeType });
 
-      // For image edits, keep compatibility by defaulting to dall-e-2 when provider is not explicitly gpt-image-1.
-      const preferredEditModel = provider.model_id === "gpt-image-1" ? "gpt-image-1" : "dall-e-2";
+      // Model strategy: try higher-quality edit model first, fallback to dall-e-2 for compatibility.
+      const modelCandidates = Array.from(new Set(
+        provider.model_id === "dall-e-2"
+          ? ["gpt-image-1", "dall-e-2"]
+          : [provider.model_id, "gpt-image-1", "dall-e-2"]
+      ));
 
       // dall-e-2 only supports 256x256, 512x512, 1024x1024
       const normalizeSizeForDalle2 = (s: string) => {
@@ -386,12 +390,21 @@ async function callOpenAI(
         return valid.includes(s) ? s : "1024x1024";
       };
 
-      const editPrompt = prompt.length > 980 ? `${prompt.slice(0, 977)}...` : prompt;
-      if (editPrompt.length !== prompt.length) {
-        console.warn(`[ai-router] ${provider.provider_key}: prompt truncated for image edit (${prompt.length}→${editPrompt.length})`);
-      }
+      const normalizeSizeForModel = (model: string, size: string) => {
+        if (model === "dall-e-2") return normalizeSizeForDalle2(size);
+        return size;
+      };
 
-      const attemptEdit = async (model: string, size: string): Promise<any> => {
+      const promptForModel = (model: string) => {
+        const limit = model === "dall-e-2" ? 980 : 3500;
+        const p = prompt.length > limit ? `${prompt.slice(0, Math.max(limit - 3, 1))}...` : prompt;
+        if (p.length !== prompt.length) {
+          console.warn(`[ai-router] ${provider.provider_key}: prompt truncated for image edit (${prompt.length}→${p.length}) [${model}]`);
+        }
+        return p;
+      };
+
+      const attemptEdit = async (model: string, size: string, editPrompt: string): Promise<any> => {
         const formData = new FormData();
         formData.append("image", imageBlob, `photo.${fileExt}`);
         formData.append("prompt", editPrompt);
@@ -411,7 +424,7 @@ async function callOpenAI(
           const body = await res.text();
           const err = Object.assign(new Error(`OpenAI image-edit ${res.status}: ${body.slice(0, 300)}`), {
             is429: res.status === 429,
-            isInvalidModel: res.status === 400 && body.includes("invalid_value"),
+            isRetryableModelError: res.status === 400 || res.status === 404,
           });
           throw err;
         }
@@ -421,19 +434,24 @@ async function callOpenAI(
         return { image_base64: `data:image/png;base64,${b64}`, text: "", tokens_input: 0, tokens_output: 0 };
       };
 
-      // First attempt with preferred model
-      const firstSize = preferredEditModel === "dall-e-2" ? normalizeSizeForDalle2(requestedSize) : requestedSize;
-      try {
-        return await attemptEdit(preferredEditModel, firstSize);
-      } catch (err: any) {
-        // If model was rejected (invalid_value), retry with dall-e-2 fallback
-        if (err.isInvalidModel && preferredEditModel !== "dall-e-2") {
-          console.warn(`[ai-router] ${provider.provider_key}: ${preferredEditModel} rejected, retrying with dall-e-2`);
-          const fallbackSize = normalizeSizeForDalle2(requestedSize);
-          return await attemptEdit("dall-e-2", fallbackSize);
+      let lastAttemptError: any = null;
+      for (const modelCandidate of modelCandidates) {
+        try {
+          const candidateSize = normalizeSizeForModel(modelCandidate, requestedSize);
+          const editPrompt = promptForModel(modelCandidate);
+          return await attemptEdit(modelCandidate, candidateSize, editPrompt);
+        } catch (err: any) {
+          lastAttemptError = err;
+          if (err?.is429) throw err;
+          if (err?.isRetryableModelError && modelCandidate !== "dall-e-2") {
+            console.warn(`[ai-router] ${provider.provider_key}: ${modelCandidate} rejected for edit, trying next fallback model`);
+            continue;
+          }
+          if (modelCandidate === "dall-e-2") throw err;
         }
-        throw err;
       }
+
+      throw lastAttemptError || new Error("OpenAI image edit failed for all candidate models");
     }
 
     // No base image → generate from scratch
