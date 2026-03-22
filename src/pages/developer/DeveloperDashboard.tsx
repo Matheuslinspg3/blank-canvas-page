@@ -38,6 +38,7 @@ const tabs = [
   { id: "subscriptions", label: "Assinaturas", icon: CreditCard },
   { id: "tickets", label: "Tickets", icon: MessageSquare },
   { id: "ai", label: "IA", icon: Bot },
+  { id: "ai-router", label: "AI Router", icon: Route },
   { id: "billing", label: "Billing IA", icon: Receipt },
   { id: "migration", label: "Migração", icon: ArrowRightLeft },
 ] as const;
