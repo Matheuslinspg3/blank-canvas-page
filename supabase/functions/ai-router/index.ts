@@ -243,15 +243,20 @@ async function callOpenAI(
         return valid.includes(s) ? s : "1024x1024";
       };
 
+      const editPrompt = prompt.length > 980 ? `${prompt.slice(0, 977)}...` : prompt;
+      if (editPrompt.length !== prompt.length) {
+        console.warn(`[ai-router] ${provider.provider_key}: prompt truncated for image edit (${prompt.length}→${editPrompt.length})`);
+      }
+
       const attemptEdit = async (model: string, size: string): Promise<any> => {
         const formData = new FormData();
         formData.append("image", imageBlob, "photo.png");
-        formData.append("prompt", prompt);
+        formData.append("prompt", editPrompt);
         formData.append("model", model);
         formData.append("size", size);
         formData.append("response_format", "b64_json");
 
-        console.log(`[ai-router] OpenAI image EDIT (requested=${provider.model_id}, effective=${model}, size=${requestedSize}→${size})`);
+        console.log(`[ai-router] OpenAI image EDIT (requested=${provider.model_id}, effective=${model}, size=${requestedSize}→${size}, prompt=${prompt.length}→${editPrompt.length})`);
 
         const res = await fetch("https://api.openai.com/v1/images/edits", {
           method: "POST",
