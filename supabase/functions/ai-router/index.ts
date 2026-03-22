@@ -224,39 +224,68 @@ async function callOpenAI(
   );
 
   if (isImageModel) {
-    const size = imageSize || "1024x1024";
+    const requestedSize = imageSize || "1024x1024";
 
     // If we have a base image, use the /images/edits endpoint to preserve the original photo
     if (imageBase64) {
       const imageBytes = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
       const imageBlob = new Blob([imageBytes], { type: "image/png" });
 
-      // OpenAI /images/edits does not accept dall-e-3; auto-switch to compatible model
-      const editModel = provider.model_id.includes("dall-e-3") ? "gpt-image-1" : provider.model_id;
+      // Resolve edit-compatible model: /images/edits only accepts dall-e-2 on most accounts
+      // gpt-image-1 may work on newer accounts, so try it first if configured, with dall-e-2 fallback
+      const preferredEditModel = (provider.model_id === "dall-e-2") ? "dall-e-2"
+        : (provider.model_id === "gpt-image-1") ? "gpt-image-1"
+        : "dall-e-2"; // dall-e-3 and others → safe fallback
 
-      const formData = new FormData();
-      formData.append("image", imageBlob, "photo.png");
-      formData.append("prompt", prompt);
-      formData.append("model", editModel);
-      formData.append("size", size);
-      formData.append("response_format", "b64_json");
+      // dall-e-2 only supports 256x256, 512x512, 1024x1024
+      const normalizeSizeForDalle2 = (s: string) => {
+        const valid = ["256x256", "512x512", "1024x1024"];
+        return valid.includes(s) ? s : "1024x1024";
+      };
 
-      console.log(`[ai-router] OpenAI image EDIT (${editModel}, ${size})`);
+      const attemptEdit = async (model: string, size: string): Promise<any> => {
+        const formData = new FormData();
+        formData.append("image", imageBlob, "photo.png");
+        formData.append("prompt", prompt);
+        formData.append("model", model);
+        formData.append("size", size);
+        formData.append("response_format", "b64_json");
 
-      const res = await fetch("https://api.openai.com/v1/images/edits", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}` },
-        signal,
-        body: formData,
-      });
-      if (!res.ok) {
-        const body = await res.text();
-        throw Object.assign(new Error(`OpenAI image-edit ${res.status}: ${body.slice(0, 300)}`), { is429: res.status === 429 });
+        console.log(`[ai-router] OpenAI image EDIT (requested=${provider.model_id}, effective=${model}, size=${requestedSize}→${size})`);
+
+        const res = await fetch("https://api.openai.com/v1/images/edits", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}` },
+          signal,
+          body: formData,
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          const err = Object.assign(new Error(`OpenAI image-edit ${res.status}: ${body.slice(0, 300)}`), {
+            is429: res.status === 429,
+            isInvalidModel: res.status === 400 && body.includes("invalid_value"),
+          });
+          throw err;
+        }
+        const data = await res.json();
+        const b64 = data.data?.[0]?.b64_json;
+        if (!b64) throw new Error("OpenAI image edit: no image data returned");
+        return { image_base64: `data:image/png;base64,${b64}`, text: "", tokens_input: 0, tokens_output: 0 };
+      };
+
+      // First attempt with preferred model
+      const firstSize = preferredEditModel === "dall-e-2" ? normalizeSizeForDalle2(requestedSize) : requestedSize;
+      try {
+        return await attemptEdit(preferredEditModel, firstSize);
+      } catch (err: any) {
+        // If model was rejected (invalid_value), retry with dall-e-2 fallback
+        if (err.isInvalidModel && preferredEditModel !== "dall-e-2") {
+          console.warn(`[ai-router] ${provider.provider_key}: ${preferredEditModel} rejected, retrying with dall-e-2`);
+          const fallbackSize = normalizeSizeForDalle2(requestedSize);
+          return await attemptEdit("dall-e-2", fallbackSize);
+        }
+        throw err;
       }
-      const data = await res.json();
-      const b64 = data.data?.[0]?.b64_json;
-      if (!b64) throw new Error("OpenAI image edit: no image data returned");
-      return { image_base64: `data:image/png;base64,${b64}`, text: "", tokens_input: 0, tokens_output: 0 };
     }
 
     // No base image → generate from scratch
@@ -264,7 +293,7 @@ async function callOpenAI(
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       signal,
-      body: JSON.stringify({ model: provider.model_id, prompt, n: 1, size, quality: "standard" }),
+      body: JSON.stringify({ model: provider.model_id, prompt, n: 1, size: requestedSize, quality: "standard" }),
     });
     if (!res.ok) {
       const body = await res.text();
