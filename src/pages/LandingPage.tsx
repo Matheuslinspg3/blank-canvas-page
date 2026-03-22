@@ -53,12 +53,12 @@ const faqs = [
 ];
 
 export default function LandingPage() {
-  const { session } = useAuth();
+  const { session, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (session) navigate("/dashboard", { replace: true });
-  }, [session, navigate]);
+    if (!loading && session) navigate("/dashboard", { replace: true });
+  }, [session, loading, navigate]);
 
   // Fetch plans for pricing section
   const { data: plans } = useQuery({
@@ -75,7 +75,8 @@ export default function LandingPage() {
     staleTime: 10 * 60 * 1000,
   });
 
-  if (session) return null;
+  // Show nothing while checking auth, or if logged in
+  if (loading || session) return null;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
