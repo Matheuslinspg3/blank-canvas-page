@@ -51,16 +51,16 @@ function buildArtPrompt(
   const subText = config.sub_text || details.join(" · ");
   const accentColor = config.accent_color || "#3B82F6";
 
-  return `Create a professional real estate marketing image in ${dimensions[format]} format.
-If a property photo is provided, use it as the main background. Otherwise, create a photorealistic luxury property scene.
-Apply a modern, elegant overlay design:
+  return `Edit this property photo to create a professional real estate marketing image in ${dimensions[format]} format.
+Keep the original property photo as the main background — do NOT replace it.
+Apply a modern, elegant overlay design on top of the photo:
 
 DESIGN RULES:
-- The property visual should be the dominant element (at least 70% of the image)
+- The original property photo MUST remain as the dominant visual (at least 70% visible)
 - Add a semi-transparent gradient overlay at the bottom (dark, elegant)
 - Use clean, modern typography — bold and highly readable
 - Accent color: ${accentColor}
-- Make it look like a premium real estate ad
+- Make it look like a premium real estate ad from a luxury agency
 
 TEXT TO INCLUDE (in Portuguese):
 - Transaction badge: "${txLabel}" (small badge, accent color background)
@@ -122,51 +122,53 @@ async function uploadBase64ToCloudinary(
   return result.secure_url;
 }
 
-// Call AI Router for image generation with smart fallback
-async function callAiRouter(
-  supabaseUrl: string,
-  authHeader: string,
+// Call OpenAI gpt-image-1 to edit property photo with marketing overlay
+async function callOpenAIImageEdit(
   prompt: string,
   imageBase64: string,
-): Promise<{ imageDataUrl: string; text: string }> {
-  const routerUrl = `${supabaseUrl}/functions/v1/ai-router`;
+  format: string,
+): Promise<string> {
+  const apiKey = Deno.env.get("OPENAI_IMAGE_API_KEY");
+  if (!apiKey) throw new Error("OPENAI_IMAGE_API_KEY não configurada");
 
-  const response = await fetch(routerUrl, {
+  // Map format to OpenAI supported sizes
+  const sizeMap: Record<string, string> = {
+    feed: "1024x1024",
+    story: "1024x1536",
+    banner: "1536x1024",
+  };
+  const size = sizeMap[format] || "1024x1024";
+
+  // Convert base64 to Blob for multipart upload
+  const imageBytes = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
+  const imageBlob = new Blob([imageBytes], { type: "image/png" });
+
+  const formData = new FormData();
+  formData.append("image", imageBlob, "property.png");
+  formData.append("prompt", prompt);
+  formData.append("model", "gpt-image-1");
+  formData.append("size", size);
+  formData.append("response_format", "b64_json");
+
+  console.log(`[art-gen] Calling OpenAI gpt-image-1 for ${format} (${size})`);
+
+  const response = await fetch("https://api.openai.com/v1/images/edits", {
     method: "POST",
-    headers: {
-      Authorization: authHeader,
-      "Content-Type": "application/json",
-      apikey: Deno.env.get("SUPABASE_ANON_KEY")!,
-    },
-    body: JSON.stringify({
-      task_type: "generate_art",
-      prompt,
-      image_base64: imageBase64,
-    }),
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: formData,
   });
 
+  if (!response.ok) {
+    const errText = await response.text();
+    console.error(`[art-gen] OpenAI error for ${format}: ${response.status} ${errText.slice(0, 300)}`);
+    throw new Error(`OpenAI image edit error ${response.status}: ${errText.slice(0, 300)}`);
+  }
+
   const data = await response.json();
+  const b64 = data.data?.[0]?.b64_json;
+  if (!b64) throw new Error("OpenAI não retornou dados de imagem");
 
-  if (!response.ok || !data.success) {
-    throw new Error(data.error || `AI Router error ${response.status}`);
-  }
-
-  // Router returns image_base64 (Gemini) or image_url (DALL-E)
-  const imageResult = data.image_base64 || data.image_url;
-  if (!imageResult) {
-    throw new Error("AI Router não retornou imagem gerada");
-  }
-
-  // If it's a URL (DALL-E), fetch and convert to data URL
-  let finalDataUrl = imageResult;
-  if (imageResult.startsWith("http")) {
-    finalDataUrl = await fetchImageAsDataUrl(imageResult);
-  }
-
-  return {
-    imageDataUrl: finalDataUrl,
-    text: data.text || "",
-  };
+  return `data:image/png;base64,${b64}`;
 }
 
 Deno.serve(async (req) => {
@@ -237,20 +239,20 @@ Deno.serve(async (req) => {
     const base64Match = imageDataUrl.match(/^data:.*?;base64,(.*)$/);
     const imageBase64 = base64Match ? base64Match[1] : "";
 
-    // Generate 3 formats in parallel via AI Router (smart fallback across providers)
+    // Generate 3 formats in parallel via OpenAI gpt-image-1 (image editing)
     const formats = ["feed", "story", "banner"] as const;
     const results = await Promise.allSettled(
       formats.map(async (format) => {
         const prompt = buildArtPrompt(format, property, orgName, artConfig);
 
-        const result = await callAiRouter(supabaseUrl, authHeader!, prompt, imageBase64);
+        const resultDataUrl = await callOpenAIImageEdit(prompt, imageBase64, format);
 
         // Upload to Cloudinary
         const folder = `habitae/artes/${profile.organization_id}`;
         const publicId = `${propertyId}_${format}_${Date.now()}`;
-        const cloudinaryUrl = await uploadBase64ToCloudinary(result.imageDataUrl, folder, publicId);
+        const cloudinaryUrl = await uploadBase64ToCloudinary(resultDataUrl, folder, publicId);
 
-        return cloudinaryUrl || result.imageDataUrl;
+        return cloudinaryUrl || resultDataUrl;
       }),
     );
 
