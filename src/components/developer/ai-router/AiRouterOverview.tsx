@@ -148,12 +148,12 @@ export function AiRouterOverview() {
                         <TableCell className="text-center">
                           <div className="flex items-center gap-2">
                             <div className="w-16">
-                              <Progress
+                              <ColorProgress
                                 value={Math.max(p.score, 0)}
                                 className="h-2"
-                                style={{
-                                  ["--progress-color" as any]: p.score >= 80 ? "hsl(var(--chart-2))" : p.score >= 50 ? "hsl(var(--chart-4))" : "hsl(var(--destructive))",
-                                }}
+                                indicatorColor={
+                                  p.score >= 80 ? "hsl(var(--chart-2))" : p.score >= 50 ? "hsl(var(--chart-4))" : "hsl(var(--destructive))"
+                                }
                               />
                             </div>
                             <span className={`text-sm font-bold ${scoreColor(p.score)}`}>
