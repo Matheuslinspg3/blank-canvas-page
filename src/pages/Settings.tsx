@@ -814,6 +814,10 @@ export default function Settings() {
             </TabsContent>
           )}
 
+          <TabsContent value="billing">
+            <BillingTab />
+          </TabsContent>
+
           <TabsContent value="support">
             <div className="grid gap-6 max-w-2xl">
               <div className="flex items-center justify-between">
