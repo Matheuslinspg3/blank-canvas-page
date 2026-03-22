@@ -387,6 +387,100 @@ function NewProviderWizard({ open, onClose }: { open: boolean; onClose: () => vo
   );
 }
 
+// ── Edit Provider Modal ──
+
+function EditProviderModal({
+  provider,
+  open,
+  onClose,
+}: {
+  provider: AiRouterProvider | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const { updateProvider } = useAiRouterProviders();
+  const [displayName, setDisplayName] = useState("");
+  const [priority, setPriority] = useState("50");
+  const [rateLimitRpm, setRateLimitRpm] = useState("");
+  const [rateLimitRpd, setRateLimitRpd] = useState("");
+  const [notes, setNotes] = useState("");
+
+  useEffect(() => {
+    if (provider && open) {
+      setDisplayName(provider.display_name);
+      setPriority(String(provider.priority ?? 50));
+      setRateLimitRpm(provider.rate_limit_rpm ? String(provider.rate_limit_rpm) : "");
+      setRateLimitRpd(provider.rate_limit_rpd ? String(provider.rate_limit_rpd) : "");
+      setNotes(provider.notes || "");
+    }
+  }, [provider, open]);
+
+  const handleSave = () => {
+    if (!provider) return;
+    updateProvider.mutate(
+      {
+        id: provider.id,
+        display_name: displayName,
+        priority: parseInt(priority) || 50,
+        rate_limit_rpm: rateLimitRpm ? parseInt(rateLimitRpm) : null,
+        rate_limit_rpd: rateLimitRpd ? parseInt(rateLimitRpd) : null,
+        notes: notes || null,
+      },
+      { onSuccess: () => onClose() }
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Pencil className="h-4 w-4" /> Editar Provider
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label>Nome de exibição</Label>
+            <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <Label className="text-xs">Prioridade</Label>
+              <Input type="number" value={priority} onChange={(e) => setPriority(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">RPM (limite)</Label>
+              <Input type="number" value={rateLimitRpm} onChange={(e) => setRateLimitRpm(e.target.value)} placeholder="—" />
+            </div>
+            <div>
+              <Label className="text-xs">RPD (limite)</Label>
+              <Input type="number" value={rateLimitRpd} onChange={(e) => setRateLimitRpd(e.target.value)} placeholder="—" />
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Notas</Label>
+            <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observações opcionais..." />
+          </div>
+          {provider && (
+            <div className="text-xs text-muted-foreground space-y-0.5">
+              <p><strong>Modelo:</strong> {provider.model_id}</p>
+              <p><strong>Tipo:</strong> {provider.provider_type}</p>
+              <p><strong>Base URL:</strong> {provider.api_base_url}</p>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={handleSave} disabled={!displayName || updateProvider.isPending}>
+            {updateProvider.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+            Salvar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Key status badge ──
 
 function KeyStatusBadge({ provider }: { provider: AiRouterProvider }) {
