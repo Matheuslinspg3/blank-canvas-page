@@ -244,11 +244,11 @@ async function callOpenAI(
 
       const imageBlob = new Blob([imageBytes], { type: mimeType });
 
-      // Resolve edit-compatible model: /images/edits only accepts dall-e-2 on most accounts
-      // gpt-image-1 may work on newer accounts, so try it first if configured, with dall-e-2 fallback
-      const preferredEditModel = (provider.model_id === "dall-e-2") ? "dall-e-2"
-        : (provider.model_id === "gpt-image-1") ? "gpt-image-1"
-        : "dall-e-2"; // dall-e-3 and others → safe fallback
+      // gpt-image-1 supports PNG/JPEG/WebP natively; dall-e-2 requires PNG only
+      // Prefer gpt-image-1 to avoid format issues
+      const preferredEditModel = (provider.model_id === "gpt-image-1") ? "gpt-image-1"
+        : (provider.model_id === "dall-e-2" && isPng) ? "dall-e-2"
+        : "gpt-image-1"; // default to gpt-image-1 for format flexibility
 
       // dall-e-2 only supports 256x256, 512x512, 1024x1024
       const normalizeSizeForDalle2 = (s: string) => {
