@@ -369,6 +369,9 @@ Deno.serve(async (req) => {
         : JSON.parse(config.provider_chain as unknown as string);
     }
 
+    const providersAttempted: string[] = [];
+    let lastError = "";
+
     for (const providerKey of chain) {
       const provider = providerMap.get(providerKey);
       if (!provider) continue;
