@@ -1,7 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { trackAiBilling } from "../_shared/ai-billing.ts";
-import { callGeminiOpenAIChat, fetchImageAsDataUrl } from "../_shared/gemini.ts";
 import { checkAiRateLimit } from "../_shared/ai-rate-limit.ts";
 
 const corsHeaders = {
@@ -10,20 +8,17 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const MODEL = "gemini-2.5-flash";
-
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // Auth check
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const authClient = createClient(supabaseUrl, supabaseAnonKey, {
@@ -32,96 +27,70 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await authClient.auth.getUser();
     if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Rate limit: 20 req/hour
     const rateLimited = await checkAiRateLimit(user.id, "analyze-photo-quality", corsHeaders);
     if (rateLimited) return rateLimited;
 
     const { imageUrl } = await req.json();
     if (!imageUrl) {
       return new Response(JSON.stringify({ error: "imageUrl is required" }), {
-        status: 400,
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Fetch image and convert to base64
+    const imgResp = await fetch(imageUrl);
+    if (!imgResp.ok) throw new Error("Failed to fetch image");
+    const imgBuffer = await imgResp.arrayBuffer();
+    const bytes = new Uint8Array(imgBuffer);
+    let binary = "";
+    const chunkSize = 8192;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const end = Math.min(i + chunkSize, bytes.length);
+      for (let j = i; j < end; j++) binary += String.fromCharCode(bytes[j]);
+    }
+    const imgBase64 = btoa(binary);
+
+    const promptText = 'Analise a qualidade desta foto para uso em arte de anúncio imobiliário. Responda APENAS com JSON: { "quality": "good" ou "low", "reason": "motivo curto em PT-BR" }. Critérios: resolução, iluminação, enquadramento, nitidez.';
+
+    // Call ai-router
+    const routerResponse = await fetch(`${supabaseUrl}/functions/v1/ai-router`, {
+      method: "POST",
+      headers: {
+        Authorization: authHeader,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        task_type: "analyze_photo",
+        prompt: promptText,
+        image_base64: imgBase64,
+        user_id: user.id,
+      }),
+    });
+
+    const aiResult = await routerResponse.json();
+    if (!aiResult.success) {
+      return new Response(JSON.stringify({ quality: "unknown", message: "Análise indisponível" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const imageDataUrl = await fetchImageAsDataUrl(imageUrl);
-    const data = await callGeminiOpenAIChat({
-      body: {
-        model: MODEL,
-        messages: [
-          {
-            role: "system",
-            content:
-              "Você é um especialista em qualidade de fotos para anúncios imobiliários. Analise a imagem e responda APENAS com um JSON: { \"quality\": \"good\" ou \"low\", \"reason\": \"motivo curto em PT-BR\" }. Critérios: resolução, iluminação, enquadramento, nitidez. Seja conciso.",
-          },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: "Analise a qualidade desta foto para uso em arte de anúncio imobiliário." },
-              { type: "image_url", image_url: { url: imageDataUrl } },
-            ],
-          },
-        ],
-        temperature: 0.2,
-        max_tokens: 150,
-      },
-    });
-
-    const content = data.choices?.[0]?.message?.content || "";
-    const tokensIn = data.usage?.prompt_tokens || 0;
-    const tokensOut = data.usage?.completion_tokens || 0;
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (supabaseUrl && serviceKey) {
-      const supabase = createClient(supabaseUrl, serviceKey);
-
-      await supabase.from("ai_usage_logs").insert({
-        user_id: "system",
-        provider: "gemini",
-        model: MODEL,
-        function_name: "analyze-photo-quality",
-        usage_type: "vision",
-        tokens_input: tokensIn,
-        tokens_output: tokensOut,
-        estimated_cost_usd: (tokensIn / 1000) * 0.00015 + (tokensOut / 1000) * 0.0006,
-        success: true,
-      });
-
-      await trackAiBilling(supabase, {
-        userId: "system",
-        provider: "gemini",
-        model: MODEL,
-        functionName: "analyze-photo-quality",
-        inputTokens: tokensIn,
-        outputTokens: tokensOut,
-        success: true,
-        usageType: "vision",
-      });
-    }
-
+    const content = aiResult.text || "";
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        return new Response(
-          JSON.stringify({
-            quality: parsed.quality || "unknown",
-            message: parsed.reason || "Análise concluída",
-          }),
-          {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
-        );
+        return new Response(JSON.stringify({
+          quality: parsed.quality || "unknown",
+          message: parsed.reason || "Análise concluída",
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
-    } catch {
-      // fallback below
-    }
+    } catch { /* fallback below */ }
 
     return new Response(JSON.stringify({ quality: "unknown", message: "Análise inconclusiva" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

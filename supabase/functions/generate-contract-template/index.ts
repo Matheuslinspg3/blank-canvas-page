@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callGeminiOpenAIChat } from "../_shared/gemini.ts";
 import { checkAiRateLimit } from "../_shared/ai-rate-limit.ts";
 
 const corsHeaders = {
@@ -9,8 +8,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const MODEL = "gemini-2.5-flash";
-
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -18,16 +15,13 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Missing authorization");
 
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) throw new Error("Unauthorized");
 
-    // Rate limit: 20 req/hour
     const rateLimited = await checkAiRateLimit(user.id, "generate-contract-template", corsHeaders);
     if (rateLimited) return rateLimited;
 
@@ -54,19 +48,26 @@ REGRAS:
       ? `Gere um contrato com o título "${templateName}"${description ? `. Detalhes: ${description}` : ""}.`
       : `Gere um contrato padrão de ${typeLabel} para imóveis.`;
 
-    const data = await callGeminiOpenAIChat({
-      body: {
-        model: MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
+    // Call ai-router
+    const routerResponse = await fetch(`${supabaseUrl}/functions/v1/ai-router`, {
+      method: "POST",
+      headers: {
+        Authorization: authHeader,
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        task_type: "contract_template",
+        prompt: userPrompt,
+        system_prompt: systemPrompt,
+        user_id: user.id,
+      }),
     });
 
-    let html = data.choices?.[0]?.message?.content || "";
+    const aiResult = await routerResponse.json();
+    if (!aiResult.success) throw new Error(aiResult.error || "AI Router failed");
+
+    let html = aiResult.text || "";
     html = html.replace(/^```html?\n?/i, "").replace(/\n?```$/i, "").trim();
-    // Strip any script/event-handler injection from AI output
     html = html.replace(/<script[\s\S]*?<\/script>/gi, "");
     html = html.replace(/\son\w+\s*=\s*["'][^"']*["']/gi, "");
 

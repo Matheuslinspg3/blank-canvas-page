@@ -1,5 +1,4 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { trackAiBilling } from "../_shared/ai-billing.ts";
 import { checkAiRateLimit } from "../_shared/ai-rate-limit.ts";
 
 const corsHeaders = {
@@ -8,9 +7,7 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const authHeader = req.headers.get("Authorization");
@@ -18,11 +15,10 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
 
     const token = authHeader.replace("Bearer ", "");
     const { data: claims, error: claimsErr } = await supabase.auth.getClaims(token);
@@ -31,7 +27,6 @@ Deno.serve(async (req) => {
     }
     const userId = claims.claims.sub as string;
 
-    // Rate limit: 20 req/hour
     const rateLimited = await checkAiRateLimit(userId, "summarize-lead", corsHeaders);
     if (rateLimited) return rateLimited;
 
@@ -51,18 +46,12 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Lead não encontrado" }), { status: 404, headers: corsHeaders });
     }
 
-    // Get stage name
     let stageName = "Sem estágio";
     if (lead.lead_stage_id) {
-      const { data: stage } = await supabase
-        .from("lead_stages")
-        .select("name")
-        .eq("id", lead.lead_stage_id)
-        .single();
+      const { data: stage } = await supabase.from("lead_stages").select("name").eq("id", lead.lead_stage_id).single();
       if (stage) stageName = stage.name;
     }
 
-    // Get recent events
     const { data: events } = await supabase
       .from("lead_score_events")
       .select("event_type, score_delta, created_at, metadata")
@@ -74,7 +63,7 @@ Deno.serve(async (req) => {
       .map((e) => `- ${e.event_type} (${e.score_delta > 0 ? "+" : ""}${e.score_delta} pts) em ${new Date(e.created_at).toLocaleDateString("pt-BR")}`)
       .join("\n");
 
-    const prompt = `Você é um analista de CRM imobiliário. Analise este lead e gere um resumo conciso (máximo 3 frases) com recomendação de próxima ação.
+    const prompt = `Analise este lead e gere um resumo conciso (máximo 3 frases) com recomendação de próxima ação.
 
 Lead: ${lead.name}
 Score: ${lead.score || 0}/100
@@ -89,77 +78,33 @@ ${eventsText || "Nenhum evento registrado"}
 
 Gere o resumo em português brasileiro, direto e prático.`;
 
-    // Call Lovable AI Gateway
-    const aiUrl = Deno.env.get("AI_GATEWAY_URL") || "https://ai-gateway.lovable.dev";
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
-
-    try {
-      const aiRes = await fetch(`${aiUrl}/v1/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${Deno.env.get("AI_GATEWAY_API_KEY") || ""}`,
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash-lite",
-          messages: [
-            { role: "system", content: "Você é um analista de CRM especializado em imóveis brasileiros. Seja conciso e prático." },
-            { role: "user", content: prompt },
-          ],
-          temperature: 0.5,
-          max_tokens: 300,
-        }),
-      });
-
-      const aiData = await aiRes.json();
-      const summary = aiData.choices?.[0]?.message?.content || "Não foi possível gerar resumo.";
-      const tokensIn = aiData.usage?.prompt_tokens || 0;
-      const tokensOut = aiData.usage?.completion_tokens || 0;
-
-      // Track billing
-      const serviceClient = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-      );
-
-      // Log usage
-      await serviceClient.from("ai_usage_logs").insert({
+    // Call ai-router
+    const routerResponse = await fetch(`${supabaseUrl}/functions/v1/ai-router`, {
+      method: "POST",
+      headers: {
+        Authorization: authHeader,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        task_type: "summarize",
+        prompt,
         user_id: userId,
-        provider: "lovable",
-        model: "google/gemini-2.5-flash-lite",
-        function_name: "summarize-lead",
-        usage_type: "text",
-        tokens_input: tokensIn,
-        tokens_output: tokensOut,
-        estimated_cost_usd: (tokensIn / 1000) * 0.0001 + (tokensOut / 1000) * 0.0004,
-        success: true,
-      });
+      }),
+    });
 
-      await trackAiBilling(serviceClient, {
-        userId,
-        provider: "lovable",
-        model: "google/gemini-2.5-flash-lite",
-        functionName: "summarize-lead",
-        inputTokens: tokensIn,
-        outputTokens: tokensOut,
-        success: true,
-        usageType: "text",
-      });
-
-      // Save summary to lead
-      await supabase
-        .from("leads")
-        .update({ ai_summary: summary, ai_summary_at: new Date().toISOString() })
-        .eq("id", lead_id);
-
-      return new Response(JSON.stringify({ summary }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    } finally {
-      clearTimeout(timeout);
+    const aiResult = await routerResponse.json();
+    if (!aiResult.success) {
+      return new Response(JSON.stringify({ error: "Erro ao gerar resumo" }), { status: 500, headers: corsHeaders });
     }
+
+    const summary = aiResult.text || "Não foi possível gerar resumo.";
+
+    // Save summary to lead
+    await supabase.from("leads").update({ ai_summary: summary, ai_summary_at: new Date().toISOString() }).eq("id", lead_id);
+
+    return new Response(JSON.stringify({ summary }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (err) {
     console.error("summarize-lead error:", err);
     return new Response(JSON.stringify({ error: "Erro ao gerar resumo" }), { status: 500, headers: corsHeaders });
