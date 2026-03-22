@@ -53,6 +53,7 @@ interface RouterRequest {
   prompt: string;
   system_prompt?: string;
   image_base64?: string;
+  image_size?: string; // e.g. "1024x1024", "1024x1536", "1536x1024"
   organization_id?: string;
   user_id?: string;
   max_tokens?: number;
@@ -134,7 +135,7 @@ function calculateProviderScore(
 
 async function callGroq(
   provider: Provider, apiKey: string, prompt: string, systemPrompt: string | null,
-  maxTokens: number, temperature: number, _imageBase64?: string, signal?: AbortSignal
+  maxTokens: number, temperature: number, _imageBase64?: string, signal?: AbortSignal, _imageSize?: string,
 ) {
   const messages: any[] = [];
   if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
@@ -163,7 +164,7 @@ async function callGroq(
 
 async function callGemini(
   provider: Provider, apiKey: string, prompt: string, systemPrompt: string | null,
-  maxTokens: number, temperature: number, imageBase64?: string, signal?: AbortSignal
+  maxTokens: number, temperature: number, imageBase64?: string, signal?: AbortSignal, _imageSize?: string,
 ) {
   const imageGenModels = ["imagen", "image-generation", "gemini-2.0-flash-exp-image"];
   const isImageGen = provider.supports_image_output && imageGenModels.some(m => provider.model_id.includes(m));
@@ -215,17 +216,52 @@ async function callGemini(
 
 async function callOpenAI(
   provider: Provider, apiKey: string, prompt: string, systemPrompt: string | null,
-  maxTokens: number, temperature: number, imageBase64?: string, signal?: AbortSignal
+  maxTokens: number, temperature: number, imageBase64?: string, signal?: AbortSignal,
+  imageSize?: string,
 ) {
   const isImageModel = provider.supports_image_output && (
     provider.model_id.includes("dall-e") || provider.model_id.includes("gpt-image")
   );
+
   if (isImageModel) {
+    const size = imageSize || "1024x1024";
+
+    // If we have a base image, use the /images/edits endpoint to preserve the original photo
+    if (imageBase64) {
+      const imageBytes = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
+      const imageBlob = new Blob([imageBytes], { type: "image/png" });
+
+      const formData = new FormData();
+      formData.append("image", imageBlob, "photo.png");
+      formData.append("prompt", prompt);
+      formData.append("model", provider.model_id);
+      formData.append("size", size);
+      formData.append("response_format", "b64_json");
+
+      console.log(`[ai-router] OpenAI image EDIT (${provider.model_id}, ${size})`);
+
+      const res = await fetch("https://api.openai.com/v1/images/edits", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}` },
+        signal,
+        body: formData,
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        throw Object.assign(new Error(`OpenAI image-edit ${res.status}: ${body.slice(0, 300)}`), { is429: res.status === 429 });
+      }
+      const data = await res.json();
+      const b64 = data.data?.[0]?.b64_json;
+      if (!b64) throw new Error("OpenAI image edit: no image data returned");
+      return { image_base64: `data:image/png;base64,${b64}`, text: "", tokens_input: 0, tokens_output: 0 };
+    }
+
+    // No base image → generate from scratch
     const res = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       signal,
-      body: JSON.stringify({ model: provider.model_id, prompt, n: 1, size: "1024x1024", quality: "standard" }),
+      body: JSON.stringify({ model: provider.model_id, prompt, n: 1, size, quality: "standard" }),
     });
     if (!res.ok) {
       const body = await res.text();
@@ -345,7 +381,7 @@ Deno.serve(async (req) => {
 
     // Parse body
     const body: RouterRequest = await req.json();
-    const { task_type, prompt, image_base64, force_provider } = body;
+    const { task_type, prompt, image_base64, image_size, force_provider } = body;
 
     if (!task_type || !prompt) {
       return new Response(
@@ -487,7 +523,7 @@ Deno.serve(async (req) => {
 
       try {
         let result: { text?: string; image_url?: string; image_base64?: string; tokens_input: number; tokens_output: number };
-        const callArgs = [provider, apiKey, prompt, systemPrompt, maxTokens, temperature, image_base64, controller.signal] as const;
+        const callArgs = [provider, apiKey, prompt, systemPrompt, maxTokens, temperature, image_base64, controller.signal, image_size] as const;
 
         switch (provider.provider_type) {
           case "groq": result = await callGroq(...callArgs); break;
