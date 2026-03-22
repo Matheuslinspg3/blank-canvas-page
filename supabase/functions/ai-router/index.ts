@@ -293,7 +293,7 @@ async function callOpenAI(
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       signal,
-      body: JSON.stringify({ model: provider.model_id, prompt, n: 1, size, quality: "standard" }),
+      body: JSON.stringify({ model: provider.model_id, prompt, n: 1, size: requestedSize, quality: "standard" }),
     });
     if (!res.ok) {
       const body = await res.text();
