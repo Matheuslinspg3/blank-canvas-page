@@ -36,6 +36,13 @@ interface Provider {
   rate_limit_rpm: number | null;
 }
 
+interface CloudinaryConfig {
+  cloudName: string;
+  apiKey: string;
+  apiSecret: string;
+  source: "primary" | "secondary";
+}
+
 interface ProviderStats {
   provider_key: string;
   task_type: string | null;
@@ -65,6 +72,116 @@ interface ProviderScore {
   provider_key: string;
   score: number;
   breakdown: { cost: number; speed: number; reliability: number; quality: number; penalties: number };
+}
+
+function getCloudinaryConfigs(): CloudinaryConfig[] {
+  const configs: CloudinaryConfig[] = [];
+
+  const primaryCloudName = Deno.env.get("CLOUDINARY_CLOUD_NAME");
+  const primaryApiKey = Deno.env.get("CLOUDINARY_API_KEY");
+  const primaryApiSecret = Deno.env.get("CLOUDINARY_API_SECRET");
+  if (primaryCloudName && primaryApiKey && primaryApiSecret) {
+    configs.push({
+      cloudName: primaryCloudName,
+      apiKey: primaryApiKey,
+      apiSecret: primaryApiSecret,
+      source: "primary",
+    });
+  }
+
+  const secondaryCloudName = Deno.env.get("CLOUDINARY2_CLOUD_NAME");
+  const secondaryApiKey = Deno.env.get("CLOUDINARY2_API_KEY");
+  const secondaryApiSecret = Deno.env.get("CLOUDINARY2_API_SECRET");
+  if (secondaryCloudName && secondaryApiKey && secondaryApiSecret) {
+    configs.push({
+      cloudName: secondaryCloudName,
+      apiKey: secondaryApiKey,
+      apiSecret: secondaryApiSecret,
+      source: "secondary",
+    });
+  }
+
+  return configs;
+}
+
+function ensureCloudinaryPngUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (!parsed.hostname.includes("res.cloudinary.com")) return url;
+    parsed.pathname = parsed.pathname.replace("/upload/", "/upload/f_png/fl_png32/");
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
+async function uploadDataUrlToCloudinary(dataUrl: string, folder: string, publicId: string): Promise<string | null> {
+  const configs = getCloudinaryConfigs();
+  if (configs.length === 0) return null;
+
+  for (const cfg of configs) {
+    try {
+      const timestamp = Math.floor(Date.now() / 1000).toString();
+      const paramsToSign = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}`;
+
+      const encoder = new TextEncoder();
+      const data = encoder.encode(paramsToSign + cfg.apiSecret);
+      const hashBuffer = await crypto.subtle.digest("SHA-1", data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const signature = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+
+      const formData = new FormData();
+      formData.append("file", dataUrl);
+      formData.append("folder", folder);
+      formData.append("public_id", publicId);
+      formData.append("timestamp", timestamp);
+      formData.append("api_key", cfg.apiKey);
+      formData.append("signature", signature);
+
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${cfg.cloudName}/image/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error(`[ai-router] Cloudinary upload failed (${cfg.source}): ${errText.slice(0, 300)}`);
+        continue;
+      }
+
+      const result = await res.json();
+      return result.secure_url || null;
+    } catch (e) {
+      console.error(`[ai-router] Cloudinary upload exception (${cfg.source}):`, e);
+    }
+  }
+
+  return null;
+}
+
+async function convertSourceImageToPng(imageBase64: string, mimeType: string): Promise<Uint8Array<ArrayBuffer> | null> {
+  const dataUrl = `data:${mimeType};base64,${imageBase64}`;
+  const folder = "habitae/ai-router/source-conversions";
+  const publicId = `src_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
+
+  const uploadedUrl = await uploadDataUrlToCloudinary(dataUrl, folder, publicId);
+  if (!uploadedUrl) return null;
+
+  const pngUrl = ensureCloudinaryPngUrl(uploadedUrl);
+  const res = await fetch(pngUrl);
+  if (!res.ok) {
+    console.error(`[ai-router] Cloudinary PNG fetch failed: ${res.status}`);
+    return null;
+  }
+
+  const convertedBytes: Uint8Array<ArrayBuffer> = new Uint8Array(await res.arrayBuffer());
+  const isPng = convertedBytes.length >= 4
+    && convertedBytes[0] === 0x89
+    && convertedBytes[1] === 0x50
+    && convertedBytes[2] === 0x4E
+    && convertedBytes[3] === 0x47;
+
+  return isPng ? convertedBytes : null;
 }
 
 // ── Score calculation ──
@@ -228,15 +345,31 @@ async function callOpenAI(
 
     // If we have a base image, use the /images/edits endpoint to preserve the original photo
     if (imageBase64) {
-      const imageBytes = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
+      let imageBytes = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
 
       // Detect mime type from magic bytes
-      const isPng = imageBytes.length >= 4 && imageBytes[0] === 0x89 && imageBytes[1] === 0x50;
+      let isPng = imageBytes.length >= 4 && imageBytes[0] === 0x89 && imageBytes[1] === 0x50;
       const isJpeg = imageBytes.length >= 2 && imageBytes[0] === 0xFF && imageBytes[1] === 0xD8;
       const isWebp = imageBytes.length >= 12 && imageBytes[8] === 0x57 && imageBytes[9] === 0x45 && imageBytes[10] === 0x42 && imageBytes[11] === 0x50;
 
-      const mimeType = isPng ? "image/png" : isJpeg ? "image/jpeg" : isWebp ? "image/webp" : "image/png";
-      const fileExt = isPng ? "png" : isJpeg ? "jpeg" : isWebp ? "webp" : "png";
+      let mimeType = isPng ? "image/png" : isJpeg ? "image/jpeg" : isWebp ? "image/webp" : "application/octet-stream";
+      let fileExt = isPng ? "png" : isJpeg ? "jpeg" : isWebp ? "webp" : "bin";
+
+      // OpenAI image edits in this account require PNG input; convert non-PNG via Cloudinary.
+      if (!isPng && (isJpeg || isWebp)) {
+        const converted = await convertSourceImageToPng(imageBase64, mimeType);
+        if (converted) {
+          imageBytes = converted;
+          isPng = true;
+          mimeType = "image/png";
+          fileExt = "png";
+          console.log(`[ai-router] Source image converted to PNG via Cloudinary (${isWebp ? "webp" : "jpeg"} -> png)`);
+        }
+      }
+
+      if (!isPng) {
+        throw new Error("Source image must be PNG. Conversion to PNG failed.");
+      }
 
       if (imageBytes.length > 25 * 1024 * 1024) {
         throw new Error(`Source image exceeds 25MB limit (${imageBytes.length} bytes)`);
@@ -244,11 +377,8 @@ async function callOpenAI(
 
       const imageBlob = new Blob([imageBytes], { type: mimeType });
 
-      // gpt-image-1 supports PNG/JPEG/WebP natively; dall-e-2 requires PNG only
-      // Prefer gpt-image-1 to avoid format issues
-      const preferredEditModel = (provider.model_id === "gpt-image-1") ? "gpt-image-1"
-        : (provider.model_id === "dall-e-2" && isPng) ? "dall-e-2"
-        : "gpt-image-1"; // default to gpt-image-1 for format flexibility
+      // For image edits, keep compatibility by defaulting to dall-e-2 when provider is not explicitly gpt-image-1.
+      const preferredEditModel = provider.model_id === "gpt-image-1" ? "gpt-image-1" : "dall-e-2";
 
       // dall-e-2 only supports 256x256, 512x512, 1024x1024
       const normalizeSizeForDalle2 = (s: string) => {
