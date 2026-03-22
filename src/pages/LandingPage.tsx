@@ -205,7 +205,6 @@ export default function LandingPage() {
           <>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
               {plans.slice(0, 3).map((plan) => {
-                const limits = plan.limits as Record<string, number> | null;
                 const highlighted = plan.slug === "essencial" || plan.slug === "profissional";
                 return (
                   <Card
@@ -223,32 +222,24 @@ export default function LandingPage() {
                     <CardContent className="p-6 text-center">
                       <h3 className="font-bold text-lg capitalize">{plan.name}</h3>
                       <div className="mt-4 mb-6">
-                        {plan.price_monthly_cents === 0 ? (
+                        {plan.price_monthly === 0 ? (
                           <span className="text-3xl font-bold">Grátis</span>
                         ) : (
                           <div>
-                            <span className="text-3xl font-bold">R$ {fmt(plan.price_monthly_cents)}</span>
+                            <span className="text-3xl font-bold">R$ {fmt(plan.price_monthly)}</span>
                             <span className="text-muted-foreground text-sm">/mês</span>
                           </div>
                         )}
                       </div>
                       <ul className="text-sm space-y-2 text-left mb-6">
-                        {limits && (
-                          <>
-                            <li className="flex items-center gap-2">
-                              <Check className="h-4 w-4 text-accent shrink-0" />
-                              {(limits as any).max_users === -1 ? "Usuários ilimitados" : `${(limits as any).max_users} usuário(s)`}
-                            </li>
-                            <li className="flex items-center gap-2">
-                              <Check className="h-4 w-4 text-accent shrink-0" />
-                              {(limits as any).max_properties === -1 ? "Imóveis ilimitados" : `${(limits as any).max_properties} imóveis`}
-                            </li>
-                            <li className="flex items-center gap-2">
-                              <Check className="h-4 w-4 text-accent shrink-0" />
-                              {(limits as any).ai_credits_monthly === 0 ? "IA básica" : `${(limits as any).ai_credits_monthly} créditos IA/mês`}
-                            </li>
-                          </>
-                        )}
+                        <li className="flex items-center gap-2">
+                          <Check className="h-4 w-4 text-accent shrink-0" />
+                          {plan.max_users === -1 ? "Usuários ilimitados" : `${plan.max_users ?? 1} usuário(s)`}
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <Check className="h-4 w-4 text-accent shrink-0" />
+                          {plan.max_own_properties === -1 ? "Imóveis ilimitados" : `${plan.max_own_properties ?? 10} imóveis`}
+                        </li>
                       </ul>
                       <Button
                         variant={highlighted ? "default" : "outline"}
@@ -256,7 +247,7 @@ export default function LandingPage() {
                         asChild
                       >
                         <Link to="/auth?tab=cadastro">
-                          {plan.price_monthly_cents === 0 ? "Começar grátis" : "Testar 15 dias grátis"}
+                          {plan.price_monthly === 0 ? "Começar grátis" : "Testar 15 dias grátis"}
                         </Link>
                       </Button>
                     </CardContent>
