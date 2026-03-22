@@ -104,6 +104,7 @@ export default function DeveloperDashboard() {
           </div>
         </TabsContent>
         <TabsContent value="billing"><BillingDashboardTab /></TabsContent>
+        <TabsContent value="ai-router"><AiRouterTab /></TabsContent>
         <TabsContent value="migration"><MigrationTab /></TabsContent>
       </Tabs>
     </div>
