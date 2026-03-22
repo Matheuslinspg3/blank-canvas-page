@@ -43,6 +43,7 @@ const AdminAudit = lazy(() => import("./pages/admin/AdminAudit"));
 const DeveloperDashboard = lazy(() => import("./pages/developer/DeveloperDashboard"));
 const ImportPendencies = lazy(() => import("./pages/ImportPendencies"));
 const Integrations = lazy(() => import("./pages/Integrations"));
+const LandingPage = lazy(() => import("./pages/LandingPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const AccessDenied = lazy(() => import("./pages/AccessDenied"));
 const PlatformSignup = lazy(() => import("./pages/PlatformSignup"));
