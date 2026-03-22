@@ -333,7 +333,7 @@ Deno.serve(async (req) => {
         .single(),
       supabase
         .from("ai_router_providers")
-        .select("provider_key, provider_type, model_id, env_secret_name, api_base_url, is_free, is_active, supports_image_input, supports_image_output, consecutive_errors"),
+        .select("provider_key, provider_type, model_id, env_secret_name, api_base_url, api_key, is_free, is_active, supports_image_input, supports_image_output, consecutive_errors"),
     ]);
 
     if (configRes.error || !configRes.data) {
