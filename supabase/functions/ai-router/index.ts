@@ -276,74 +276,8 @@ function estimateCost(providerKey: string, providerType: string, tokensIn: numbe
   return 0;
 }
 
-// ── Stats upsert helper ──
+// ── Stats tracking via atomic DB function ──
 
-async function upsertStats(
-  supabase: any,
-  providerKey: string,
-  taskType: string | null,
-  latencyMs: number,
-  success: boolean,
-  is429: boolean,
-  tokensIn: number,
-  tokensOut: number,
-  costUsd: number,
-) {
-  // Use raw SQL via rpc for atomic upsert
-  const query = `
-    INSERT INTO ai_router_provider_stats (provider_key, task_type, period_date, total_requests, successful_requests, failed_requests, total_latency_ms, avg_latency_ms, requests_today, rate_limit_hits, total_tokens_in, total_tokens_out, estimated_cost_usd, min_latency_ms, max_latency_ms, updated_at)
-    VALUES ($1, $2, CURRENT_DATE, 1, $3, $4, $5, $5, 1, $6, $7, $8, $9, $5, $5, now())
-    ON CONFLICT (provider_key, task_type, period_date) DO UPDATE SET
-      total_requests = ai_router_provider_stats.total_requests + 1,
-      successful_requests = ai_router_provider_stats.successful_requests + $3,
-      failed_requests = ai_router_provider_stats.failed_requests + $4,
-      total_latency_ms = ai_router_provider_stats.total_latency_ms + $5,
-      avg_latency_ms = (ai_router_provider_stats.total_latency_ms + $5) / (ai_router_provider_stats.total_requests + 1),
-      requests_today = ai_router_provider_stats.requests_today + 1,
-      rate_limit_hits = ai_router_provider_stats.rate_limit_hits + $6,
-      total_tokens_in = ai_router_provider_stats.total_tokens_in + $7,
-      total_tokens_out = ai_router_provider_stats.total_tokens_out + $8,
-      estimated_cost_usd = ai_router_provider_stats.estimated_cost_usd + $9,
-      min_latency_ms = LEAST(ai_router_provider_stats.min_latency_ms, $5),
-      max_latency_ms = GREATEST(ai_router_provider_stats.max_latency_ms, $5),
-      updated_at = now()
-  `;
-
-  const successInt = success ? 1 : 0;
-  const failInt = success ? 0 : 1;
-  const rateHit = is429 ? 1 : 0;
-
-  // Use direct insert since we can't use parameterized SQL easily — do two upserts
-  // Task-specific stats
-  await supabase.from("ai_router_provider_stats").upsert(
-    {
-      provider_key: providerKey,
-      task_type: taskType,
-      period_date: new Date().toISOString().slice(0, 10),
-      total_requests: 1,
-      successful_requests: successInt,
-      failed_requests: failInt,
-      total_latency_ms: latencyMs,
-      avg_latency_ms: latencyMs,
-      min_latency_ms: latencyMs,
-      max_latency_ms: latencyMs,
-      requests_today: 1,
-      rate_limit_hits: rateHit,
-      total_tokens_in: tokensIn,
-      total_tokens_out: tokensOut,
-      estimated_cost_usd: costUsd,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "provider_key,task_type,period_date", ignoreDuplicates: false }
-  ).then(() => {});
-
-  // We need to handle the increment logic differently since upsert replaces.
-  // Instead, use a two-step: try to update first, if no rows affected, insert.
-  // Actually the simplest approach: fetch existing, compute, upsert.
-  // For performance, just do fire-and-forget insert and handle via a DB function.
-}
-
-// Simpler stats tracking: fire-and-forget using a DB function
 async function trackStats(
   supabase: any,
   providerKey: string,
@@ -355,109 +289,19 @@ async function trackStats(
   tokensOut: number,
   costUsd: number,
 ) {
-  const today = new Date().toISOString().slice(0, 10);
-  const successInt = success ? 1 : 0;
-  const failInt = success ? 0 : 1;
-  const rateHit = is429 ? 1 : 0;
-
-  // Track per task_type
   try {
-    const { data: existing } = await supabase
-      .from("ai_router_provider_stats")
-      .select("id, total_requests, successful_requests, failed_requests, total_latency_ms, requests_today, rate_limit_hits, total_tokens_in, total_tokens_out, estimated_cost_usd, min_latency_ms, max_latency_ms")
-      .eq("provider_key", providerKey)
-      .eq("task_type", taskType)
-      .eq("period_date", today)
-      .maybeSingle();
-
-    if (existing) {
-      const newTotal = (existing.total_requests || 0) + 1;
-      await supabase.from("ai_router_provider_stats").update({
-        total_requests: newTotal,
-        successful_requests: (existing.successful_requests || 0) + successInt,
-        failed_requests: (existing.failed_requests || 0) + failInt,
-        total_latency_ms: (existing.total_latency_ms || 0) + latencyMs,
-        avg_latency_ms: Math.round(((existing.total_latency_ms || 0) + latencyMs) / newTotal),
-        min_latency_ms: Math.min(existing.min_latency_ms || 999999, latencyMs),
-        max_latency_ms: Math.max(existing.max_latency_ms || 0, latencyMs),
-        requests_today: (existing.requests_today || 0) + 1,
-        rate_limit_hits: (existing.rate_limit_hits || 0) + rateHit,
-        total_tokens_in: (existing.total_tokens_in || 0) + tokensIn,
-        total_tokens_out: (existing.total_tokens_out || 0) + tokensOut,
-        estimated_cost_usd: (parseFloat(existing.estimated_cost_usd) || 0) + costUsd,
-        updated_at: new Date().toISOString(),
-      }).eq("id", existing.id);
-    } else {
-      await supabase.from("ai_router_provider_stats").insert({
-        provider_key: providerKey,
-        task_type: taskType,
-        period_date: today,
-        total_requests: 1,
-        successful_requests: successInt,
-        failed_requests: failInt,
-        total_latency_ms: latencyMs,
-        avg_latency_ms: latencyMs,
-        min_latency_ms: latencyMs,
-        max_latency_ms: latencyMs,
-        requests_today: 1,
-        rate_limit_hits: rateHit,
-        total_tokens_in: tokensIn,
-        total_tokens_out: tokensOut,
-        estimated_cost_usd: costUsd,
-      });
-    }
+    await supabase.rpc("upsert_ai_router_stats", {
+      p_provider_key: providerKey,
+      p_task_type: taskType,
+      p_latency_ms: Math.round(latencyMs),
+      p_success: success,
+      p_is_429: is429,
+      p_tokens_in: tokensIn,
+      p_tokens_out: tokensOut,
+      p_cost_usd: costUsd,
+    });
   } catch (e) {
     console.warn("[ai-router] stats tracking error:", e);
-  }
-
-  // Track global stats (task_type = null) — fire and forget
-  try {
-    const { data: globalExisting } = await supabase
-      .from("ai_router_provider_stats")
-      .select("id, total_requests, successful_requests, failed_requests, total_latency_ms, requests_today, rate_limit_hits, total_tokens_in, total_tokens_out, estimated_cost_usd, min_latency_ms, max_latency_ms")
-      .eq("provider_key", providerKey)
-      .is("task_type", null)
-      .eq("period_date", today)
-      .maybeSingle();
-
-    if (globalExisting) {
-      const newTotal = (globalExisting.total_requests || 0) + 1;
-      await supabase.from("ai_router_provider_stats").update({
-        total_requests: newTotal,
-        successful_requests: (globalExisting.successful_requests || 0) + successInt,
-        failed_requests: (globalExisting.failed_requests || 0) + failInt,
-        total_latency_ms: (globalExisting.total_latency_ms || 0) + latencyMs,
-        avg_latency_ms: Math.round(((globalExisting.total_latency_ms || 0) + latencyMs) / newTotal),
-        min_latency_ms: Math.min(globalExisting.min_latency_ms || 999999, latencyMs),
-        max_latency_ms: Math.max(globalExisting.max_latency_ms || 0, latencyMs),
-        requests_today: (globalExisting.requests_today || 0) + 1,
-        rate_limit_hits: (globalExisting.rate_limit_hits || 0) + rateHit,
-        total_tokens_in: (globalExisting.total_tokens_in || 0) + tokensIn,
-        total_tokens_out: (globalExisting.total_tokens_out || 0) + tokensOut,
-        estimated_cost_usd: (parseFloat(globalExisting.estimated_cost_usd) || 0) + costUsd,
-        updated_at: new Date().toISOString(),
-      }).eq("id", globalExisting.id);
-    } else {
-      await supabase.from("ai_router_provider_stats").insert({
-        provider_key: providerKey,
-        task_type: null,
-        period_date: today,
-        total_requests: 1,
-        successful_requests: successInt,
-        failed_requests: failInt,
-        total_latency_ms: latencyMs,
-        avg_latency_ms: latencyMs,
-        min_latency_ms: latencyMs,
-        max_latency_ms: latencyMs,
-        requests_today: 1,
-        rate_limit_hits: rateHit,
-        total_tokens_in: tokensIn,
-        total_tokens_out: tokensOut,
-        estimated_cost_usd: costUsd,
-      });
-    }
-  } catch (e) {
-    console.warn("[ai-router] global stats tracking error:", e);
   }
 }
 

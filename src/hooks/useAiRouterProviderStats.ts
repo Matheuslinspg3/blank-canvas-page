@@ -60,8 +60,8 @@ export function useAiRouterProviderStats() {
       const today = new Date().toISOString().slice(0, 10);
 
       const [providersRes, statsRes] = await Promise.all([
-        (supabase as any).from("ai_router_providers_safe").select("provider_key, display_name, is_free, rate_limit_rpd, consecutive_errors, is_active"),
-        (supabase as any).from("ai_router_provider_stats").select("provider_key, task_type, total_requests, successful_requests, failed_requests, avg_latency_ms, requests_today, rate_limit_hits, quality_score").eq("period_date", today).is("task_type", null),
+        supabase.from("ai_router_providers_safe" as any).select("provider_key, display_name, is_free, rate_limit_rpd, consecutive_errors, is_active"),
+        supabase.from("ai_router_provider_stats").select("provider_key, task_type, total_requests, successful_requests, failed_requests, avg_latency_ms, requests_today, rate_limit_hits, quality_score").eq("period_date", today).is("task_type", null),
       ]);
 
       const providers = (providersRes.data || []) as any[];

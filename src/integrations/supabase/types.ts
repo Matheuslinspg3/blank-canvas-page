@@ -5891,6 +5891,19 @@ export type Database = {
       seed_org_lead_stages: { Args: { p_org_id: string }; Returns: undefined }
       seed_org_lead_types: { Args: { p_org_id: string }; Returns: undefined }
       slugify: { Args: { val: string }; Returns: string }
+      upsert_ai_router_stats: {
+        Args: {
+          p_cost_usd: number
+          p_is_429: boolean
+          p_latency_ms: number
+          p_provider_key: string
+          p_success: boolean
+          p_task_type: string
+          p_tokens_in: number
+          p_tokens_out: number
+        }
+        Returns: undefined
+      }
       validate_invite_org_code: {
         Args: { p_code: string; p_org_id: string }
         Returns: boolean

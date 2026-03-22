@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import { ColorProgress } from "@/components/ui/color-progress";
 import { Loader2, Zap, DollarSign, TrendingUp, PieChart as PieIcon, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useAiRouterStats } from "@/hooks/useAiRouterStats";
 import { useAiRouterProviderStats, ProviderStatRow } from "@/hooks/useAiRouterProviderStats";
@@ -20,21 +20,9 @@ function scoreColor(score: number) {
   return "text-red-500";
 }
 
-function scoreBg(score: number) {
-  if (score >= 80) return "bg-green-500";
-  if (score >= 50) return "bg-yellow-500";
-  return "bg-red-500";
-}
-
 function rpdPercent(used: number, limit: number | null) {
   const rpd = limit || 10000;
   return Math.min(Math.round((used / rpd) * 100), 100);
-}
-
-function rpdColor(pct: number) {
-  if (pct >= 80) return "bg-red-500";
-  if (pct >= 50) return "bg-yellow-500";
-  return "bg-green-500";
 }
 
 function StatusDot({ score }: { score: number }) {
@@ -148,12 +136,12 @@ export function AiRouterOverview() {
                         <TableCell className="text-center">
                           <div className="flex items-center gap-2">
                             <div className="w-16">
-                              <Progress
+                              <ColorProgress
                                 value={Math.max(p.score, 0)}
                                 className="h-2"
-                                style={{
-                                  ["--progress-color" as any]: p.score >= 80 ? "hsl(var(--chart-2))" : p.score >= 50 ? "hsl(var(--chart-4))" : "hsl(var(--destructive))",
-                                }}
+                                indicatorColor={
+                                  p.score >= 80 ? "hsl(var(--chart-2))" : p.score >= 50 ? "hsl(var(--chart-4))" : "hsl(var(--destructive))"
+                                }
                               />
                             </div>
                             <span className={`text-sm font-bold ${scoreColor(p.score)}`}>
@@ -176,9 +164,12 @@ export function AiRouterOverview() {
                         <TableCell>
                           <div className="flex items-center gap-2 min-w-[120px]">
                             <div className="flex-1">
-                              <Progress
+                              <ColorProgress
                                 value={rpdPct}
-                                className={`h-2 [&>div]:${rpdColor(rpdPct)}`}
+                                className="h-2"
+                                indicatorColor={
+                                  rpdPct >= 80 ? "hsl(var(--destructive))" : rpdPct >= 50 ? "hsl(var(--chart-4))" : "hsl(var(--chart-2))"
+                                }
                               />
                             </div>
                             <span className="text-xs text-muted-foreground whitespace-nowrap">

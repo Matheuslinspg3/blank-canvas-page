@@ -113,3 +113,6 @@ verify_jwt = false
 
 [functions.ai-router]
 verify_jwt = false
+
+[functions.list-ai-models]
+verify_jwt = false
