@@ -523,7 +523,7 @@ Deno.serve(async (req) => {
 
       try {
         let result: { text?: string; image_url?: string; image_base64?: string; tokens_input: number; tokens_output: number };
-        const callArgs = [provider, apiKey, prompt, systemPrompt, maxTokens, temperature, image_base64, controller.signal] as const;
+        const callArgs = [provider, apiKey, prompt, systemPrompt, maxTokens, temperature, image_base64, controller.signal, image_size] as const;
 
         switch (provider.provider_type) {
           case "groq": result = await callGroq(...callArgs); break;
