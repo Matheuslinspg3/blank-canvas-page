@@ -5749,6 +5749,7 @@ export type Database = {
         Args: { p_organization_id: string }
         Returns: boolean
       }
+      rebuild_provider_chains: { Args: never; Returns: undefined }
       search_properties_advanced:
         | {
             Args: {
