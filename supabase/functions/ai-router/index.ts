@@ -229,22 +229,20 @@ async function callOpenAI(
     // If we have a base image, use the /images/edits endpoint to preserve the original photo
     if (imageBase64) {
       const imageBytes = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
-      const isPng = imageBytes.length >= 4
-        && imageBytes[0] === 0x89
-        && imageBytes[1] === 0x50
-        && imageBytes[2] === 0x4E
-        && imageBytes[3] === 0x47;
 
-      if (!isPng) {
-        const signature = `${imageBytes[0]},${imageBytes[1]},${imageBytes[2]},${imageBytes[3]}`;
-        throw new Error(`Source image must be PNG for image edits (signature=${signature})`);
+      // Detect mime type from magic bytes
+      const isPng = imageBytes.length >= 4 && imageBytes[0] === 0x89 && imageBytes[1] === 0x50;
+      const isJpeg = imageBytes.length >= 2 && imageBytes[0] === 0xFF && imageBytes[1] === 0xD8;
+      const isWebp = imageBytes.length >= 12 && imageBytes[8] === 0x57 && imageBytes[9] === 0x45 && imageBytes[10] === 0x42 && imageBytes[11] === 0x50;
+
+      const mimeType = isPng ? "image/png" : isJpeg ? "image/jpeg" : isWebp ? "image/webp" : "image/png";
+      const fileExt = isPng ? "png" : isJpeg ? "jpeg" : isWebp ? "webp" : "png";
+
+      if (imageBytes.length > 25 * 1024 * 1024) {
+        throw new Error(`Source image exceeds 25MB limit (${imageBytes.length} bytes)`);
       }
 
-      if (imageBytes.length > 4 * 1024 * 1024) {
-        throw new Error(`Source PNG exceeds 4MB limit (${imageBytes.length} bytes)`);
-      }
-
-      const imageBlob = new Blob([imageBytes], { type: "image/png" });
+      const imageBlob = new Blob([imageBytes], { type: mimeType });
 
       // Resolve edit-compatible model: /images/edits only accepts dall-e-2 on most accounts
       // gpt-image-1 may work on newer accounts, so try it first if configured, with dall-e-2 fallback
