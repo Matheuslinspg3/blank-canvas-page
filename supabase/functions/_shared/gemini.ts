@@ -1,6 +1,6 @@
 const GEMINI_OPENAI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 const DEFAULT_TEXT_MODEL = "gemini-2.5-flash";
-const DEFAULT_IMAGE_MODEL = "gemini-2.0-flash-preview-image-generation";
+const DEFAULT_IMAGE_MODEL = "gemini-2.0-flash-exp";
 
 interface RetryableGeminiOptions {
   preferredKeys?: Array<string | null | undefined>;
@@ -25,6 +25,8 @@ export function getGeminiApiKeys(options: RetryableGeminiOptions = {}): string[]
     ...(options.preferredKeys || []),
     Deno.env.get("GOOGLE_AI_KEY_1"),
     Deno.env.get("GOOGLE_AI_KEY_2"),
+    Deno.env.get("GEMINI_API_KEY"),
+    Deno.env.get("GOOGLE_GEMINI_KEY"),
   ]);
 }
 
