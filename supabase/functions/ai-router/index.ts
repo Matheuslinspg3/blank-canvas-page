@@ -582,12 +582,16 @@ Deno.serve(async (req) => {
       error_message: lastError.slice(0, 500),
     }).then(() => {});
 
+    // Use 200 when force_provider so the SDK can parse the error message
+    const statusCode = force_provider ? 200 : 502;
     return new Response(
       JSON.stringify({
-        success: false, error: "Todos os providers falharam",
+        success: false, error: force_provider
+          ? `Provider "${force_provider}" falhou: ${lastError || "sem resposta"}`
+          : "Todos os providers falharam",
         tokens_input: 0, tokens_output: 0, latency_ms: latencyMs, is_free: true, estimated_cost_usd: 0,
       }),
-      { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: statusCode, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e: any) {
     console.error("[ai-router] fatal:", e);
