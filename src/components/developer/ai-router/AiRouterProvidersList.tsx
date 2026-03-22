@@ -586,6 +586,9 @@ export function AiRouterProviders() {
                             <RotateCcw className="h-3.5 w-3.5" />
                           </Button>
                         )}
+                        <Button size="sm" variant="ghost" onClick={() => setKeyModal(p)} title="Alterar API Key">
+                          <Key className="h-3.5 w-3.5" />
+                        </Button>
                         <Button size="sm" variant="ghost" onClick={() => setEditTarget(p)} title="Editar">
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
