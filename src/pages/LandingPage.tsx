@@ -66,10 +66,10 @@ export default function LandingPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("subscription_plans")
-        .select("id, name, slug, price_monthly_cents, price_yearly_cents, limits, is_active")
+        .select("id, name, slug, price_monthly, price_yearly, max_users, max_own_properties, is_active")
         .eq("is_active", true)
         .eq("plan_type", "plan")
-        .order("price_monthly_cents", { ascending: true });
+        .order("price_monthly", { ascending: true });
       return data ?? [];
     },
     staleTime: 10 * 60 * 1000,
