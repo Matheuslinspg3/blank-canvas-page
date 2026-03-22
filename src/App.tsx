@@ -46,6 +46,7 @@ const Integrations = lazy(() => import("./pages/Integrations"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const AccessDenied = lazy(() => import("./pages/AccessDenied"));
 const PlatformSignup = lazy(() => import("./pages/PlatformSignup"));
+const OnboardingWizard = lazy(() => import("./pages/OnboardingWizard"));
 const Install = lazy(() => import("./pages/Install"));
 const Automations = lazy(() => import("./pages/Automations"));
 const _Activities = lazy(() => import("./pages/Activities")); // embedded in Administration
