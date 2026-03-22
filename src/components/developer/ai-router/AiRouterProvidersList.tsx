@@ -9,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Plus, RotateCcw, AlertTriangle, Eye, EyeOff, Zap, ExternalLink, Key, Trash2, Search, ArrowRight, ArrowLeft } from "lucide-react";
+import { Loader2, Plus, RotateCcw, AlertTriangle, Eye, EyeOff, Zap, ExternalLink, Key, Trash2, Search, ArrowRight, ArrowLeft, Pencil } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useAiRouterProviders, type AiRouterProvider } from "@/hooks/useAiRouterProviders";
 import { supabase } from "@/integrations/supabase/client";
@@ -223,7 +223,7 @@ function NewProviderWizard({ open, onClose }: { open: boolean; onClose: () => vo
 
   const handleSave = () => {
     if (!selectedModel) return;
-    const slug = `${providerType}_${selectedModel.id.replace(/[^a-z0-9]/gi, "_").toLowerCase()}`;
+    const slug = `${providerType}_${selectedModel.id.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_${Date.now().toString(36)}`;
     createProvider.mutate(
       {
         provider_key: slug,
@@ -387,6 +387,100 @@ function NewProviderWizard({ open, onClose }: { open: boolean; onClose: () => vo
   );
 }
 
+// ── Edit Provider Modal ──
+
+function EditProviderModal({
+  provider,
+  open,
+  onClose,
+}: {
+  provider: AiRouterProvider | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const { updateProvider } = useAiRouterProviders();
+  const [displayName, setDisplayName] = useState("");
+  const [priority, setPriority] = useState("50");
+  const [rateLimitRpm, setRateLimitRpm] = useState("");
+  const [rateLimitRpd, setRateLimitRpd] = useState("");
+  const [notes, setNotes] = useState("");
+
+  useEffect(() => {
+    if (provider && open) {
+      setDisplayName(provider.display_name);
+      setPriority(String(provider.priority ?? 50));
+      setRateLimitRpm(provider.rate_limit_rpm ? String(provider.rate_limit_rpm) : "");
+      setRateLimitRpd(provider.rate_limit_rpd ? String(provider.rate_limit_rpd) : "");
+      setNotes(provider.notes || "");
+    }
+  }, [provider, open]);
+
+  const handleSave = () => {
+    if (!provider) return;
+    updateProvider.mutate(
+      {
+        id: provider.id,
+        display_name: displayName,
+        priority: parseInt(priority) || 50,
+        rate_limit_rpm: rateLimitRpm ? parseInt(rateLimitRpm) : null,
+        rate_limit_rpd: rateLimitRpd ? parseInt(rateLimitRpd) : null,
+        notes: notes || null,
+      },
+      { onSuccess: () => onClose() }
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Pencil className="h-4 w-4" /> Editar Provider
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label>Nome de exibição</Label>
+            <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <Label className="text-xs">Prioridade</Label>
+              <Input type="number" value={priority} onChange={(e) => setPriority(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">RPM (limite)</Label>
+              <Input type="number" value={rateLimitRpm} onChange={(e) => setRateLimitRpm(e.target.value)} placeholder="—" />
+            </div>
+            <div>
+              <Label className="text-xs">RPD (limite)</Label>
+              <Input type="number" value={rateLimitRpd} onChange={(e) => setRateLimitRpd(e.target.value)} placeholder="—" />
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Notas</Label>
+            <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observações opcionais..." />
+          </div>
+          {provider && (
+            <div className="text-xs text-muted-foreground space-y-0.5">
+              <p><strong>Modelo:</strong> {provider.model_id}</p>
+              <p><strong>Tipo:</strong> {provider.provider_type}</p>
+              <p><strong>Base URL:</strong> {provider.api_base_url}</p>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={handleSave} disabled={!displayName || updateProvider.isPending}>
+            {updateProvider.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+            Salvar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Key status badge ──
 
 function KeyStatusBadge({ provider }: { provider: AiRouterProvider }) {
@@ -403,6 +497,7 @@ function KeyStatusBadge({ provider }: { provider: AiRouterProvider }) {
 
 export function AiRouterProviders() {
   const { providers, isLoading, toggleActive, resetErrors, testProvider, deleteProvider } = useAiRouterProviders();
+  const [editTarget, setEditTarget] = useState<AiRouterProvider | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [keyModal, setKeyModal] = useState<AiRouterProvider | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
@@ -491,6 +586,9 @@ export function AiRouterProviders() {
                             <RotateCcw className="h-3.5 w-3.5" />
                           </Button>
                         )}
+                        <Button size="sm" variant="ghost" onClick={() => setEditTarget(p)} title="Editar">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
                         <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(p)} className="text-destructive hover:text-destructive" title="Deletar">
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -506,6 +604,7 @@ export function AiRouterProviders() {
 
       <NewProviderWizard open={showNew} onClose={() => setShowNew(false)} />
       <EditApiKeyModal provider={keyModal} open={!!keyModal} onClose={() => setKeyModal(null)} />
+      <EditProviderModal provider={editTarget} open={!!editTarget} onClose={() => setEditTarget(null)} />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
         <AlertDialogContent>
