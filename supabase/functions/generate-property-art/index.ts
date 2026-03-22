@@ -52,15 +52,15 @@ function buildArtPrompt(
   const accentColor = config.accent_color || "#3B82F6";
 
   return `Create a professional real estate marketing image in ${dimensions[format]} format.
-Use the provided property photo as the main background image.
-Apply a modern, elegant overlay design with these specifications:
+If a property photo is provided, use it as the main background. Otherwise, create a photorealistic luxury property scene.
+Apply a modern, elegant overlay design:
 
 DESIGN RULES:
-- Keep the property photo as the dominant visual (at least 70% visible)
+- The property visual should be the dominant element (at least 70% of the image)
 - Add a semi-transparent gradient overlay at the bottom (dark, elegant)
 - Use clean, modern typography — bold and highly readable
 - Accent color: ${accentColor}
-- Make it look like a premium real estate ad from a luxury agency
+- Make it look like a premium real estate ad
 
 TEXT TO INCLUDE (in Portuguese):
 - Transaction badge: "${txLabel}" (small badge, accent color background)
@@ -151,12 +151,20 @@ async function callAiRouter(
     throw new Error(data.error || `AI Router error ${response.status}`);
   }
 
-  if (!data.image_base64) {
+  // Router returns image_base64 (Gemini) or image_url (DALL-E)
+  const imageResult = data.image_base64 || data.image_url;
+  if (!imageResult) {
     throw new Error("AI Router não retornou imagem gerada");
   }
 
+  // If it's a URL (DALL-E), fetch and convert to data URL
+  let finalDataUrl = imageResult;
+  if (imageResult.startsWith("http")) {
+    finalDataUrl = await fetchImageAsDataUrl(imageResult);
+  }
+
   return {
-    imageDataUrl: data.image_base64,
+    imageDataUrl: finalDataUrl,
     text: data.text || "",
   };
 }
