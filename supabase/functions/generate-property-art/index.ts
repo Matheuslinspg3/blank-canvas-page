@@ -151,12 +151,20 @@ async function callAiRouter(
     throw new Error(data.error || `AI Router error ${response.status}`);
   }
 
-  if (!data.image_base64) {
+  // Router returns image_base64 (Gemini) or image_url (DALL-E)
+  const imageResult = data.image_base64 || data.image_url;
+  if (!imageResult) {
     throw new Error("AI Router não retornou imagem gerada");
   }
 
+  // If it's a URL (DALL-E), fetch and convert to data URL
+  let finalDataUrl = imageResult;
+  if (imageResult.startsWith("http")) {
+    finalDataUrl = await fetchImageAsDataUrl(imageResult);
+  }
+
   return {
-    imageDataUrl: data.image_base64,
+    imageDataUrl: finalDataUrl,
     text: data.text || "",
   };
 }
