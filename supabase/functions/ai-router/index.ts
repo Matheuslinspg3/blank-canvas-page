@@ -164,7 +164,7 @@ async function callGroq(
 
 async function callGemini(
   provider: Provider, apiKey: string, prompt: string, systemPrompt: string | null,
-  maxTokens: number, temperature: number, imageBase64?: string, signal?: AbortSignal
+  maxTokens: number, temperature: number, imageBase64?: string, signal?: AbortSignal, _imageSize?: string,
 ) {
   const imageGenModels = ["imagen", "image-generation", "gemini-2.0-flash-exp-image"];
   const isImageGen = provider.supports_image_output && imageGenModels.some(m => provider.model_id.includes(m));
