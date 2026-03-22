@@ -44,7 +44,9 @@ const limitDisplay = (val: number) => {
 };
 
 /* ─── Plan card config ─── */
-const planMeta: Record<string, { icon: React.ElementType; badge?: string; highlighted?: boolean; ctaLabel: string; ctaVariant: "default" | "outline" }> = {
+interface PlanMeta { icon: React.ElementType; badge?: string; highlighted?: boolean; ctaLabel: string; ctaVariant: "default" | "outline" }
+
+const planMeta: Record<string, PlanMeta> = {
   gratuito: { icon: Shield, ctaLabel: "Começar grátis", ctaVariant: "outline" },
   starter: { icon: Star, ctaLabel: "Testar 15 dias grátis", ctaVariant: "default" },
   essencial: { icon: Briefcase, badge: "Melhor custo", ctaLabel: "Testar 7 dias grátis", ctaVariant: "default" },
