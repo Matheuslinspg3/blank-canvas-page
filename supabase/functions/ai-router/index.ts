@@ -217,12 +217,15 @@ async function callOpenAI(
   provider: Provider, apiKey: string, prompt: string, systemPrompt: string | null,
   maxTokens: number, temperature: number, imageBase64?: string, signal?: AbortSignal
 ) {
-  if (provider.provider_key === "openai_dalle") {
+  const isImageModel = provider.supports_image_output && (
+    provider.model_id.includes("dall-e") || provider.model_id.includes("gpt-image")
+  );
+  if (isImageModel) {
     const res = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       signal,
-      body: JSON.stringify({ model: "dall-e-3", prompt, n: 1, size: "1024x1024", quality: "standard" }),
+      body: JSON.stringify({ model: provider.model_id, prompt, n: 1, size: "1024x1024", quality: "standard" }),
     });
     if (!res.ok) {
       const body = await res.text();
