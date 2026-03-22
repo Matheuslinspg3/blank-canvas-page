@@ -649,6 +649,7 @@ export type Database = {
       ai_router_providers: {
         Row: {
           api_base_url: string
+          api_key: string | null
           consecutive_errors: number | null
           created_at: string | null
           display_name: string
@@ -669,6 +670,7 @@ export type Database = {
         }
         Insert: {
           api_base_url: string
+          api_key?: string | null
           consecutive_errors?: number | null
           created_at?: string | null
           display_name: string
@@ -689,6 +691,7 @@ export type Database = {
         }
         Update: {
           api_base_url?: string
+          api_key?: string | null
           consecutive_errors?: number | null
           created_at?: string | null
           display_name?: string
@@ -5132,6 +5135,72 @@ export type Database = {
       }
     }
     Views: {
+      ai_router_providers_safe: {
+        Row: {
+          api_base_url: string | null
+          consecutive_errors: number | null
+          created_at: string | null
+          display_name: string | null
+          env_secret_name: string | null
+          has_api_key: boolean | null
+          id: string | null
+          is_active: boolean | null
+          is_free: boolean | null
+          last_error_at: string | null
+          model_id: string | null
+          notes: string | null
+          priority: number | null
+          provider_key: string | null
+          provider_type: string | null
+          rate_limit_rpd: number | null
+          rate_limit_rpm: number | null
+          supports_image_input: boolean | null
+          supports_image_output: boolean | null
+        }
+        Insert: {
+          api_base_url?: string | null
+          consecutive_errors?: number | null
+          created_at?: string | null
+          display_name?: string | null
+          env_secret_name?: string | null
+          has_api_key?: never
+          id?: string | null
+          is_active?: boolean | null
+          is_free?: boolean | null
+          last_error_at?: string | null
+          model_id?: string | null
+          notes?: string | null
+          priority?: number | null
+          provider_key?: string | null
+          provider_type?: string | null
+          rate_limit_rpd?: number | null
+          rate_limit_rpm?: number | null
+          supports_image_input?: boolean | null
+          supports_image_output?: boolean | null
+        }
+        Update: {
+          api_base_url?: string | null
+          consecutive_errors?: number | null
+          created_at?: string | null
+          display_name?: string | null
+          env_secret_name?: string | null
+          has_api_key?: never
+          id?: string | null
+          is_active?: boolean | null
+          is_free?: boolean | null
+          last_error_at?: string | null
+          model_id?: string | null
+          notes?: string | null
+          priority?: number | null
+          provider_key?: string | null
+          provider_type?: string | null
+          rate_limit_rpd?: number | null
+          rate_limit_rpm?: number | null
+          supports_image_input?: boolean | null
+          supports_image_output?: boolean | null
+        }
+        Relationships: []
+      }
       marketplace_properties_public: {
         Row: {
           address_city: string | null
