@@ -121,6 +121,19 @@ async function uploadBase64ToCloudinary(
   return result.secure_url;
 }
 
+function ensureCloudinaryPngUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (!parsed.hostname.includes("res.cloudinary.com")) return url;
+
+    // Force Cloudinary delivery as PNG so OpenAI /images/edits accepts it.
+    parsed.pathname = parsed.pathname.replace("/upload/", "/upload/f_png/");
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
