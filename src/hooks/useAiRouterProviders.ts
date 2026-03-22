@@ -135,5 +135,6 @@ export function useAiRouterProviders() {
     createProvider,
     updateApiKey,
     testProvider,
+    deleteProvider,
   };
 }
