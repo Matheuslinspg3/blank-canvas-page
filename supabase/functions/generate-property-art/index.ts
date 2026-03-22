@@ -197,8 +197,9 @@ Deno.serve(async (req) => {
       phone: config.phone || profile.phone || "",
     };
 
-    // Fetch property image once and convert to base64
-    const imageDataUrl = await fetchImageAsDataUrl(imageUrl);
+    // Fetch property image as PNG when possible (Cloudinary), then convert to base64
+    const sourceImageUrl = ensureCloudinaryPngUrl(imageUrl);
+    const imageDataUrl = await fetchImageAsDataUrl(sourceImageUrl);
     const base64Match = imageDataUrl.match(/^data:.*?;base64,(.*)$/);
     const imageBase64 = base64Match ? base64Match[1] : "";
 
