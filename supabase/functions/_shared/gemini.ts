@@ -114,9 +114,16 @@ export async function callGeminiImageEdit(options: GeminiImageEditOptions): Prom
   const imageDataUrl = await fetchImageAsDataUrl(options.imageUrl);
   const [, mimeType = "image/png", base64Data = ""] = imageDataUrl.match(/^data:(.*?);base64,(.*)$/) || [];
   let lastError: Error | null = null;
+  let quotaErrors = 0;
+  let invalidKeyErrors = 0;
+  let modelUnavailableErrors = 0;
 
   for (const [keyIndex, apiKey] of keys.entries()) {
+    let moveToNextKey = false;
+
     for (const [modelIndex, model] of modelCandidates.entries()) {
+      if (moveToNextKey) break;
+
       try {
         const response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -148,24 +155,29 @@ export async function callGeminiImageEdit(options: GeminiImageEditOptions): Prom
           const errorPreview = errorText.slice(0, 500);
           const isModelNotFound = response.status === 404 && /not found|not supported/i.test(errorText);
           const isInvalidKey = response.status === 400 && /API_KEY_INVALID|API Key not found/i.test(errorText);
-          const isRetryable = response.status === 429 || response.status >= 500;
+          const isRateLimited = response.status === 429;
+          const isServerRetryable = response.status >= 500;
 
           if (isModelNotFound) {
+            modelUnavailableErrors += 1;
             lastError = new Error(`Gemini image model not available (${model}): ${response.status}`);
             console.warn(`Gemini image model unavailable key ${keyIndex + 1}, model ${modelIndex + 1} (${model}): ${response.status}`);
             continue;
           }
 
           if (isInvalidKey) {
+            invalidKeyErrors += 1;
             lastError = new Error(`Gemini image invalid API key (${keyIndex + 1})`);
             console.warn(`Gemini image invalid key ${keyIndex + 1}; trying next key`);
-            break;
+            moveToNextKey = true;
+            continue;
           }
 
-          if (isRetryable) {
+          if (isRateLimited || isServerRetryable) {
+            if (isRateLimited) quotaErrors += 1;
             lastError = new Error(`Gemini image retryable error (${model}): ${response.status}`);
             console.warn(`Gemini image retryable error key ${keyIndex + 1}, model ${model}: ${response.status} ${errorPreview}`);
-            break;
+            continue;
           }
 
           throw new Error(`Gemini image error ${response.status}: ${errorPreview}`);
@@ -177,7 +189,9 @@ export async function callGeminiImageEdit(options: GeminiImageEditOptions): Prom
         const imagePart = parts.find((part: any) => part.inlineData?.data);
 
         if (!imagePart?.inlineData?.data) {
-          throw new Error("Gemini image response did not include image data");
+          lastError = new Error(`Gemini image response did not include image data (${model})`);
+          console.warn(`Gemini image missing inlineData key ${keyIndex + 1}, model ${model}; trying next model`);
+          continue;
         }
 
         return {
@@ -187,9 +201,21 @@ export async function callGeminiImageEdit(options: GeminiImageEditOptions): Prom
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         console.warn(`Gemini image request failed with key ${keyIndex + 1}, model ${model}:`, lastError.message);
-        break;
+        continue;
       }
     }
+  }
+
+  if (quotaErrors > 0) {
+    throw new Error("Gemini sem quota disponível para geração de imagem nas chaves configuradas");
+  }
+
+  if (invalidKeyErrors >= keys.length) {
+    throw new Error("Nenhuma chave Gemini válida foi encontrada");
+  }
+
+  if (modelUnavailableErrors >= modelCandidates.length * keys.length) {
+    throw new Error("Nenhum modelo Gemini de imagem disponível para as chaves configuradas");
   }
 
   throw lastError || new Error("Gemini image request failed");
