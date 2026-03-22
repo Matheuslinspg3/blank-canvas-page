@@ -9,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Plus, RotateCcw, AlertTriangle, Eye, EyeOff, Zap, ExternalLink, Key, Trash2, Search, ArrowRight, ArrowLeft } from "lucide-react";
+import { Loader2, Plus, RotateCcw, AlertTriangle, Eye, EyeOff, Zap, ExternalLink, Key, Trash2, Search, ArrowRight, ArrowLeft, Pencil } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useAiRouterProviders, type AiRouterProvider } from "@/hooks/useAiRouterProviders";
 import { supabase } from "@/integrations/supabase/client";
