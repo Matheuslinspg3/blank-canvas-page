@@ -167,7 +167,6 @@ const App = () => (
                         <Route path="/administracao" element={<Administration />} />
                         <Route path="/integracoes" element={<Integrations />} />
                         <Route path="/configuracoes" element={<Settings />} />
-                        <Route path="/planos" element={<Plans />} />
                         
                         {/* Marketing module - consolidated */}
                         <Route path="/marketing" element={<Anuncios />} />
