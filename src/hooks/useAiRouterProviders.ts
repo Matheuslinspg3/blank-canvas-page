@@ -30,8 +30,8 @@ export function useAiRouterProviders() {
   const query = useQuery({
     queryKey: ["ai-router-providers"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ai_router_providers_safe" as any)
+      const { data, error } = await (supabase as any)
+        .from("ai_router_providers_safe")
         .select("*")
         .order("provider_type")
         .order("display_name");
