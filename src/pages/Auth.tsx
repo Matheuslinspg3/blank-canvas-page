@@ -60,6 +60,8 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
 
   useEffect(() => {
     if (user && !loading) {
+      // If profile exists and onboarding not completed, redirect to onboarding
+      // Otherwise go to dashboard (AuthContext handles profile fetch)
       navigate("/dashboard");
     }
   }, [user, loading, navigate]);
