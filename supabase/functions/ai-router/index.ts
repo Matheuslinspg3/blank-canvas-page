@@ -16,6 +16,7 @@ interface TaskConfig {
   temperature: number;
   is_active: boolean;
   requires_image: boolean;
+  routing_mode: string; // 'auto' | 'manual'
 }
 
 interface Provider {
@@ -30,6 +31,21 @@ interface Provider {
   supports_image_input: boolean;
   supports_image_output: boolean;
   consecutive_errors: number;
+  last_error_at: string | null;
+  rate_limit_rpd: number | null;
+  rate_limit_rpm: number | null;
+}
+
+interface ProviderStats {
+  provider_key: string;
+  task_type: string | null;
+  total_requests: number;
+  successful_requests: number;
+  failed_requests: number;
+  avg_latency_ms: number;
+  requests_today: number;
+  rate_limit_hits: number;
+  quality_score: number | null;
 }
 
 interface RouterRequest {
@@ -44,32 +60,81 @@ interface RouterRequest {
   force_provider?: string;
 }
 
-interface RouterResponse {
-  success: boolean;
-  text?: string;
-  image_url?: string;
-  image_base64?: string;
-  provider?: string;
-  model?: string;
-  tokens_input: number;
-  tokens_output: number;
-  latency_ms: number;
-  is_free: boolean;
-  estimated_cost_usd: number;
-  error?: string;
+interface ProviderScore {
+  provider_key: string;
+  score: number;
+  breakdown: { cost: number; speed: number; reliability: number; quality: number; penalties: number };
+}
+
+// ── Score calculation ──
+
+function calculateProviderScore(
+  provider: Provider,
+  stats: ProviderStats | null,
+): ProviderScore {
+  const breakdown = { cost: 0, speed: 0, reliability: 0, quality: 0, penalties: 0 };
+
+  // COST (40% weight)
+  breakdown.cost = provider.is_free ? 40 : 8;
+
+  // SPEED (25% weight) — based on avg latency
+  const avgLatency = stats?.avg_latency_ms || 2000;
+  if (avgLatency < 500) breakdown.speed = 25;
+  else if (avgLatency < 1000) breakdown.speed = 20;
+  else if (avgLatency < 3000) breakdown.speed = 15;
+  else if (avgLatency < 10000) breakdown.speed = 10;
+  else breakdown.speed = 5;
+
+  // RELIABILITY (25% weight) — success rate
+  const totalReqs = stats?.total_requests || 0;
+  const successRate = totalReqs > 10
+    ? (stats!.successful_requests / totalReqs)
+    : 0.95;
+  if (successRate > 0.99) breakdown.reliability = 25;
+  else if (successRate > 0.95) breakdown.reliability = 20;
+  else if (successRate > 0.90) breakdown.reliability = 15;
+  else if (successRate > 0.80) breakdown.reliability = 10;
+  else breakdown.reliability = 0;
+
+  // QUALITY (10% weight) — feedback score
+  const qualityScore = stats?.quality_score || 3.5;
+  if (qualityScore > 4.0) breakdown.quality = 10;
+  else if (qualityScore > 3.0) breakdown.quality = 7;
+  else breakdown.quality = 3;
+
+  // PENALTIES
+  const rpd = provider.rate_limit_rpd || 10000;
+  const usedToday = stats?.requests_today || 0;
+  if (usedToday >= rpd) {
+    return { provider_key: provider.provider_key, score: -1, breakdown };
+  }
+  if (usedToday > rpd * 0.8) breakdown.penalties -= 15;
+
+  if (provider.consecutive_errors > 0) {
+    breakdown.penalties -= Math.min(provider.consecutive_errors * 5, 30);
+  }
+
+  // Auto-disable cooldown
+  if (provider.consecutive_errors >= 10) {
+    const lastError = provider.last_error_at ? new Date(provider.last_error_at) : null;
+    const cooldownMs = Math.min(provider.consecutive_errors * 10 * 60 * 1000, 4 * 3600 * 1000);
+    if (lastError && (Date.now() - lastError.getTime()) < cooldownMs) {
+      return { provider_key: provider.provider_key, score: -1, breakdown };
+    }
+  }
+
+  const total = Math.max(
+    breakdown.cost + breakdown.speed + breakdown.reliability + breakdown.quality + breakdown.penalties,
+    0
+  );
+  return { provider_key: provider.provider_key, score: total, breakdown };
 }
 
 // ── Provider call implementations ──
 
 async function callGroq(
-  provider: Provider,
-  apiKey: string,
-  prompt: string,
-  systemPrompt: string | null,
-  maxTokens: number,
-  temperature: number,
-  _imageBase64?: string,
-  signal?: AbortSignal
+  provider: Provider, apiKey: string, prompt: string, systemPrompt: string | null,
+  maxTokens: number, temperature: number, _imageBase64?: string, signal?: AbortSignal
 ) {
   const messages: any[] = [];
   if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
@@ -77,22 +142,15 @@ async function callGroq(
 
   const res = await fetch(provider.api_base_url, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     signal,
-    body: JSON.stringify({
-      model: provider.model_id,
-      messages,
-      max_tokens: maxTokens,
-      temperature,
-    }),
+    body: JSON.stringify({ model: provider.model_id, messages, max_tokens: maxTokens, temperature }),
   });
 
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`Groq ${res.status}: ${body.slice(0, 300)}`);
+    const is429 = res.status === 429;
+    throw Object.assign(new Error(`Groq ${res.status}: ${body.slice(0, 300)}`), { is429 });
   }
 
   const data = await res.json();
@@ -104,39 +162,25 @@ async function callGroq(
 }
 
 async function callGemini(
-  provider: Provider,
-  apiKey: string,
-  prompt: string,
-  systemPrompt: string | null,
-  maxTokens: number,
-  temperature: number,
-  imageBase64?: string,
-  signal?: AbortSignal
+  provider: Provider, apiKey: string, prompt: string, systemPrompt: string | null,
+  maxTokens: number, temperature: number, imageBase64?: string, signal?: AbortSignal
 ) {
-  // Only enable image output for models that explicitly support it (e.g. imagen, image-generation variants)
   const imageGenModels = ["imagen", "image-generation", "gemini-2.0-flash-exp-image"];
   const isImageGen = provider.supports_image_output && imageGenModels.some(m => provider.model_id.includes(m));
   const url = `${provider.api_base_url}/models/${provider.model_id}:generateContent?key=${apiKey}`;
 
   const parts: any[] = [{ text: prompt }];
   if (imageBase64 && provider.supports_image_input) {
-    parts.push({
-      inlineData: { mimeType: "image/jpeg", data: imageBase64 },
-    });
+    parts.push({ inlineData: { mimeType: "image/jpeg", data: imageBase64 } });
   }
 
   const body: any = {
     contents: [{ parts }],
-    generationConfig: {
-      maxOutputTokens: maxTokens,
-      temperature,
-    },
+    generationConfig: { maxOutputTokens: maxTokens, temperature },
   };
-
   if (systemPrompt && !isImageGen) {
     body.systemInstruction = { parts: [{ text: systemPrompt }] };
   }
-
   if (isImageGen) {
     body.generationConfig.responseModalities = ["TEXT", "IMAGE"];
   }
@@ -150,12 +194,12 @@ async function callGemini(
 
   if (!res.ok) {
     const errBody = await res.text();
-    throw new Error(`Gemini ${res.status}: ${errBody.slice(0, 300)}`);
+    const is429 = res.status === 429;
+    throw Object.assign(new Error(`Gemini ${res.status}: ${errBody.slice(0, 300)}`), { is429 });
   }
 
   const data = await res.json();
   const candidateParts = data.candidates?.[0]?.content?.parts || [];
-
   const textPart = candidateParts.find((p: any) => p.text);
   const imagePart = candidateParts.find((p: any) => p.inlineData);
 
@@ -170,60 +214,32 @@ async function callGemini(
 }
 
 async function callOpenAI(
-  provider: Provider,
-  apiKey: string,
-  prompt: string,
-  systemPrompt: string | null,
-  maxTokens: number,
-  temperature: number,
-  imageBase64?: string,
-  signal?: AbortSignal
+  provider: Provider, apiKey: string, prompt: string, systemPrompt: string | null,
+  maxTokens: number, temperature: number, imageBase64?: string, signal?: AbortSignal
 ) {
-  // DALL-E image generation
   if (provider.provider_key === "openai_dalle") {
     const res = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       signal,
-      body: JSON.stringify({
-        model: "dall-e-3",
-        prompt,
-        n: 1,
-        size: "1024x1024",
-        quality: "standard",
-      }),
+      body: JSON.stringify({ model: "dall-e-3", prompt, n: 1, size: "1024x1024", quality: "standard" }),
     });
-
     if (!res.ok) {
       const body = await res.text();
-      throw new Error(`OpenAI DALL-E ${res.status}: ${body.slice(0, 300)}`);
+      throw Object.assign(new Error(`OpenAI DALL-E ${res.status}: ${body.slice(0, 300)}`), { is429: res.status === 429 });
     }
-
     const data = await res.json();
-    return {
-      image_url: data.data?.[0]?.url || "",
-      text: "",
-      tokens_input: 0,
-      tokens_output: 0,
-    };
+    return { image_url: data.data?.[0]?.url || "", text: "", tokens_input: 0, tokens_output: 0 };
   }
 
-  // Text / vision completion
   const messages: any[] = [];
   if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
-
   if (imageBase64 && provider.supports_image_input) {
     messages.push({
       role: "user",
       content: [
         { type: "text", text: prompt },
-        {
-          type: "image_url",
-          image_url: { url: `data:image/jpeg;base64,${imageBase64}` },
-        },
+        { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageBase64}` } },
       ],
     });
   } else {
@@ -232,22 +248,14 @@ async function callOpenAI(
 
   const res = await fetch(provider.api_base_url, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     signal,
-    body: JSON.stringify({
-      model: provider.model_id,
-      messages,
-      max_tokens: maxTokens,
-      temperature,
-    }),
+    body: JSON.stringify({ model: provider.model_id, messages, max_tokens: maxTokens, temperature }),
   });
 
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`OpenAI ${res.status}: ${body.slice(0, 300)}`);
+    throw Object.assign(new Error(`OpenAI ${res.status}: ${body.slice(0, 300)}`), { is429: res.status === 429 });
   }
 
   const data = await res.json();
@@ -260,19 +268,197 @@ async function callOpenAI(
 
 // ── Cost estimation ──
 
-function estimateCost(
-  providerKey: string,
-  providerType: string,
-  tokensIn: number,
-  tokensOut: number
-): number {
+function estimateCost(providerKey: string, providerType: string, tokensIn: number, tokensOut: number): number {
   if (providerType === "groq") return 0;
   if (providerType === "gemini") return 0;
   if (providerKey === "openai_dalle") return 0.04;
-  if (providerKey === "openai_mini") {
-    return (tokensIn * 0.15 + tokensOut * 0.6) / 1_000_000;
-  }
+  if (providerKey === "openai_mini") return (tokensIn * 0.15 + tokensOut * 0.6) / 1_000_000;
   return 0;
+}
+
+// ── Stats upsert helper ──
+
+async function upsertStats(
+  supabase: any,
+  providerKey: string,
+  taskType: string | null,
+  latencyMs: number,
+  success: boolean,
+  is429: boolean,
+  tokensIn: number,
+  tokensOut: number,
+  costUsd: number,
+) {
+  // Use raw SQL via rpc for atomic upsert
+  const query = `
+    INSERT INTO ai_router_provider_stats (provider_key, task_type, period_date, total_requests, successful_requests, failed_requests, total_latency_ms, avg_latency_ms, requests_today, rate_limit_hits, total_tokens_in, total_tokens_out, estimated_cost_usd, min_latency_ms, max_latency_ms, updated_at)
+    VALUES ($1, $2, CURRENT_DATE, 1, $3, $4, $5, $5, 1, $6, $7, $8, $9, $5, $5, now())
+    ON CONFLICT (provider_key, task_type, period_date) DO UPDATE SET
+      total_requests = ai_router_provider_stats.total_requests + 1,
+      successful_requests = ai_router_provider_stats.successful_requests + $3,
+      failed_requests = ai_router_provider_stats.failed_requests + $4,
+      total_latency_ms = ai_router_provider_stats.total_latency_ms + $5,
+      avg_latency_ms = (ai_router_provider_stats.total_latency_ms + $5) / (ai_router_provider_stats.total_requests + 1),
+      requests_today = ai_router_provider_stats.requests_today + 1,
+      rate_limit_hits = ai_router_provider_stats.rate_limit_hits + $6,
+      total_tokens_in = ai_router_provider_stats.total_tokens_in + $7,
+      total_tokens_out = ai_router_provider_stats.total_tokens_out + $8,
+      estimated_cost_usd = ai_router_provider_stats.estimated_cost_usd + $9,
+      min_latency_ms = LEAST(ai_router_provider_stats.min_latency_ms, $5),
+      max_latency_ms = GREATEST(ai_router_provider_stats.max_latency_ms, $5),
+      updated_at = now()
+  `;
+
+  const successInt = success ? 1 : 0;
+  const failInt = success ? 0 : 1;
+  const rateHit = is429 ? 1 : 0;
+
+  // Use direct insert since we can't use parameterized SQL easily — do two upserts
+  // Task-specific stats
+  await supabase.from("ai_router_provider_stats").upsert(
+    {
+      provider_key: providerKey,
+      task_type: taskType,
+      period_date: new Date().toISOString().slice(0, 10),
+      total_requests: 1,
+      successful_requests: successInt,
+      failed_requests: failInt,
+      total_latency_ms: latencyMs,
+      avg_latency_ms: latencyMs,
+      min_latency_ms: latencyMs,
+      max_latency_ms: latencyMs,
+      requests_today: 1,
+      rate_limit_hits: rateHit,
+      total_tokens_in: tokensIn,
+      total_tokens_out: tokensOut,
+      estimated_cost_usd: costUsd,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "provider_key,task_type,period_date", ignoreDuplicates: false }
+  ).then(() => {});
+
+  // We need to handle the increment logic differently since upsert replaces.
+  // Instead, use a two-step: try to update first, if no rows affected, insert.
+  // Actually the simplest approach: fetch existing, compute, upsert.
+  // For performance, just do fire-and-forget insert and handle via a DB function.
+}
+
+// Simpler stats tracking: fire-and-forget using a DB function
+async function trackStats(
+  supabase: any,
+  providerKey: string,
+  taskType: string,
+  latencyMs: number,
+  success: boolean,
+  is429: boolean,
+  tokensIn: number,
+  tokensOut: number,
+  costUsd: number,
+) {
+  const today = new Date().toISOString().slice(0, 10);
+  const successInt = success ? 1 : 0;
+  const failInt = success ? 0 : 1;
+  const rateHit = is429 ? 1 : 0;
+
+  // Track per task_type
+  try {
+    const { data: existing } = await supabase
+      .from("ai_router_provider_stats")
+      .select("id, total_requests, successful_requests, failed_requests, total_latency_ms, requests_today, rate_limit_hits, total_tokens_in, total_tokens_out, estimated_cost_usd, min_latency_ms, max_latency_ms")
+      .eq("provider_key", providerKey)
+      .eq("task_type", taskType)
+      .eq("period_date", today)
+      .maybeSingle();
+
+    if (existing) {
+      const newTotal = (existing.total_requests || 0) + 1;
+      await supabase.from("ai_router_provider_stats").update({
+        total_requests: newTotal,
+        successful_requests: (existing.successful_requests || 0) + successInt,
+        failed_requests: (existing.failed_requests || 0) + failInt,
+        total_latency_ms: (existing.total_latency_ms || 0) + latencyMs,
+        avg_latency_ms: Math.round(((existing.total_latency_ms || 0) + latencyMs) / newTotal),
+        min_latency_ms: Math.min(existing.min_latency_ms || 999999, latencyMs),
+        max_latency_ms: Math.max(existing.max_latency_ms || 0, latencyMs),
+        requests_today: (existing.requests_today || 0) + 1,
+        rate_limit_hits: (existing.rate_limit_hits || 0) + rateHit,
+        total_tokens_in: (existing.total_tokens_in || 0) + tokensIn,
+        total_tokens_out: (existing.total_tokens_out || 0) + tokensOut,
+        estimated_cost_usd: (parseFloat(existing.estimated_cost_usd) || 0) + costUsd,
+        updated_at: new Date().toISOString(),
+      }).eq("id", existing.id);
+    } else {
+      await supabase.from("ai_router_provider_stats").insert({
+        provider_key: providerKey,
+        task_type: taskType,
+        period_date: today,
+        total_requests: 1,
+        successful_requests: successInt,
+        failed_requests: failInt,
+        total_latency_ms: latencyMs,
+        avg_latency_ms: latencyMs,
+        min_latency_ms: latencyMs,
+        max_latency_ms: latencyMs,
+        requests_today: 1,
+        rate_limit_hits: rateHit,
+        total_tokens_in: tokensIn,
+        total_tokens_out: tokensOut,
+        estimated_cost_usd: costUsd,
+      });
+    }
+  } catch (e) {
+    console.warn("[ai-router] stats tracking error:", e);
+  }
+
+  // Track global stats (task_type = null) — fire and forget
+  try {
+    const { data: globalExisting } = await supabase
+      .from("ai_router_provider_stats")
+      .select("id, total_requests, successful_requests, failed_requests, total_latency_ms, requests_today, rate_limit_hits, total_tokens_in, total_tokens_out, estimated_cost_usd, min_latency_ms, max_latency_ms")
+      .eq("provider_key", providerKey)
+      .is("task_type", null)
+      .eq("period_date", today)
+      .maybeSingle();
+
+    if (globalExisting) {
+      const newTotal = (globalExisting.total_requests || 0) + 1;
+      await supabase.from("ai_router_provider_stats").update({
+        total_requests: newTotal,
+        successful_requests: (globalExisting.successful_requests || 0) + successInt,
+        failed_requests: (globalExisting.failed_requests || 0) + failInt,
+        total_latency_ms: (globalExisting.total_latency_ms || 0) + latencyMs,
+        avg_latency_ms: Math.round(((globalExisting.total_latency_ms || 0) + latencyMs) / newTotal),
+        min_latency_ms: Math.min(globalExisting.min_latency_ms || 999999, latencyMs),
+        max_latency_ms: Math.max(globalExisting.max_latency_ms || 0, latencyMs),
+        requests_today: (globalExisting.requests_today || 0) + 1,
+        rate_limit_hits: (globalExisting.rate_limit_hits || 0) + rateHit,
+        total_tokens_in: (globalExisting.total_tokens_in || 0) + tokensIn,
+        total_tokens_out: (globalExisting.total_tokens_out || 0) + tokensOut,
+        estimated_cost_usd: (parseFloat(globalExisting.estimated_cost_usd) || 0) + costUsd,
+        updated_at: new Date().toISOString(),
+      }).eq("id", globalExisting.id);
+    } else {
+      await supabase.from("ai_router_provider_stats").insert({
+        provider_key: providerKey,
+        task_type: null,
+        period_date: today,
+        total_requests: 1,
+        successful_requests: successInt,
+        failed_requests: failInt,
+        total_latency_ms: latencyMs,
+        avg_latency_ms: latencyMs,
+        min_latency_ms: latencyMs,
+        max_latency_ms: latencyMs,
+        requests_today: 1,
+        rate_limit_hits: rateHit,
+        total_tokens_in: tokensIn,
+        total_tokens_out: tokensOut,
+        estimated_cost_usd: costUsd,
+      });
+    }
+  } catch (e) {
+    console.warn("[ai-router] global stats tracking error:", e);
+  }
 }
 
 // ── Main handler ──
@@ -325,17 +511,22 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Fetch config and providers in parallel (cache for this request)
-    const [configRes, providersRes] = await Promise.all([
+    // Fetch config, providers, and today's stats in parallel
+    const today = new Date().toISOString().slice(0, 10);
+    const [configRes, providersRes, statsRes] = await Promise.all([
       supabase
         .from("ai_router_config")
-        .select("task_type, display_name, complexity, provider_chain, system_prompt, max_tokens, temperature, is_active, requires_image")
+        .select("task_type, display_name, complexity, provider_chain, system_prompt, max_tokens, temperature, is_active, requires_image, routing_mode")
         .eq("task_type", task_type)
         .eq("is_active", true)
         .single(),
       supabase
         .from("ai_router_providers")
-        .select("provider_key, provider_type, model_id, env_secret_name, api_base_url, api_key, is_free, is_active, supports_image_input, supports_image_output, consecutive_errors"),
+        .select("provider_key, provider_type, model_id, env_secret_name, api_base_url, api_key, is_free, is_active, supports_image_input, supports_image_output, consecutive_errors, last_error_at, rate_limit_rpd, rate_limit_rpm"),
+      supabase
+        .from("ai_router_provider_stats")
+        .select("provider_key, task_type, total_requests, successful_requests, failed_requests, avg_latency_ms, requests_today, rate_limit_hits, quality_score")
+        .eq("period_date", today),
     ]);
 
     if (configRes.error || !configRes.data) {
@@ -347,6 +538,20 @@ Deno.serve(async (req) => {
 
     const config = configRes.data as TaskConfig;
     const allProviders = (providersRes.data || []) as Provider[];
+    const allStats = (statsRes.data || []) as ProviderStats[];
+
+    // Build stats lookup: prefer task-specific, fallback to global (null)
+    const statsMap = new Map<string, ProviderStats>();
+    for (const s of allStats) {
+      if (s.task_type === null) {
+        if (!statsMap.has(s.provider_key)) statsMap.set(s.provider_key, s);
+      }
+    }
+    for (const s of allStats) {
+      if (s.task_type === task_type) {
+        statsMap.set(s.provider_key, s); // override global with task-specific
+      }
+    }
 
     // Build provider lookup map
     const providerMap = new Map<string, Provider>();
@@ -361,121 +566,135 @@ Deno.serve(async (req) => {
     const orgId = body.organization_id || null;
     const userId = body.user_id || authUserId;
 
-    // Provider chain — respect force_provider if set
-    let chain: string[];
+    const routingMode = config.routing_mode || "auto";
+
+    // Determine provider order
+    let orderedProviders: { provider: Provider; score: ProviderScore }[];
+    let scores: ProviderScore[] = [];
+
     if (force_provider) {
-      chain = [force_provider];
+      // Force specific provider
+      const p = providerMap.get(force_provider);
+      if (p) {
+        orderedProviders = [{ provider: p, score: { provider_key: force_provider, score: 100, breakdown: { cost: 0, speed: 0, reliability: 0, quality: 0, penalties: 0 } } }];
+      } else {
+        orderedProviders = [];
+      }
+    } else if (routingMode === "auto") {
+      // AUTO-ROUTING: score-based selection
+      const eligible = allProviders.filter(p => {
+        if (!p.is_active) return false;
+        const apiKey = p.api_key || Deno.env.get(p.env_secret_name || '');
+        if (!apiKey) return false;
+        if (config.requires_image && !p.supports_image_input) return false;
+        if (config.complexity === "image" && !p.supports_image_output) return false;
+        return true;
+      });
+
+      scores = eligible.map(p => calculateProviderScore(p, statsMap.get(p.provider_key) || null));
+      scores = scores.filter(s => s.score >= 0).sort((a, b) => b.score - a.score);
+
+      orderedProviders = scores.map(s => ({
+        provider: providerMap.get(s.provider_key)!,
+        score: s,
+      }));
     } else {
-      chain = Array.isArray(config.provider_chain)
+      // MANUAL: use provider_chain
+      const chain = Array.isArray(config.provider_chain)
         ? config.provider_chain
         : JSON.parse(config.provider_chain as unknown as string);
+      orderedProviders = chain
+        .map((key: string) => {
+          const p = providerMap.get(key);
+          return p ? { provider: p, score: { provider_key: key, score: 0, breakdown: { cost: 0, speed: 0, reliability: 0, quality: 0, penalties: 0 } } } : null;
+        })
+        .filter(Boolean) as any[];
     }
 
     const providersAttempted: string[] = [];
     let lastError = "";
 
-    for (const providerKey of chain) {
-      const provider = providerMap.get(providerKey);
-      if (!provider) continue;
-      if (!provider.is_active) continue;
-      if (provider.consecutive_errors > 10) continue;
+    for (const { provider, score } of orderedProviders) {
+      if (!provider.is_active && !force_provider) continue;
+      if (provider.consecutive_errors > 10 && !force_provider) {
+        // Check cooldown
+        const lastErr = provider.last_error_at ? new Date(provider.last_error_at) : null;
+        const cooldownMs = Math.min(provider.consecutive_errors * 10 * 60 * 1000, 4 * 3600 * 1000);
+        if (lastErr && (Date.now() - lastErr.getTime()) < cooldownMs) continue;
+      }
 
-      // Check API key: prefer api_key from DB, fallback to env secret
       const apiKey = provider.api_key || Deno.env.get(provider.env_secret_name || '');
       if (!apiKey) {
-        console.warn(`[ai-router] No API key for ${providerKey} (db or env:${provider.env_secret_name})`);
+        console.warn(`[ai-router] No API key for ${provider.provider_key}`);
         continue;
       }
 
-      providersAttempted.push(providerKey);
+      providersAttempted.push(provider.provider_key);
 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 30_000);
 
       try {
-        let result: {
-          text?: string;
-          image_url?: string;
-          image_base64?: string;
-          tokens_input: number;
-          tokens_output: number;
-        };
-
-        const callArgs = [
-          provider,
-          apiKey,
-          prompt,
-          systemPrompt,
-          maxTokens,
-          temperature,
-          image_base64,
-          controller.signal,
-        ] as const;
+        let result: { text?: string; image_url?: string; image_base64?: string; tokens_input: number; tokens_output: number };
+        const callArgs = [provider, apiKey, prompt, systemPrompt, maxTokens, temperature, image_base64, controller.signal] as const;
 
         switch (provider.provider_type) {
-          case "groq":
-            result = await callGroq(...callArgs);
-            break;
-          case "gemini":
-            result = await callGemini(...callArgs);
-            break;
-          case "openai":
-            result = await callOpenAI(...callArgs);
-            break;
+          case "groq": result = await callGroq(...callArgs); break;
+          case "gemini": result = await callGemini(...callArgs); break;
+          case "openai": result = await callOpenAI(...callArgs); break;
           default:
             lastError = `Unknown provider_type: ${provider.provider_type}`;
             continue;
         }
 
         clearTimeout(timeout);
-
         const latencyMs = Date.now() - startMs;
-        const costUsd = estimateCost(
-          providerKey,
-          provider.provider_type,
-          result.tokens_input,
-          result.tokens_output
-        );
+        const costUsd = estimateCost(provider.provider_key, provider.provider_type, result.tokens_input, result.tokens_output);
 
         // Reset consecutive errors on success
-        supabase
-          .from("ai_router_providers")
-          .update({ consecutive_errors: 0, last_error_at: null })
-          .eq("provider_key", providerKey)
-          .then(() => {});
+        const wasInCooldown = provider.consecutive_errors >= 10;
+        supabase.from("ai_router_providers").update({ consecutive_errors: 0, last_error_at: null }).eq("provider_key", provider.provider_key).then(() => {});
 
-        // Log success (fire and forget)
-        supabase
-          .from("ai_router_logs")
-          .insert({
-            organization_id: orgId,
-            user_id: userId,
-            task_type,
-            prompt_preview: prompt.slice(0, 200),
-            providers_attempted: providersAttempted,
-            provider_used: providerKey,
-            model_used: provider.model_id,
-            tokens_input: result.tokens_input,
-            tokens_output: result.tokens_output,
-            latency_ms: latencyMs,
-            is_free: provider.is_free,
-            estimated_cost_usd: costUsd,
-            success: true,
-          })
-          .then(() => {});
+        // Track stats (fire and forget)
+        trackStats(supabase, provider.provider_key, task_type, latencyMs, true, false, result.tokens_input, result.tokens_output, costUsd);
 
-        const response: RouterResponse = {
+        // Log success
+        const logNote = wasInCooldown ? "auto-healed after cooldown" : null;
+        supabase.from("ai_router_logs").insert({
+          organization_id: orgId, user_id: userId, task_type,
+          prompt_preview: prompt.slice(0, 200),
+          providers_attempted: providersAttempted,
+          provider_used: provider.provider_key,
+          model_used: provider.model_id,
+          tokens_input: result.tokens_input, tokens_output: result.tokens_output,
+          latency_ms: latencyMs, is_free: provider.is_free,
+          estimated_cost_usd: costUsd, success: true,
+          error_message: logNote,
+        }).then(() => {});
+
+        const response = {
           success: true,
           text: result.text || undefined,
           image_url: result.image_url || undefined,
           image_base64: result.image_base64 || undefined,
-          provider: providerKey,
+          provider: provider.provider_key,
           model: provider.model_id,
           tokens_input: result.tokens_input,
           tokens_output: result.tokens_output,
           latency_ms: latencyMs,
           is_free: provider.is_free,
           estimated_cost_usd: costUsd,
+          _routing: {
+            mode: routingMode,
+            scores: scores.slice(0, 10).map(s => ({
+              provider: s.provider_key,
+              score: s.score,
+              breakdown: s.breakdown,
+            })),
+            selected: provider.provider_key,
+            attempts: providersAttempted.length,
+            fallback: providersAttempted.length > 1,
+          },
         };
 
         return new Response(JSON.stringify(response), {
@@ -484,70 +703,50 @@ Deno.serve(async (req) => {
       } catch (err: any) {
         clearTimeout(timeout);
         const errMsg = err?.message || String(err);
-        lastError = `${providerKey}: ${errMsg.slice(0, 200)}`;
+        const is429 = err?.is429 === true;
+        lastError = `${provider.provider_key}: ${errMsg.slice(0, 200)}`;
         console.error(`[ai-router] ${lastError}`);
 
-        // Increment consecutive errors (fire and forget)
-        supabase.rpc("increment_provider_errors", { p_key: providerKey }).then(() => {});
-        // Fallback: direct update if RPC doesn't exist
-        supabase
-          .from("ai_router_providers")
-          .update({
-            consecutive_errors: (provider.consecutive_errors || 0) + 1,
-            last_error_at: new Date().toISOString(),
-          })
-          .eq("provider_key", providerKey)
-          .then(() => {});
+        const latencyMs = Date.now() - startMs;
+        const costUsd = 0;
+
+        // Increment consecutive errors
+        supabase.from("ai_router_providers").update({
+          consecutive_errors: (provider.consecutive_errors || 0) + 1,
+          last_error_at: new Date().toISOString(),
+        }).eq("provider_key", provider.provider_key).then(() => {});
+
+        // Track stats for failure
+        trackStats(supabase, provider.provider_key, task_type, latencyMs, false, is429, 0, 0, costUsd);
       }
     }
 
     // All providers failed
     const latencyMs = Date.now() - startMs;
-
-    // Log failure
-    supabase
-      .from("ai_router_logs")
-      .insert({
-        organization_id: orgId,
-        user_id: userId,
-        task_type,
-        prompt_preview: prompt.slice(0, 200),
-        providers_attempted: providersAttempted,
-        provider_used: null,
-        model_used: null,
-        tokens_input: 0,
-        tokens_output: 0,
-        latency_ms: latencyMs,
-        is_free: true,
-        estimated_cost_usd: 0,
-        success: false,
-        error_message: lastError.slice(0, 500),
-      })
-      .then(() => {});
+    supabase.from("ai_router_logs").insert({
+      organization_id: orgId, user_id: userId, task_type,
+      prompt_preview: prompt.slice(0, 200),
+      providers_attempted: providersAttempted,
+      provider_used: null, model_used: null,
+      tokens_input: 0, tokens_output: 0,
+      latency_ms: latencyMs, is_free: true,
+      estimated_cost_usd: 0, success: false,
+      error_message: lastError.slice(0, 500),
+    }).then(() => {});
 
     return new Response(
       JSON.stringify({
-        success: false,
-        error: "Todos os providers falharam",
-        tokens_input: 0,
-        tokens_output: 0,
-        latency_ms: latencyMs,
-        is_free: true,
-        estimated_cost_usd: 0,
-      } as RouterResponse),
+        success: false, error: "Todos os providers falharam",
+        tokens_input: 0, tokens_output: 0, latency_ms: latencyMs, is_free: true, estimated_cost_usd: 0,
+      }),
       { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e: any) {
     console.error("[ai-router] fatal:", e);
     return new Response(
       JSON.stringify({
-        success: false,
-        error: e?.message || "Internal error",
-        tokens_input: 0,
-        tokens_output: 0,
-        latency_ms: Date.now() - startMs,
-        is_free: true,
-        estimated_cost_usd: 0,
+        success: false, error: e?.message || "Internal error",
+        tokens_input: 0, tokens_output: 0, latency_ms: Date.now() - startMs, is_free: true, estimated_cost_usd: 0,
       }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
