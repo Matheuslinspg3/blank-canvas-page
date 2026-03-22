@@ -4638,6 +4638,7 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          discount_percent: number | null
           display_order: number
           features: Json | null
           id: string
@@ -4650,15 +4651,18 @@ export type Database = {
           max_users: number | null
           name: string
           partnership_access: boolean
+          plan_type: string | null
           price_monthly: number
           price_yearly: number
           priority_support: boolean
           slug: string
+          trial_days: number | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           description?: string | null
+          discount_percent?: number | null
           display_order?: number
           features?: Json | null
           id?: string
@@ -4671,15 +4675,18 @@ export type Database = {
           max_users?: number | null
           name: string
           partnership_access?: boolean
+          plan_type?: string | null
           price_monthly: number
           price_yearly: number
           priority_support?: boolean
           slug: string
+          trial_days?: number | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           description?: string | null
+          discount_percent?: number | null
           display_order?: number
           features?: Json | null
           id?: string
@@ -4692,10 +4699,12 @@ export type Database = {
           max_users?: number | null
           name?: string
           partnership_access?: boolean
+          plan_type?: string | null
           price_monthly?: number
           price_yearly?: number
           priority_support?: boolean
           slug?: string
+          trial_days?: number | null
           updated_at?: string
         }
         Relationships: []

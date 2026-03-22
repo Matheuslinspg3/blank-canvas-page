@@ -126,6 +126,7 @@ const App = () => (
                       <Route path="/i/:orgSlug/:code" element={<PublicPropertyBySlug />} />
                       <Route path="/i/:slug" element={<PublicPropertyBySlug />} />
                       <Route path="/privacidade" element={<PrivacyPolicy />} />
+                      <Route path="/planos" element={<Plans />} />
                       <Route path="/" element={<Navigate to="/dashboard" replace />} />
                       <Route path="/acesso-negado" element={<AccessDenied />} />
 
@@ -166,7 +167,6 @@ const App = () => (
                         <Route path="/administracao" element={<Administration />} />
                         <Route path="/integracoes" element={<Integrations />} />
                         <Route path="/configuracoes" element={<Settings />} />
-                        <Route path="/planos" element={<Plans />} />
                         
                         {/* Marketing module - consolidated */}
                         <Route path="/marketing" element={<Anuncios />} />

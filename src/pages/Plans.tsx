@@ -1,519 +1,508 @@
-import { useState } from "react";
-import { PageHeader } from "@/components/PageHeader";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useSubscription, SubscriptionPlan } from "@/hooks/useSubscription";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import {
-  Building2, Search, Send, Users, Heart, BarChart3, MessageCircle, Clock,
-  Shield, Check, Crown, Star, Briefcase, Sparkles, Image, Video, Megaphone,
-  FileText, CalendarDays, Link, Import, Activity, CreditCard, Calendar,
-  CheckCircle2, AlertTriangle, XCircle, RefreshCw, Loader2,
+  Check, X, Users, Building2, UserCheck, HardDrive, Sparkles, Store,
+  Crown, Star, Briefcase, Zap, MessageCircle, Bot, Workflow,
+  ChevronDown, ArrowRight, Shield, Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSubscription, SubscriptionPlan } from "@/hooks/useSubscription";
-import { useAuth } from "@/contexts/AuthContext";
-import { CheckoutDialog } from "@/components/billing/CheckoutDialog";
-import { format, differenceInDays, differenceInHours, parseISO } from "date-fns";
-import { ptBR } from "date-fns/locale";
 
-/* ─── Status config ─── */
-const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: React.ElementType }> = {
-  active: { label: "Ativo", variant: "default", icon: CheckCircle2 },
-  trial: { label: "Período de teste", variant: "secondary", icon: Clock },
-  overdue: { label: "Pagamento pendente", variant: "destructive", icon: AlertTriangle },
-  cancelled: { label: "Cancelado", variant: "outline", icon: XCircle },
-  suspended: { label: "Suspenso", variant: "destructive", icon: AlertTriangle },
-  expired: { label: "Expirado", variant: "outline", icon: XCircle },
-  pending: { label: "Pendente", variant: "secondary", icon: Clock },
+/* ─── Helpers ─── */
+const fmt = (cents: number) => {
+  const val = cents / 100;
+  return val.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-const methodLabels: Record<string, string> = {
-  pix: "PIX",
-  credit: "Cartão de Crédito",
-  credit_card: "Cartão de Crédito/Débito",
-  boleto: "Boleto Bancário",
+const fmtInt = (cents: number) => {
+  return Math.floor(cents / 100).toLocaleString("pt-BR");
 };
 
-/* ─── Plan UI map ─── */
-interface PlanUI {
-  slug: string;
-  tagline: string;
-  tip: string;
-  features: { text: string; icon: React.ElementType }[];
-  includesFrom?: string;
-  highlighted?: boolean;
-  color: string;
-  icon: React.ElementType;
-  badge?: string;
-  cta: string;
-  priceExtra?: string;
+const storageFmt = (mb: number) => {
+  if (mb >= 1024) return `${(mb / 1024).toFixed(0)} GB`;
+  return `${mb} MB`;
+};
+
+const limitDisplay = (val: number) => {
+  if (val === -1) return "Ilimitado";
+  return val.toLocaleString("pt-BR");
+};
+
+/* ─── Plan card config ─── */
+interface PlanMeta { icon: React.ElementType; badge?: string; highlighted?: boolean; ctaLabel: string; ctaVariant: "default" | "outline" }
+
+const planMeta: Record<string, PlanMeta> = {
+  gratuito: { icon: Shield, ctaLabel: "Começar grátis", ctaVariant: "outline" },
+  starter: { icon: Star, ctaLabel: "Testar 15 dias grátis", ctaVariant: "default" },
+  essencial: { icon: Briefcase, badge: "Melhor custo", ctaLabel: "Testar 7 dias grátis", ctaVariant: "default" },
+  profissional: { icon: Crown, badge: "Mais popular", highlighted: true, ctaLabel: "Testar 7 dias grátis", ctaVariant: "default" },
+  business: { icon: Building2, ctaLabel: "Testar 7 dias grátis", ctaVariant: "default" },
+};
+
+/* ─── Feature comparison table ─── */
+interface FeatureRow {
+  label: string;
+  key: string;
+  type: "bool" | "number" | "storage" | "text";
+  category: string;
 }
 
-const planUIMap: Record<string, PlanUI> = {
-  starter: {
-    slug: "starter",
-    tagline: "Comece a captar imóveis",
-    tip: "Barato o suficiente para começar, completo o suficiente para vender.",
-    color: "from-emerald-500 to-teal-600",
-    icon: Building2,
-    cta: "Começar agora",
-    features: [
-      { text: "Acesso à biblioteca completa de imóveis", icon: Building2 },
-      { text: "Busca e filtros avançados", icon: Search },
-      { text: "Informações completas dos imóveis", icon: Check },
-      { text: "Envio de imóveis para clientes", icon: Send },
-      { text: "Página pública do imóvel (landing page)", icon: Link },
-      { text: "Atualizações frequentes de novos imóveis", icon: Clock },
-    ],
-  },
-  corretor: {
-    slug: "corretor",
-    tagline: "Venda mais com inteligência",
-    tip: "A IA encontra os imóveis ideais para cada cliente — você só apresenta.",
-    color: "from-blue-500 to-indigo-600",
-    icon: Star,
-    badge: "Mais popular",
-    highlighted: true,
-    includesFrom: "Starter",
-    cta: "Assinar plano",
-    features: [
-      { text: "CRM completo (leads, funil, interações)", icon: Users },
-      { text: "Gerador de anúncios com IA (WhatsApp, Instagram, Portal)", icon: Sparkles },
-      { text: "Imóveis sugeridos automaticamente por cliente", icon: Search },
-      { text: "Favoritar imóveis por cliente", icon: Heart },
-      { text: "Agenda integrada", icon: CalendarDays },
-      { text: "Organização do funil de atendimento", icon: BarChart3 },
-    ],
-  },
-  profissional: {
-    slug: "profissional",
-    tagline: "Automatize e escale",
-    tip: "Para quem quer parar de fazer trabalho manual e focar em fechar negócios.",
-    color: "from-purple-500 to-violet-600",
-    icon: Briefcase,
-    includesFrom: "Corretor",
-    cta: "Assinar plano",
-    features: [
-      { text: "Integração com WhatsApp", icon: MessageCircle },
-      { text: "Gerador de artes (feed, story, banner)", icon: Image },
-      { text: "Gerador de vídeos com IA", icon: Video },
-      { text: "Meta Ads — leads automáticos", icon: Megaphone },
-      { text: "Relatórios de desempenho", icon: BarChart3 },
-      { text: "Importação automática (Imobzi)", icon: Import },
-      { text: "Contratos e financeiro", icon: FileText },
-      { text: "Prioridade no suporte", icon: Shield },
-    ],
-  },
-  imobiliaria: {
-    slug: "imobiliaria",
-    tagline: "Gerencie sua equipe",
-    tip: "Tudo que sua imobiliária precisa para operar com eficiência máxima.",
-    color: "from-slate-600 to-slate-800",
-    icon: Crown,
-    includesFrom: "Profissional",
-    cta: "Falar com consultor",
-    priceExtra: "+ R$ 47/usuário extra (5 inclusos)",
-    features: [
-      { text: "Até 5 usuários inclusos", icon: Users },
-      { text: "Gestão de equipe e permissões", icon: Shield },
-      { text: "Marketplace entre imobiliárias", icon: Building2 },
-      { text: "Biblioteca compartilhada", icon: Building2 },
-      { text: "Controle de leads da equipe", icon: BarChart3 },
-      { text: "Auditoria e logs completos", icon: Activity },
-      { text: "Suporte prioritário dedicado", icon: Crown },
-    ],
-  },
+const featureRows: FeatureRow[] = [
+  // Limites
+  { label: "Usuários", key: "max_users", type: "number", category: "Limites" },
+  { label: "Imóveis próprios", key: "max_own_properties", type: "number", category: "Limites" },
+  { label: "Leads", key: "max_leads", type: "number", category: "Limites" },
+  { label: "Imóveis marketplace", key: "max_marketplace_properties", type: "number", category: "Limites" },
+  { label: "Armazenamento", key: "max_storage_mb", type: "storage", category: "Limites" },
+  // CRM
+  { label: "Financeiro", key: "has_financial", type: "bool", category: "CRM" },
+  { label: "Contratos", key: "has_contracts", type: "bool", category: "CRM" },
+  { label: "Comissões", key: "has_commissions", type: "bool", category: "CRM" },
+  { label: "Proprietários", key: "has_owners", type: "bool", category: "CRM" },
+  { label: "Importação de dados", key: "has_import", type: "bool", category: "CRM" },
+  { label: "Relatórios", key: "has_reports", type: "bool", category: "CRM" },
+  { label: "Log de auditoria", key: "has_audit_log", type: "bool", category: "CRM" },
+  // Créditos de IA
+  { label: "Créditos de IA/mês", key: "ai_credits_limit", type: "number", category: "Créditos de IA" },
+  { label: "Artes com IA/mês", key: "ai_art_limit", type: "number", category: "Créditos de IA" },
+  { label: "Landing pages IA/mês", key: "ai_landing_limit", type: "number", category: "Créditos de IA" },
+  { label: "Vídeos com IA/mês", key: "ai_video_limit", type: "number", category: "Créditos de IA" },
+  { label: "Extração PDF com IA", key: "has_pdf_extract", type: "bool", category: "Créditos de IA" },
+  { label: "Contratos com IA", key: "has_contract_ai", type: "bool", category: "Créditos de IA" },
+  { label: "Análise de fotos IA", key: "has_photo_analysis", type: "bool", category: "Créditos de IA" },
+  // WhatsApp / Automações
+  { label: "WhatsApp integrado", key: "has_whatsapp", type: "bool", category: "WhatsApp / Automações" },
+  { label: "Automações", key: "has_automations", type: "bool", category: "WhatsApp / Automações" },
+  { label: "Limite automações", key: "automations_limit", type: "number", category: "WhatsApp / Automações" },
+  { label: "Push notifications", key: "has_push_notifications", type: "bool", category: "WhatsApp / Automações" },
+  { label: "Email automation", key: "has_email_automation", type: "bool", category: "WhatsApp / Automações" },
+  // Integrações
+  { label: "Marketplace publicação", key: "has_marketplace_publish", type: "bool", category: "Integrações" },
+  { label: "Marketplace contato", key: "has_marketplace_contact", type: "bool", category: "Integrações" },
+  { label: "Parcerias", key: "has_partnerships", type: "bool", category: "Integrações" },
+  { label: "Meta Ads", key: "has_meta_ads", type: "bool", category: "Integrações" },
+  { label: "RD Station", key: "has_rd_station", type: "bool", category: "Integrações" },
+  { label: "Feed XML", key: "has_xml_feed", type: "bool", category: "Integrações" },
+  { label: "Landing pages", key: "has_landing_pages", type: "bool", category: "Integrações" },
+  // Extras
+  { label: "Suporte prioritário", key: "has_priority_support", type: "bool", category: "Extras" },
+  { label: "Nível suporte", key: "support_level", type: "text", category: "Extras" },
+];
+
+const supportLabels: Record<string, string> = {
+  chat_ai: "Chat IA",
+  email: "E-mail",
+  whatsapp: "WhatsApp",
+  priority: "Prioritário",
 };
 
-/* ─── Current Plan Section ─── */
-function CurrentPlanSection() {
-  const { trialInfo } = useAuth();
-  const { subscription, payments, loadingSub, loadingPayments, cancel, isOverdue, isCancelled } = useSubscription({ enabled: true });
+const FAQ_ITEMS = [
+  { q: "Posso trocar de plano?", a: "Sim! O upgrade é imediato e o downgrade acontece no próximo ciclo de cobrança." },
+  { q: "O que acontece quando o trial acaba?", a: "Você volta automaticamente para o plano Gratuito. Todos os seus dados são mantidos." },
+  { q: "Preciso de cartão para o trial?", a: "Não. O período de teste é 100% gratuito, sem necessidade de cartão de crédito." },
+  { q: "Posso adicionar mais usuários?", a: "Sim! No Essencial custa R$19,90/mês por membro extra, no Profissional R$14,90/mês. No Business é ilimitado." },
+  { q: "O que são créditos de IA?", a: "Cada geração de texto, resumo ou análise consome 1 crédito de IA. Artes e vídeos têm contagem separada." },
+  { q: "Posso comprar mais créditos?", a: "Sim! Com o Pacote IA Extra por R$29,90/mês você ganha +50 créditos, +10 artes e +5 landing pages." },
+  { q: "Como funciona o WhatsApp?", a: "Integração com WhatsApp Business para notificações e atendimento. Incluso no Profissional e Business, ou disponível como addon por R$49,90/mês no Essencial." },
+  { q: "O que são automações?", a: "Fluxos automáticos: lead chega → notificação WhatsApp, imóvel publicado → anúncio nos portais, e muito mais." },
+  { q: "Meus dados ficam seguros?", a: "Sim! Criptografia SSL, Row Level Security (RLS), backups diários e infraestrutura de última geração." },
+  { q: "Posso cancelar?", a: "Sim, sem multa. Você mantém acesso até o fim do período pago." },
+];
 
-  const status = subscription?.status || "cancelled";
-  const cfg = statusConfig[status] || statusConfig.cancelled;
-  const StatusIcon = cfg.icon;
+const addonMeta: Record<string, { icon: React.ElementType; bullets: string[] }> = {
+  ia: { icon: Sparkles, bullets: ["+50 créditos de IA", "+10 artes com IA", "+5 landing pages"] },
+  whatsapp: { icon: MessageCircle, bullets: ["WhatsApp Business integrado", "Valentina IA no WhatsApp", "Notificações de leads"] },
+  automations: { icon: Workflow, bullets: ["+5 automações extras", "Templates prontos de automação", "Fluxos avançados"] },
+};
 
-  // Trial info
-  const hasTrial = trialInfo && trialInfo.trial_ends_at;
-  const now = new Date();
-  const endsAt = hasTrial ? parseISO(trialInfo.trial_ends_at!) : null;
-  const startedAt = hasTrial && trialInfo.trial_started_at ? parseISO(trialInfo.trial_started_at) : null;
-  const isExpired = trialInfo?.is_trial_expired || false;
-  const daysRemaining = endsAt ? Math.max(0, differenceInDays(endsAt, now)) : 0;
-  const hoursRemaining = endsAt ? Math.max(0, differenceInHours(endsAt, now) % 24) : 0;
-  const totalTrialDays = startedAt && endsAt ? differenceInDays(endsAt, startedAt) : 7;
-  const daysElapsed = startedAt ? differenceInDays(now, startedAt) : totalTrialDays - daysRemaining;
-  const progressPercent = Math.min(100, Math.max(0, (daysElapsed / totalTrialDays) * 100));
+/* ─── Main Features for card display ─── */
+const mainFeatureKeys = [
+  { key: "has_financial", label: "Financeiro" },
+  { key: "has_contracts", label: "Contratos" },
+  { key: "has_owners", label: "Proprietários" },
+  { key: "has_whatsapp", label: "WhatsApp" },
+  { key: "has_automations", label: "Automações" },
+  { key: "has_import", label: "Importação" },
+  { key: "has_meta_ads", label: "Meta Ads" },
+  { key: "has_reports", label: "Relatórios" },
+];
 
-  const recentPayments = (payments || []).slice(0, 3);
-
-  if (loadingSub) {
-    return <Skeleton className="h-40 rounded-xl" />;
-  }
-
-  if (!subscription && !hasTrial) return null;
-
-  return (
-    <Card className="mb-8 border-primary/20">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Shield className="h-5 w-5 text-primary" />
-              Sua assinatura
-            </CardTitle>
-            <CardDescription>Gerencie seu plano, renovação e pagamento</CardDescription>
-          </div>
-          <Badge variant={cfg.variant} className="gap-1">
-            <StatusIcon className="h-3 w-3" />
-            {cfg.label}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        {/* Subscription details */}
-        {subscription && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Plano atual</p>
-              <p className="font-semibold text-lg">{subscription.plan?.name || "—"}</p>
-              <p className="text-sm font-medium text-primary">
-                R$ {Number(subscription.plan?.price_monthly || 0).toFixed(0)}/mês
-              </p>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Próxima renovação</p>
-                  <p className="text-sm font-medium">
-                    {subscription.current_period_end
-                      ? format(new Date(subscription.current_period_end), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
-                      : "—"}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Método de pagamento</p>
-                  <p className="text-sm font-medium">
-                    {methodLabels[subscription.payment_method || ""] || "Não definido"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Trial countdown */}
-        {hasTrial && (
-          <>
-            <Separator />
-            <div className="space-y-3">
-              <div className={cn(
-                "flex items-center gap-4 p-4 rounded-xl border",
-                isExpired
-                  ? "bg-destructive/10 border-destructive/20"
-                  : daysRemaining <= 3
-                    ? "bg-warning/10 border-warning/20"
-                    : "bg-primary/5 border-primary/20"
-              )}>
-                {isExpired ? (
-                  <AlertTriangle className="h-10 w-10 flex-shrink-0 text-destructive" />
-                ) : daysRemaining <= 3 ? (
-                  <Clock className="h-10 w-10 flex-shrink-0 text-warning" />
-                ) : (
-                  <CheckCircle2 className="h-10 w-10 flex-shrink-0 text-primary" />
-                )}
-                <div className="flex-1 min-w-0">
-                  {isExpired ? (
-                    <>
-                      <p className="font-bold text-sm">Período de teste encerrado</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Seu teste gratuito expirou em {endsAt && format(endsAt, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}.
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-3xl font-bold tabular-nums">{daysRemaining}</span>
-                        <span className="text-sm text-muted-foreground">
-                          {daysRemaining === 1 ? "dia" : "dias"}
-                          {hoursRemaining > 0 && ` e ${hoursRemaining}h`}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Teste gratuito até {endsAt && format(endsAt, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{startedAt && `Início: ${format(startedAt, "dd/MM/yyyy")}`}</span>
-                  <span>{endsAt && `Término: ${format(endsAt, "dd/MM/yyyy")}`}</span>
-                </div>
-                <Progress value={progressPercent} className="h-2.5" />
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Overdue banner */}
-        {isOverdue && (
-          <div className="flex items-center gap-3 p-4 rounded-lg border border-destructive/50 bg-destructive/5">
-            <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
-            <div className="flex-1">
-              <p className="text-sm font-medium">Pagamento pendente</p>
-              <p className="text-xs text-muted-foreground">Sua assinatura está com pagamento em atraso.</p>
-            </div>
-          </div>
-        )}
-
-        {/* Recent payments */}
-        {recentPayments.length > 0 && !loadingPayments && (
-          <>
-            <Separator />
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-2">Últimos pagamentos</p>
-              <div className="space-y-2">
-                {recentPayments.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between text-sm py-1.5 px-2 rounded-lg bg-muted/50">
-                    <div className="flex items-center gap-2">
-                      <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span>R$ {(p.amount_cents / 100).toFixed(2)}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {methodLabels[p.method || ""] || p.method}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
-                        {format(new Date(p.created_at), "dd/MM/yyyy")}
-                      </span>
-                      <Badge variant={p.status === "confirmed" ? "default" : p.status === "pending" ? "secondary" : "destructive"} className="text-xs h-5">
-                        {p.status === "confirmed" ? "Pago" : p.status === "pending" ? "Pendente" : p.status}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Cancel action */}
-        {subscription && !isCancelled && subscription.status !== "expired" && (
-          <>
-            <Separator />
-            <div className="flex justify-end">
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                    <XCircle className="h-3.5 w-3.5 mr-1" /> Cancelar assinatura
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Cancelar assinatura</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Tem certeza que deseja cancelar sua assinatura do plano <strong>{subscription.plan?.name}</strong>?
-                      Você perderá acesso às funcionalidades premium ao final do período atual.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Manter plano</AlertDialogCancel>
-                    <AlertDialogAction
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      onClick={() => cancel.mutate()}
-                      disabled={cancel.isPending}
-                    >
-                      {cancel.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                      Confirmar cancelamento
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-/* ─── Main Page ─── */
+/* ─── Component ─── */
 export default function Plans() {
-  const { plans, subscription, loadingPlans } = useSubscription({ enabled: true });
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [annual, setAnnual] = useState(false);
+  const [showComparison, setShowComparison] = useState(false);
+  const navigate = useNavigate();
+  const { session } = useAuth();
+  const { subscription, isTrialActive, getTrialDaysRemaining, getCurrentPlanSlug } = useSubscription({ enabled: !!session });
 
-  const handleSelectPlan = (plan: SubscriptionPlan) => {
-    if (plan.slug === "imobiliaria") {
-      window.open("https://wa.me/5511999999999?text=Quero%20saber%20mais%20sobre%20o%20plano%20Imobili%C3%A1ria", "_blank");
-      return;
-    }
-    setSelectedPlan(plan);
-    setCheckoutOpen(true);
-  };
+  const { data: allPlans = [], isLoading } = useQuery({
+    queryKey: ["public-plans"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("subscription_plans")
+        .select("*")
+        .eq("is_active", true)
+        .order("display_order");
+      if (error) throw error;
+      return data as SubscriptionPlan[];
+    },
+  });
 
-  const currentPlanSlug = subscription?.plan?.slug;
+  const mainPlans = useMemo(() => allPlans.filter(p => (p as any).plan_type !== 'addon'), [allPlans]);
+  const addons = useMemo(() => allPlans.filter(p => (p as any).plan_type === 'addon'), [allPlans]);
 
-  if (loadingPlans) {
+  const currentSlug = session ? getCurrentPlanSlug() : null;
+  const trialActive = session ? isTrialActive() : false;
+  const trialDays = session ? getTrialDaysRemaining() : 0;
+
+  if (isLoading) {
     return (
-      <div className="flex flex-col min-h-screen page-enter">
-        <PageHeader title="Planos" description="Escolha o plano ideal para o seu negócio" />
-        <div className="flex-1 p-4 sm:p-6">
-          <Skeleton className="h-40 rounded-xl mb-8" />
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-            {[1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-96 rounded-xl" />
-            ))}
+      <div className="min-h-screen bg-background">
+        <div className="max-w-7xl mx-auto px-4 py-16">
+          <Skeleton className="h-12 w-96 mx-auto mb-4" />
+          <Skeleton className="h-6 w-64 mx-auto mb-12" />
+          <div className="grid gap-6 md:grid-cols-3 lg:grid-cols-5">
+            {[1,2,3,4,5].map(i => <Skeleton key={i} className="h-[500px] rounded-xl" />)}
           </div>
         </div>
       </div>
     );
   }
 
-  const sortedPlans = [...plans].sort((a, b) => a.display_order - b.display_order);
-
   return (
-    <div className="flex flex-col min-h-screen page-enter">
-      <PageHeader title="Planos" description="Escolha o plano ideal para o seu negócio" />
+    <div className="min-h-screen bg-background">
+      {/* ─── HEADER ─── */}
+      <section className="py-16 sm:py-20 text-center px-4">
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-foreground mb-4">
+          Gerencie sua imobiliária com{" "}
+          <span className="text-primary">Inteligência Artificial</span>
+        </h1>
+        <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
+          CRM, Marketplace, IA e Automações — tudo em um só lugar
+        </p>
 
-      <div className="flex-1 p-4 sm:p-6">
-        {/* Current plan section */}
-        <CurrentPlanSection />
-
-        {/* Value ladder */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-          {sortedPlans.map((plan) => {
-            const ui = planUIMap[plan.slug];
-            if (!ui) return null;
-            return (
-              <div key={plan.id} className="flex items-center gap-2 p-3 rounded-xl border bg-card">
-                <div className={cn("w-2 h-8 rounded-full bg-gradient-to-b", ui.color)} />
-                <div>
-                  <p className="text-sm font-bold">R$ {Number(plan.price_monthly).toFixed(0)}</p>
-                  <p className="text-xs text-muted-foreground">{ui.tagline}</p>
-                </div>
-              </div>
-            );
-          })}
+        {/* Toggle */}
+        <div className="inline-flex items-center gap-3 bg-muted/50 rounded-full px-4 py-2 border">
+          <span className={cn("text-sm font-medium transition-colors", !annual ? "text-foreground" : "text-muted-foreground")}>Mensal</span>
+          <Switch checked={annual} onCheckedChange={setAnnual} />
+          <span className={cn("text-sm font-medium transition-colors", annual ? "text-foreground" : "text-muted-foreground")}>Anual</span>
+          {annual && (
+            <Badge className="bg-green-500/15 text-green-600 border-green-500/20 text-xs">
+              Economize 2 meses
+            </Badge>
+          )}
         </div>
+      </section>
 
-        {/* Plan cards */}
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-          {sortedPlans.map((plan) => {
-            const ui = planUIMap[plan.slug];
-            if (!ui) return null;
-            const Icon = ui.icon;
-            const isCurrentPlan = currentPlanSlug === plan.slug;
+      {/* ─── PLAN CARDS ─── */}
+      <section className="max-w-7xl mx-auto px-4 pb-16">
+        <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory md:grid md:grid-cols-3 lg:grid-cols-5 md:overflow-visible md:pb-0">
+          {mainPlans.map((plan) => {
+            const f = plan.features as Record<string, any> || {};
+            const meta: PlanMeta = planMeta[plan.slug] || { icon: Star, ctaLabel: "Selecionar", ctaVariant: "default" as const };
+            const Icon = meta.icon;
+            const isCurrent = currentSlug === plan.slug;
+            const monthlyPrice = annual ? Math.round(plan.price_yearly / 12) : plan.price_monthly;
+            const trialDaysPlan = (plan as any).trial_days || 0;
 
             return (
               <Card
                 key={plan.id}
                 className={cn(
-                  "relative overflow-hidden transition-all duration-200 hover:shadow-lg flex flex-col",
-                  ui.highlighted && "ring-2 ring-primary shadow-lg md:scale-[1.02]",
-                  isCurrentPlan && "ring-2 ring-primary/50"
+                  "min-w-[280px] snap-center flex flex-col relative transition-all",
+                  meta.highlighted && "border-primary ring-2 ring-primary/20 shadow-lg scale-[1.02]",
+                  isCurrent && "border-primary/50"
                 )}
               >
-                <div className={cn("h-2 bg-gradient-to-r", ui.color)} />
-
-                {ui.badge && (
-                  <Badge className="absolute top-4 right-4 bg-primary text-primary-foreground text-xs">
-                    {ui.badge}
-                  </Badge>
+                {meta.badge && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <Badge className="bg-primary text-primary-foreground shadow-sm">{meta.badge}</Badge>
+                  </div>
+                )}
+                {isCurrent && (
+                  <div className="absolute -top-3 right-3">
+                    <Badge variant="secondary" className="shadow-sm">
+                      {trialActive ? `${trialDays}d restantes` : "Plano atual"}
+                    </Badge>
+                  </div>
                 )}
 
-                {isCurrentPlan && (
-                  <Badge variant="outline" className="absolute top-4 right-4 text-xs border-primary text-primary">
-                    Plano atual
-                  </Badge>
-                )}
-
-                <CardHeader className="pb-2">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className={cn(
-                      "w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br text-white shrink-0",
-                      ui.color
-                    )}>
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg">Plano {plan.name}</CardTitle>
-                      <p className="text-xs text-muted-foreground">{ui.tagline}</p>
-                    </div>
+                <CardHeader className="text-center pb-2 pt-6">
+                  <div className="mx-auto w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-3">
+                    <Icon className="h-6 w-6 text-primary" />
                   </div>
-
-                  <div className="flex items-baseline gap-1 mt-1">
-                    <span className="text-3xl font-bold">R$ {Number(plan.price_monthly).toFixed(0)}</span>
-                    <span className="text-sm text-muted-foreground">/mês</span>
+                  <h3 className="text-xl font-bold">{plan.name}</h3>
+                  <div className="mt-2">
+                    <span className="text-3xl font-bold">R${fmt(monthlyPrice)}</span>
+                    <span className="text-muted-foreground text-sm">/mês</span>
                   </div>
-                  {ui.priceExtra && (
-                    <p className="text-xs text-muted-foreground mt-0.5">{ui.priceExtra}</p>
+                  {annual && plan.price_yearly > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      R${fmt(plan.price_yearly)} cobrado anualmente
+                    </p>
+                  )}
+                  {trialDaysPlan > 0 && (
+                    <Badge variant="outline" className="mt-2 text-xs">
+                      <Clock className="h-3 w-3 mr-1" />
+                      {trialDaysPlan} dias grátis
+                    </Badge>
                   )}
                 </CardHeader>
 
-                <CardContent className="space-y-4 flex-1 flex flex-col">
-                  {ui.includesFrom && (
-                    <p className="text-xs font-medium text-muted-foreground">
-                      ✅ Inclui tudo do plano {ui.includesFrom} +
+                <CardContent className="flex-1 flex flex-col">
+                  <Separator className="mb-4" />
+
+                  {/* Limits */}
+                  <div className="space-y-2 mb-4 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span>{limitDisplay(f.max_users)} {f.max_users === 1 ? "usuário" : "usuários"}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span>{limitDisplay(f.max_own_properties)} imóveis</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <UserCheck className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span>{limitDisplay(f.max_leads)} leads</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <HardDrive className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span>{storageFmt(f.max_storage_mb)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span>{f.ai_credits_limit === 0 ? "Sem IA" : `${limitDisplay(f.ai_credits_limit)} créditos IA`}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Store className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span>{f.max_marketplace_properties === 0 ? "Sem marketplace" : `${limitDisplay(f.max_marketplace_properties)} marketplace`}</span>
+                    </div>
+                  </div>
+
+                  {/* Main features */}
+                  <div className="space-y-1.5 mb-4 text-sm flex-1">
+                    {mainFeatureKeys.map(({ key, label }) => {
+                      const has = f[key] === true;
+                      return (
+                        <div key={key} className="flex items-center gap-2">
+                          {has ? (
+                            <Check className="h-4 w-4 text-green-500 shrink-0" />
+                          ) : (
+                            <X className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+                          )}
+                          <span className={cn(!has && "text-muted-foreground/60")}>{label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {f.extra_user_price > 0 && (
+                    <p className="text-xs text-muted-foreground mb-4">
+                      +R${fmt(f.extra_user_price)} por membro extra
                     </p>
                   )}
 
-                  <ul className="space-y-2.5 flex-1">
-                    {ui.features.map((feature) => {
-                      const FeatureIcon = feature.icon;
-                      return (
-                        <li key={feature.text} className="flex items-start gap-2.5 text-sm">
-                          <FeatureIcon className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                          <span>{feature.text}</span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-
-                  <Separator />
-
-                  <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50">
-                    <span className="text-base">💡</span>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{ui.tip}</p>
-                  </div>
-
+                  {/* CTA */}
                   <Button
-                    className="w-full"
-                    variant={isCurrentPlan ? "secondary" : ui.highlighted ? "default" : "outline"}
-                    size="lg"
-                    disabled={isCurrentPlan}
-                    onClick={() => handleSelectPlan(plan)}
+                    variant={meta.ctaVariant}
+                    className={cn("w-full mt-auto", meta.highlighted && "shadow-md")}
+                    onClick={() => navigate("/auth")}
+                    disabled={isCurrent}
                   >
-                    {isCurrentPlan ? "Plano atual" : ui.cta}
+                    {isCurrent ? "Plano atual" : meta.ctaLabel}
+                    {!isCurrent && <ArrowRight className="h-4 w-4 ml-1" />}
                   </Button>
                 </CardContent>
               </Card>
             );
           })}
         </div>
-      </div>
+      </section>
 
-      <CheckoutDialog
-        open={checkoutOpen}
-        onOpenChange={setCheckoutOpen}
-        plan={selectedPlan}
-      />
+      {/* ─── ADDONS ─── */}
+      <section className="max-w-5xl mx-auto px-4 pb-16">
+        <h2 className="text-2xl font-bold text-center mb-2">Potencialize seu plano</h2>
+        <p className="text-muted-foreground text-center mb-8">Módulos extras para expandir sua operação</p>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          {addons.map((addon) => {
+            const f = addon.features as Record<string, any> || {};
+            const type = f.addon_type as string;
+            const meta = addonMeta[type];
+            if (!meta) return null;
+            const Icon = meta.icon;
+
+            return (
+              <Card key={addon.id} className="flex flex-col">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Icon className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">{addon.name}</h3>
+                      <p className="text-sm font-medium text-primary">
+                        R${fmt(annual ? Math.round(addon.price_yearly / 12) : addon.price_monthly)}/mês
+                      </p>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="flex-1 flex flex-col">
+                  <ul className="space-y-1.5 text-sm mb-4 flex-1">
+                    {meta.bullets.map((b, i) => (
+                      <li key={i} className="flex items-center gap-2">
+                        <Check className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                        {b}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    A partir do plano <span className="font-medium capitalize">{f.requires_min_plan}</span>
+                  </p>
+                  <Button variant="ghost" size="sm" className="w-full">
+                    Saiba mais
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ─── COMPARISON TABLE ─── */}
+      <section className="max-w-7xl mx-auto px-4 pb-16">
+        <button
+          onClick={() => setShowComparison(!showComparison)}
+          className="flex items-center gap-2 mx-auto text-sm font-medium text-primary hover:underline mb-4"
+        >
+          Comparar todos os planos em detalhe
+          <ChevronDown className={cn("h-4 w-4 transition-transform", showComparison && "rotate-180")} />
+        </button>
+
+        {showComparison && (
+          <div className="overflow-x-auto border rounded-xl">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/30">
+                  <th className="text-left p-3 font-medium min-w-[200px]">Recurso</th>
+                  {mainPlans.map((p) => (
+                    <th
+                      key={p.id}
+                      className={cn(
+                        "text-center p-3 font-medium min-w-[120px]",
+                        p.slug === "profissional" && "bg-primary/5"
+                      )}
+                    >
+                      {p.name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  const categories = [...new Set(featureRows.map(r => r.category))];
+                  return categories.map(cat => (
+                    <>
+                      <tr key={`cat-${cat}`} className="border-b bg-muted/10">
+                        <td colSpan={mainPlans.length + 1} className="p-2 font-semibold text-xs uppercase tracking-wider text-muted-foreground">
+                          {cat}
+                        </td>
+                      </tr>
+                      {featureRows.filter(r => r.category === cat).map(row => (
+                        <tr key={row.key} className="border-b hover:bg-muted/20">
+                          <td className="p-3 text-muted-foreground">{row.label}</td>
+                          {mainPlans.map(p => {
+                            const f = (p.features as Record<string, any>) || {};
+                            const val = f[row.key];
+                            const isPro = p.slug === "profissional";
+
+                            let display: React.ReactNode;
+                            if (row.type === "bool") {
+                              display = val ? <Check className="h-4 w-4 text-green-500 mx-auto" /> : <X className="h-4 w-4 text-muted-foreground/30 mx-auto" />;
+                            } else if (row.type === "storage") {
+                              display = storageFmt(val || 0);
+                            } else if (row.type === "text") {
+                              display = supportLabels[val] || val || "—";
+                            } else {
+                              display = val === -1 ? "∞" : val === 0 ? "—" : val?.toLocaleString("pt-BR") || "—";
+                            }
+
+                            return (
+                              <td key={p.id} className={cn("p-3 text-center", isPro && "bg-primary/5")}>
+                                {display}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </>
+                  ));
+                })()}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* ─── FAQ ─── */}
+      <section className="max-w-3xl mx-auto px-4 pb-16">
+        <h2 className="text-2xl font-bold text-center mb-8">Perguntas Frequentes</h2>
+        <Accordion type="single" collapsible className="space-y-2">
+          {FAQ_ITEMS.map((item, i) => (
+            <AccordionItem key={i} value={`faq-${i}`} className="border rounded-lg px-4">
+              <AccordionTrigger className="text-left font-medium text-sm hover:no-underline">
+                {item.q}
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground text-sm">
+                {item.a}
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      </section>
+
+      {/* ─── FINAL CTA ─── */}
+      <section className="bg-muted/30 border-t">
+        <div className="max-w-3xl mx-auto px-4 py-16 text-center">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-3">
+            Pronto para transformar sua imobiliária?
+          </h2>
+          <p className="text-muted-foreground mb-8">
+            Comece grátis e teste por 15 dias sem compromisso
+          </p>
+          <Button size="lg" className="text-base px-8 py-6 shadow-lg" onClick={() => navigate("/auth")}>
+            Criar conta grátis
+            <ArrowRight className="h-5 w-5 ml-2" />
+          </Button>
+          <p className="text-xs text-muted-foreground mt-4">
+            Sem cartão · Sem compromisso · Cancele quando quiser
+          </p>
+          <a
+            href="https://wa.me/5511999999999?text=Ol%C3%A1%2C%20tenho%20d%C3%BAvidas%20sobre%20os%20planos"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-primary hover:underline mt-3 inline-block"
+          >
+            Dúvidas? Fale conosco
+          </a>
+        </div>
+      </section>
     </div>
   );
 }

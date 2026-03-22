@@ -19,6 +19,9 @@ export interface SubscriptionPlan {
   priority_support: boolean;
   features: Record<string, any> | null;
   display_order: number;
+  plan_type?: string;
+  trial_days?: number;
+  discount_percent?: number;
 }
 
 export interface Subscription {
@@ -56,7 +59,9 @@ export interface BillingPayment {
   paid_at: string | null;
 }
 
-export type PlanLine = "marketplace" | "erp" | "combo";
+export type PlanLine = "marketplace" | "erp" | "combo" | "main";
+
+const PLAN_ORDER = ['gratuito', 'starter', 'essencial', 'profissional', 'business'];
 
 export function getPlanLine(plan: SubscriptionPlan | null | undefined): PlanLine | null {
   if (!plan?.features) return null;
@@ -65,29 +70,16 @@ export function getPlanLine(plan: SubscriptionPlan | null | undefined): PlanLine
 
 export function hasFeature(plan: SubscriptionPlan | null | undefined, key: string): boolean {
   if (!plan?.features) return false;
-  const features = plan.features as Record<string, any>;
-  // For combo plans, check both marketplace and erp sub-objects
-  if (features.line === "combo") {
-    if (features.marketplace?.[key]) return true;
-    if (features.erp?.[key]) return true;
-    return false;
-  }
-  return !!features[key];
+  const val = (plan.features as Record<string, any>)[key];
+  return val === true || (typeof val === 'number' && val !== 0);
 }
 
-export function getFeatureLimit(plan: SubscriptionPlan | null | undefined, key: string): number | null {
+export function getFeatureLimit(plan: SubscriptionPlan | null | undefined, key: string): number {
   if (!plan?.features) return 0;
-  const features = plan.features as Record<string, any>;
-  // For combo plans, check both sub-objects and return max
-  if (features.line === "combo") {
-    const mpVal = features.marketplace?.[key];
-    const erpVal = features.erp?.[key];
-    if (mpVal === null || erpVal === null) return null; // null = unlimited
-    return Math.max(mpVal ?? 0, erpVal ?? 0);
-  }
-  const val = features[key];
-  if (val === null) return null; // null = unlimited
-  return typeof val === "number" ? val : 0;
+  const val = (plan.features as Record<string, any>)[key];
+  if (val === -1 || val === true) return Infinity;
+  if (typeof val === 'number') return val;
+  return 0;
 }
 
 export function useSubscription({ enabled = false }: { enabled?: boolean } = {}) {
@@ -239,13 +231,72 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
   const checkFeature = useCallback((key: string) => hasFeature(currentPlan, key), [currentPlan]);
   const checkLimit = useCallback((key: string) => getFeatureLimit(currentPlan, key), [currentPlan]);
 
-  // Helpers to group plans by line
+  // Plan groupings
+  const mainPlans = plans.filter(p => (p as any).plan_type !== 'addon');
+  const addonPlans = plans.filter(p => (p as any).plan_type === 'addon');
+
+  // Legacy groupings (kept for backward compat)
   const marketplacePlans = plans.filter(p => (p.features as any)?.line === "marketplace");
   const erpPlans = plans.filter(p => (p.features as any)?.line === "erp");
   const comboPlans = plans.filter(p => (p.features as any)?.line === "combo");
 
+  // --- New helpers ---
+  const getAiCreditsLimit = useCallback(() => checkLimit('ai_credits_limit'), [checkLimit]);
+  const getStorageLimitMB = useCallback(() => checkLimit('max_storage_mb'), [checkLimit]);
+
+  const isWithinLimit = useCallback((key: string, currentCount: number) => {
+    const limit = checkLimit(key);
+    return limit === Infinity || currentCount < limit;
+  }, [checkLimit]);
+
+  const isTrialActive = useCallback(() => {
+    if (!subscription) return false;
+    const trialEnd = subscription.trial_end;
+    if (!trialEnd) return false;
+    return new Date(trialEnd) > new Date();
+  }, [subscription]);
+
+  const getTrialDaysRemaining = useCallback(() => {
+    if (!isTrialActive()) return 0;
+    const end = new Date(subscription!.trial_end!);
+    const now = new Date();
+    return Math.max(0, Math.ceil((end.getTime() - now.getTime()) / 86400000));
+  }, [isTrialActive, subscription]);
+
+  const getCurrentPlanSlug = useCallback(() => {
+    return subscription?.plan?.slug ?? 'gratuito';
+  }, [subscription]);
+
+  const canUpgradeTo = useCallback((planSlug: string) => {
+    return PLAN_ORDER.indexOf(planSlug) > PLAN_ORDER.indexOf(getCurrentPlanSlug());
+  }, [getCurrentPlanSlug]);
+
+  const getDiscountPercent = useCallback(() => {
+    return (subscription?.plan as any)?.discount_percent ?? 0;
+  }, [subscription]);
+
+  const getDiscountedPrice = useCallback((priceMonthly: number) => {
+    const disc = getDiscountPercent();
+    if (disc <= 0) return priceMonthly;
+    return Math.round(priceMonthly * (1 - disc / 100));
+  }, [getDiscountPercent]);
+
+  const getSupportLevel = useCallback(() => {
+    return (subscription?.plan?.features as any)?.support_level ?? 'chat_ai';
+  }, [subscription]);
+
+  const canBuyAddon = useCallback((addonType: string) => {
+    return (subscription?.plan?.features as any)?.['can_buy_addon_' + addonType] === true;
+  }, [subscription]);
+
+  const getExtraUserPrice = useCallback(() => {
+    return (subscription?.plan?.features as any)?.extra_user_price ?? 0;
+  }, [subscription]);
+
   return {
     plans,
+    mainPlans,
+    addonPlans,
     marketplacePlans,
     erpPlans,
     comboPlans,
@@ -263,5 +314,18 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
     currentPlan,
     hasFeature: checkFeature,
     getFeatureLimit: checkLimit,
+    // New helpers
+    getAiCreditsLimit,
+    getStorageLimitMB,
+    isWithinLimit,
+    isTrialActive,
+    getTrialDaysRemaining,
+    getCurrentPlanSlug,
+    canUpgradeTo,
+    getDiscountPercent,
+    getDiscountedPrice,
+    getSupportLevel,
+    canBuyAddon,
+    getExtraUserPrice,
   };
 }

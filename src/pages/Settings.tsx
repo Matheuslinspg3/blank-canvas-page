@@ -27,6 +27,7 @@ import { TeamInviteSection } from "@/components/settings/TeamInviteSection";
 import { PlatformInviteSection } from "@/components/settings/PlatformInviteSection";
 
 import { VerificationSection } from "@/components/settings/VerificationSection";
+import { BillingTab } from "@/components/settings/BillingTab";
 import { ChangelogSection } from "@/components/settings/ChangelogSection";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
@@ -351,6 +352,7 @@ export default function Settings() {
               {isDeveloperOrLeader && (
                 <TabsTrigger value="clients" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><Megaphone className="h-4 w-4 shrink-0" /><span>Clientes</span></TabsTrigger>
               )}
+              <TabsTrigger value="billing" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><CreditCard className="h-4 w-4 shrink-0" /><span>Assinatura</span></TabsTrigger>
               <TabsTrigger value="support" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><MessageSquare className="h-4 w-4 shrink-0" /><span>Suporte</span></TabsTrigger>
             </TabsList>
           </div>
@@ -812,6 +814,10 @@ export default function Settings() {
               </div>
             </TabsContent>
           )}
+
+          <TabsContent value="billing">
+            <BillingTab />
+          </TabsContent>
 
           <TabsContent value="support">
             <div className="grid gap-6 max-w-2xl">
