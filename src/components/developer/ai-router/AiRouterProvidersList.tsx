@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,15 +6,28 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Plus, RotateCcw, AlertTriangle, Eye, EyeOff, Zap, ExternalLink, Key, Trash2 } from "lucide-react";
+import { Loader2, Plus, RotateCcw, AlertTriangle, Eye, EyeOff, Zap, ExternalLink, Key, Trash2, Search } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useAiRouterProviders, type AiRouterProvider } from "@/hooks/useAiRouterProviders";
+import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+
+// ── Types ──
+
+interface DiscoveredModel {
+  id: string;
+  name: string;
+  is_free: boolean;
+  supports_image_input: boolean;
+  supports_image_output: boolean;
+  context_window?: number;
+}
 
 // ── First-use banner ──
 
@@ -56,7 +69,52 @@ function NoKeysBanner({ providers }: { providers: AiRouterProvider[] }) {
   );
 }
 
-// ── API Key modal ──
+// ── Model list item ──
+
+function ModelListItem({
+  model,
+  selected,
+  onSelect,
+}: {
+  model: DiscoveredModel;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      onClick={onSelect}
+      className={`w-full text-left p-2.5 rounded-md border transition-colors text-sm ${
+        selected
+          ? "border-primary bg-primary/5"
+          : "border-border hover:border-primary/40 hover:bg-muted/50"
+      }`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-medium truncate">{model.id}</span>
+        <div className="flex items-center gap-1 shrink-0">
+          {model.is_free ? (
+            <Badge className="bg-green-500/10 text-green-700 text-[10px]">free</Badge>
+          ) : (
+            <Badge variant="secondary" className="text-[10px]">pago</Badge>
+          )}
+          {model.supports_image_input && (
+            <Badge variant="outline" className="text-[10px]">👁️ vision</Badge>
+          )}
+          {model.supports_image_output && (
+            <Badge variant="outline" className="text-[10px]">🖼️ img</Badge>
+          )}
+        </div>
+      </div>
+      {model.context_window && (
+        <p className="text-[10px] text-muted-foreground mt-0.5">
+          Context: {(model.context_window / 1000).toFixed(0)}k tokens
+        </p>
+      )}
+    </button>
+  );
+}
+
+// ── API Key modal with model discovery ──
 
 function ApiKeyModal({
   provider,
@@ -72,11 +130,74 @@ function ApiKeyModal({
   const [showKey, setShowKey] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
+  // Model discovery state
+  const [models, setModels] = useState<DiscoveredModel[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [modelsError, setModelsError] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  const [modelFilter, setModelFilter] = useState("");
+
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!open) {
+      setApiKey("");
+      setShowKey(false);
+      setTestResult(null);
+      setModels([]);
+      setModelsError(null);
+      setSelectedModel(null);
+      setModelFilter("");
+    }
+  }, [open]);
+
+  // Auto-discover models when API key is pasted (debounced)
+  const discoverModels = useCallback(async (key: string, providerType: string) => {
+    if (!key || key.length < 10) {
+      setModels([]);
+      setModelsError(null);
+      return;
+    }
+
+    setModelsLoading(true);
+    setModelsError(null);
+    setModels([]);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("list-ai-models", {
+        body: { provider_type: providerType, api_key: key },
+      });
+
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error || "Falha ao listar modelos");
+
+      setModels(data.models || []);
+      if (data.models?.length === 0) {
+        setModelsError("Nenhum modelo encontrado para esta key.");
+      }
+    } catch (err: any) {
+      setModelsError(err.message || "Erro ao buscar modelos");
+      setModels([]);
+    } finally {
+      setModelsLoading(false);
+    }
+  }, []);
+
+  // Debounce API key input for model discovery
+  useEffect(() => {
+    if (!provider || !apiKey || apiKey.length < 10) return;
+
+    const timer = setTimeout(() => {
+      discoverModels(apiKey, provider.provider_type);
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [apiKey, provider?.provider_type, discoverModels]);
+
   const handleSave = () => {
     if (!provider) return;
     updateApiKey.mutate(
       { id: provider.id, api_key: apiKey },
-      { onSuccess: () => { onClose(); setApiKey(""); setTestResult(null); } }
+      { onSuccess: () => onClose() }
     );
   };
 
@@ -89,16 +210,25 @@ function ApiKeyModal({
     });
   };
 
+  const filteredModels = models.filter(
+    (m) =>
+      !modelFilter ||
+      m.id.toLowerCase().includes(modelFilter.toLowerCase()) ||
+      m.name.toLowerCase().includes(modelFilter.toLowerCase())
+  );
+
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) { onClose(); setApiKey(""); setTestResult(null); } }}>
-      <DialogContent className="max-w-md">
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Key className="h-4 w-4" />
             API Key — {provider?.display_name}
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
+
+        <div className="space-y-4 flex-1 overflow-y-auto pr-1">
+          {/* API Key input */}
           <div>
             <Label>API Key</Label>
             <div className="relative">
@@ -125,19 +255,81 @@ function ApiKeyModal({
             </p>
           )}
 
+          {/* Model discovery section */}
+          {apiKey.length >= 10 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Modelos disponíveis</Label>
+                {modelsLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+              </div>
+
+              {modelsError && (
+                <div className="text-xs p-2 rounded bg-red-500/10 text-red-700">
+                  {modelsError}
+                </div>
+              )}
+
+              {models.length > 0 && (
+                <>
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      value={modelFilter}
+                      onChange={(e) => setModelFilter(e.target.value)}
+                      placeholder="Filtrar modelos..."
+                      className="pl-8 h-8 text-xs"
+                    />
+                  </div>
+
+                  <p className="text-[10px] text-muted-foreground">
+                    {models.length} modelos encontrados · {models.filter(m => m.is_free).length} grátis
+                  </p>
+
+                  <ScrollArea className="h-[200px]">
+                    <div className="space-y-1.5 pr-2">
+                      {filteredModels.map((model) => (
+                        <ModelListItem
+                          key={model.id}
+                          model={model}
+                          selected={selectedModel === model.id}
+                          onSelect={() => setSelectedModel(model.id)}
+                        />
+                      ))}
+                      {filteredModels.length === 0 && (
+                        <p className="text-xs text-muted-foreground text-center py-4">
+                          Nenhum modelo corresponde ao filtro.
+                        </p>
+                      )}
+                    </div>
+                  </ScrollArea>
+
+                  {selectedModel && (
+                    <p className="text-xs text-primary">
+                      Modelo selecionado: <strong>{selectedModel}</strong>
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           {testResult && (
             <div className={`text-sm p-2 rounded ${testResult.ok ? "bg-green-500/10 text-green-700" : "bg-red-500/10 text-red-700"}`}>
               {testResult.msg}
             </div>
           )}
         </div>
-        <DialogFooter className="gap-2">
+
+        <DialogFooter className="gap-2 pt-2 border-t">
           <Button variant="outline" size="sm" onClick={handleTest} disabled={testProvider.isPending}>
             {testProvider.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Zap className="h-3.5 w-3.5 mr-1" />}
-            Testar Key
+            Testar
           </Button>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSave} disabled={!apiKey || updateApiKey.isPending}>Salvar</Button>
+          <Button onClick={handleSave} disabled={!apiKey || updateApiKey.isPending}>
+            {updateApiKey.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+            Salvar
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
