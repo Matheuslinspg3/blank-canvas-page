@@ -159,7 +159,7 @@ async function uploadDataUrlToCloudinary(dataUrl: string, folder: string, public
   return null;
 }
 
-async function convertSourceImageToPng(imageBase64: string, mimeType: string): Promise<Uint8Array | null> {
+async function convertSourceImageToPng(imageBase64: string, mimeType: string): Promise<Uint8Array<ArrayBuffer> | null> {
   const dataUrl = `data:${mimeType};base64,${imageBase64}`;
   const folder = "habitae/ai-router/source-conversions";
   const publicId = `src_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
@@ -174,7 +174,7 @@ async function convertSourceImageToPng(imageBase64: string, mimeType: string): P
     return null;
   }
 
-  const convertedBytes = new Uint8Array(await res.arrayBuffer());
+  const convertedBytes: Uint8Array<ArrayBuffer> = new Uint8Array(await res.arrayBuffer());
   const isPng = convertedBytes.length >= 4
     && convertedBytes[0] === 0x89
     && convertedBytes[1] === 0x50
