@@ -135,7 +135,7 @@ function calculateProviderScore(
 
 async function callGroq(
   provider: Provider, apiKey: string, prompt: string, systemPrompt: string | null,
-  maxTokens: number, temperature: number, _imageBase64?: string, signal?: AbortSignal
+  maxTokens: number, temperature: number, _imageBase64?: string, signal?: AbortSignal, _imageSize?: string,
 ) {
   const messages: any[] = [];
   if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
