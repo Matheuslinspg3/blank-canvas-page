@@ -24,6 +24,7 @@ interface Provider {
   model_id: string;
   env_secret_name: string;
   api_base_url: string;
+  api_key: string | null;
   is_free: boolean;
   is_active: boolean;
   supports_image_input: boolean;
@@ -40,6 +41,7 @@ interface RouterRequest {
   user_id?: string;
   max_tokens?: number;
   temperature?: number;
+  force_provider?: string;
 }
 
 interface RouterResponse {
@@ -308,7 +310,7 @@ Deno.serve(async (req) => {
 
     // Parse body
     const body: RouterRequest = await req.json();
-    const { task_type, prompt, image_base64 } = body;
+    const { task_type, prompt, image_base64, force_provider } = body;
 
     if (!task_type || !prompt) {
       return new Response(
@@ -331,7 +333,7 @@ Deno.serve(async (req) => {
         .single(),
       supabase
         .from("ai_router_providers")
-        .select("provider_key, provider_type, model_id, env_secret_name, api_base_url, is_free, is_active, supports_image_input, supports_image_output, consecutive_errors"),
+        .select("provider_key, provider_type, model_id, env_secret_name, api_base_url, api_key, is_free, is_active, supports_image_input, supports_image_output, consecutive_errors"),
     ]);
 
     if (configRes.error || !configRes.data) {
@@ -357,10 +359,15 @@ Deno.serve(async (req) => {
     const orgId = body.organization_id || null;
     const userId = body.user_id || authUserId;
 
-    // Provider chain
-    const chain: string[] = Array.isArray(config.provider_chain)
-      ? config.provider_chain
-      : JSON.parse(config.provider_chain as unknown as string);
+    // Provider chain — respect force_provider if set
+    let chain: string[];
+    if (force_provider) {
+      chain = [force_provider];
+    } else {
+      chain = Array.isArray(config.provider_chain)
+        ? config.provider_chain
+        : JSON.parse(config.provider_chain as unknown as string);
+    }
 
     const providersAttempted: string[] = [];
     let lastError = "";
@@ -371,10 +378,10 @@ Deno.serve(async (req) => {
       if (!provider.is_active) continue;
       if (provider.consecutive_errors > 10) continue;
 
-      // Check API key
-      const apiKey = Deno.env.get(provider.env_secret_name);
+      // Check API key: prefer api_key from DB, fallback to env secret
+      const apiKey = provider.api_key || Deno.env.get(provider.env_secret_name || '');
       if (!apiKey) {
-        console.warn(`[ai-router] Missing secret: ${provider.env_secret_name}`);
+        console.warn(`[ai-router] No API key for ${providerKey} (db or env:${provider.env_secret_name})`);
         continue;
       }
 

@@ -1,0 +1,1 @@
+ALTER VIEW ai_router_providers_safe SET (security_invoker = on);

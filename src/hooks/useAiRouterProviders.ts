@@ -21,6 +21,7 @@ export interface AiRouterProvider {
   consecutive_errors: number;
   notes: string | null;
   created_at: string;
+  has_api_key?: boolean;
 }
 
 export function useAiRouterProviders() {
@@ -29,8 +30,8 @@ export function useAiRouterProviders() {
   const query = useQuery({
     queryKey: ["ai-router-providers"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ai_router_providers")
+      const { data, error } = await (supabase as any)
+        .from("ai_router_providers_safe")
         .select("*")
         .order("provider_type")
         .order("display_name");
@@ -68,7 +69,7 @@ export function useAiRouterProviders() {
   });
 
   const createProvider = useMutation({
-    mutationFn: async (provider: Omit<AiRouterProvider, "id" | "created_at" | "last_error_at" | "consecutive_errors">) => {
+    mutationFn: async (provider: Omit<AiRouterProvider, "id" | "created_at" | "last_error_at" | "consecutive_errors" | "has_api_key">) => {
       const { error } = await supabase.from("ai_router_providers").insert(provider as any);
       if (error) throw error;
     },
@@ -79,5 +80,45 @@ export function useAiRouterProviders() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  return { providers: query.data || [], isLoading: query.isLoading, toggleActive, resetErrors, createProvider };
+  const updateApiKey = useMutation({
+    mutationFn: async ({ id, api_key }: { id: string; api_key: string }) => {
+      const { error } = await supabase
+        .from("ai_router_providers")
+        .update({ api_key } as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["ai-router-providers"] });
+      toast.success("API Key salva");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const testProvider = useMutation({
+    mutationFn: async (providerKey: string) => {
+      const startMs = Date.now();
+      const { data, error } = await supabase.functions.invoke("ai-router", {
+        body: {
+          task_type: "summarize",
+          prompt: "Responda apenas: OK",
+          force_provider: providerKey,
+        },
+      });
+      const latency = Date.now() - startMs;
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Falha no teste");
+      return { latency, provider: data.provider, model: data.model };
+    },
+  });
+
+  return {
+    providers: query.data || [],
+    isLoading: query.isLoading,
+    toggleActive,
+    resetErrors,
+    createProvider,
+    updateApiKey,
+    testProvider,
+  };
 }

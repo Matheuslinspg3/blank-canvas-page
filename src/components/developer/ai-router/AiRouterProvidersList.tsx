@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -9,10 +9,141 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Plus, RotateCcw, AlertTriangle } from "lucide-react";
+import { Loader2, Plus, RotateCcw, AlertTriangle, Eye, EyeOff, Zap, ExternalLink, Key } from "lucide-react";
 import { useAiRouterProviders, type AiRouterProvider } from "@/hooks/useAiRouterProviders";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
+
+// ── First-use banner ──
+
+function NoKeysBanner({ providers }: { providers: AiRouterProvider[] }) {
+  const anyHasKey = providers.some((p) => p.has_api_key);
+  if (anyHasKey || providers.length === 0) return null;
+
+  return (
+    <Card className="border-yellow-500/30 bg-yellow-500/5">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium text-sm">Nenhuma API key configurada</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              As features de IA não funcionarão até que ao menos uma key seja adicionada.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+              <ExternalLink className="h-3 w-3" /> Criar key Groq (grátis)
+            </Button>
+          </a>
+          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+              <ExternalLink className="h-3 w-3" /> Criar key Gemini (grátis)
+            </Button>
+          </a>
+          <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+              <ExternalLink className="h-3 w-3" /> Criar key OpenAI (pago)
+            </Button>
+          </a>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── API Key modal ──
+
+function ApiKeyModal({
+  provider,
+  open,
+  onClose,
+}: {
+  provider: AiRouterProvider | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const { updateApiKey, testProvider } = useAiRouterProviders();
+  const [apiKey, setApiKey] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  const handleSave = () => {
+    if (!provider) return;
+    updateApiKey.mutate(
+      { id: provider.id, api_key: apiKey },
+      { onSuccess: () => { onClose(); setApiKey(""); setTestResult(null); } }
+    );
+  };
+
+  const handleTest = () => {
+    if (!provider) return;
+    setTestResult(null);
+    testProvider.mutate(provider.provider_key, {
+      onSuccess: (res) => setTestResult({ ok: true, msg: `✅ Funcionando (${res.latency}ms)` }),
+      onError: (e: any) => setTestResult({ ok: false, msg: `❌ ${e.message}` }),
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) { onClose(); setApiKey(""); setTestResult(null); } }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Key className="h-4 w-4" />
+            API Key — {provider?.display_name}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label>API Key</Label>
+            <div className="relative">
+              <Input
+                type={showKey ? "text" : "password"}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Colar API key aqui"
+                className="pr-10"
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => setShowKey(!showKey)}
+              >
+                {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          {provider?.has_api_key && (
+            <p className="text-xs text-muted-foreground">
+              🟢 Já existe uma key configurada. Salvar irá substituí-la.
+            </p>
+          )}
+
+          {testResult && (
+            <div className={`text-sm p-2 rounded ${testResult.ok ? "bg-green-500/10 text-green-700" : "bg-red-500/10 text-red-700"}`}>
+              {testResult.msg}
+            </div>
+          )}
+        </div>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" size="sm" onClick={handleTest} disabled={testProvider.isPending}>
+            {testProvider.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Zap className="h-3.5 w-3.5 mr-1" />}
+            Testar Key
+          </Button>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={handleSave} disabled={!apiKey || updateApiKey.isPending}>Salvar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── New Provider Modal ──
 
 function NewProviderModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { createProvider } = useAiRouterProviders();
@@ -27,7 +158,12 @@ function NewProviderModal({ open, onClose }: { open: boolean; onClose: () => voi
 
   const handleSave = () => {
     if (!form.provider_key || !form.display_name || !form.model_id || !form.env_secret_name || !form.api_base_url) return;
-    createProvider.mutate(form as any, { onSuccess: () => { onClose(); setForm({ provider_type: "groq", is_free: true, is_active: true, priority: 50, supports_image_input: false, supports_image_output: false }); } });
+    createProvider.mutate(form as any, {
+      onSuccess: () => {
+        onClose();
+        setForm({ provider_type: "groq", is_free: true, is_active: true, priority: 50, supports_image_input: false, supports_image_output: false });
+      },
+    });
   };
 
   return (
@@ -61,7 +197,7 @@ function NewProviderModal({ open, onClose }: { open: boolean; onClose: () => voi
             <Input value={form.model_id || ""} onChange={(e) => setForm({ ...form, model_id: e.target.value })} />
           </div>
           <div>
-            <Label>Secret Name (env)</Label>
+            <Label>Secret Name (env fallback)</Label>
             <Input value={form.env_secret_name || ""} onChange={(e) => setForm({ ...form, env_secret_name: e.target.value })} placeholder="GROQ_KEY_C" />
           </div>
           <div>
@@ -102,9 +238,39 @@ function NewProviderModal({ open, onClose }: { open: boolean; onClose: () => voi
   );
 }
 
+// ── Key status badge ──
+
+function KeyStatusBadge({ provider }: { provider: AiRouterProvider }) {
+  if (provider.has_api_key) {
+    return <Badge className="bg-green-500/10 text-green-700 text-[10px]">🟢 Key configurada</Badge>;
+  }
+  if (provider.env_secret_name) {
+    return <Badge variant="outline" className="text-[10px] text-yellow-700 border-yellow-500/30">⚠️ Via Secret</Badge>;
+  }
+  return <Badge variant="destructive" className="text-[10px]">🔴 Sem key</Badge>;
+}
+
+// ── Main component ──
+
 export function AiRouterProviders() {
-  const { providers, isLoading, toggleActive, resetErrors } = useAiRouterProviders();
+  const { providers, isLoading, toggleActive, resetErrors, testProvider } = useAiRouterProviders();
   const [showNew, setShowNew] = useState(false);
+  const [keyModal, setKeyModal] = useState<AiRouterProvider | null>(null);
+  const [testingId, setTestingId] = useState<string | null>(null);
+
+  const handleTestProvider = (p: AiRouterProvider) => {
+    setTestingId(p.id);
+    testProvider.mutate(p.provider_key, {
+      onSuccess: (res) => {
+        toast.success(`✅ ${p.display_name}: OK (${res.latency}ms)`);
+        setTestingId(null);
+      },
+      onError: (e: any) => {
+        toast.error(`❌ ${p.display_name}: ${e.message}`);
+        setTestingId(null);
+      },
+    });
+  };
 
   if (isLoading) {
     return (
@@ -116,6 +282,8 @@ export function AiRouterProviders() {
 
   return (
     <div className="space-y-4">
+      <NoKeysBanner providers={providers} />
+
       <div className="flex justify-end">
         <Button size="sm" onClick={() => setShowNew(true)}>
           <Plus className="h-4 w-4 mr-1" /> Novo Provider
@@ -131,6 +299,7 @@ export function AiRouterProviders() {
                   <TableHead>Provider</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Modelo</TableHead>
+                  <TableHead>API Key</TableHead>
                   <TableHead>Free</TableHead>
                   <TableHead>Ativo</TableHead>
                   <TableHead>RPM / RPD</TableHead>
@@ -146,6 +315,11 @@ export function AiRouterProviders() {
                       <Badge variant="outline" className="text-[10px]">{p.provider_type}</Badge>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">{p.model_id}</TableCell>
+                    <TableCell>
+                      <button onClick={() => setKeyModal(p)} className="hover:opacity-80">
+                        <KeyStatusBadge provider={p} />
+                      </button>
+                    </TableCell>
                     <TableCell>
                       {p.is_free
                         ? <Badge className="bg-green-500/10 text-green-700 text-[10px]">free</Badge>
@@ -178,16 +352,27 @@ export function AiRouterProviders() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {p.consecutive_errors > 0 && (
+                      <div className="flex items-center gap-1">
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => resetErrors.mutate(p.id)}
-                          disabled={resetErrors.isPending}
+                          onClick={() => handleTestProvider(p)}
+                          disabled={testingId === p.id}
+                          title="Testar provider"
                         >
-                          <RotateCcw className="h-3.5 w-3.5" />
+                          {testingId === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
                         </Button>
-                      )}
+                        {p.consecutive_errors > 0 && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => resetErrors.mutate(p.id)}
+                            disabled={resetErrors.isPending}
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -198,6 +383,7 @@ export function AiRouterProviders() {
       </Card>
 
       <NewProviderModal open={showNew} onClose={() => setShowNew(false)} />
+      <ApiKeyModal provider={keyModal} open={!!keyModal} onClose={() => setKeyModal(null)} />
     </div>
   );
 }
