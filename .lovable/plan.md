@@ -1,50 +1,51 @@
 
+Objetivo: eliminar o 502 em `generate-property-art` quando o AI Router tenta editar imagem com OpenAI.
 
-## AI Router — Auditoria Completa e Correções
+1) Diagnóstico confirmado (sem alterar código ainda)
+- Erro real já identificado nos logs:
+  - `OpenAI image-edit 400: Invalid value ... Value must be 'dall-e-2'`
+- Causa: `ai-router` está enviando modelo incompatível para `/v1/images/edits` (hoje tenta `dall-e-3` ou forçou `gpt-image-1`), mas essa conta aceita apenas `dall-e-2` para edit.
 
-### Problemas Encontrados
+2) Correção principal no `supabase/functions/ai-router/index.ts`
+- Ajustar a lógica de `callOpenAI` (ramo de image edit) para:
+  - resolver modelo efetivo de edição com prioridade segura:
+    1. `provider.model_id` se já for compatível,
+    2. fallback para `dall-e-2` quando vier `dall-e-3`/`gpt-image-1`.
+- Normalizar tamanho quando o modelo efetivo for `dall-e-2`:
+  - aceitar apenas tamanhos suportados (mapear story/banner para `1024x1024` no edit para evitar novo 400 por size inválido).
+- Manter retorno padronizado (`image_base64`) para não quebrar `generate-property-art`.
 
-1. **`list-ai-models` sem `verify_jwt = false` no config.toml** — A Edge Function de descoberta de modelos não está no config.toml, causando rejeição 401 pelo gateway ao tentar criar novos providers no wizard.
+3) Hardening para evitar novo loop de falha
+- Adicionar retry controlado no `callOpenAI` para erros 400 de `invalid_value`:
+  - 1 tentativa extra com `model=dall-e-2` e size normalizado.
+- Melhorar logs internos no AI Router:
+  - logar `requested_model`, `effective_model`, `requested_size`, `effective_size`.
+  - isso acelera diagnóstico futuro sem adivinhação.
 
-2. **Função `upsertStats` morta (linhas 281-344 do ai-router)** — Nunca é chamada. Apenas `trackStats` é usado. Código morto poluindo o arquivo.
+4) Ajuste de consistência de configuração (DB)
+- Atualizar provider de arte no AI Router para refletir capacidade real:
+  - `ai_router_providers` do provider OpenAI de arte com `supports_image_input = true` (coerente com uso de edit).
+- Revisar `ai_router_config.generate_art` e cadeia para evitar selecionar provider incompatível em futuras mudanças.
+- Observação: não muda fluxo do usuário, só evita regressão de roteamento.
 
-3. **RPD Progress bar com classes Tailwind dinâmicas** — `[&>div]:${rpdColor(rpdPct)}` gera classes como `[&>div]:bg-red-500` dinamicamente, que o Tailwind não detecta no build. A barra ficará sem cor.
+5) Validação pós-implementação (E2E)
+- Testar geração real no fluxo `/marketing?section=artes` com 1 imóvel/foto.
+- Critérios de aceite:
+  - não retornar 502;
+  - ao menos `url_feed` gerada;
+  - logs do `ai-router` sem `invalid_value` de model.
+- Confirmar também `generated_arts` gravando registro e UI exibindo resultado sem tela em branco.
 
-4. **Score Progress bar usa `--progress-color` CSS variable** — O componente `Progress` (shadcn) usa `bg-primary` hardcoded no Indicator, ignorando qualquer CSS variable custom. A cor do score não funciona.
-
-5. **`trackStats` com race condition** — Padrão read-then-write sob concorrência perde dados (duas requests simultâneas leem o mesmo valor, ambas escrevem +1 ao invés de +2). Deve usar uma DB function com operações atômicas.
-
-6. **`useAiRouterProviderStats` usa `(supabase as any)`** — A tabela `ai_router_provider_stats` já existe no types.ts, então o cast para `any` é desnecessário e perde type safety.
-
----
-
-### Plano de Correção
-
-#### 1. Adicionar `list-ai-models` ao config.toml
-Adicionar `[functions.list-ai-models]` com `verify_jwt = false`.
-
-#### 2. Remover `upsertStats` morto do ai-router
-Deletar linhas 279-344 (a função `upsertStats` que nunca é chamada).
-
-#### 3. Criar DB function para stats atômicos
-Criar uma migration com uma função SQL `upsert_ai_router_stats` que faz INSERT...ON CONFLICT com incrementos atômicos. Substituir a lógica read-then-write do `trackStats` por uma chamada RPC.
-
-#### 4. Corrigir Progress bars no Overview
-- **RPD bar**: Usar `style` inline no Indicator ao invés de classes Tailwind dinâmicas. Para isso, criar um componente `ColorProgress` que aceita uma prop `indicatorColor`.
-- **Score bar**: Mesmo approach — usar `style` inline.
-
-#### 5. Remover cast `as any` no hook de stats
-Usar o tipo correto do Supabase client.
-
----
-
-### Arquivos Modificados
-
-| Arquivo | Mudança |
-|---|---|
-| `supabase/config.toml` | Adicionar `list-ai-models` com verify_jwt = false |
-| `supabase/functions/ai-router/index.ts` | Remover `upsertStats`; substituir `trackStats` por chamada RPC |
-| Migration SQL | Criar function `upsert_ai_router_stats` atômica |
-| `src/components/developer/ai-router/AiRouterOverview.tsx` | Corrigir Progress bars com cores inline |
-| `src/hooks/useAiRouterProviderStats.ts` | Remover cast `as any` desnecessário |
-
+Se aprovado, implemento nessa ordem: (1) patch do `ai-router` → (2) ajuste de config/provider → (3) validação E2E e confirmação nos logs.
+  
+Se você quiser, no mesmo pacote eu já incluo uma melhoria opcional: fallback visual para story/banner quando o provider só suportar edit quadrado (evita “Não disponível”).
+  
+Seção técnica (resumo)
+- Arquivo principal: `supabase/functions/ai-router/index.ts`
+- Ponto exato: função `callOpenAI(...)`, bloco `if (isImageModel && imageBase64)`
+- Falha atual observada:
+  - `model=dall-e-3` em `/images/edits` (inválido)
+  - `model=gpt-image-1` em `/images/edits` (inválido nesta conta)
+- Comportamento alvo:
+  - edição sempre com modelo aceito pela conta (`dall-e-2`)
+  - size edit compatível, sem quebrar retorno para `generate-property-art`
