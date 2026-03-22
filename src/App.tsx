@@ -46,6 +46,7 @@ const Integrations = lazy(() => import("./pages/Integrations"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const AccessDenied = lazy(() => import("./pages/AccessDenied"));
 const PlatformSignup = lazy(() => import("./pages/PlatformSignup"));
+const OnboardingWizard = lazy(() => import("./pages/OnboardingWizard"));
 const Install = lazy(() => import("./pages/Install"));
 const Automations = lazy(() => import("./pages/Automations"));
 const _Activities = lazy(() => import("./pages/Activities")); // embedded in Administration
@@ -118,8 +119,11 @@ const App = () => (
                     <Routes>
                       <Route path="/manutencao" element={<Maintenance />} />
                       <Route path="/auth" element={<Auth />} />
+                      <Route path="/cadastro" element={<Auth />} />
                       <Route path="/convite/:id" element={<AcceptInvite />} />
                       <Route path="/cadastro/:id" element={<PlatformSignup />} />
+                      <Route path="/onboarding" element={<ProtectedRoute><OnboardingWizard /></ProtectedRoute>} />
+                      <Route path="/demo" element={<Demo />} />
                       <Route path="/demo" element={<Demo />} />
                       <Route path="/imovel/:id" element={<PropertyLandingPage />} />
                       <Route path="/instalar" element={<Install />} />
