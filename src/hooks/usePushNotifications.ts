@@ -231,7 +231,7 @@ export function usePushNotifications() {
       toast.success("Notificações push desativadas");
     } catch (e) {
       console.error("Push unsubscribe error:", e);
-      toast.error("Erro ao desativar push");
+      toastError("Erro ao desativar push", e, { module: "usePushNotifications" });
     } finally {
       setIsLoading(false);
     }

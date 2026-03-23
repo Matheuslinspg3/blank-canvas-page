@@ -189,7 +189,7 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
 
     setSending(false);
     if (error) {
-      toast.error("Erro ao enviar ticket: " + error.message);
+      toastError("Erro ao enviar ticket", error, { module: "SupportTicketDialog" });
     }
   };
 
