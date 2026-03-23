@@ -12,7 +12,9 @@ const HASH_SIZE = 9; // 9x8 grid → 8x8 = 64-bit hash
 function loadImageData(file: File): Promise<ImageData> {
   return new Promise((resolve, reject) => {
     const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
     img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
       const canvas = document.createElement("canvas");
       canvas.width = HASH_SIZE;
       canvas.height = HASH_SIZE - 1; // 8 rows
@@ -21,8 +23,11 @@ function loadImageData(file: File): Promise<ImageData> {
       ctx.drawImage(img, 0, 0, HASH_SIZE, HASH_SIZE - 1);
       resolve(ctx.getImageData(0, 0, HASH_SIZE, HASH_SIZE - 1));
     };
-    img.onerror = () => reject(new Error("Failed to load image"));
-    img.src = URL.createObjectURL(file);
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Failed to load image"));
+    };
+    img.src = objectUrl;
   });
 }
 

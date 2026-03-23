@@ -394,20 +394,23 @@ export function useImageUpload() {
     let failed = 0;
     let dupes = 0;
 
-    // Process in batches of 3 for parallelism
-    const BATCH_SIZE = 3;
+    // Process in batches of 2 for stability (avoids memory pressure on mobile)
+    const BATCH_SIZE = 2;
     for (let i = 0; i < files.length; i += BATCH_SIZE) {
       const batch = files.slice(i, i + BATCH_SIZE);
-      const batchResults = await Promise.all(
+      const batchResults = await Promise.allSettled(
         batch.map(file => uploadSingleImage(file, folder, options))
       );
 
       for (const result of batchResults) {
-        if (result) {
-          if (result.isDuplicate) dupes++;
-          results.push(result);
+        if (result.status === 'fulfilled' && result.value) {
+          if (result.value.isDuplicate) dupes++;
+          results.push(result.value);
         } else {
           failed++;
+          if (result.status === 'rejected') {
+            console.error('[UPLOAD] Batch item rejected:', result.reason);
+          }
         }
       }
 
