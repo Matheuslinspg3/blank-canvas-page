@@ -15,6 +15,7 @@ import { useMaintenanceMode } from "@/hooks/useMaintenanceMode";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
+import { PasswordStrengthIndicator, isPasswordStrong } from "@/components/PasswordStrengthIndicator";
 
 interface SignupPlan {
   id: string;
@@ -63,7 +64,7 @@ const validateDocument = (doc: string) => {
 const signupSchema = z.object({
   full_name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
   email: z.string().email("Email inválido"),
-  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres").refine(isPasswordStrong, "Senha muito fraca — atenda pelo menos 3 critérios"),
   company_name: z.string().min(2, "Nome da empresa obrigatório"),
   phone: z.string().min(14, "Telefone obrigatório (com DDD)"),
   document: z.string().refine(validateDocument, "CPF (11 dígitos) ou CNPJ (14 dígitos) inválido"),
@@ -174,26 +175,46 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
     }
 
     setIsLoading(true);
-    const { error } = await signUp({
-      email: signupForm.email,
-      password: signupForm.password,
-      name: signupForm.full_name,
-      phone: signupForm.phone,
-      document: signupForm.document.replace(/\D/g, ""),
-      accountType: signupForm.account_type,
-      companyName: signupForm.company_name,
-      selectedPlan: signupForm.selected_plan,
-    });
-    setIsLoading(false);
+    try {
+      const { error } = await signUp({
+        email: signupForm.email,
+        password: signupForm.password,
+        name: signupForm.full_name,
+        phone: signupForm.phone,
+        document: signupForm.document.replace(/\D/g, ""),
+        accountType: signupForm.account_type,
+        companyName: signupForm.company_name,
+        selectedPlan: signupForm.selected_plan,
+      });
 
-    if (error) {
-      const msg = error.message.includes("already been registered")
-        ? "Este email já está cadastrado. Faça login."
-        : error.message;
-      toast({ variant: "destructive", title: "Erro ao cadastrar", description: msg });
-    } else {
-      toast({ title: "Conta criada!", description: "Bem-vindo ao Porta do Corretor." });
-      // Auth state change will redirect automatically
+      if (error) {
+        const msg = error.message.includes("already been registered")
+          ? "Este email já está cadastrado. Faça login."
+          : error.message.includes("Telefone ou documento")
+          ? error.message
+          : error.message;
+        toast({ variant: "destructive", title: "Erro ao cadastrar", description: msg });
+        setIsLoading(false);
+        return;
+      }
+
+      // Auto-login after successful signup
+      const { error: loginError } = await signIn(signupForm.email, signupForm.password);
+      setIsLoading(false);
+
+      if (loginError) {
+        // If auto-login fails (e.g. email confirmation required), guide user
+        toast({
+          title: "Conta criada!",
+          description: "Verifique seu email para confirmar o cadastro e depois faça login.",
+        });
+      } else {
+        toast({ title: "Bem-vindo!", description: "Sua conta foi criada com sucesso." });
+        navigate("/dashboard", { replace: true });
+      }
+    } catch (err: any) {
+      setIsLoading(false);
+      toast({ variant: "destructive", title: "Erro ao cadastrar", description: err.message || "Erro inesperado." });
     }
   };
 
@@ -540,6 +561,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                <PasswordStrengthIndicator password={signupForm.password} />
                 {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
               </div>
 
