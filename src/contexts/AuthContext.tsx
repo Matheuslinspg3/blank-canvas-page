@@ -34,6 +34,7 @@ interface SignUpParams {
   phone: string;
   accountType: 'corretor_individual' | 'imobiliaria';
   companyName?: string;
+  selectedPlan?: string;
 }
 
 interface AuthContextType {
