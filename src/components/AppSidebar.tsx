@@ -67,6 +67,7 @@ export function AppSidebar() {
   const { isDeveloperOrLeader, isDeveloper, isAdminOrAbove } = useUserRoles();
   const currentPath = location.pathname;
   const { data: newAdLeadsCount = 0 } = useAdLeadsCount();
+  const setupPending = useSetupPendingCount();
   const qc = useQueryClient();
 
   // PERF: Prefetch route data on hover for faster navigation
