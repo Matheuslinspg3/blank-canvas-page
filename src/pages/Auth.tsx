@@ -95,6 +95,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
     password: "",
     company_name: "",
     phone: "",
+    document: "",
     account_type: "imobiliaria" as "imobiliaria" | "corretor_individual",
     selected_plan: "starter",
   });
