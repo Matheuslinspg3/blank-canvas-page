@@ -361,11 +361,13 @@ export default function ImportPendencies() {
 function PropertyRow({ 
   property, 
   selected, 
-  onToggle 
+  onToggle,
+  onMarkReviewed,
 }: { 
   property: IncompleteProperty; 
   selected: boolean; 
   onToggle: () => void;
+  onMarkReviewed: (id: string) => void;
 }) {
   const coverImage = property.property_images?.[0]?.url;
   const price = property.sale_price || property.rent_price;
