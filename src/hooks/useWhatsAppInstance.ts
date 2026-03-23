@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 
 const safeText = (value: unknown) => String(value ?? "").trim();
 
@@ -65,7 +66,7 @@ export function useWhatsAppInstance() {
       invalidate();
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Erro ao criar instância");
+      toastError("Erro ao criar instância WhatsApp", err, { module: "useWhatsAppInstance" });
     },
   });
 
@@ -83,7 +84,7 @@ export function useWhatsAppInstance() {
       invalidate();
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Erro ao conectar");
+      toastError("Erro ao conectar WhatsApp", err, { module: "useWhatsAppInstance" });
     },
   });
 
@@ -105,7 +106,7 @@ export function useWhatsAppInstance() {
       invalidate();
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Erro ao verificar status");
+      toastError("Erro ao verificar status WhatsApp", err, { module: "useWhatsAppInstance" });
     },
   });
 
@@ -123,7 +124,7 @@ export function useWhatsAppInstance() {
       invalidate();
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Erro ao desconectar");
+      toastError("Erro ao desconectar WhatsApp", err, { module: "useWhatsAppInstance" });
     },
   });
 
@@ -141,7 +142,7 @@ export function useWhatsAppInstance() {
       invalidate();
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Erro ao remover instância");
+      toastError("Erro ao remover instância WhatsApp", err, { module: "useWhatsAppInstance" });
     },
   });
 

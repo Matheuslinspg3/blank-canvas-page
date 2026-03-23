@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 
 export interface SubscriptionPlan {
   id: string;
@@ -168,7 +169,7 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
         toast.success("Assinatura ativada com sucesso!");
       }
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toastError("Erro ao criar assinatura", e, { module: "useSubscription" }),
   });
 
   const cancel = useMutation({
@@ -177,7 +178,7 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
       queryClient.invalidateQueries({ queryKey: ["subscription"] });
       toast.success("Assinatura cancelada");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toastError("Erro ao cancelar assinatura", e, { module: "useSubscription" }),
   });
 
   const renew = useMutation({
@@ -188,7 +189,7 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
       queryClient.invalidateQueries({ queryKey: ["billing-payments"] });
       toast.success("Assinatura renovada com sucesso!");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toastError("Erro ao renovar assinatura", e, { module: "useSubscription" }),
   });
 
   useEffect(() => {

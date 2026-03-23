@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 
 export const MODULE_LIST = [
   { key: "properties", label: "Imóveis", icon: "Home" },
@@ -79,7 +80,7 @@ export function useUpsertCustomRole() {
       queryClient.invalidateQueries({ queryKey: ["custom-roles"] });
       toast.success("Cargo salvo com sucesso");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toastError("Erro ao salvar cargo", e, { module: "useCustomRoles" }),
   });
 }
 
@@ -98,6 +99,6 @@ export function useDeleteCustomRole() {
       queryClient.invalidateQueries({ queryKey: ["custom-roles"] });
       toast.success("Cargo removido");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toastError("Erro ao remover cargo", e, { module: "useCustomRoles" }),
   });
 }

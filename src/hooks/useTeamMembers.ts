@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 
 export interface TeamMember {
   user_id: string;
@@ -83,7 +84,7 @@ export function useRemoveMember() {
       toast.success(`${data.name || "Membro"} removido da equipe`);
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Erro ao remover membro");
+      toastError("Erro ao remover membro", err, { module: "useTeamMembers" });
     },
   });
 }

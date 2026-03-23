@@ -22,6 +22,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { Bug, Loader2, MessageSquarePlus, Paperclip, X, FileText, Image as ImageIcon, Video } from "lucide-react";
 import { TicketChat } from "@/components/developer/TicketChat";
 
@@ -76,11 +77,11 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
 
   const handleSubmit = async () => {
     if (!subject.trim() || !description.trim()) {
-      toast.error("Preencha o assunto e a descrição");
+      toastError("Preencha o assunto e a descrição");
       return;
     }
     if (!user || !profile?.organization_id) {
-      toast.error("Você precisa estar logado");
+      toastError("Você precisa estar logado");
       return;
     }
 
@@ -188,7 +189,7 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
 
     setSending(false);
     if (error) {
-      toast.error("Erro ao enviar ticket: " + error.message);
+      toastError("Erro ao enviar ticket", error, { module: "SupportTicketDialog" });
     }
   };
 

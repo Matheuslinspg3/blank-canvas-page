@@ -14,6 +14,7 @@ import {
   getOneSignalInitFailure,
 } from "@/lib/onesignal";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 
 export function usePushNotifications() {
   const { user } = useAuth();
@@ -125,12 +126,14 @@ export function usePushNotifications() {
       const blockReason = getOneSignalRuntimeBlockReason();
       if (blockReason) {
         addDebug(`❌ Ambiente bloqueado: ${blockReason}`);
-        toast.error(
+        toastError(
           blockReason === "iframe"
             ? "Notificações push não funcionam no preview do Lovable (iframe). Teste na URL publicada."
             : blockReason === "ios-standalone-required"
               ? "No iPhone/iPad, push só funciona com o app instalado na Tela de Início (modo PWA)."
               : "Push exige HTTPS e contexto seguro. Abra o site publicado em https.",
+          undefined,
+          { module: "usePushNotifications" },
         );
         return false;
       }
@@ -141,11 +144,11 @@ export function usePushNotifications() {
         addDebug(`❌ SDK não ficou pronto${failure.reason ? ` (${failure.reason})` : ""}`);
 
         if (failure.reason === "domain-mismatch") {
-          toast.error("Push bloqueado: o OneSignal deste app está configurado para outro domínio. Atualize o Site URL/Allowed Origins no OneSignal para portadocorretor.com.br.");
+          toastError("Push bloqueado: OneSignal configurado para outro domínio", undefined, { module: "usePushNotifications" });
         } else if (failure.reason === "service-worker-invalid-state") {
-          toast.error("Conflito de Service Worker detectado. Recarregue a página e tente ativar novamente.");
+          toastError("Conflito de Service Worker detectado. Recarregue a página.", undefined, { module: "usePushNotifications", retryable: true });
         } else {
-          toast.error("Serviço de notificações indisponível. Tente recarregar a página.");
+          toastError("Serviço de notificações indisponível", undefined, { module: "usePushNotifications", retryable: true });
         }
         return false;
       }
@@ -193,22 +196,24 @@ export function usePushNotifications() {
       const diag = getDiagnostics();
       addDebug(`❌ Resultado: granted=${granted}, permission=${finalPerm}`);
       if (finalPerm === "denied") {
-        toast.error("Permissão de notificação bloqueada. Verifique as configurações do navegador.");
+        toastError("Permissão de notificação bloqueada pelo navegador", undefined, { module: "usePushNotifications" });
       } else {
         const reason = String(diag.initFailureReason || "");
-        toast.error(
+        toastError(
           reason === "push-permission-denied"
-            ? "Inscrição push negada pelo navegador (comum em aba anônima/incógnito). Use aba normal e tente novamente."
+            ? "Inscrição push negada pelo navegador"
             : reason === "service-worker-path-invalid"
-              ? "Falha no caminho do Service Worker de push. Recarregue a página e tente novamente."
-              : "Não foi possível ativar notificações. Tente novamente.",
+              ? "Falha no Service Worker de push"
+              : "Não foi possível ativar notificações",
+          undefined,
+          { module: "usePushNotifications", retryable: true },
         );
       }
       return false;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "erro desconhecido";
       addDebug(`❌ Erro: ${msg}`);
-      toast.error("Erro ao ativar push: " + msg);
+      toastError("Erro ao ativar push", e, { module: "usePushNotifications" });
       return false;
     } finally {
       setIsLoading(false);
@@ -226,7 +231,7 @@ export function usePushNotifications() {
       toast.success("Notificações push desativadas");
     } catch (e) {
       console.error("Push unsubscribe error:", e);
-      toast.error("Erro ao desativar push");
+      toastError("Erro ao desativar push", e, { module: "usePushNotifications" });
     } finally {
       setIsLoading(false);
     }
