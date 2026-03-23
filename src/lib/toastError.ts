@@ -1,5 +1,4 @@
 import { toast } from "sonner";
-import { toastError } from "@/lib/toastError";
 import * as Sentry from "@sentry/react";
 
 /**
