@@ -516,31 +516,33 @@ export default function Plans() {
       </section>
 
       {/* ─── FINAL CTA ─── */}
-      <section className="bg-muted/30 border-t">
-        <div className="max-w-3xl mx-auto px-4 py-16 text-center">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-3">
-            Pronto para transformar sua imobiliária?
-          </h2>
-          <p className="text-muted-foreground mb-8">
-            Comece grátis e teste por 15 dias sem compromisso
-          </p>
-          <Button size="lg" className="text-base px-8 py-6 shadow-lg" onClick={() => navigate("/auth")}>
-            Criar conta grátis
-            <ArrowRight className="h-5 w-5 ml-2" />
-          </Button>
-          <p className="text-xs text-muted-foreground mt-4">
-            Sem cartão · Sem compromisso · Cancele quando quiser
-          </p>
-          <a
-            href="https://wa.me/5511999999999?text=Ol%C3%A1%2C%20tenho%20d%C3%BAvidas%20sobre%20os%20planos"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-primary hover:underline mt-3 inline-block"
-          >
-            Dúvidas? Fale conosco
-          </a>
-        </div>
-      </section>
+      {!isLoggedIn && (
+        <section className="bg-muted/30 border-t">
+          <div className="max-w-3xl mx-auto px-4 py-16 text-center">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-3">
+              Pronto para transformar sua imobiliária?
+            </h2>
+            <p className="text-muted-foreground mb-8">
+              Comece grátis e teste por 15 dias sem compromisso
+            </p>
+            <Button size="lg" className="text-base px-8 py-6 shadow-lg" onClick={() => navigate("/auth")}>
+              Criar conta grátis
+              <ArrowRight className="h-5 w-5 ml-2" />
+            </Button>
+            <p className="text-xs text-muted-foreground mt-4">
+              Sem cartão · Sem compromisso · Cancele quando quiser
+            </p>
+            <a
+              href="https://wa.me/5511999999999?text=Ol%C3%A1%2C%20tenho%20d%C3%BAvidas%20sobre%20os%20planos"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-primary hover:underline mt-3 inline-block"
+            >
+              Dúvidas? Fale conosco
+            </a>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
