@@ -34,6 +34,7 @@ interface SignUpParams {
   phone: string;
   accountType: 'corretor_individual' | 'imobiliaria';
   companyName?: string;
+  selectedPlan?: string;
 }
 
 interface AuthContextType {
@@ -202,10 +203,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = useCallback(async ({ email, password, name, phone, accountType, companyName }: SignUpParams) => {
+  const signUp = useCallback(async ({ email, password, name, phone, accountType, companyName, selectedPlan }: SignUpParams) => {
     const redirectUrl = `${window.location.origin}/`;
     
-    // Trigger no banco de dados vai criar organização/perfil/role automaticamente
+    // Trigger no banco de dados vai criar organização/perfil/role/subscription automaticamente
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -216,6 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           phone: phone,
           account_type: accountType,
           company_name: companyName,
+          selected_plan: selectedPlan || 'gratuito',
         }
       }
     });
