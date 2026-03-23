@@ -9,7 +9,7 @@ const corsHeaders = {
 const CRAWLER_RE =
   /facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|Slackbot|TelegramBot|Googlebot|bingbot|Discordbot|PinterestBot/i;
 
-const SITE_URL = "https://portadocorretor.com.br";
+const SITE_URL = Deno.env.get("APP_URL") || "https://portadocorretor.com.br";
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og-cover.png`;
 const SITE_NAME = "Porta do Corretor";
 

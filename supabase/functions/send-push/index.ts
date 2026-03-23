@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const APP_URL = Deno.env.get("APP_URL")?.trim() || "https://habitae1.lovable.app";
+    const APP_URL = Deno.env.get("APP_URL")?.trim() || "https://portadocorretor.com.br";
     const webUrl = entity_type && entity_id
       ? `${APP_URL}${getEntityLink(entity_type, entity_id)}`
       : `${APP_URL}/dashboard`;
