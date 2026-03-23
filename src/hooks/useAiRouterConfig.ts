@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 
 export interface AiRouterTask {
   id: string;
@@ -47,7 +48,7 @@ export function useAiRouterConfig() {
       qc.invalidateQueries({ queryKey: ["ai-router-config"] });
       toast.success("Task atualizada");
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e) => toastError("Erro ao atualizar task", e, { module: "useAiRouterConfig" }),
   });
 
   const createTask = useMutation({
@@ -59,7 +60,7 @@ export function useAiRouterConfig() {
       qc.invalidateQueries({ queryKey: ["ai-router-config"] });
       toast.success("Task criada");
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e) => toastError("Erro ao criar task", e, { module: "useAiRouterConfig" }),
   });
 
   const toggleActive = useMutation({
@@ -71,7 +72,7 @@ export function useAiRouterConfig() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ai-router-config"] }),
-    onError: (e: any) => toast.error(e.message),
+    onError: (e) => toastError("Erro ao alternar task", e, { module: "useAiRouterConfig" }),
   });
 
   return { tasks: query.data || [], isLoading: query.isLoading, updateTask, createTask, toggleActive };

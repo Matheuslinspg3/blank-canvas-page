@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { PropertyFilters } from './usePropertyFilters';
 import { toast } from 'sonner';
+import { toastError } from '@/lib/toastError';
 
 interface SavedSearch {
   id: string;
@@ -50,7 +51,7 @@ export function useSavedSearches() {
       queryClient.invalidateQueries({ queryKey: ['saved-searches'] });
       toast.success('Busca salva com sucesso!');
     },
-    onError: () => toast.error('Erro ao salvar busca'),
+    onError: (e) => toastError('Erro ao salvar busca', e, { module: 'useSavedSearches' }),
   });
 
   const deleteSearch = useMutation({
@@ -62,7 +63,7 @@ export function useSavedSearches() {
       queryClient.invalidateQueries({ queryKey: ['saved-searches'] });
       toast.success('Busca removida');
     },
-    onError: () => toast.error('Erro ao remover busca'),
+    onError: (e) => toastError('Erro ao remover busca', e, { module: 'useSavedSearches' }),
   });
 
   return {

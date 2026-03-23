@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 
 export interface AiRouterProvider {
   id: string;
@@ -50,7 +51,7 @@ export function useAiRouterProviders() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ai-router-providers"] }),
-    onError: (e: any) => toast.error(e.message),
+    onError: (e) => toastError("Erro ao alternar provider", e, { module: "useAiRouterProviders" }),
   });
 
   const resetErrors = useMutation({
@@ -65,7 +66,7 @@ export function useAiRouterProviders() {
       qc.invalidateQueries({ queryKey: ["ai-router-providers"] });
       toast.success("Erros resetados");
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e) => toastError("Erro ao resetar erros", e, { module: "useAiRouterProviders" }),
   });
 
   const createProvider = useMutation({
@@ -77,7 +78,7 @@ export function useAiRouterProviders() {
       qc.invalidateQueries({ queryKey: ["ai-router-providers"] });
       toast.success("Provider criado");
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e) => toastError("Erro ao criar provider", e, { module: "useAiRouterProviders" }),
   });
 
   const updateApiKey = useMutation({
@@ -92,7 +93,7 @@ export function useAiRouterProviders() {
       qc.invalidateQueries({ queryKey: ["ai-router-providers"] });
       toast.success("API Key salva");
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e) => toastError("Erro ao salvar API Key", e, { module: "useAiRouterProviders" }),
   });
 
   const updateProvider = useMutation({
@@ -107,7 +108,7 @@ export function useAiRouterProviders() {
       qc.invalidateQueries({ queryKey: ["ai-router-providers"] });
       toast.success("Provider atualizado");
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e) => toastError("Erro ao atualizar provider", e, { module: "useAiRouterProviders" }),
   });
 
   const deleteProvider = useMutation({
@@ -122,12 +123,11 @@ export function useAiRouterProviders() {
       qc.invalidateQueries({ queryKey: ["ai-router-providers"] });
       toast.success("Provider removido");
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e) => toastError("Erro ao remover provider", e, { module: "useAiRouterProviders" }),
   });
 
   const testProvider = useMutation({
     mutationFn: async (providerKey: string) => {
-      // Find the provider to determine if it's an image model
       const provider = query.data?.find(p => p.provider_key === providerKey);
       const isImageProvider = provider?.supports_image_output && !provider?.supports_image_input;
       
