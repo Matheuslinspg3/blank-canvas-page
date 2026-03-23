@@ -379,7 +379,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                         <span className="text-xs text-muted-foreground">
                           {plan.price_monthly === 0
                             ? "Grátis"
-                            : `R$ ${plan.price_monthly.toFixed(2)}/mês`}
+                            : `R$ ${(plan.price_monthly / 100).toFixed(2)}/mês`}
                         </span>
                         {trialDays > 0 && (
                           <Badge variant="secondary" className="text-[10px] px-1.5 py-0 mt-0.5">
