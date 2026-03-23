@@ -81,7 +81,7 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
       return;
     }
     if (!user || !profile?.organization_id) {
-      toast.error("Você precisa estar logado");
+      toastError("Você precisa estar logado");
       return;
     }
 
