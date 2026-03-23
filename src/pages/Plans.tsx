@@ -306,8 +306,14 @@ export default function Plans() {
                   </div>
                   <h3 className="text-xl font-bold">{plan.name}</h3>
                   <div className="mt-2">
+                    {showStrikethrough && (
+                      <span className="text-lg text-muted-foreground line-through mr-2">R${fmt(originalPrice)}</span>
+                    )}
                     <span className="text-3xl font-bold">R${fmt(monthlyPrice)}</span>
                     <span className="text-muted-foreground text-sm">/mês</span>
+                    {showStrikethrough && (
+                      <Badge className="ml-2 bg-green-500/15 text-green-600 border-green-500/20 text-xs">-{DISCOUNT_PCT}%</Badge>
+                    )}
                   </div>
                   {annual && plan.price_yearly > 0 && (
                     <p className="text-xs text-muted-foreground mt-1">
