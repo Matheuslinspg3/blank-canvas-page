@@ -16,6 +16,7 @@ import { useSubscription, SubscriptionPlan } from "@/hooks/useSubscription";
 import { useAuth } from "@/contexts/AuthContext";
 import { QrCode, Copy, Check, Loader2, CreditCard, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { cn } from "@/lib/utils";
 
 interface CheckoutDialogProps {
@@ -59,11 +60,11 @@ export function CheckoutDialog({ open, onOpenChange, plan }: CheckoutDialogProps
 
   const handleSubmit = async () => {
     if (!customerCpf.replace(/\D/g, "")) {
-      toast.error("Informe seu CPF ou CNPJ");
+      toastError("Informe seu CPF ou CNPJ", undefined, { module: "CheckoutDialog" });
       return;
     }
     if (!customerName.trim()) {
-      toast.error("Informe seu nome completo");
+      toastError("Informe seu nome completo", undefined, { module: "CheckoutDialog" });
       return;
     }
 

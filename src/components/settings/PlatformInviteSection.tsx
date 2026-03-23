@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { Copy, Loader2, Megaphone, Trash2, ExternalLink } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUserRoles } from "@/hooks/useUserRole";
@@ -80,7 +81,7 @@ export function PlatformInviteSection() {
       }
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Erro ao criar convite");
+      toastError("Erro ao criar convite", err, { module: "PlatformInviteSection" });
     },
   });
 

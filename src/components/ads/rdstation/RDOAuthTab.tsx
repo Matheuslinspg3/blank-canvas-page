@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Globe, Download, CheckCircle2, AlertTriangle, Users } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,7 +45,7 @@ export default function RDOAuthTab() {
     try {
       const { data, error } = await supabase.functions.invoke("rd-station-app-id");
       if (error || !data?.client_id) {
-        toast.error("Erro ao obter Client ID do RD Station.");
+        toastError("Erro ao obter Client ID do RD Station.", undefined, { module: "RDOAuthTab" });
         setIsConnectingOAuth(false);
         return;
       }
@@ -55,7 +56,7 @@ export default function RDOAuthTab() {
       const authUrl = `https://api.rd.services/auth/dialog?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;
       window.location.href = authUrl;
     } catch (err: any) {
-      toast.error("Erro ao iniciar conexão OAuth.");
+      toastError("Erro ao iniciar conexão OAuth.", undefined, { module: "RDOAuthTab" });
       setIsConnectingOAuth(false);
     }
   };
@@ -78,7 +79,7 @@ export default function RDOAuthTab() {
       queryClient.invalidateQueries({ queryKey: ["rd-station-settings"] });
       toast.success("Conexão OAuth desconectada.");
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toastError("Erro na operação", e, { module: "RDOAuthTab" }),
   });
 
   if (!settings) return null;

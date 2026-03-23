@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Send, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { getPushErrorDetails, getPushErrorMessage, type PushErrorDetails } from "@/lib/pushErrors";
 
 export function SendPushCard() {
@@ -44,7 +45,7 @@ export function SendPushCard() {
 
   const handleSend = async () => {
     if (!title.trim() || !message.trim()) {
-      toast.error("Preencha título e mensagem");
+      toastError("Preencha título e mensagem", undefined, { module: "SendPushCard" });
       return;
     }
 

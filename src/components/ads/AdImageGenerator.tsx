@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import {
   ImagePlus, Download, Loader2, Upload, Check, Wand2,
   LayoutTemplate, Type, Sparkles, Bot, ChevronRight,
@@ -122,7 +123,7 @@ export function AdImageGenerator({
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      toast.error("Selecione um arquivo de imagem.");
+      toastError("Selecione um arquivo de imagem.", undefined, { module: "AdImageGenerator" });
       return;
     }
     setUploadedFile(file);
@@ -201,7 +202,7 @@ export function AdImageGenerator({
   // Single step generation (non-pipeline or individual step)
   const handleGenerateSingle = async () => {
     if (!hasBaseImage) {
-      toast.error("Selecione ou envie uma foto do imóvel.");
+      toastError("Selecione ou envie uma foto do imóvel.", undefined, { module: "AdImageGenerator" });
       return;
     }
     setLoading(true);
@@ -212,7 +213,7 @@ export function AdImageGenerator({
       toast.success("Imagem gerada com sucesso!");
     } catch (err: any) {
       console.error("Erro ao gerar imagem:", err);
-      toast.error(err.message || "Erro ao gerar imagem. Tente novamente.");
+      toastError("Erro ao gerar imagem. Tente novamente.", err, { module: "AdImageGenerator" });
     } finally {
       setLoading(false);
     }
@@ -221,7 +222,7 @@ export function AdImageGenerator({
   // Pipeline: execute next step
   const handlePipelineNext = async () => {
     if (!hasBaseImage) {
-      toast.error("Selecione ou envie uma foto do imóvel.");
+      toastError("Selecione ou envie uma foto do imóvel.", undefined, { module: "AdImageGenerator" });
       return;
     }
 
@@ -255,7 +256,7 @@ export function AdImageGenerator({
       toast.success(`Etapa "${PIPELINE_STEPS[currentStep].label}" concluída!`);
     } catch (err: any) {
       console.error("Erro no pipeline:", err);
-      toast.error(err.message || "Erro ao processar etapa.");
+      toastError("Erro ao processar etapa.", err, { module: "AdImageGenerator" });
     } finally {
       setLoading(false);
       setProcessingStep(null);
@@ -265,7 +266,7 @@ export function AdImageGenerator({
   // Run all remaining pipeline steps
   const handlePipelineAll = async () => {
     if (!hasBaseImage) {
-      toast.error("Selecione ou envie uma foto do imóvel.");
+      toastError("Selecione ou envie uma foto do imóvel.", undefined, { module: "AdImageGenerator" });
       return;
     }
 
@@ -290,7 +291,7 @@ export function AdImageGenerator({
       toast.success("Pipeline completo! Todas as etapas processadas.");
     } catch (err: any) {
       console.error("Erro no pipeline:", err);
-      toast.error(err.message || "Erro ao processar pipeline.");
+      toastError("Erro ao processar pipeline.", err, { module: "AdImageGenerator" });
     } finally {
       setLoading(false);
       setProcessingStep(null);

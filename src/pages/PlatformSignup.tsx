@@ -9,6 +9,7 @@ import { HabitaeLogo } from "@/components/HabitaeLogo";
 import { PillBadge } from "@/components/ui/pill-badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { z } from "zod";
 
 const signupSchema = z.object({
@@ -93,7 +94,7 @@ export default function PlatformSignup() {
 
       setSuccess(true);
     } catch {
-      toast.error("Erro de conexão");
+      toastError("Erro de conexão", undefined, { module: "PlatformSignup" });
     }
     setIsLoading(false);
   };

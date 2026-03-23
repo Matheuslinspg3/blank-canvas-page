@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { Send, Bot, User, Headset, Loader2, Paperclip, X, FileText, Image as ImageIcon, Video } from "lucide-react";
 import LazyMarkdown from "@/components/markdown/LazyMarkdown";
 import { format } from "date-fns";
@@ -150,7 +151,7 @@ export function TicketChat({ ticketId, ticketSubject, showSupportButton = true }
         .from("ticket-attachments")
         .upload(path, file, { contentType: file.type });
       if (error) {
-        toast.error(`Erro ao enviar ${file.name}`);
+        toastError(`Erro ao enviar ${file.name}`, undefined, { module: "TicketChat" });
         continue;
       }
       const { data: urlData } = supabase.storage
@@ -210,7 +211,7 @@ export function TicketChat({ ticketId, ticketSubject, showSupportButton = true }
       setPendingFiles([]);
     },
     onError: (e: Error) => {
-      toast.error(e.message || "Erro ao enviar mensagem");
+      toastError("Erro ao enviar mensagem", e, { module: "TicketChat" });
       queryClient.invalidateQueries({ queryKey: ["ticket-messages", ticketId] });
     },
   });
@@ -234,7 +235,7 @@ export function TicketChat({ ticketId, ticketSubject, showSupportButton = true }
       setInput("");
       setPendingFiles([]);
     },
-    onError: () => toast.error("Erro ao enviar resposta"),
+    onError: (e) => toastError("Erro ao enviar resposta", e, { module: "TicketChat" }),
   });
 
   useEffect(() => {
@@ -247,7 +248,7 @@ export function TicketChat({ ticketId, ticketSubject, showSupportButton = true }
     const files = Array.from(e.target.files || []);
     const valid = files.filter(f => {
       if (f.size > MAX_FILE_SIZE) {
-        toast.error(`${f.name} excede o limite de 10MB`);
+        toastError(`${f.name} excede o limite de 10MB`, undefined, { module: "TicketChat" });
         return false;
       }
       return true;

@@ -31,6 +31,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { MessageSquare, CheckCircle2, Clock, AlertCircle, Loader2, Trash2 } from "lucide-react";
@@ -112,7 +113,7 @@ export function TicketsTab() {
       queryClient.invalidateQueries({ queryKey: ["dev-support-tickets"] });
       toast.success("Status atualizado");
     },
-    onError: () => toast.error("Erro ao atualizar status"),
+    onError: (e) => toastError("Erro ao atualizar status", e, { module: "TicketsTab" }),
   });
 
   const bulkDelete = useMutation({
@@ -135,7 +136,7 @@ export function TicketsTab() {
       setSelectedIds(new Set());
       toast.success(`${ids.length} ticket(s) excluído(s)`);
     },
-    onError: () => toast.error("Erro ao excluir tickets"),
+    onError: (e) => toastError("Erro ao excluir tickets", e, { module: "TicketsTab" }),
   });
 
   const filtered = filterStatus === "all" ? tickets : tickets.filter((t) => t.status === filterStatus);

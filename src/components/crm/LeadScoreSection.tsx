@@ -19,6 +19,7 @@ import { ptBR } from "date-fns/locale";
 import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
 import type { Lead } from "@/hooks/useLeads";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 
 interface LeadScoreSectionProps {
   lead: Lead;
@@ -71,7 +72,7 @@ export function LeadScoreSection({ lead }: LeadScoreSectionProps) {
       await generateSummary.mutateAsync({ id: lead.id, name: lead.name, score, temperature });
       toast.success("Resumo gerado com sucesso!");
     } catch {
-      toast.error("Não foi possível gerar o resumo. Tente novamente.");
+      toastError("Não foi possível gerar o resumo. Tente novamente.", undefined, { module: "LeadScoreSection" });
     }
   };
 

@@ -12,6 +12,7 @@ import { type CSVParseResult, type ParsedRow } from '../utils/csvParser';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { toastError } from "@/lib/toastError";
 
 const STEPS = ['Upload', 'Mapeamento', 'Duplicidade', 'Configurações', 'Processando', 'Relatório'];
 

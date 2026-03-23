@@ -30,6 +30,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { Sparkles, Copy, Check, Globe, Instagram, MessageCircle, Home, Loader2, RefreshCw, Save, History, ChevronDown, RotateCcw, FileText, ChevronUp, ImagePlus } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -259,7 +260,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
 
   const handleGenerate = async () => {
     if (!form.tipo || !form.finalidade || !form.bairro_cidade) {
-      toast.error("Preencha tipo, finalidade e localização.");
+      toastError("Preencha tipo, finalidade e localização.", undefined, { module: "GeradorAnuncios" });
       return;
     }
 
@@ -286,7 +287,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
 
       toast.success("Anúncios gerados com sucesso!");
     } catch (err: any) {
-      toast.error(err.message || "Ocorreu um erro ao gerar os anúncios. Tente novamente.");
+      toastError("Ocorreu um erro ao gerar os anúncios. Tente novamente.", err, { module: "GeradorAnuncios" });
     } finally {
       setLoading(false);
     }
@@ -294,11 +295,11 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
 
   const handleGenerateFullAd = async () => {
     if (!form.tipo || !form.finalidade || !form.bairro_cidade) {
-      toast.error("Preencha tipo, finalidade e localização.");
+      toastError("Preencha tipo, finalidade e localização.", undefined, { module: "GeradorAnuncios" });
       return;
     }
     if (!form.property_id && propertyImages.length === 0) {
-      toast.error("Selecione um imóvel com fotos para gerar o anúncio completo.");
+      toastError("Selecione um imóvel com fotos para gerar o anúncio completo.", undefined, { module: "GeradorAnuncios" });
       return;
     }
 
@@ -354,7 +355,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
 
       toast.success("Anúncio completo gerado!");
     } catch (err: any) {
-      toast.error(err.message || "Erro ao gerar anúncio completo.");
+      toastError("Erro ao gerar anúncio completo.", err, { module: "GeradorAnuncios" });
     } finally {
       setLoading(false);
       setGeneratingFullAd(false);
@@ -362,7 +363,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
   };
   const handleRegenerateChannel = async (channel: ResultKey) => {
     if (!form.tipo || !form.finalidade || !form.bairro_cidade) {
-      toast.error("Preencha tipo, finalidade e localização.");
+      toastError("Preencha tipo, finalidade e localização.", undefined, { module: "GeradorAnuncios" });
       return;
     }
 
@@ -403,7 +404,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
       toast.success("Geração salva com sucesso!");
       queryClient.invalidateQueries({ queryKey: ["anuncios_gerados"] });
     } catch {
-      toast.error("Não foi possível salvar a geração. Tente novamente.");
+      toastError("Não foi possível salvar a geração. Tente novamente.", undefined, { module: "GeradorAnuncios" });
     } finally {
       setSaving(false);
     }

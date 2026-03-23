@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { APP_VERSION } from "@/config/appVersion";
 import { getPwaDiagnostics, repairPwa, type PwaDiagnostics } from "@/lib/pwaUtils";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 
 export function PwaDiagnosticsCard() {
   const [diag, setDiag] = useState<PwaDiagnostics | null>(null);
@@ -31,7 +32,7 @@ export function PwaDiagnosticsCard() {
       const updated = await getPwaDiagnostics();
       setDiag(updated);
     } catch (err) {
-      toast.error("Erro ao reparar PWA");
+      toastError("Erro ao reparar PWA", undefined, { module: "PwaDiagnosticsCard" });
     } finally {
       setRepairing(false);
     }

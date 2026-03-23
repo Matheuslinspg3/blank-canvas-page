@@ -7,6 +7,7 @@ import { formatCurrency } from '@/lib/utils';
 import type { PropertyWithDetails } from '@/hooks/useProperties';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { toastError } from "@/lib/toastError";
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 

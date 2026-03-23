@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { getDiagnostics } from "@/lib/onesignal";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { getPushErrorDetails, getPushErrorMessage } from "@/lib/pushErrors";
 
 export function PushTestCard() {
@@ -48,7 +49,7 @@ export function PushTestCard() {
       });
       toast.success("Notificação local enviada");
     } else {
-      toast.error(`Permissão: ${Notification.permission}`);
+      toastError(`Permissão: ${Notification.permission}`, undefined, { module: "PushTestCard" });
     }
   };
 
@@ -85,7 +86,7 @@ export function PushTestCard() {
       const msg = e instanceof Error ? e.message : "erro desconhecido";
       console.error("Test push error:", e);
       if (msg.includes("ONESIGNAL")) {
-        toast.error("Credenciais OneSignal não configuradas nos Secrets");
+        toastError("Credenciais OneSignal não configuradas nos Secrets", undefined, { module: "PushTestCard" });
         addDebug("Falta secret OneSignal");
       } else {
         const details = getPushErrorDetails(e);

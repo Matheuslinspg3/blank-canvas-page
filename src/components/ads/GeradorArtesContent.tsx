@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { Palette, Download, Copy, Check, Loader2, Image as ImageIcon, CheckCircle, AlertTriangle, Camera } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getImageUrl, type ImageRecord } from "@/lib/imageUrl";
@@ -174,7 +175,7 @@ export default function GeradorArtes() {
 
   const handleGenerate = async () => {
     if (!selectedPropertyId || !selectedImageUrl) {
-      toast.error("Selecione um imóvel e uma foto.");
+      toastError("Selecione um imóvel e uma foto.", undefined, { module: "GeradorArtesContent" });
       return;
     }
 
@@ -202,7 +203,7 @@ export default function GeradorArtes() {
       queryClient.invalidateQueries({ queryKey: ["generated_arts", selectedPropertyId] });
       toast.success("Artes geradas com sucesso!");
     } catch (err: any) {
-      toast.error(err.message || "Não foi possível gerar as artes. Tente novamente.");
+      toastError("Não foi possível gerar as artes. Tente novamente.", err, { module: "GeradorArtesContent" });
     } finally {
       setGenerating(false);
     }

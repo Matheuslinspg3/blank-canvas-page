@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, BarChart3, Key, Globe, Copy, Link2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { supabase } from "@/integrations/supabase/client";
 import { useMutation } from "@tanstack/react-query";
 import { useRDStationSettings } from "@/hooks/useRDStationSettings";
@@ -58,7 +59,7 @@ export default function RDConnectionTab() {
     try {
       const { data, error } = await supabase.functions.invoke("rd-station-app-id");
       if (error || !data?.client_id) {
-        toast.error("Erro ao obter Client ID.");
+        toastError("Erro ao obter Client ID.", undefined, { module: "RDConnectionTab" });
         setIsConnectingOAuth(false);
         return;
       }
@@ -66,7 +67,7 @@ export default function RDConnectionTab() {
       const state = btoa(JSON.stringify({ org_id: orgId, origin: window.location.origin }));
       window.location.href = `https://api.rd.services/auth/dialog?client_id=${data.client_id}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;
     } catch {
-      toast.error("Erro ao iniciar conexão OAuth.");
+      toastError("Erro ao iniciar conexão OAuth.", undefined, { module: "RDConnectionTab" });
       setIsConnectingOAuth(false);
     }
   };
@@ -84,7 +85,7 @@ export default function RDConnectionTab() {
       queryClient.invalidateQueries({ queryKey: ["rd-station-settings"] });
       toast.success("OAuth desconectado.");
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toastError("Erro na operação", e, { module: "RDConnectionTab" }),
   });
 
   const handleSaveSettings = () => {
@@ -98,7 +99,7 @@ export default function RDConnectionTab() {
       },
       {
         onSuccess: () => toast.success("Configurações salvas!"),
-        onError: (e: any) => toast.error(e.message),
+        onError: (e: any) => toastError("Erro na operação", e, { module: "RDConnectionTab" }),
       }
     );
   };
@@ -119,7 +120,7 @@ export default function RDConnectionTab() {
       queryClient.invalidateQueries({ queryKey: ["rd-station-settings"] });
       toast.success("Webhook regenerado!");
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toastError("Erro na operação", e, { module: "RDConnectionTab" }),
   });
 
   if (isLoading) {
@@ -146,7 +147,7 @@ export default function RDConnectionTab() {
           <Button
             onClick={() => createSettings.mutate(undefined, {
               onSuccess: () => toast.success("Integração ativada!"),
-              onError: (e: any) => toast.error(e.message),
+              onError: (e: any) => toastError("Erro na operação", e, { module: "RDConnectionTab" }),
             })}
             disabled={createSettings.isPending}
           >

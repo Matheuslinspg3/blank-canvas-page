@@ -51,6 +51,7 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { toastError } from "@/lib/toastError";
 import { cn } from '@/lib/utils';
 
 const OPERATION_TYPES = [
@@ -136,13 +137,13 @@ export function LeadDocumentsTab({ leadId }: LeadDocumentsTabProps) {
 
   const handleFileUpload = async (file: File, templateItemId: string | null, maxSizeMb?: number, acceptedFormats?: string[]) => {
     if (maxSizeMb && file.size > maxSizeMb * 1024 * 1024) {
-      toast.error(`Arquivo muito grande. Máximo: ${maxSizeMb}MB`);
+      toastError(`Arquivo muito grande. Máximo: ${maxSizeMb}MB`, undefined, { module: "LeadDocumentsTab" });
       return;
     }
     if (acceptedFormats && acceptedFormats.length > 0) {
       const ext = file.name.split('.').pop()?.toLowerCase();
       if (ext && !acceptedFormats.includes(ext)) {
-        toast.error(`Formato inválido. Aceitos: ${acceptedFormats.join(', ')}`);
+        toastError(`Formato inválido. Aceitos: ${acceptedFormats.join(', ')}`, undefined, { module: "LeadDocumentsTab" });
         return;
       }
     }

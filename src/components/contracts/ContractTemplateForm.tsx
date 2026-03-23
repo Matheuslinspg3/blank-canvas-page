@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import DOMPurify from "dompurify";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -81,7 +82,7 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSubmit, i
 
   const handleAiGenerate = async () => {
     if (!aiPrompt.trim()) {
-      toast.error("Descreva o que deseja no template.");
+      toastError("Descreva o que deseja no template.", undefined, { module: "ContractTemplateForm" });
       return;
     }
     setIsAiGenerating(true);
@@ -99,7 +100,7 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSubmit, i
       }
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || "Erro ao gerar template com IA");
+      toastError("Erro ao gerar template com IA", err, { module: "ContractTemplateForm" });
     } finally {
       setIsAiGenerating(false);
     }

@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, XCircle, Loader2, Copy, Link2, BarChart3, RefreshCw, Key, Webhook, Download, Globe, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -110,7 +111,7 @@ export default function RDStationSettingsContent() {
       queryClient.invalidateQueries({ queryKey: ["rd-station-settings"] });
       toast.success("Integração RD Station ativada!");
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toastError("Erro na operação", e, { module: "RDStationSettingsContent" }),
   });
 
   const updateSettings = useMutation({
@@ -133,7 +134,7 @@ export default function RDStationSettingsContent() {
       queryClient.invalidateQueries({ queryKey: ["rd-station-settings"] });
       toast.success("Configurações salvas!");
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toastError("Erro na operação", e, { module: "RDStationSettingsContent" }),
   });
 
   const regenerateWebhook = useMutation({
@@ -150,7 +151,7 @@ export default function RDStationSettingsContent() {
       queryClient.invalidateQueries({ queryKey: ["rd-station-settings"] });
       toast.success("Webhook regenerado! Atualize a URL no RD Station.");
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toastError("Erro na operação", e, { module: "RDStationSettingsContent" }),
   });
 
   const [isSyncing, setIsSyncing] = useState(false);
@@ -165,7 +166,7 @@ export default function RDStationSettingsContent() {
       if (error) throw error;
       if (data?.error) {
         if (data?.needs_oauth) {
-          toast.error("Conecte sua conta RD Station via OAuth para sincronizar leads.");
+          toastError("Conecte sua conta RD Station via OAuth para sincronizar leads.", undefined, { module: "RDStationSettingsContent" });
           return;
         }
         throw new Error(data.error);
@@ -174,7 +175,7 @@ export default function RDStationSettingsContent() {
       toast.success(`Sincronização concluída: ${data.created} leads criados, ${data.duplicates} duplicados.`);
       queryClient.invalidateQueries({ queryKey: ["rd-station-logs"] });
     } catch (err: any) {
-      toast.error(err.message || "Erro ao sincronizar leads.");
+      toastError("Erro ao sincronizar leads.", err, { module: "RDStationSettingsContent" });
     } finally {
       setIsSyncing(false);
     }
@@ -185,7 +186,7 @@ export default function RDStationSettingsContent() {
     try {
       const { data, error } = await supabase.functions.invoke("rd-station-app-id");
       if (error || !data?.client_id) {
-        toast.error("Erro ao obter Client ID do RD Station.");
+        toastError("Erro ao obter Client ID do RD Station.", undefined, { module: "RDStationSettingsContent" });
         return;
       }
 
@@ -196,7 +197,7 @@ export default function RDStationSettingsContent() {
       const authUrl = `https://api.rd.services/auth/dialog?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;
       window.location.href = authUrl;
     } catch (err: any) {
-      toast.error("Erro ao iniciar conexão OAuth.");
+      toastError("Erro ao iniciar conexão OAuth.", undefined, { module: "RDStationSettingsContent" });
       setIsConnectingOAuth(false);
     }
   };
@@ -219,7 +220,7 @@ export default function RDStationSettingsContent() {
       queryClient.invalidateQueries({ queryKey: ["rd-station-settings"] });
       toast.success("Conexão OAuth desconectada.");
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toastError("Erro na operação", e, { module: "RDStationSettingsContent" }),
   });
 
   const hasOAuth = !!(settings as any)?.oauth_access_token;

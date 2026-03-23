@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Search, Inbox, Download, Users } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useRDStationSettings } from "@/hooks/useRDStationSettings";
@@ -46,7 +47,7 @@ export default function RDLeadsTab() {
     : rdLeads;
 
   const handleExportCSV = () => {
-    if (rdLeads.length === 0) { toast.error("Nenhum lead para exportar."); return; }
+    if (rdLeads.length === 0) { toastError("Nenhum lead para exportar.", undefined, { module: "RDLeadsTab" }); return; }
     const headers = ["Nome", "E-mail", "Telefone", "Origem", "Temperatura", "Data", "Notas"];
     const rows = rdLeads.map((l: any) => [
       l.name || "", l.email || "", l.phone || "", l.source || "",

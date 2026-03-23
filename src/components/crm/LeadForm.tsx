@@ -38,6 +38,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, X, Flame, Snowflake, Sun, Zap, AlertCircle, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
+import { toastError } from "@/lib/toastError";
 import { LeadInteractionTimeline } from './LeadInteractionTimeline';
 import { LEAD_SOURCES, TEMPERATURES, type Lead, type CreateLeadInput } from '@/hooks/useLeads';
 import type { LeadStage } from '@/hooks/useLeadStages';
