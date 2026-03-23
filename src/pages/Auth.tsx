@@ -73,6 +73,23 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
     company_name: "",
     phone: "",
     account_type: "imobiliaria" as "imobiliaria" | "corretor_individual",
+    selected_plan: "starter",
+  });
+
+  // Fetch available plans for signup
+  const { data: signupPlans = [] } = useQuery({
+    queryKey: ["signup-plans"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("subscription_plans")
+        .select("id, name, slug, price_monthly, trial_days, features, description")
+        .eq("is_active", true)
+        .neq("plan_type", "addon")
+        .order("display_order")
+        .limit(5);
+      if (error) throw error;
+      return (data as SignupPlan[]).filter(p => ['gratuito', 'starter', 'essencial', 'profissional'].includes(p.slug));
+    },
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
