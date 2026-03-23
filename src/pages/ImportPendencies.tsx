@@ -448,6 +448,18 @@ function PropertyRow({
               <ExternalLink className="w-4 h-4" />
             </Link>
           </Button>
+
+          {onMarkReviewed && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-green-600 hover:text-green-700"
+              onClick={(e) => { e.stopPropagation(); onMarkReviewed(property.id); }}
+              title="Marcar como revisado"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       </div>
     </div>
