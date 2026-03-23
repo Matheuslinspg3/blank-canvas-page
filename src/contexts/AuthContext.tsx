@@ -128,6 +128,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data;
   };
 
+  // Track if user was previously logged in to detect session expiry
+  const hadSessionRef = useRef(false);
+
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -135,6 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
+          hadSessionRef.current = true;
           // Usar setTimeout para evitar deadlock com Supabase
           setTimeout(async () => {
             try {
@@ -157,6 +161,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }, 0);
         } else {
+          // Show toast only if user was previously logged in (session expired or token_refreshed failed)
+          if (hadSessionRef.current && event === 'SIGNED_OUT') {
+            toast.warning('Sua sessão expirou. Faça login novamente.');
+          }
+          hadSessionRef.current = false;
           setProfile(null);
           setLoading(false);
         }

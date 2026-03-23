@@ -97,19 +97,7 @@ export default function IntegrationConnectionCard({
                   Reconectar
                 </Button>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  if (confirm(`Tem certeza que deseja desconectar ${platform}?`)) {
-                    onDisconnect();
-                  }
-                }}
-                className="text-destructive hover:text-destructive"
-              >
-                {disconnectLabel}
-              </Button>
-            </div>
+              <DisconnectButton platform={platform} label={disconnectLabel} onDisconnect={onDisconnect} />
           </div>
         ) : (
           <div className="space-y-3">
