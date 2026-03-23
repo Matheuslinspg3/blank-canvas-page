@@ -273,7 +273,9 @@ export default function Plans() {
             const meta: PlanMeta = planMeta[plan.slug] || { icon: Star, ctaLabel: "Selecionar", ctaVariant: "default" as const };
             const Icon = meta.icon;
             const isCurrent = currentSlug === plan.slug;
-            const monthlyPrice = annual ? Math.round(plan.price_yearly / 12) : plan.price_monthly;
+            const originalPrice = annual ? Math.round(plan.price_yearly / 12) : plan.price_monthly;
+            const monthlyPrice = plan.slug !== 'gratuito' ? applyDiscount(originalPrice) : originalPrice;
+            const showStrikethrough = hasDiscount && plan.slug !== 'gratuito' && monthlyPrice !== originalPrice;
             const trialDaysPlan = (plan as any).trial_days || 0;
 
             return (
