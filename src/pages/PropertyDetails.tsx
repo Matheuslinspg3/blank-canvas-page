@@ -739,7 +739,18 @@ export default function PropertyDetails() {
               </CardContent>
             </Card>
 
-            {/* Availability History */}
+            {/* Marketplace desync warning */}
+            {isMarketplaceStale && (
+              <Alert
+                className="border-warning/50 bg-warning/10 cursor-pointer hover:bg-warning/20 transition-colors"
+                onClick={() => id && publishToMarketplace(id)}
+              >
+                <AlertTriangle className="h-4 w-4 text-warning" />
+                <AlertDescription className="text-sm text-warning-foreground">
+                  ⚠ Marketplace desatualizado — clique para republicar e sincronizar
+                </AlertDescription>
+              </Alert>
+            )}
             <PropertyHistory
               propertyId={id!}
               currentStatus={(property as any).availability_status || 'available'}
