@@ -38,7 +38,7 @@ export function useLandingContent(propertyId: string | undefined) {
       // First, try to get cached content from the database
       const { data: cachedContent, error: fetchError } = await supabase
         .from('property_landing_content')
-        .select('*')
+        .select('id, property_id, headline, subheadline, description_persuasive, key_features, cta_primary, cta_secondary, seo_title, seo_description, generated_at, model_used')
         .eq('property_id', propertyId)
         .single();
 
