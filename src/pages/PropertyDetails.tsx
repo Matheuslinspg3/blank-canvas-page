@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import {
   Tooltip,
@@ -55,6 +56,7 @@ import {
   QrCode,
   CopyPlus,
   Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 // PERF: lazy load - LandingPageEditor only needed when user opens editor
@@ -148,6 +150,29 @@ export default function PropertyDetails() {
     },
     enabled: !!id,
   });
+
+  // Check marketplace desync
+  const { data: marketplaceUpdatedAt } = useQuery({
+    queryKey: ["marketplace-sync-check", id],
+    queryFn: async () => {
+      if (!id) return null;
+      const { data } = await supabase
+        .from("marketplace_properties")
+        .select("updated_at")
+        .eq("id", id)
+        .maybeSingle();
+      return data?.updated_at ?? null;
+    },
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+
+  const isMarketplaceStale = !!(
+    property &&
+    marketplaceUpdatedAt &&
+    (property as any).updated_at &&
+    new Date(marketplaceUpdatedAt) < new Date((property as any).updated_at)
+  );
 
   const handleFormSubmit = async (data: PropertyFormData, images: PropertyImage[], ownerData?: any, publishMarketplace?: boolean) => {
     if (!id) return;
@@ -714,7 +739,18 @@ export default function PropertyDetails() {
               </CardContent>
             </Card>
 
-            {/* Availability History */}
+            {/* Marketplace desync warning */}
+            {isMarketplaceStale && (
+              <Alert
+                className="border-warning/50 bg-warning/10 cursor-pointer hover:bg-warning/20 transition-colors"
+                onClick={() => id && publishToMarketplace(id)}
+              >
+                <AlertTriangle className="h-4 w-4 text-warning" />
+                <AlertDescription className="text-sm text-warning-foreground">
+                  ⚠ Marketplace desatualizado — clique para republicar e sincronizar
+                </AlertDescription>
+              </Alert>
+            )}
             <PropertyHistory
               propertyId={id!}
               currentStatus={(property as any).availability_status || 'available'}
