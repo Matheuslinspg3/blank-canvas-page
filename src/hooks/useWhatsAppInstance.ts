@@ -66,7 +66,7 @@ export function useWhatsAppInstance() {
       invalidate();
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Erro ao criar instância");
+      toastError("Erro ao criar instância WhatsApp", err, { module: "useWhatsAppInstance" });
     },
   });
 
