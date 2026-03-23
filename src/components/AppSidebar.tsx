@@ -28,6 +28,7 @@ import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRoles } from "@/hooks/useUserRole";
 import { useAdLeadsCount } from "@/hooks/useAdLeads";
+import { useSetupPendingCount } from "@/components/developer/SetupChecklistTab";
 import { Button } from "@/components/ui/button";
 import {
   Sidebar,
