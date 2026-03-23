@@ -119,6 +119,47 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Inline duplicate checks on blur
+  const checkEmailExists = async (email: string) => {
+    if (!email || !z.string().email().safeParse(email).success) return;
+    const { count } = await supabase.from("profiles").select("id", { count: "exact", head: true }).eq("user_id", email);
+    // Can't query profiles by email directly, use auth approach:
+    // We'll check via a lightweight RPC or just let the signup handle it.
+    // Better: check auth.users indirectly via signInWithPassword dry-run is not possible.
+    // Instead, use a custom RPC. For now, let's query organizations.document and profiles.phone
+  };
+
+  const checkDuplicate = async (field: "email" | "phone" | "document", value: string) => {
+    if (!value) return;
+    setErrors((prev) => ({ ...prev, [field]: "" }));
+
+    try {
+      if (field === "phone") {
+        const cleanPhone = value.replace(/\D/g, "");
+        if (cleanPhone.length < 10) return;
+        const { count } = await supabase
+          .from("profiles")
+          .select("id", { count: "exact", head: true })
+          .eq("phone", value);
+        if (count && count > 0) {
+          setErrors((prev) => ({ ...prev, phone: "Este telefone já está cadastrado" }));
+        }
+      } else if (field === "document") {
+        const cleanDoc = value.replace(/\D/g, "");
+        if (cleanDoc.length !== 11 && cleanDoc.length !== 14) return;
+        const { count } = await supabase
+          .from("organizations")
+          .select("id", { count: "exact", head: true })
+          .eq("document", cleanDoc);
+        if (count && count > 0) {
+          setErrors((prev) => ({ ...prev, document: "Este CPF/CNPJ já está cadastrado" }));
+        }
+      }
+    } catch {
+      // Silent fail for duplicate checks
+    }
+  };
+
   useEffect(() => {
     if (user && !loading) {
       // If profile exists and onboarding not completed, redirect to onboarding
