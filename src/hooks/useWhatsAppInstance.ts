@@ -84,7 +84,7 @@ export function useWhatsAppInstance() {
       invalidate();
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Erro ao conectar");
+      toastError("Erro ao conectar WhatsApp", err, { module: "useWhatsAppInstance" });
     },
   });
 
