@@ -3,7 +3,7 @@ import { useUserRoles } from "@/hooks/useUserRole";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   HardDrive, Cloud, Shield, Users, Database, Download, 
-  Terminal, CreditCard, MessageSquare, Bot, Receipt, ArrowRightLeft, Route
+  Terminal, CreditCard, MessageSquare, Bot, Receipt, ArrowRightLeft, Route, ClipboardCheck
 } from "lucide-react";
 import { SystemHealthCard } from "@/components/developer/SystemHealthCard";
 import { OrgUsageTab } from "@/components/developer/OrgUsageTab";
@@ -25,6 +25,7 @@ import { SecurityAuditCard } from "@/components/developer/SecurityAuditCard";
 import { BillingDashboardTab } from "@/components/developer/billing/BillingDashboardTab";
 import { MigrationTab } from "@/components/developer/MigrationTab";
 import { AiRouterTab } from "@/components/developer/ai-router/AiRouterTab";
+import { SetupChecklistTab } from "@/components/developer/SetupChecklistTab";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 
@@ -41,6 +42,7 @@ const tabs = [
   { id: "ai-router", label: "AI Router", icon: Route },
   { id: "billing", label: "Billing IA", icon: Receipt },
   { id: "migration", label: "Migração", icon: ArrowRightLeft },
+  { id: "setup", label: "Setup", icon: ClipboardCheck },
 ] as const;
 
 export default function DeveloperDashboard() {
@@ -106,6 +108,7 @@ export default function DeveloperDashboard() {
         <TabsContent value="billing"><BillingDashboardTab /></TabsContent>
         <TabsContent value="ai-router"><AiRouterTab /></TabsContent>
         <TabsContent value="migration"><MigrationTab /></TabsContent>
+        <TabsContent value="setup"><SetupChecklistTab /></TabsContent>
       </Tabs>
     </div>
   );

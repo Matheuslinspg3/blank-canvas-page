@@ -28,6 +28,7 @@ import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRoles } from "@/hooks/useUserRole";
 import { useAdLeadsCount } from "@/hooks/useAdLeads";
+import { useSetupPendingCount } from "@/components/developer/SetupChecklistTab";
 import { Button } from "@/components/ui/button";
 import {
   Sidebar,
@@ -66,6 +67,7 @@ export function AppSidebar() {
   const { isDeveloperOrLeader, isDeveloper, isAdminOrAbove } = useUserRoles();
   const currentPath = location.pathname;
   const { data: newAdLeadsCount = 0 } = useAdLeadsCount();
+  const setupPending = useSetupPendingCount();
   const qc = useQueryClient();
 
   // PERF: Prefetch route data on hover for faster navigation
@@ -115,8 +117,9 @@ export function AppSidebar() {
     prevPath.current = currentPath;
   }, [currentPath, isMobile, setOpenMobile]);
 
-  const renderMenuItem = (item: { title: string; url: string; icon: React.ElementType; badge?: boolean }) => {
+  const renderMenuItem = (item: { title: string; url: string; icon: React.ElementType; badge?: boolean; badgeCount?: number }) => {
     const active = isActive(item.url);
+    const count = item.badgeCount ?? (item.badge ? newAdLeadsCount : 0);
     return (
       <SidebarMenuItem key={item.title}>
         <SidebarMenuButton 
@@ -134,9 +137,9 @@ export function AppSidebar() {
           >
             <item.icon className={`h-4 w-4 ${active ? "text-primary" : ""}`} />
             <span>{item.title}</span>
-            {item.badge && newAdLeadsCount > 0 && (
+            {count > 0 && (
               <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs rounded-full bg-destructive text-destructive-foreground">
-                {newAdLeadsCount}
+                {count}
               </span>
             )}
           </NavLink>
@@ -221,7 +224,7 @@ export function AppSidebar() {
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {renderMenuItem({ title: "Developer", url: "/developer", icon: Code })}
+                {renderMenuItem({ title: "Developer", url: "/developer", icon: Code, badgeCount: setupPending })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
