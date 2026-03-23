@@ -96,20 +96,51 @@ Deno.serve(async (req: Request) => {
 
     let property: { title: string; description: string | null; images: string[] | null } | null = null;
 
+    // Helper: fallback to properties + property_images tables
+    async function fallbackFromProperties(filter: Record<string, string>) {
+      let query = supabase
+        .from("properties")
+        .select("title, description")
+        .limit(1)
+        .maybeSingle();
+      for (const [k, v] of Object.entries(filter)) {
+        query = query.eq(k, v);
+      }
+      const { data: prop } = await query;
+      if (!prop) return null;
+
+      // Get cover image (prefer is_cover, fallback to display_order)
+      const { data: imgs } = await supabase
+        .from("property_images")
+        .select("url")
+        .eq("property_id", Object.values(filter).find((_, i) => Object.keys(filter)[i] === "id") || "")
+        .order("is_cover", { ascending: false })
+        .order("display_order", { ascending: true })
+        .limit(1);
+
+      const imageUrl = imgs && imgs.length > 0 ? imgs[0].url : null;
+      return { title: prop.title, description: prop.description, images: imageUrl ? [imageUrl] : null };
+    }
+
     if (propertyId) {
       const { data } = await supabase
         .from("marketplace_properties")
         .select("title, description, images")
         .eq("id", propertyId)
-        .single();
+        .maybeSingle();
       property = data;
+
+      // Fallback to properties table
+      if (!property) {
+        property = await fallbackFromProperties({ id: propertyId });
+      }
     } else if (orgSlug && code) {
       // Lookup by org slug + property code
       const { data: orgData } = await supabase
         .from("organizations")
         .select("id")
         .eq("slug", orgSlug)
-        .single();
+        .maybeSingle();
 
       if (orgData) {
         const { data } = await supabase
@@ -117,8 +148,32 @@ Deno.serve(async (req: Request) => {
           .select("title, description, images")
           .eq("organization_id", orgData.id)
           .eq("external_code", code)
-          .single();
+          .maybeSingle();
         property = data;
+
+        // Fallback to properties table
+        if (!property) {
+          // Find property by org + code
+          const { data: propData } = await supabase
+            .from("properties")
+            .select("id, title, description")
+            .eq("organization_id", orgData.id)
+            .eq("property_code", code)
+            .maybeSingle();
+
+          if (propData) {
+            const { data: imgs } = await supabase
+              .from("property_images")
+              .select("url")
+              .eq("property_id", propData.id)
+              .order("is_cover", { ascending: false })
+              .order("display_order", { ascending: true })
+              .limit(1);
+
+            const imageUrl = imgs && imgs.length > 0 ? imgs[0].url : null;
+            property = { title: propData.title, description: propData.description, images: imageUrl ? [imageUrl] : null };
+          }
+        }
       }
     }
 

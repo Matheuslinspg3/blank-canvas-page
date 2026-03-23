@@ -55,6 +55,7 @@ import {
   QrCode,
   CopyPlus,
   Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 // PERF: lazy load - LandingPageEditor only needed when user opens editor
