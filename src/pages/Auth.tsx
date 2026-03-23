@@ -15,6 +15,7 @@ import { useMaintenanceMode } from "@/hooks/useMaintenanceMode";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
+import { PasswordStrengthIndicator, isPasswordStrong } from "@/components/PasswordStrengthIndicator";
 
 interface SignupPlan {
   id: string;
