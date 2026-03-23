@@ -114,23 +114,28 @@ export async function generateImageVariants(
   const opts = { ...DEFAULT_OPTIONS, ...options };
 
   // Skip non-image files
-  if (!file.type.startsWith('image/')) {
+  if (!file.type.startsWith('image/') && !file.name.match(/\.(heic|heif)$/i)) {
     throw new Error('Not an image file');
   }
 
-  const img = await loadImage(file);
+  let img: HTMLImageElement;
+  try {
+    img = await loadImage(file);
+  } catch (e) {
+    // HEIC/HEIF or corrupted files may fail to load in canvas
+    throw new Error(`Image load failed (${file.name}, ${file.type}): ${e instanceof Error ? e.message : e}`);
+  }
 
   const [full, thumb] = await Promise.all([
     resizeToBlob(img, opts.fullMaxWidth, opts.fullQuality),
     resizeToBlob(img, opts.thumbMaxWidth, opts.thumbQuality),
   ]);
 
-  // PERF: UX — conditional logging in production
   if (import.meta.env.DEV) {
     const originalKB = (file.size / 1024).toFixed(0);
     const fullKB = (full.blob.size / 1024).toFixed(0);
     const thumbKB = (thumb.blob.size / 1024).toFixed(0);
-    if (import.meta.env.DEV) console.log(
+    console.log(
       `[VARIANTS] ${originalKB}KB → full: ${fullKB}KB (${full.width}×${full.height}), thumb: ${thumbKB}KB (${thumb.width}×${thumb.height})`,
     );
   }
