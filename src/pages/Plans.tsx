@@ -148,7 +148,8 @@ export default function Plans() {
   const [showComparison, setShowComparison] = useState(false);
   const navigate = useNavigate();
   const { session } = useAuth();
-  const { subscription, isTrialActive, getTrialDaysRemaining, getCurrentPlanSlug } = useSubscription({ enabled: !!session });
+  const { subscription, currentPlan, isTrialActive, getTrialDaysRemaining, getCurrentPlanSlug, canUpgradeTo } = useSubscription({ enabled: !!session });
+  const isLoggedIn = !!session;
 
   const { data: allPlans = [], isLoading } = useQuery({
     queryKey: ["public-plans"],
@@ -166,9 +167,18 @@ export default function Plans() {
   const mainPlans = useMemo(() => allPlans.filter(p => (p as any).plan_type !== 'addon'), [allPlans]);
   const addons = useMemo(() => allPlans.filter(p => (p as any).plan_type === 'addon'), [allPlans]);
 
-  const currentSlug = session ? getCurrentPlanSlug() : null;
-  const trialActive = session ? isTrialActive() : false;
-  const trialDays = session ? getTrialDaysRemaining() : 0;
+  const currentSlug = isLoggedIn ? getCurrentPlanSlug() : null;
+  const trialActive = isLoggedIn ? isTrialActive() : false;
+  const trialDays = isLoggedIn ? getTrialDaysRemaining() : 0;
+
+  const getCtaProps = (plan: SubscriptionPlan) => {
+    const meta = planMeta[plan.slug] || { ctaLabel: "Selecionar", ctaVariant: "default" as const };
+    const isCurrent = currentSlug === plan.slug;
+    if (!isLoggedIn) return { label: meta.ctaLabel, disabled: false, action: () => navigate("/auth") };
+    if (isCurrent) return { label: "Plano atual", disabled: true, action: () => {} };
+    if (canUpgradeTo(plan.slug)) return { label: "Fazer upgrade", disabled: false, action: () => navigate("/configuracoes?tab=billing") };
+    return { label: "Plano inferior", disabled: true, action: () => {} };
+  };
 
   if (isLoading) {
     return (
@@ -186,14 +196,37 @@ export default function Plans() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* ─── Current plan banner (logged in) ─── */}
+      {isLoggedIn && currentPlan && (
+        <div className="bg-muted/50 border-b">
+          <div className="max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Badge variant="secondary" className="text-sm">
+                {currentPlan.name}
+              </Badge>
+              <span className="text-sm text-muted-foreground">
+                {trialActive
+                  ? `Trial — ${trialDays} ${trialDays === 1 ? "dia restante" : "dias restantes"}`
+                  : "Plano ativo"}
+              </span>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => navigate("/configuracoes?tab=billing")}>
+              Gerenciar assinatura
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* ─── HEADER ─── */}
       <section className="py-16 sm:py-20 text-center px-4">
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-foreground mb-4">
-          Gerencie sua imobiliária com{" "}
-          <span className="text-primary">Inteligência Artificial</span>
+          {isLoggedIn ? "Escolha o plano ideal" : "Gerencie sua imobiliária com"}{" "}
+          <span className="text-primary">{isLoggedIn ? "para sua operação" : "Inteligência Artificial"}</span>
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-          CRM, Marketplace, IA e Automações — tudo em um só lugar
+          {isLoggedIn
+            ? "Compare os planos e faça upgrade para desbloquear mais recursos"
+            : "CRM, Marketplace, IA e Automações — tudo em um só lugar"}
         </p>
 
         {/* Toggle */}
@@ -319,15 +352,20 @@ export default function Plans() {
                   )}
 
                   {/* CTA */}
-                  <Button
-                    variant={meta.ctaVariant}
-                    className={cn("w-full mt-auto", meta.highlighted && "shadow-md")}
-                    onClick={() => navigate("/auth")}
-                    disabled={isCurrent}
-                  >
-                    {isCurrent ? "Plano atual" : meta.ctaLabel}
-                    {!isCurrent && <ArrowRight className="h-4 w-4 ml-1" />}
-                  </Button>
+                  {(() => {
+                    const cta = getCtaProps(plan);
+                    return (
+                      <Button
+                        variant={meta.ctaVariant}
+                        className={cn("w-full mt-auto", meta.highlighted && "shadow-md")}
+                        onClick={cta.action}
+                        disabled={cta.disabled}
+                      >
+                        {cta.label}
+                        {!cta.disabled && <ArrowRight className="h-4 w-4 ml-1" />}
+                      </Button>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             );
@@ -478,31 +516,33 @@ export default function Plans() {
       </section>
 
       {/* ─── FINAL CTA ─── */}
-      <section className="bg-muted/30 border-t">
-        <div className="max-w-3xl mx-auto px-4 py-16 text-center">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-3">
-            Pronto para transformar sua imobiliária?
-          </h2>
-          <p className="text-muted-foreground mb-8">
-            Comece grátis e teste por 15 dias sem compromisso
-          </p>
-          <Button size="lg" className="text-base px-8 py-6 shadow-lg" onClick={() => navigate("/auth")}>
-            Criar conta grátis
-            <ArrowRight className="h-5 w-5 ml-2" />
-          </Button>
-          <p className="text-xs text-muted-foreground mt-4">
-            Sem cartão · Sem compromisso · Cancele quando quiser
-          </p>
-          <a
-            href="https://wa.me/5511999999999?text=Ol%C3%A1%2C%20tenho%20d%C3%BAvidas%20sobre%20os%20planos"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-primary hover:underline mt-3 inline-block"
-          >
-            Dúvidas? Fale conosco
-          </a>
-        </div>
-      </section>
+      {!isLoggedIn && (
+        <section className="bg-muted/30 border-t">
+          <div className="max-w-3xl mx-auto px-4 py-16 text-center">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-3">
+              Pronto para transformar sua imobiliária?
+            </h2>
+            <p className="text-muted-foreground mb-8">
+              Comece grátis e teste por 15 dias sem compromisso
+            </p>
+            <Button size="lg" className="text-base px-8 py-6 shadow-lg" onClick={() => navigate("/auth")}>
+              Criar conta grátis
+              <ArrowRight className="h-5 w-5 ml-2" />
+            </Button>
+            <p className="text-xs text-muted-foreground mt-4">
+              Sem cartão · Sem compromisso · Cancele quando quiser
+            </p>
+            <a
+              href="https://wa.me/5511999999999?text=Ol%C3%A1%2C%20tenho%20d%C3%BAvidas%20sobre%20os%20planos"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-primary hover:underline mt-3 inline-block"
+            >
+              Dúvidas? Fale conosco
+            </a>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
