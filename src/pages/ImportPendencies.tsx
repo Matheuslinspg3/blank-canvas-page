@@ -303,9 +303,18 @@ export default function ImportPendencies() {
       {selectedIds.size > 0 && (
         <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
           <span className="text-sm font-medium">{selectedIds.size} selecionados</span>
-          <Button variant="outline" size="sm" disabled>
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Reimportar selecionados
+          <Button 
+            variant="default" 
+            size="sm"
+            disabled={markReviewedMutation.isPending}
+            onClick={() => markReviewedMutation.mutate(Array.from(selectedIds))}
+          >
+            {markReviewedMutation.isPending ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+            )}
+            Marcar como revisado
           </Button>
         </div>
       )}
