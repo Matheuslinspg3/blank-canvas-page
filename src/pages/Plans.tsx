@@ -1,9 +1,10 @@
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription, SubscriptionPlan } from "@/hooks/useSubscription";
+import { useFreeTrialExpired } from "@/hooks/useFreeTrialExpired";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -147,9 +148,15 @@ export default function Plans() {
   const [annual, setAnnual] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { session } = useAuth();
   const { subscription, currentPlan, isTrialActive, getTrialDaysRemaining, getCurrentPlanSlug, canUpgradeTo } = useSubscription({ enabled: !!session });
+  const { qualifiesForDiscount } = useFreeTrialExpired();
   const isLoggedIn = !!session;
+
+  // 25% discount: from URL param (free expired redirect) or from being on free plan
+  const hasDiscount = searchParams.get("discount") === "free25" || (isLoggedIn && qualifiesForDiscount);
+  const DISCOUNT_PCT = 25;
 
   const { data: allPlans = [], isLoading } = useQuery({
     queryKey: ["public-plans"],
@@ -170,6 +177,11 @@ export default function Plans() {
   const currentSlug = isLoggedIn ? getCurrentPlanSlug() : null;
   const trialActive = isLoggedIn ? isTrialActive() : false;
   const trialDays = isLoggedIn ? getTrialDaysRemaining() : 0;
+
+  const applyDiscount = (cents: number) => {
+    if (!hasDiscount) return cents;
+    return Math.round(cents * (1 - DISCOUNT_PCT / 100));
+  };
 
   const getCtaProps = (plan: SubscriptionPlan) => {
     const meta = planMeta[plan.slug] || { ctaLabel: "Selecionar", ctaVariant: "default" as const };
@@ -217,6 +229,17 @@ export default function Plans() {
         </div>
       )}
 
+      {/* ─── Discount banner ─── */}
+      {hasDiscount && (
+        <div className="bg-primary/10 border-b border-primary/20">
+          <div className="max-w-7xl mx-auto px-4 py-3 text-center">
+            <span className="text-sm font-medium text-primary">
+              🎉 Desconto exclusivo de {DISCOUNT_PCT}% aplicado em todos os planos!
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* ─── HEADER ─── */}
       <section className="py-16 sm:py-20 text-center px-4">
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-foreground mb-4">
@@ -250,7 +273,9 @@ export default function Plans() {
             const meta: PlanMeta = planMeta[plan.slug] || { icon: Star, ctaLabel: "Selecionar", ctaVariant: "default" as const };
             const Icon = meta.icon;
             const isCurrent = currentSlug === plan.slug;
-            const monthlyPrice = annual ? Math.round(plan.price_yearly / 12) : plan.price_monthly;
+            const originalPrice = annual ? Math.round(plan.price_yearly / 12) : plan.price_monthly;
+            const monthlyPrice = plan.slug !== 'gratuito' ? applyDiscount(originalPrice) : originalPrice;
+            const showStrikethrough = hasDiscount && plan.slug !== 'gratuito' && monthlyPrice !== originalPrice;
             const trialDaysPlan = (plan as any).trial_days || 0;
 
             return (
@@ -281,8 +306,14 @@ export default function Plans() {
                   </div>
                   <h3 className="text-xl font-bold">{plan.name}</h3>
                   <div className="mt-2">
+                    {showStrikethrough && (
+                      <span className="text-lg text-muted-foreground line-through mr-2">R${fmt(originalPrice)}</span>
+                    )}
                     <span className="text-3xl font-bold">R${fmt(monthlyPrice)}</span>
                     <span className="text-muted-foreground text-sm">/mês</span>
+                    {showStrikethrough && (
+                      <Badge className="ml-2 bg-green-500/15 text-green-600 border-green-500/20 text-xs">-{DISCOUNT_PCT}%</Badge>
+                    )}
                   </div>
                   {annual && plan.price_yearly > 0 && (
                     <p className="text-xs text-muted-foreground mt-1">
