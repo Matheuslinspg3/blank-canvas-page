@@ -27,6 +27,7 @@ export function AppLayout() {
 
   return (
     <SidebarProvider>
+      <OfflineBanner />
       {isDemoMode && <DemoBanner />}
       <div className={`min-h-dvh flex w-full overflow-x-hidden ${isDemoMode ? "pt-10" : ""}`}>
         <a
