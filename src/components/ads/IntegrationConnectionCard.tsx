@@ -1,8 +1,12 @@
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, XCircle, AlertTriangle, Loader2, LogIn } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface IntegrationConnectionCardProps {
   platform: string;
@@ -20,6 +24,38 @@ interface IntegrationConnectionCardProps {
   connectLabel?: string;
   disconnectLabel?: string;
   helpText?: string;
+}
+
+function DisconnectButton({ platform, label, onDisconnect }: { platform: string; label: string; onDisconnect: () => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setOpen(true)}
+        className="text-destructive hover:text-destructive"
+      >
+        {label}
+      </Button>
+      <AlertDialog open={open} onOpenChange={setOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desconectar {platform}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja desconectar {platform}? Você precisará reconectar para usar esta integração novamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { onDisconnect(); setOpen(false); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Desconectar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
 }
 
 export default function IntegrationConnectionCard({
@@ -93,18 +129,7 @@ export default function IntegrationConnectionCard({
                   Reconectar
                 </Button>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  if (confirm(`Tem certeza que deseja desconectar ${platform}?`)) {
-                    onDisconnect();
-                  }
-                }}
-                className="text-destructive hover:text-destructive"
-              >
-                {disconnectLabel}
-              </Button>
+              <DisconnectButton platform={platform} label={disconnectLabel} onDisconnect={onDisconnect} />
             </div>
           </div>
         ) : (
