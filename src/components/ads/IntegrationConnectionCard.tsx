@@ -98,7 +98,7 @@ export default function IntegrationConnectionCard({
                 </Button>
               )}
               <DisconnectButton platform={platform} label={disconnectLabel} onDisconnect={onDisconnect} />
-          </div>
+            </div>
         ) : (
           <div className="space-y-3">
             {helpText && (
