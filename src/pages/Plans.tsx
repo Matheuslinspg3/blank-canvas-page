@@ -148,9 +148,15 @@ export default function Plans() {
   const [annual, setAnnual] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { session } = useAuth();
   const { subscription, currentPlan, isTrialActive, getTrialDaysRemaining, getCurrentPlanSlug, canUpgradeTo } = useSubscription({ enabled: !!session });
+  const { qualifiesForDiscount } = useFreeTrialExpired();
   const isLoggedIn = !!session;
+
+  // 25% discount: from URL param (free expired redirect) or from being on free plan
+  const hasDiscount = searchParams.get("discount") === "free25" || (isLoggedIn && qualifiesForDiscount);
+  const DISCOUNT_PCT = 25;
 
   const { data: allPlans = [], isLoading } = useQuery({
     queryKey: ["public-plans"],
@@ -171,6 +177,11 @@ export default function Plans() {
   const currentSlug = isLoggedIn ? getCurrentPlanSlug() : null;
   const trialActive = isLoggedIn ? isTrialActive() : false;
   const trialDays = isLoggedIn ? getTrialDaysRemaining() : 0;
+
+  const applyDiscount = (cents: number) => {
+    if (!hasDiscount) return cents;
+    return Math.round(cents * (1 - DISCOUNT_PCT / 100));
+  };
 
   const getCtaProps = (plan: SubscriptionPlan) => {
     const meta = planMeta[plan.slug] || { ctaLabel: "Selecionar", ctaVariant: "default" as const };
