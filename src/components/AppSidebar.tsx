@@ -223,7 +223,7 @@ export function AppSidebar() {
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {renderMenuItem({ title: "Developer", url: "/developer", icon: Code })}
+                {renderMenuItem({ title: "Developer", url: "/developer", icon: Code, badge: isDeveloper && setupPending > 0 })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
