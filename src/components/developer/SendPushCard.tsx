@@ -73,11 +73,11 @@ export function SendPushCard() {
         toast.warning("Sem entrega push: inscrição não entregável no OneSignal.");
       } else {
         setLastErrorDetails(data?.errorDetails || data);
-        toast.error(data?.errorMessage || "Falha ao enviar notificação");
+        toastError(data?.errorMessage || "Falha ao enviar notificação", undefined, { module: "SendPushCard" });
       }
     } catch (e: unknown) {
       setLastErrorDetails(getPushErrorDetails(e));
-      toast.error(getPushErrorMessage(e));
+      toastError(getPushErrorMessage(e), e, { module: 'SendPushCard' });
     } finally {
       setIsSending(false);
     }

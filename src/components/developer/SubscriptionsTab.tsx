@@ -85,7 +85,7 @@ export function SubscriptionsTab() {
       toast.success("Assinatura atualizada");
       setEditingId(null);
     },
-    onError: (e: Error) => toast.error("Erro: " + e.message),
+    onError: (e: Error) => toastError("Erro na operação", e, { module: "SubscriptionsTab" }),
   });
 
   const getStatus = (org: OrgRow) => {

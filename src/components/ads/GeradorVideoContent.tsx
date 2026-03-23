@@ -254,7 +254,7 @@ export default function GeradorVideoContent() {
           setIsGenerating(false);
           return; // stop polling
         } else if (data.status === "failed") {
-          toast.error(data.error || "Erro ao gerar o vídeo. Tente novamente.");
+          toastError(data.error || "Erro ao gerar o vídeo. Tente novamente.", undefined, { module: "GeradorVideoContent" });
           setIsGenerating(false);
           return; // stop polling
         }

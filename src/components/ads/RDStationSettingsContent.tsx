@@ -94,7 +94,7 @@ export default function RDStationSettingsContent() {
         db_save: "Erro ao salvar tokens no banco",
         unexpected: "Erro inesperado",
       };
-      toast.error(errMap[params.get("rd_error")!] || "Erro ao conectar: " + params.get("rd_error"));
+      toastError(errMap[params.get("rd_error")!] || "Erro ao conectar: " + params.get("rd_error"), undefined, { module: "RDStationSettingsContent" });
       window.history.replaceState({}, "", window.location.pathname + "?tab=config");
     }
   }, []);

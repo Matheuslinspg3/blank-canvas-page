@@ -158,7 +158,7 @@ export function PropertyMapView({ properties, onPropertyClick, onRefresh }: Prop
       }
     } catch (e) {
       console.error('Geocoding error:', e);
-      toast.error('Erro ao geocodificar imóveis');
+      toastError('Erro ao geocodificar imóveis', undefined, { module: 'PropertyMapView' });
       setGeocodeProgress('');
     } finally {
       setIsGeocoding(false);

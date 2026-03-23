@@ -87,7 +87,7 @@ export default function PlatformSignup() {
       });
 
       if (error || data?.error) {
-        toast.error(data?.error || "Erro ao cadastrar");
+        toastError(data?.error || "Erro ao cadastrar", undefined, { module: "PlatformSignup" });
         setIsLoading(false);
         return;
       }

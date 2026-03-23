@@ -90,7 +90,7 @@ export function PushTestCard() {
         addDebug("Falta secret OneSignal");
       } else {
         const details = getPushErrorDetails(e);
-        toast.error(getPushErrorMessage(e));
+        toastError(getPushErrorMessage(e), e, { module: 'PushTestCard' });
         if (details.hint) addDebug(`Dica: ${details.hint}`);
       }
       addDebug(`Erro: ${msg}`);

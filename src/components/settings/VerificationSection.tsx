@@ -77,7 +77,7 @@ export function VerificationSection() {
         toastError("Verificação do CRECI falhou. Veja os detalhes abaixo.", undefined, { module: "VerificationSection" });
       }
     } catch (error: any) {
-      toast.error("Erro ao verificar CRECI: " + (error.message || "Tente novamente"));
+      toastError("Erro ao verificar CRECI", error, { module: "VerificationSection" });
     } finally {
       setVerifyingCreci(false);
       setVerifyStep("");

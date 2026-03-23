@@ -35,7 +35,7 @@ export default function RDOAuthTab() {
         db_save: "Erro ao salvar tokens no banco",
         unexpected: "Erro inesperado",
       };
-      toast.error(errMap[params.get("rd_error")!] || "Erro ao conectar: " + params.get("rd_error"));
+      toastError(errMap[params.get("rd_error")!] || "Erro ao conectar: " + params.get("rd_error"), undefined, { module: "RDOAuthTab" });
       window.history.replaceState({}, "", window.location.pathname + "?tab=oauth");
     }
   }, []);

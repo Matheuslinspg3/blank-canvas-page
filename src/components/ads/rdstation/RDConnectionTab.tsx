@@ -49,7 +49,7 @@ export default function RDConnectionTab() {
         db_save: "Erro ao salvar tokens",
         unexpected: "Erro inesperado",
       };
-      toast.error(errMap[params.get("rd_error")!] || params.get("rd_error"));
+      toastError(errMap[params.get("rd_error")!] || params.get("rd_error") || "Erro de conexão", undefined, { module: "RDConnectionTab" });
       window.history.replaceState({}, "", window.location.pathname + "?section=rdstation&rd_tab=conexao");
     }
   }, [queryClient]);

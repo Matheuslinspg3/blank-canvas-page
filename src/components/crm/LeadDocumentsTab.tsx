@@ -165,7 +165,7 @@ export function LeadDocumentsTab({ leadId }: LeadDocumentsTabProps) {
       setUploadProgress((prev) => ({ ...prev, [templateItemId || 'avulso']: 100 }));
       toast.success('Documento enviado com sucesso!');
     } catch {
-      toast.error('Não foi possível enviar o documento. Tente novamente.');
+      toastError('Não foi possível enviar o documento', undefined, { module: 'LeadDocumentsTab', retryable: true });
     } finally {
       clearInterval(progressInterval);
       setUploadingItemId(null);
@@ -209,7 +209,7 @@ export function LeadDocumentsTab({ leadId }: LeadDocumentsTabProps) {
         window.open(url, '_blank');
       }
     } catch {
-      toast.error('Não foi possível abrir o documento.');
+      toastError('Não foi possível abrir o documento', undefined, { module: 'LeadDocumentsTab' });
     }
   };
 
@@ -225,7 +225,7 @@ export function LeadDocumentsTab({ leadId }: LeadDocumentsTabProps) {
       await reviewDocument.mutateAsync({ documentId: rejectDocId, status: 'rejected', rejectionReason: rejectReason });
       toast.success('Documento rejeitado.');
     } catch {
-      toast.error('Erro ao rejeitar documento.');
+      toastError('Erro ao rejeitar documento', undefined, { module: 'LeadDocumentsTab' });
     }
     setRejectDialogOpen(false);
   };
