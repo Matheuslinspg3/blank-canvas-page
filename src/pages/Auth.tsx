@@ -6,13 +6,32 @@ import { trackLoginSuccess } from "@/components/ClarityProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, ArrowRight, ArrowLeft, Construction, Building2, User, Eye, EyeOff } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, ArrowRight, ArrowLeft, Construction, Building2, User, Eye, EyeOff, Check, Gift, Crown, Zap, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
 import { supabase } from "@/integrations/supabase/client";
 import { useMaintenanceMode } from "@/hooks/useMaintenanceMode";
+import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
+
+interface SignupPlan {
+  id: string;
+  name: string;
+  slug: string;
+  price_monthly: number;
+  trial_days: number | null;
+  features: Record<string, any> | null;
+  description: string | null;
+}
+
+const PLAN_ICONS: Record<string, React.ElementType> = {
+  gratuito: Gift,
+  starter: Zap,
+  essencial: Star,
+  profissional: Crown,
+};
 
 const loginSchema = z.object({
   email: z.string().email("Email inválido"),
