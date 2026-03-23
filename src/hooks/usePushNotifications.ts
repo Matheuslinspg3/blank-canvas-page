@@ -14,6 +14,7 @@ import {
   getOneSignalInitFailure,
 } from "@/lib/onesignal";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 
 export function usePushNotifications() {
   const { user } = useAuth();

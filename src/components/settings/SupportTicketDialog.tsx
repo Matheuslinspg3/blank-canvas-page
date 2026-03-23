@@ -22,6 +22,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { Bug, Loader2, MessageSquarePlus, Paperclip, X, FileText, Image as ImageIcon, Video } from "lucide-react";
 import { TicketChat } from "@/components/developer/TicketChat";
 
