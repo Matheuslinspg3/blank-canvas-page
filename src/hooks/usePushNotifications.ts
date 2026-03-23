@@ -213,7 +213,7 @@ export function usePushNotifications() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "erro desconhecido";
       addDebug(`❌ Erro: ${msg}`);
-      toast.error("Erro ao ativar push: " + msg);
+      toastError("Erro ao ativar push", e, { module: "usePushNotifications" });
       return false;
     } finally {
       setIsLoading(false);
