@@ -69,6 +69,7 @@ serve(async (req) => {
       user_metadata: {
         full_name,
         phone: phone || null,
+        document: document || null,
         account_type: account_type || "imobiliaria",
         company_name,
       },
