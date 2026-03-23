@@ -79,7 +79,7 @@ export function CloudinaryMigrationCard() {
       }
       setProperties(Array.from(map.values()).sort((a, b) => b.cloudinaryCount - a.cloudinaryCount));
     } catch (err: any) {
-      toastError("Erro ao carregar imóveis", undefined, { module: "CloudinaryMigrationCard", description: err.message }));
+      toastError("Erro ao carregar imóveis", err, { module: "CloudinaryMigrationCard" });
     } finally {
       setLoadingProperties(false);
     }
