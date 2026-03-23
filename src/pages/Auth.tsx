@@ -551,14 +551,13 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="signup-document" className="editorial-label-muted">
-                  {signupForm.account_type === "imobiliaria" ? "CNPJ *" : "CPF *"}
-                </Label>
+                <Label htmlFor="signup-document" className="editorial-label-muted">CPF ou CNPJ *</Label>
                 <Input
                   id="signup-document"
-                  placeholder={signupForm.account_type === "imobiliaria" ? "00.000.000/0000-00" : "000.000.000-00"}
+                  placeholder="000.000.000-00 ou 00.000.000/0000-00"
                   value={signupForm.document}
                   onChange={(e) => setSignupForm({ ...signupForm, document: formatDocument(e.target.value) })}
+                  onBlur={() => checkDuplicate("document", signupForm.document)}
                   className="h-11 bg-muted/40 border-border/50 text-sm"
                 />
                 {errors.document && <p className="text-xs text-destructive">{errors.document}</p>}
