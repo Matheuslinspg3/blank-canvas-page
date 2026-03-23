@@ -124,7 +124,7 @@ export function useWhatsAppInstance() {
       invalidate();
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Erro ao desconectar");
+      toastError("Erro ao desconectar WhatsApp", err, { module: "useWhatsAppInstance" });
     },
   });
 
