@@ -39,9 +39,8 @@ export function SubscriptionsTab() {
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error("Não autenticado");
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/admin-subscriptions`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-subscriptions`,
         {
           method: "GET",
           headers: {
