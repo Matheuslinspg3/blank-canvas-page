@@ -25,7 +25,6 @@ import {
   Ruler,
   FileText,
   ArrowLeft,
-  ArrowLeft,
   Search,
   Building2,
   ExternalLink,
