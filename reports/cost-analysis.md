@@ -168,14 +168,18 @@ Essas integrações são baseadas em webhooks e OAuth — não há custo por cha
 | 2 | `supabase/functions/summarize-lead/index.ts` | Cache check: retorna `ai_summary` se `ai_summary_at < 24h`; aceita `force_refresh` | **-80% chamadas de IA** |
 | 3 | `src/hooks/useAdLeads.ts` | Excluiu `raw_payload` (JSONB grande) do select | Reduz egress por query |
 | 4 | `src/hooks/useLeadDocuments.ts` | Excluiu `ai_validation` (JSONB) do select de lista | Reduz egress por query |
-| 5 | `src/hooks/useSubscription.ts` | Excluiu `pix_qr_code` (base64 longo) do select | Reduz egress por query |
-| 6–20 | 15 hooks restantes com `select('*')` | Colunas explícitas em todos | Reduz egress cumulativo |
+| 5 | `src/hooks/useSubscription.ts` | Excluiu `pix_qr_code` (base64) e especificou colunas em `subscription_plans` | Reduz egress |
+| 6–25 | 20 hooks com `select('*')` | Colunas explícitas em todos (usePropertyTypes, useLeadTypes, useTransactionCategories, useCustomRoles, useAiRouterProviders, useAiRouterConfig, usePortalFeeds, useSavedSearches, useLandingContent, useLandingOverrides, useLeadScore, useLeadStages, useMaintenanceMode, useRDStationSettings, useAdEntities, useAiBilling×3) | Reduz egress cumulativo |
+| 26 | `src/components/ads/GeradorVideoContent.tsx` | Polling de vídeo: `setInterval(5s)` → exponential backoff (5s→10s→20s→30s max) | **-70% chamadas a video-job-status** |
+| 27 | `supabase/functions/og-metadata/index.ts` | Adiciona `Cache-Control: public, max-age=3600` para crawlers | Reduz Edge Fn invocations em compartilhamentos |
+| 28 | `src/hooks/useAiRouterStats.ts` | Adiciona `.limit(10000)` na query de 30 dias de ai_router_logs | Protege contra leitura ilimitada |
+| 29–30 | `src/hooks/useAdInsights.ts` | `staleTime: 5min` em ambas as queries | Reduz refetch desnecessário |
 
 ### Migration
 
 | # | Arquivo | Conteúdo |
 |---|---------|---------|
-| 21 | `supabase/migrations/20260323120000_cost_optimizations.sql` | Safety net para colunas `ai_summary`/`ai_summary_at`; índices em `created_at` de tabelas de log; função `cleanup_cost_logs()`; pg_cron diário 03:00 UTC; índice parcial em `leads.ai_summary_at` |
+| 31 | `supabase/migrations/20260323120000_cost_optimizations.sql` | Safety net para colunas `ai_summary`/`ai_summary_at`; índices em `created_at` de tabelas de log; função `cleanup_cost_logs()`; pg_cron diário 03:00 UTC; índice parcial em `leads.ai_summary_at` |
 
 ---
 
