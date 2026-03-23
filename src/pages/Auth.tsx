@@ -347,6 +347,73 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                 <p className="text-muted-foreground text-sm mt-1">Crie sua conta e teste grátis por até 15 dias.</p>
               </div>
 
+              {/* Plan selection */}
+              <div className="space-y-2">
+                <Label className="editorial-label-muted">Escolha seu plano</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {signupPlans.map((plan) => {
+                    const PlanIcon = PLAN_ICONS[plan.slug] || Star;
+                    const isSelected = signupForm.selected_plan === plan.slug;
+                    const trialDays = plan.trial_days || 0;
+                    return (
+                      <button
+                        key={plan.slug}
+                        type="button"
+                        onClick={() => setSignupForm({ ...signupForm, selected_plan: plan.slug })}
+                        className={cn(
+                          "relative flex flex-col items-start gap-1 p-3 rounded-xl border-2 transition-all text-left",
+                          isSelected
+                            ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary/20"
+                            : "border-border bg-muted/30 text-muted-foreground hover:bg-accent/50"
+                        )}
+                      >
+                        {isSelected && (
+                          <div className="absolute top-2 right-2">
+                            <Check className="h-4 w-4 text-primary" />
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1.5">
+                          <PlanIcon className="h-4 w-4" />
+                          <span className="text-sm font-semibold">{plan.name}</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {plan.price_monthly === 0
+                            ? "Grátis"
+                            : `R$ ${plan.price_monthly.toFixed(2)}/mês`}
+                        </span>
+                        {trialDays > 0 && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 mt-0.5">
+                            {trialDays} dias grátis
+                          </Badge>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* Selected plan benefit summary */}
+                {(() => {
+                  const sel = signupPlans.find(p => p.slug === signupForm.selected_plan);
+                  if (!sel) return null;
+                  const trialDays = sel.trial_days || 0;
+                  return (
+                    <div className="rounded-lg bg-primary/5 border border-primary/10 p-2.5 text-xs text-muted-foreground space-y-1">
+                      {trialDays > 0 && (
+                        <p className="flex items-center gap-1.5 text-primary font-medium">
+                          <Gift className="h-3.5 w-3.5" />
+                          {trialDays} dias de teste grátis incluídos
+                        </p>
+                      )}
+                      {sel.slug === 'gratuito' && (
+                        <p>Acesso limitado por 15 dias. Upgrade a qualquer momento.</p>
+                      )}
+                      {sel.slug !== 'gratuito' && sel.price_monthly > 0 && (
+                        <p>Cobrança de R$ {sel.price_monthly.toFixed(2)}/mês após o período gratuito.</p>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+
               {/* Account type */}
               <div className="space-y-2">
                 <Label className="editorial-label-muted">Tipo de conta</Label>
