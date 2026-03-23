@@ -196,15 +196,17 @@ export function usePushNotifications() {
       const diag = getDiagnostics();
       addDebug(`❌ Resultado: granted=${granted}, permission=${finalPerm}`);
       if (finalPerm === "denied") {
-        toast.error("Permissão de notificação bloqueada. Verifique as configurações do navegador.");
+        toastError("Permissão de notificação bloqueada pelo navegador", undefined, { module: "usePushNotifications" });
       } else {
         const reason = String(diag.initFailureReason || "");
-        toast.error(
+        toastError(
           reason === "push-permission-denied"
-            ? "Inscrição push negada pelo navegador (comum em aba anônima/incógnito). Use aba normal e tente novamente."
+            ? "Inscrição push negada pelo navegador"
             : reason === "service-worker-path-invalid"
-              ? "Falha no caminho do Service Worker de push. Recarregue a página e tente novamente."
-              : "Não foi possível ativar notificações. Tente novamente.",
+              ? "Falha no Service Worker de push"
+              : "Não foi possível ativar notificações",
+          undefined,
+          { module: "usePushNotifications", retryable: true },
         );
       }
       return false;
