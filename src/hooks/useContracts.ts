@@ -92,21 +92,18 @@ export function useContracts() {
     enabled: !!profile?.organization_id,
   });
 
-  const generateCode = async (): Promise<string> => {
-    const year = new Date().getFullYear();
-    const startOfYear = `${year}-01-01`;
-    
-    const { count, error } = await supabase
-      .from('contracts')
-      .select('*', { count: 'exact', head: true })
-      .gte('created_at', startOfYear);
+  const generateCode = async (organizationId: string): Promise<string> => {
+    const { data, error } = await supabase.rpc('generate_contract_code', {
+      p_org_id: organizationId,
+    });
 
     if (error) {
       console.error('Erro ao gerar código:', error);
+      const year = new Date().getFullYear();
       return `CONT-${year}-0001`;
     }
 
-    return `CONT-${year}-${String((count || 0) + 1).padStart(4, '0')}`;
+    return data as string;
   };
 
   const createContract = useMutation({
