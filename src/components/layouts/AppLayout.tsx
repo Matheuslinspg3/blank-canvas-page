@@ -18,7 +18,7 @@ import { GlobalCommandPalette } from "@/components/GlobalCommandPalette";
 
 export function AppLayout() {
   const { isDemoMode } = useDemo();
-  usePerformanceMode();
+  
   useModuleVisit();
 
   // Push notification permission is now requested only via explicit user gesture

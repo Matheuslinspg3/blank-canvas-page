@@ -105,6 +105,7 @@ export function useAiRouterProviderStats() {
       return result;
     },
     staleTime: 30 * 1000,
-    refetchInterval: 30 * 1000,
+    refetchInterval: 120 * 1000,
+    refetchIntervalInBackground: false,
   });
 }
