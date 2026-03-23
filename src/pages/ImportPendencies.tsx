@@ -340,6 +340,7 @@ export default function ImportPendencies() {
                   property={property}
                   selected={selectedIds.has(property.id)}
                   onToggle={() => handleToggle(property.id)}
+                  onMarkReviewed={(id) => markReviewedMutation.mutate([id])}
                 />
               ))}
               {filteredProperties.length === 0 && (
