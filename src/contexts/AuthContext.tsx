@@ -1,7 +1,8 @@
-import { createContext, useContext, useEffect, useState, useCallback, useMemo, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { loginOneSignal, logoutOneSignal } from '@/lib/onesignal';
+import { toast } from 'sonner';
 
 interface Profile {
   id: string;
