@@ -99,6 +99,6 @@ export function useDeleteCustomRole() {
       queryClient.invalidateQueries({ queryKey: ["custom-roles"] });
       toast.success("Cargo removido");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toastError("Erro ao remover cargo", e, { module: "useCustomRoles" }),
   });
 }

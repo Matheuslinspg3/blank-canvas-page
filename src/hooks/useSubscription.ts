@@ -189,7 +189,7 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
       queryClient.invalidateQueries({ queryKey: ["billing-payments"] });
       toast.success("Assinatura renovada com sucesso!");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toastError("Erro ao renovar assinatura", e, { module: "useSubscription" }),
   });
 
   useEffect(() => {
