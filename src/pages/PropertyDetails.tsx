@@ -151,6 +151,29 @@ export default function PropertyDetails() {
     enabled: !!id,
   });
 
+  // Check marketplace desync
+  const { data: marketplaceUpdatedAt } = useQuery({
+    queryKey: ["marketplace-sync-check", id],
+    queryFn: async () => {
+      if (!id) return null;
+      const { data } = await supabase
+        .from("marketplace_properties")
+        .select("updated_at")
+        .eq("id", id)
+        .maybeSingle();
+      return data?.updated_at ?? null;
+    },
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+
+  const isMarketplaceStale = !!(
+    property &&
+    marketplaceUpdatedAt &&
+    (property as any).updated_at &&
+    new Date(marketplaceUpdatedAt) < new Date((property as any).updated_at)
+  );
+
   const handleFormSubmit = async (data: PropertyFormData, images: PropertyImage[], ownerData?: any, publishMarketplace?: boolean) => {
     if (!id) return;
     await updateProperty(id, data, images, ownerData);
