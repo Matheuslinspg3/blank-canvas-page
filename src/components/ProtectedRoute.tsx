@@ -3,8 +3,10 @@ import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDemo } from "@/contexts/DemoContext";
 import { useUserRoles } from "@/hooks/useUserRole";
+import { useFreeTrialExpired } from "@/hooks/useFreeTrialExpired";
 import { Loader2 } from "lucide-react";
 import { TrialExpiredScreen } from "@/components/TrialExpiredScreen";
+import { FreeExpiredScreen } from "@/components/FreeExpiredScreen";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -14,6 +16,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, loading, profile, trialInfo } = useAuth();
   const { isDemoMode } = useDemo();
   const { isDeveloperOrLeader, isLoading: rolesLoading } = useUserRoles();
+  const { isExpired: freeExpired, loading: freeLoading } = useFreeTrialExpired();
   const location = useLocation();
 
   // Permitir acesso em modo demo
@@ -21,7 +24,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <>{children}</>;
   }
 
-  if (loading || rolesLoading) {
+  if (loading || rolesLoading || freeLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
@@ -41,7 +44,12 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to="/onboarding" replace />;
   }
 
-  // Trial expired check - developers/leaders bypass
+  // Free plan 15-day expiry - developers/leaders bypass
+  if (freeExpired && !isDeveloperOrLeader) {
+    return <FreeExpiredScreen />;
+  }
+
+  // Trial expired check (paid plan trial) - developers/leaders bypass
   if (trialInfo?.is_trial_expired && !isDeveloperOrLeader) {
     return <TrialExpiredScreen />;
   }
