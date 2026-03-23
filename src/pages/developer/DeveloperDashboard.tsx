@@ -42,6 +42,7 @@ const tabs = [
   { id: "ai-router", label: "AI Router", icon: Route },
   { id: "billing", label: "Billing IA", icon: Receipt },
   { id: "migration", label: "Migração", icon: ArrowRightLeft },
+  { id: "setup", label: "Setup", icon: ClipboardCheck },
 ] as const;
 
 export default function DeveloperDashboard() {
