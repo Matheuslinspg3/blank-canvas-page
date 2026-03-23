@@ -169,7 +169,7 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
         toast.success("Assinatura ativada com sucesso!");
       }
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toastError("Erro ao criar assinatura", e, { module: "useSubscription" }),
   });
 
   const cancel = useMutation({
