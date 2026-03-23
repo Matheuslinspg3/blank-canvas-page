@@ -16,7 +16,7 @@ export function useTransactionCategories() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('transaction_categories')
-        .select('id, name, type, color, is_default, organization_id, created_at')
+        .select('id, name, type, is_default, organization_id, created_at')
         .order('is_default', { ascending: false })
         .order('name');
 
