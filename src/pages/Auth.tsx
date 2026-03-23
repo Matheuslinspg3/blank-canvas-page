@@ -90,6 +90,15 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
   const [resetEmail, setResetEmail] = useState("");
   const [sendingReset, setSendingReset] = useState(false);
 
+  // Email verification state
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState("");
+  const [pendingPassword, setPendingPassword] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // Signup state
   const [signupForm, setSignupForm] = useState({
     full_name: "",
