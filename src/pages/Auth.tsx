@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { SEOHead } from "@/components/SEOHead";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowRight, ArrowLeft, Construction, Building2, User, Eye, EyeOff, Check, Gift, Crown, Zap, Star } from "lucide-react";
+import { Loader2, ArrowRight, ArrowLeft, Construction, Building2, User, Eye, EyeOff, Check, Gift, Crown, Zap, Star, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
 import { PasswordStrengthIndicator, isPasswordStrong } from "@/components/PasswordStrengthIndicator";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 interface SignupPlan {
   id: string;
@@ -89,6 +90,15 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
   const [resetEmail, setResetEmail] = useState("");
   const [sendingReset, setSendingReset] = useState(false);
 
+  // Email verification state
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState("");
+  const [pendingPassword, setPendingPassword] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // Signup state
   const [signupForm, setSignupForm] = useState({
     full_name: "",
@@ -119,54 +129,55 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Inline duplicate checks on blur
-  const checkEmailExists = async (email: string) => {
-    if (!email || !z.string().email().safeParse(email).success) return;
-    const { count } = await supabase.from("profiles").select("id", { count: "exact", head: true }).eq("user_id", email);
-    // Can't query profiles by email directly, use auth approach:
-    // We'll check via a lightweight RPC or just let the signup handle it.
-    // Better: check auth.users indirectly via signInWithPassword dry-run is not possible.
-    // Instead, use a custom RPC. For now, let's query organizations.document and profiles.phone
-  };
-
+  // Inline duplicate checks using server-side RPC
   const checkDuplicate = async (field: "email" | "phone" | "document", value: string) => {
     if (!value) return;
     setErrors((prev) => ({ ...prev, [field]: "" }));
 
     try {
-      if (field === "phone") {
-        const cleanPhone = value.replace(/\D/g, "");
-        if (cleanPhone.length < 10) return;
-        const { count } = await supabase
-          .from("profiles")
-          .select("id", { count: "exact", head: true })
-          .eq("phone", value);
-        if (count && count > 0) {
-          setErrors((prev) => ({ ...prev, phone: "Este telefone já está cadastrado" }));
-        }
-      } else if (field === "document") {
-        const cleanDoc = value.replace(/\D/g, "");
-        if (cleanDoc.length !== 11 && cleanDoc.length !== 14) return;
-        const { count } = await supabase
-          .from("organizations")
-          .select("id", { count: "exact", head: true })
-          .eq("document", cleanDoc);
-        if (count && count > 0) {
-          setErrors((prev) => ({ ...prev, document: "Este CPF/CNPJ já está cadastrado" }));
+      const { data } = await supabase.rpc("check_signup_duplicates", {
+        p_email: field === "email" ? value : "",
+        p_phone: field === "phone" ? value : "",
+        p_document: field === "document" ? value.replace(/\D/g, "") : "",
+      });
+
+      if (data && typeof data === "object") {
+        const result = data as Record<string, string>;
+        if (result[field]) {
+          setErrors((prev) => ({ ...prev, [field]: result[field] }));
         }
       }
     } catch {
-      // Silent fail for duplicate checks
+      // Silent fail
     }
   };
 
+  // Resend cooldown cleanup
   useEffect(() => {
-    if (user && !loading) {
-      // If profile exists and onboarding not completed, redirect to onboarding
-      // Otherwise go to dashboard (AuthContext handles profile fetch)
+    return () => {
+      if (cooldownRef.current) clearInterval(cooldownRef.current);
+    };
+  }, []);
+
+  const startResendCooldown = () => {
+    setResendCooldown(60);
+    if (cooldownRef.current) clearInterval(cooldownRef.current);
+    cooldownRef.current = setInterval(() => {
+      setResendCooldown((prev) => {
+        if (prev <= 1) {
+          if (cooldownRef.current) clearInterval(cooldownRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  useEffect(() => {
+    if (user && !loading && !showEmailVerification) {
       navigate("/dashboard");
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, showEmailVerification]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -216,6 +227,28 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
     }
 
     setIsLoading(true);
+
+    // Pre-check all duplicates before attempting signup
+    try {
+      const { data: dupes } = await supabase.rpc("check_signup_duplicates", {
+        p_email: signupForm.email,
+        p_phone: signupForm.phone,
+        p_document: signupForm.document.replace(/\D/g, ""),
+      });
+
+      if (dupes && typeof dupes === "object") {
+        const dupeResult = dupes as Record<string, string>;
+        const hasIssues = Object.keys(dupeResult).length > 0;
+        if (hasIssues) {
+          setErrors(dupeResult);
+          setIsLoading(false);
+          return;
+        }
+      }
+    } catch {
+      // If RPC fails, continue with signup (server will catch duplicates)
+    }
+
     try {
       const { error } = await signUp({
         email: signupForm.email,
@@ -242,23 +275,54 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
         return;
       }
 
-      // Auto-login after successful signup
-      const { error: loginError } = await signIn(signupForm.email, signupForm.password);
+      // Show email verification screen
+      setPendingEmail(signupForm.email);
+      setPendingPassword(signupForm.password);
+      setShowEmailVerification(true);
+      startResendCooldown();
       setIsLoading(false);
 
-      if (loginError) {
-        // If auto-login fails (e.g. email confirmation required), guide user
-        toast({
-          title: "Conta criada!",
-          description: "Verifique seu email para confirmar o cadastro e depois faça login.",
-        });
-      } else {
-        toast({ title: "Bem-vindo!", description: "Sua conta foi criada com sucesso." });
-        navigate("/dashboard", { replace: true });
-      }
     } catch (err: any) {
       setIsLoading(false);
       toast({ variant: "destructive", title: "Erro ao cadastrar", description: err.message || "Erro inesperado." });
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otpCode.length !== 6) return;
+    setVerifyingOtp(true);
+
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: pendingEmail,
+        token: otpCode,
+        type: "signup",
+      });
+
+      if (error) {
+        toast({ variant: "destructive", title: "Código inválido", description: "Verifique o código e tente novamente." });
+        setVerifyingOtp(false);
+        return;
+      }
+
+      // OTP verified - user is now logged in automatically
+      toast({ title: "Bem-vindo!", description: "Email verificado com sucesso!" });
+      navigate("/dashboard", { replace: true });
+    } catch {
+      toast({ variant: "destructive", title: "Erro", description: "Erro ao verificar código." });
+    } finally {
+      setVerifyingOtp(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0) return;
+    try {
+      await supabase.auth.resend({ type: "signup", email: pendingEmail });
+      startResendCooldown();
+      toast({ title: "Código reenviado", description: "Verifique sua caixa de entrada." });
+    } catch {
+      toast({ variant: "destructive", title: "Erro", description: "Não foi possível reenviar o código." });
     }
   };
 
@@ -353,7 +417,63 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
             </div>
           )}
 
-          {showForgotPassword ? (
+          {showEmailVerification ? (
+            /* ===== EMAIL VERIFICATION ===== */
+            <div className="space-y-6 text-center">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Mail className="h-8 w-8 text-primary" />
+                </div>
+                <h2 className="font-display text-2xl font-bold text-foreground">Verifique seu email</h2>
+                <p className="text-sm text-muted-foreground max-w-xs">
+                  Enviamos um código de 6 dígitos para <span className="font-medium text-foreground">{pendingEmail}</span>
+                </p>
+              </div>
+
+              <div className="flex justify-center">
+                <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+
+              <Button
+                onClick={handleVerifyOtp}
+                size="lg"
+                variant="gold"
+                className="w-full h-14 text-base"
+                disabled={otpCode.length !== 6 || verifyingOtp}
+              >
+                {verifyingOtp ? <Loader2 className="h-5 w-5 animate-spin" /> : "Verificar e entrar"}
+              </Button>
+
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={resendCooldown > 0}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                >
+                  {resendCooldown > 0 ? `Reenviar código em ${resendCooldown}s` : "Reenviar código"}
+                </button>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => { setShowEmailVerification(false); setOtpCode(""); }}
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 mx-auto"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" /> Voltar ao cadastro
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : showForgotPassword ? (
             <form onSubmit={handleForgotPassword} className="space-y-5">
               <div className="space-y-2">
                 <button
@@ -587,6 +707,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                   id="signup-email" type="email" placeholder="seu@email.com"
                   value={signupForm.email}
                   onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
+                  onBlur={() => checkDuplicate("email", signupForm.email)}
                   className="h-11 bg-muted/40 border-border/50 text-sm"
                 />
                 {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
