@@ -106,7 +106,7 @@ export function useWhatsAppInstance() {
       invalidate();
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Erro ao verificar status");
+      toastError("Erro ao verificar status WhatsApp", err, { module: "useWhatsAppInstance" });
     },
   });
 
