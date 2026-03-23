@@ -112,7 +112,7 @@ export function useContracts() {
         throw new Error('Organização não encontrada');
       }
 
-      const code = await generateCode();
+      const code = await generateCode(profile.organization_id);
 
       const { data: result, error } = await supabase
         .from('contracts')
