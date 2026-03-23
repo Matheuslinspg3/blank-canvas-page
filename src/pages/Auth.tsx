@@ -119,6 +119,47 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Inline duplicate checks on blur
+  const checkEmailExists = async (email: string) => {
+    if (!email || !z.string().email().safeParse(email).success) return;
+    const { count } = await supabase.from("profiles").select("id", { count: "exact", head: true }).eq("user_id", email);
+    // Can't query profiles by email directly, use auth approach:
+    // We'll check via a lightweight RPC or just let the signup handle it.
+    // Better: check auth.users indirectly via signInWithPassword dry-run is not possible.
+    // Instead, use a custom RPC. For now, let's query organizations.document and profiles.phone
+  };
+
+  const checkDuplicate = async (field: "email" | "phone" | "document", value: string) => {
+    if (!value) return;
+    setErrors((prev) => ({ ...prev, [field]: "" }));
+
+    try {
+      if (field === "phone") {
+        const cleanPhone = value.replace(/\D/g, "");
+        if (cleanPhone.length < 10) return;
+        const { count } = await supabase
+          .from("profiles")
+          .select("id", { count: "exact", head: true })
+          .eq("phone", value);
+        if (count && count > 0) {
+          setErrors((prev) => ({ ...prev, phone: "Este telefone já está cadastrado" }));
+        }
+      } else if (field === "document") {
+        const cleanDoc = value.replace(/\D/g, "");
+        if (cleanDoc.length !== 11 && cleanDoc.length !== 14) return;
+        const { count } = await supabase
+          .from("organizations")
+          .select("id", { count: "exact", head: true })
+          .eq("document", cleanDoc);
+        if (count && count > 0) {
+          setErrors((prev) => ({ ...prev, document: "Este CPF/CNPJ já está cadastrado" }));
+        }
+      }
+    } catch {
+      // Silent fail for duplicate checks
+    }
+  };
+
   useEffect(() => {
     if (user && !loading) {
       // If profile exists and onboarding not completed, redirect to onboarding
@@ -188,12 +229,15 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
       });
 
       if (error) {
-        const msg = error.message.includes("already been registered")
-          ? "Este email já está cadastrado. Faça login."
-          : error.message.includes("Telefone ou documento")
-          ? error.message
-          : error.message;
-        toast({ variant: "destructive", title: "Erro ao cadastrar", description: msg });
+        if (error.message.includes("already been registered")) {
+          setErrors((prev) => ({ ...prev, email: "Este email já está cadastrado. Faça login." }));
+        } else if (error.message.includes("Telefone ou documento")) {
+          const msg = error.message;
+          if (msg.includes("telefone")) setErrors((prev) => ({ ...prev, phone: "Este telefone já está cadastrado" }));
+          if (msg.includes("documento")) setErrors((prev) => ({ ...prev, document: "Este CPF/CNPJ já está cadastrado" }));
+        } else {
+          toast({ variant: "destructive", title: "Erro ao cadastrar", description: error.message });
+        }
         setIsLoading(false);
         return;
       }
@@ -499,10 +543,11 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="signup-phone" className="editorial-label-muted">Telefone *</Label>
-                  <Input
+                <Input
                     id="signup-phone" placeholder="(11) 99999-9999"
                     value={signupForm.phone}
                     onChange={(e) => setSignupForm({ ...signupForm, phone: formatPhone(e.target.value) })}
+                    onBlur={() => checkDuplicate("phone", signupForm.phone)}
                     className="h-11 bg-muted/40 border-border/50 text-sm"
                   />
                   {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
@@ -510,14 +555,13 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="signup-document" className="editorial-label-muted">
-                  {signupForm.account_type === "imobiliaria" ? "CNPJ *" : "CPF *"}
-                </Label>
+                <Label htmlFor="signup-document" className="editorial-label-muted">CPF ou CNPJ *</Label>
                 <Input
                   id="signup-document"
-                  placeholder={signupForm.account_type === "imobiliaria" ? "00.000.000/0000-00" : "000.000.000-00"}
+                  placeholder="000.000.000-00 ou 00.000.000/0000-00"
                   value={signupForm.document}
                   onChange={(e) => setSignupForm({ ...signupForm, document: formatDocument(e.target.value) })}
+                  onBlur={() => checkDuplicate("document", signupForm.document)}
                   className="h-11 bg-muted/40 border-border/50 text-sm"
                 />
                 {errors.document && <p className="text-xs text-destructive">{errors.document}</p>}
