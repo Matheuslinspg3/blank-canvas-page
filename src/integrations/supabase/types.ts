@@ -5413,6 +5413,7 @@ export type Database = {
         Returns: Json
       }
       fn_pipeline_summary: { Args: { p_org_id: string }; Returns: Json }
+      generate_contract_code: { Args: { p_org_id: string }; Returns: string }
       generate_property_code: {
         Args: {
           p_city?: string
