@@ -24,7 +24,6 @@ import {
   Image,
   Ruler,
   FileText,
-  RefreshCw,
   ArrowLeft,
   Search,
   Building2,
@@ -107,6 +106,28 @@ export default function ImportPendencies() {
       })) as IncompleteProperty[];
     },
     enabled: !!profile?.organization_id,
+  });
+
+  const markReviewedMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from('properties')
+        .update({ import_status: 'complete' } as any)
+        .in('id', ids);
+      if (error) throw error;
+    },
+    onSuccess: (_, ids) => {
+      queryClient.invalidateQueries({ queryKey: ['incomplete-properties'] });
+      queryClient.invalidateQueries({ queryKey: ['import-pendencies-count'] });
+      toast({
+        title: `${ids.length} imóvel(is) marcado(s) como revisado(s)`,
+        description: 'Os imóveis não aparecerão mais na lista de pendências.',
+      });
+      setSelectedIds(new Set());
+    },
+    onError: () => {
+      toast({ title: 'Erro', description: 'Não foi possível atualizar os imóveis.', variant: 'destructive' });
+    },
   });
 
   const filteredProperties = useMemo(() => {
@@ -281,9 +302,18 @@ export default function ImportPendencies() {
       {selectedIds.size > 0 && (
         <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
           <span className="text-sm font-medium">{selectedIds.size} selecionados</span>
-          <Button variant="outline" size="sm" disabled>
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Reimportar selecionados
+          <Button 
+            variant="default" 
+            size="sm"
+            disabled={markReviewedMutation.isPending}
+            onClick={() => markReviewedMutation.mutate(Array.from(selectedIds))}
+          >
+            {markReviewedMutation.isPending ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+            )}
+            Marcar como revisado
           </Button>
         </div>
       )}
@@ -309,6 +339,7 @@ export default function ImportPendencies() {
                   property={property}
                   selected={selectedIds.has(property.id)}
                   onToggle={() => handleToggle(property.id)}
+                  onMarkReviewed={(id) => markReviewedMutation.mutate([id])}
                 />
               ))}
               {filteredProperties.length === 0 && (
@@ -329,11 +360,13 @@ export default function ImportPendencies() {
 function PropertyRow({ 
   property, 
   selected, 
-  onToggle 
+  onToggle,
+  onMarkReviewed,
 }: { 
   property: IncompleteProperty; 
   selected: boolean; 
   onToggle: () => void;
+  onMarkReviewed: (id: string) => void;
 }) {
   const coverImage = property.property_images?.[0]?.url;
   const price = property.sale_price || property.rent_price;
@@ -417,6 +450,18 @@ function PropertyRow({
               <ExternalLink className="w-4 h-4" />
             </Link>
           </Button>
+
+          {onMarkReviewed && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-green-600 hover:text-green-700"
+              onClick={(e) => { e.stopPropagation(); onMarkReviewed(property.id); }}
+              title="Marcar como revisado"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       </div>
     </div>
