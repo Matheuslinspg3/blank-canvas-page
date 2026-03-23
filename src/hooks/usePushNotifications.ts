@@ -144,11 +144,11 @@ export function usePushNotifications() {
         addDebug(`❌ SDK não ficou pronto${failure.reason ? ` (${failure.reason})` : ""}`);
 
         if (failure.reason === "domain-mismatch") {
-          toast.error("Push bloqueado: o OneSignal deste app está configurado para outro domínio. Atualize o Site URL/Allowed Origins no OneSignal para portadocorretor.com.br.");
+          toastError("Push bloqueado: OneSignal configurado para outro domínio", undefined, { module: "usePushNotifications" });
         } else if (failure.reason === "service-worker-invalid-state") {
-          toast.error("Conflito de Service Worker detectado. Recarregue a página e tente ativar novamente.");
+          toastError("Conflito de Service Worker detectado. Recarregue a página.", undefined, { module: "usePushNotifications", retryable: true });
         } else {
-          toast.error("Serviço de notificações indisponível. Tente recarregar a página.");
+          toastError("Serviço de notificações indisponível", undefined, { module: "usePushNotifications", retryable: true });
         }
         return false;
       }
