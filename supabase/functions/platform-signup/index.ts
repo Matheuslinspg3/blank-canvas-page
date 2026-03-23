@@ -17,7 +17,7 @@ serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, serviceKey);
 
-    const { invite_id, email, password, full_name, company_name, phone, account_type } = await req.json();
+    const { invite_id, email, password, full_name, company_name, phone, account_type, document } = await req.json();
 
     if (!invite_id || !email || !password || !full_name || !company_name) {
       return new Response(JSON.stringify({ error: "Campos obrigatórios faltando" }), {
@@ -69,6 +69,7 @@ serve(async (req) => {
       user_metadata: {
         full_name,
         phone: phone || null,
+        document: document || null,
         account_type: account_type || "imobiliaria",
         company_name,
       },

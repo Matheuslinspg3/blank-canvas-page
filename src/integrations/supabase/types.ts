@@ -3128,6 +3128,7 @@ export type Database = {
           cnpj: string | null
           created_at: string
           created_by: string | null
+          document: string | null
           email: string | null
           id: string
           invite_code: string
@@ -3154,6 +3155,7 @@ export type Database = {
           cnpj?: string | null
           created_at?: string
           created_by?: string | null
+          document?: string | null
           email?: string | null
           id?: string
           invite_code?: string
@@ -3180,6 +3182,7 @@ export type Database = {
           cnpj?: string | null
           created_at?: string
           created_by?: string | null
+          document?: string | null
           email?: string | null
           id?: string
           invite_code?: string

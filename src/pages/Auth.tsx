@@ -38,12 +38,35 @@ const loginSchema = z.object({
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
 });
 
+const formatPhone = (value: string) => {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+};
+
+const formatDocument = (value: string) => {
+  const digits = value.replace(/\D/g, "").slice(0, 14);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  if (digits.length <= 11) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+  if (digits.length <= 12) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8)}`;
+  return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+};
+
+const validateDocument = (doc: string) => {
+  const digits = doc.replace(/\D/g, "");
+  return digits.length === 11 || digits.length === 14;
+};
+
 const signupSchema = z.object({
   full_name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
   email: z.string().email("Email inválido"),
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
   company_name: z.string().min(2, "Nome da empresa obrigatório"),
-  phone: z.string().optional(),
+  phone: z.string().min(14, "Telefone obrigatório (com DDD)"),
+  document: z.string().refine(validateDocument, "CPF (11 dígitos) ou CNPJ (14 dígitos) inválido"),
   account_type: z.enum(["imobiliaria", "corretor_individual"]),
 });
 
@@ -72,6 +95,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
     password: "",
     company_name: "",
     phone: "",
+    document: "",
     account_type: "imobiliaria" as "imobiliaria" | "corretor_individual",
     selected_plan: "starter",
   });
@@ -154,7 +178,8 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
       email: signupForm.email,
       password: signupForm.password,
       name: signupForm.full_name,
-      phone: signupForm.phone || "",
+      phone: signupForm.phone,
+      document: signupForm.document.replace(/\D/g, ""),
       accountType: signupForm.account_type,
       companyName: signupForm.company_name,
       selectedPlan: signupForm.selected_plan,
@@ -452,14 +477,29 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                   {errors.full_name && <p className="text-xs text-destructive">{errors.full_name}</p>}
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="signup-phone" className="editorial-label-muted">Telefone</Label>
+                  <Label htmlFor="signup-phone" className="editorial-label-muted">Telefone *</Label>
                   <Input
                     id="signup-phone" placeholder="(11) 99999-9999"
                     value={signupForm.phone}
-                    onChange={(e) => setSignupForm({ ...signupForm, phone: e.target.value })}
+                    onChange={(e) => setSignupForm({ ...signupForm, phone: formatPhone(e.target.value) })}
                     className="h-11 bg-muted/40 border-border/50 text-sm"
                   />
+                  {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="signup-document" className="editorial-label-muted">
+                  {signupForm.account_type === "imobiliaria" ? "CNPJ *" : "CPF *"}
+                </Label>
+                <Input
+                  id="signup-document"
+                  placeholder={signupForm.account_type === "imobiliaria" ? "00.000.000/0000-00" : "000.000.000-00"}
+                  value={signupForm.document}
+                  onChange={(e) => setSignupForm({ ...signupForm, document: formatDocument(e.target.value) })}
+                  className="h-11 bg-muted/40 border-border/50 text-sm"
+                />
+                {errors.document && <p className="text-xs text-destructive">{errors.document}</p>}
               </div>
 
               <div className="space-y-1.5">
