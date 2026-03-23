@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { Database, Play, CheckCircle2, AlertCircle, Loader2, Info, RotateCcw } from "lucide-react";
 
 interface BatchResult {
@@ -99,7 +100,7 @@ export function MigrationTab() {
     } catch (err: any) {
       const errorResult = { affected: 0, message: err.message || "Erro desconhecido" };
       addLog(operation, errorResult, false);
-      toast.error(`Erro: ${err.message}`);
+      toastError(`Erro: ${err.message}`, undefined, { module: "MigrationTab" });
       setAutoRun(false);
       return null;
     } finally {

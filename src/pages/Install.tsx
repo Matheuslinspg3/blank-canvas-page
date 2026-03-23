@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
 import { repairPwa } from "@/lib/pwaUtils";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -54,7 +55,7 @@ export default function Install() {
       const result = await repairPwa();
       toast.success(`PWA reparado! ${result.cleared} caches limpos. Feche e reabra o app.`);
     } catch {
-      toast.error("Erro ao reparar PWA");
+      toastError("Erro ao reparar PWA", undefined, { module: "Install" });
     } finally {
       setRepairing(false);
     }

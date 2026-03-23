@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw, CheckCircle, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 
 export function PurgeCacheCard() {
   const [isPurging, setIsPurging] = useState(false);
@@ -21,9 +22,7 @@ export function PurgeCacheCard() {
         throw new Error(data?.error || "Erro desconhecido");
       }
     } catch (err: any) {
-      toast.error("Falha ao limpar cache", {
-        description: err.message || "Verifique as credenciais do Cloudflare",
-      });
+      toastError("Falha ao limpar cache", err, { module: "PurgeCacheCard" });
     } finally {
       setIsPurging(false);
     }

@@ -8,6 +8,7 @@ import { Loader2, ShieldCheck, ShieldX, ShieldAlert, Mail, Phone, Award } from "
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 
 interface VerificationResult {
   verified: boolean;
@@ -37,11 +38,11 @@ export function VerificationSection() {
 
   const handleVerifyCreci = async () => {
     if (!profile?.creci) {
-      toast.error("Informe seu número de CRECI no perfil antes de verificar.");
+      toastError("Informe seu número de CRECI no perfil antes de verificar.", undefined, { module: "VerificationSection" });
       return;
     }
     if (!profile?.full_name) {
-      toast.error("Informe seu nome completo no perfil antes de verificar.");
+      toastError("Informe seu nome completo no perfil antes de verificar.", undefined, { module: "VerificationSection" });
       return;
     }
 
@@ -73,10 +74,10 @@ export function VerificationSection() {
         toast.success("CRECI verificado com sucesso!");
         refreshProfile();
       } else {
-        toast.error("Verificação do CRECI falhou. Veja os detalhes abaixo.");
+        toastError("Verificação do CRECI falhou. Veja os detalhes abaixo.", undefined, { module: "VerificationSection" });
       }
     } catch (error: any) {
-      toast.error("Erro ao verificar CRECI: " + (error.message || "Tente novamente"));
+      toastError("Erro ao verificar CRECI", error, { module: "VerificationSection" });
     } finally {
       setVerifyingCreci(false);
       setVerifyStep("");
@@ -90,7 +91,7 @@ export function VerificationSection() {
       email: user.email,
     });
     if (error) {
-      toast.error("Erro ao reenviar e-mail de verificação");
+      toastError("Erro ao reenviar e-mail de verificação", undefined, { module: "VerificationSection" });
     } else {
       toast.success("E-mail de verificação reenviado!");
     }

@@ -10,6 +10,7 @@ import {
   BarChart3, ArrowDownToLine, AlertCircle, Webhook, Download
 } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { format } from "date-fns";
 
 export default function RDStationStatsContent() {
@@ -35,7 +36,7 @@ export default function RDStationStatsContent() {
 
   const handleExportCSV = () => {
     if (rdLeads.length === 0) {
-      toast.error("Nenhum lead do RD Station para exportar.");
+      toastError("Nenhum lead do RD Station para exportar.", undefined, { module: "RDStationStatsContent" });
       return;
     }
     const headers = ["Nome", "E-mail", "Telefone", "Origem", "Temperatura", "Data Criação", "Notas"];

@@ -51,6 +51,7 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { toastError } from "@/lib/toastError";
 import { cn } from '@/lib/utils';
 
 const OPERATION_TYPES = [
@@ -136,13 +137,13 @@ export function LeadDocumentsTab({ leadId }: LeadDocumentsTabProps) {
 
   const handleFileUpload = async (file: File, templateItemId: string | null, maxSizeMb?: number, acceptedFormats?: string[]) => {
     if (maxSizeMb && file.size > maxSizeMb * 1024 * 1024) {
-      toast.error(`Arquivo muito grande. Máximo: ${maxSizeMb}MB`);
+      toastError(`Arquivo muito grande. Máximo: ${maxSizeMb}MB`, undefined, { module: "LeadDocumentsTab" });
       return;
     }
     if (acceptedFormats && acceptedFormats.length > 0) {
       const ext = file.name.split('.').pop()?.toLowerCase();
       if (ext && !acceptedFormats.includes(ext)) {
-        toast.error(`Formato inválido. Aceitos: ${acceptedFormats.join(', ')}`);
+        toastError(`Formato inválido. Aceitos: ${acceptedFormats.join(', ')}`, undefined, { module: "LeadDocumentsTab" });
         return;
       }
     }
@@ -164,7 +165,7 @@ export function LeadDocumentsTab({ leadId }: LeadDocumentsTabProps) {
       setUploadProgress((prev) => ({ ...prev, [templateItemId || 'avulso']: 100 }));
       toast.success('Documento enviado com sucesso!');
     } catch {
-      toast.error('Não foi possível enviar o documento. Tente novamente.');
+      toastError('Não foi possível enviar o documento', undefined, { module: 'LeadDocumentsTab', retryable: true });
     } finally {
       clearInterval(progressInterval);
       setUploadingItemId(null);
@@ -208,7 +209,7 @@ export function LeadDocumentsTab({ leadId }: LeadDocumentsTabProps) {
         window.open(url, '_blank');
       }
     } catch {
-      toast.error('Não foi possível abrir o documento.');
+      toastError('Não foi possível abrir o documento', undefined, { module: 'LeadDocumentsTab' });
     }
   };
 
@@ -224,7 +225,7 @@ export function LeadDocumentsTab({ leadId }: LeadDocumentsTabProps) {
       await reviewDocument.mutateAsync({ documentId: rejectDocId, status: 'rejected', rejectionReason: rejectReason });
       toast.success('Documento rejeitado.');
     } catch {
-      toast.error('Erro ao rejeitar documento.');
+      toastError('Erro ao rejeitar documento', undefined, { module: 'LeadDocumentsTab' });
     }
     setRejectDialogOpen(false);
   };

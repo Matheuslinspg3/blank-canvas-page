@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Copy, Link2, Webhook as WebhookIcon, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,7 +30,7 @@ export default function RDWebhookTab() {
       queryClient.invalidateQueries({ queryKey: ["rd-station-settings"] });
       toast.success("Webhook regenerado! Atualize a URL no RD Station.");
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toastError("Erro na operação", e, { module: "RDWebhookTab" }),
   });
 
   const webhookUrl = settings

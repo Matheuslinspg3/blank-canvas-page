@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { Palette, Save, Loader2, Upload, Image as ImageIcon, Type, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -139,7 +140,7 @@ export default function BrandSettingsContent() {
       toast.success("Logo carregada!");
     } catch (err: any) {
       console.error("Upload error:", err);
-      toast.error("Erro ao enviar logo. Verifique se o bucket 'brand-assets' existe.");
+      toastError("Erro ao enviar logo. Verifique se o bucket 'brand-assets' existe.", undefined, { module: "BrandSettingsContent" });
     } finally {
       setUploading(false);
     }
@@ -159,7 +160,7 @@ export default function BrandSettingsContent() {
       toast.success("Identidade visual salva!");
     } catch (err: any) {
       console.error("Save error:", err);
-      toast.error("Erro ao salvar configurações.");
+      toastError("Erro ao salvar configurações.", undefined, { module: "BrandSettingsContent" });
     } finally {
       setSaving(false);
     }

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { Search, Building2, Clock, Infinity, Plus, Minus, Loader2, User, ChevronDown, ChevronRight } from "lucide-react";
 import { format, addMonths, addDays, addYears } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -84,7 +85,7 @@ export function SubscriptionsTab() {
       toast.success("Assinatura atualizada");
       setEditingId(null);
     },
-    onError: (e: Error) => toast.error("Erro: " + e.message),
+    onError: (e: Error) => toastError("Erro na operação", e, { module: "SubscriptionsTab" }),
   });
 
   const getStatus = (org: OrgRow) => {
@@ -124,7 +125,7 @@ export function SubscriptionsTab() {
       case "expire": newEnd = new Date(); break;
       case "custom": {
         const days = parseInt(customDays);
-        if (isNaN(days)) { toast.error("Informe um número válido de dias"); return; }
+        if (isNaN(days)) { toastError("Informe um número válido de dias", undefined, { module: "SubscriptionsTab" }); return; }
         newEnd = addDays(base, days);
         break;
       }

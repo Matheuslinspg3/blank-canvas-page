@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertCircle, Ban, CheckCircle2, CloudUpload, Filter, Loader2, Play, Search, Square, TestTube, RefreshCw, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 
 interface MigrationResult {
   migrated: number;
@@ -78,7 +79,7 @@ export function CloudinaryMigrationCard() {
       }
       setProperties(Array.from(map.values()).sort((a, b) => b.cloudinaryCount - a.cloudinaryCount));
     } catch (err: any) {
-      toast.error("Erro ao carregar imóveis", { description: err.message });
+      toastError("Erro ao carregar imóveis", err, { module: "CloudinaryMigrationCard" });
     } finally {
       setLoadingProperties(false);
     }
@@ -112,7 +113,7 @@ export function CloudinaryMigrationCard() {
       return data as MigrationResult;
     } catch (err: any) {
       if (err.name === "AbortError") return null;
-      toast.error("Erro na migração", { description: err.message });
+      toastError("Erro na migração", err, { module: "CloudinaryMigrationCard" });
       return null;
     } finally {
       abortRef.current = null;

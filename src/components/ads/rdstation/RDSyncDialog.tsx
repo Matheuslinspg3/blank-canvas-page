@@ -13,6 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, Download, CheckCircle2, AlertCircle, RefreshCw, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface RDContact {
@@ -48,7 +49,7 @@ export default function RDSyncDialog({ open, onOpenChange }: RDSyncDialogProps) 
       if (error) throw error;
       if (data?.error) {
         if (data.needs_oauth) {
-          toast.error("Conecte sua conta RD Station via OAuth primeiro.");
+          toastError("Conecte sua conta RD Station via OAuth primeiro.", undefined, { module: "RDSyncDialog" });
           return;
         }
         throw new Error(data.error);
@@ -63,7 +64,7 @@ export default function RDSyncDialog({ open, onOpenChange }: RDSyncDialogProps) 
       });
       setSelectedIds(newIds);
     } catch (err: any) {
-      toast.error(err.message || "Erro ao buscar contatos do RD Station.");
+      toastError("Erro ao buscar contatos do RD Station.", err, { module: "RDSyncDialog" });
     } finally {
       setIsLoading(false);
     }
@@ -121,7 +122,7 @@ export default function RDSyncDialog({ open, onOpenChange }: RDSyncDialogProps) 
       queryClient.invalidateQueries({ queryKey: ["rd-station-logs"] });
       onOpenChange(false);
     } catch (err: any) {
-      toast.error(err.message || "Erro ao importar leads.");
+      toastError("Erro ao importar leads.", err, { module: "RDSyncDialog" });
     } finally {
       setIsImporting(false);
     }

@@ -12,6 +12,7 @@ import { type CSVParseResult, type ParsedRow } from '../utils/csvParser';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { toastError } from "@/lib/toastError";
 
 const STEPS = ['Upload', 'Mapeamento', 'Duplicidade', 'Configurações', 'Processando', 'Relatório'];
 
@@ -42,7 +43,7 @@ export function CsvImportTab({ onClose }: { onClose: () => void }) {
     if (step === 1) {
       const validation = validateMapping(mappings);
       if (!validation.valid) {
-        toast.error(validation.error);
+        toastError(validation.error || 'Erro de validação', undefined, { module: 'CsvImportTab' });
         return;
       }
       // Run duplicate detection
@@ -54,7 +55,7 @@ export function CsvImportTab({ onClose }: { onClose: () => void }) {
         const result = await detectDuplicates(csvResult!.rows, fieldMap);
         setDuplicateResult(result);
       } catch (e) {
-        toast.error('Erro ao verificar duplicidades');
+        toastError('Erro ao verificar duplicidades', undefined, { module: 'CsvImportTab' });
       } finally {
         setIsDuplicateLoading(false);
       }
@@ -101,7 +102,7 @@ export function CsvImportTab({ onClose }: { onClose: () => void }) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        toast.error('Sessão expirada. Faça login novamente.');
+        toastError('Sessão expirada. Faça login novamente.', undefined, { module: 'CsvImportTab' });
         return;
       }
 
@@ -125,7 +126,7 @@ export function CsvImportTab({ onClose }: { onClose: () => void }) {
       setProcessing({ processed: leads.length, total: leads.length, active: false });
       setStep(5);
     } catch (error: any) {
-      toast.error(error.message || 'Erro durante a importação');
+      toastError(error.message || 'Erro durante a importação', error, { module: 'CsvImportTab' });
       setStep(3); // Go back to settings
       setProcessing({ processed: 0, total: 0, active: false });
     }

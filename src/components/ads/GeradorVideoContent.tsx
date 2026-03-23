@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -253,7 +254,7 @@ export default function GeradorVideoContent() {
           setIsGenerating(false);
           return; // stop polling
         } else if (data.status === "failed") {
-          toast.error(data.error || "Erro ao gerar o vídeo. Tente novamente.");
+          toastError(data.error || "Erro ao gerar o vídeo. Tente novamente.", undefined, { module: "GeradorVideoContent" });
           setIsGenerating(false);
           return; // stop polling
         }
@@ -273,11 +274,11 @@ export default function GeradorVideoContent() {
   // Generate
   const handleGenerate = async () => {
     if (includedPhotos.length < 3) {
-      toast.error("Selecione pelo menos 3 fotos para gerar o vídeo.");
+      toastError("Selecione pelo menos 3 fotos para gerar o vídeo.", undefined, { module: "GeradorVideoContent" });
       return;
     }
     if (includedPhotos.length > 15) {
-      toast.error("Máximo de 15 fotos permitido.");
+      toastError("Máximo de 15 fotos permitido.", undefined, { module: "GeradorVideoContent" });
       return;
     }
 
@@ -306,7 +307,7 @@ export default function GeradorVideoContent() {
       setJobStatus({ status: "processing", progress: 0, phase: "preparing_photos" });
       toast.info("Geração de vídeo iniciada!");
     } catch (err: any) {
-      toast.error(err.message || "Não foi possível iniciar a geração do vídeo. Tente novamente.");
+      toastError("Não foi possível iniciar a geração do vídeo. Tente novamente.", err, { module: "GeradorVideoContent" });
       setIsGenerating(false);
     }
   };
@@ -320,7 +321,7 @@ export default function GeradorVideoContent() {
       setIsGenerating(false);
       toast.info("Geração cancelada.");
     } catch {
-      toast.error("Não foi possível cancelar a geração.");
+      toastError("Não foi possível cancelar a geração.", undefined, { module: "GeradorVideoContent" });
     }
   };
 

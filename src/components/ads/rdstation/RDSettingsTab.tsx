@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, XCircle, Loader2, Key, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { useLeadStages } from "@/hooks/useLeadStages";
 import { useRDStationSettings } from "@/hooks/useRDStationSettings";
 
@@ -45,7 +46,7 @@ export default function RDSettingsTab() {
       },
       {
         onSuccess: () => toast.success("Configurações salvas!"),
-        onError: (e: any) => toast.error(e.message),
+        onError: (e: any) => toastError("Erro na operação", e, { module: "RDSettingsTab" }),
       }
     );
   };
@@ -78,7 +79,7 @@ export default function RDSettingsTab() {
             <Button
               onClick={() => createSettings.mutate(undefined, {
                 onSuccess: () => toast.success("Integração RD Station ativada!"),
-                onError: (e: any) => toast.error(e.message),
+                onError: (e: any) => toastError("Erro na operação", e, { module: "RDSettingsTab" }),
               })}
               disabled={createSettings.isPending}
             >

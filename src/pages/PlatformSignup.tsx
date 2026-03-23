@@ -9,6 +9,7 @@ import { HabitaeLogo } from "@/components/HabitaeLogo";
 import { PillBadge } from "@/components/ui/pill-badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { z } from "zod";
 
 const signupSchema = z.object({
@@ -86,14 +87,14 @@ export default function PlatformSignup() {
       });
 
       if (error || data?.error) {
-        toast.error(data?.error || "Erro ao cadastrar");
+        toastError(data?.error || "Erro ao cadastrar", undefined, { module: "PlatformSignup" });
         setIsLoading(false);
         return;
       }
 
       setSuccess(true);
     } catch {
-      toast.error("Erro de conexão");
+      toastError("Erro de conexão", undefined, { module: "PlatformSignup" });
     }
     setIsLoading(false);
   };

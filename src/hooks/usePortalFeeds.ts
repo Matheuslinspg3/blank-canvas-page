@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { toastError } from '@/lib/toastError';
 
 export interface PortalFeed {
   id: string;
@@ -72,7 +73,6 @@ export function usePortalFeeds() {
 
       if (feedsToCreate.length === 0) return;
 
-      // Insert and get IDs to update feed_url
       const { data: created, error } = await supabase
         .from('portal_feeds')
         .insert(feedsToCreate)
@@ -80,7 +80,6 @@ export function usePortalFeeds() {
 
       if (error) throw error;
 
-      // Update feed URLs with actual IDs
       if (created) {
         for (const feed of created) {
           await supabase
@@ -109,9 +108,7 @@ export function usePortalFeeds() {
       queryClient.invalidateQueries({ queryKey: ['portal-feeds'] });
       toast.success(isActive ? 'Feed ativado' : 'Feed desativado');
     },
-    onError: (err) => {
-      toast.error('Erro ao atualizar feed: ' + (err as Error).message);
-    },
+    onError: (e) => toastError('Erro ao atualizar feed', e, { module: 'usePortalFeeds' }),
   });
 
   const updateFilter = useMutation({
@@ -133,7 +130,6 @@ export function usePortalFeeds() {
       const feed = feeds.find(f => f.id === feedId);
       if (!feed?.feed_url) throw new Error('Feed URL não encontrada');
 
-      // Call the feed URL to trigger generation
       const resp = await fetch(feed.feed_url);
       if (!resp.ok) {
         const err = await resp.text();
@@ -145,9 +141,7 @@ export function usePortalFeeds() {
       queryClient.invalidateQueries({ queryKey: ['portal-feeds'] });
       toast.success('Feed regenerado com sucesso');
     },
-    onError: (err) => {
-      toast.error('Erro ao regenerar: ' + (err as Error).message);
-    },
+    onError: (e) => toastError('Erro ao regenerar feed', e, { module: 'usePortalFeeds' }),
   });
 
   return {

@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 
 // ── Types ──
 
@@ -507,7 +508,7 @@ export function AiRouterProviders() {
     setTestingId(p.id);
     testProvider.mutate(p.provider_key, {
       onSuccess: (res) => { toast.success(`✅ ${p.display_name}: OK (${res.latency}ms)`); setTestingId(null); },
-      onError: (e: any) => { toast.error(`❌ ${p.display_name}: ${e.message}`); setTestingId(null); },
+      onError: (e: any) => { toastError(`❌ ${p.display_name}: ${e.message}`, undefined, { module: "AiRouterProvidersList" }); setTestingId(null); },
     });
   };
 

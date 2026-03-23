@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { Copy, Loader2, Link, Trash2, Key, ShieldAlert } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -118,7 +119,7 @@ export function TeamInviteSection() {
       }
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Erro ao criar convite");
+      toastError("Erro ao criar convite", err, { module: "TeamInviteSection" });
     },
   });
 

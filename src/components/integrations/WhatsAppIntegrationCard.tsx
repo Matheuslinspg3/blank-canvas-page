@@ -17,6 +17,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 
 export function WhatsAppIntegrationCard() {
   const {
@@ -96,7 +97,7 @@ export function WhatsAppIntegrationCard() {
         return;
       }
 
-      toast.error("Instância criada, mas o QR Code ainda não foi gerado. Clique em 'Conectar' novamente em alguns segundos.");
+      toastError("Instância criada, mas o QR Code ainda não foi gerado. Clique em 'Conectar' novamente em alguns segundos.", undefined, { module: "WhatsAppIntegrationCard" });
     } catch {
       // O toast detalhado já é exibido no hook
     }
@@ -118,7 +119,7 @@ export function WhatsAppIntegrationCard() {
         return;
       }
 
-      toast.error("Não foi possível obter o QR Code agora. Tente novamente em alguns segundos.");
+      toastError("Não foi possível obter o QR Code agora. Tente novamente em alguns segundos.", undefined, { module: "WhatsAppIntegrationCard" });
     } catch {
       // O toast detalhado já é exibido no hook
     }

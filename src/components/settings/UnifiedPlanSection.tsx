@@ -24,6 +24,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: React.ElementType }> = {
   active: { label: "Ativo", variant: "default", icon: CheckCircle2 },
@@ -100,11 +101,11 @@ export function UnifiedPlanSection() {
 
   const handleSubscribe = async () => {
     if (!fullName.trim()) {
-      toast.error("Informe seu nome completo.");
+      toastError("Informe seu nome completo.", undefined, { module: "UnifiedPlanSection" });
       return;
     }
     if (!isValidCpf(cpf)) {
-      toast.error("CPF inválido. Verifique e tente novamente.");
+      toastError("CPF inválido. Verifique e tente novamente.", undefined, { module: "UnifiedPlanSection" });
       return;
     }
 
@@ -113,7 +114,7 @@ export function UnifiedPlanSection() {
       const proPlan = plans.find(p => p.slug === "pro");
       const planId = subscription?.plan_id || proPlan?.id;
       if (!planId) {
-        toast.error("Plano não encontrado. Tente novamente.");
+        toastError("Plano não encontrado. Tente novamente.", undefined, { module: "UnifiedPlanSection" });
         return;
       }
       const result = await subscribe.mutateAsync({

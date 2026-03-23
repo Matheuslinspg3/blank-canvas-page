@@ -13,6 +13,7 @@ import { ReportStep } from '../steps/ReportStep';
 import { supabase } from '@/integrations/supabase/client';
 import { AlertCircle, Download, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { toastError } from "@/lib/toastError";
 
 interface ImobziLead {
   external_id: string;
@@ -109,7 +110,7 @@ export function ImobziImportTab({ onClose }: { onClose: () => void }) {
       setReport(response.data);
       setPhase('report');
     } catch (e: any) {
-      toast.error(e.message || 'Erro na importação');
+      toastError(e.message || 'Erro na importação', e, { module: 'ImobziImportTab' });
       setPhase('settings');
     }
   };

@@ -17,6 +17,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { Building2, User, Bell, Users, Upload, Palette, Sun, Moon, Monitor, Loader2, Megaphone, Camera, CreditCard, History, ShieldCheck, Mail, Crown, Shield, Bug, MessageSquare, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { SupportTicketDialog } from "@/components/settings/SupportTicketDialog";
@@ -166,7 +167,7 @@ export default function Settings() {
     if (emailChanged) {
       const { error: emailError } = await supabase.auth.updateUser({ email: email.trim() });
       if (emailError) {
-        toast.error("Erro ao alterar e-mail: " + emailError.message);
+        toastError("Erro ao alterar e-mail", emailError, { module: "Settings" });
         setSavingProfile(false);
         return;
       }
@@ -194,7 +195,7 @@ export default function Settings() {
 
         const result = response.data as { verified: boolean; message: string };
         if (!result.verified) {
-          toast.error("CRECI não verificado: " + result.message);
+          toastError("CRECI não verificado: " + result.message, undefined, { module: "Settings" });
           setVerifyingCreci(false);
           setSavingProfile(false);
           return;
@@ -202,7 +203,7 @@ export default function Settings() {
 
         toast.success("CRECI verificado com sucesso!");
       } catch (err: any) {
-        toast.error("Erro ao verificar CRECI: " + (err.message || "Tente novamente"));
+        toastError("Erro ao verificar CRECI", err, { module: "Settings" });
         setVerifyingCreci(false);
         setSavingProfile(false);
         return;
@@ -225,7 +226,7 @@ export default function Settings() {
       .eq("id", profile.id);
     setSavingProfile(false);
     if (error) {
-      toast.error("Erro ao salvar perfil");
+      toastError("Erro ao salvar perfil", undefined, { module: "Settings" });
     } else {
       toast.success("Perfil atualizado com sucesso");
       refreshProfile();
@@ -234,14 +235,14 @@ export default function Settings() {
 
   const handleSendPasswordReset = async () => {
     const userEmail = user?.email;
-    if (!userEmail) return toast.error("E-mail não encontrado");
+    if (!userEmail) return toastError("E-mail não encontrado", undefined, { module: "Settings" });
     setSendingResetLink(true);
     const { error } = await supabase.auth.resetPasswordForEmail(userEmail, {
       redirectTo: window.location.origin + "/configuracoes",
     });
     setSendingResetLink(false);
     if (error) {
-      toast.error("Erro ao enviar link de redefinição: " + error.message);
+      toastError("Erro ao enviar link de redefinição", error, { module: "Settings" });
     } else {
       setResetLinkSent(true);
       toast.success("Link de redefinição enviado para " + userEmail);
@@ -273,7 +274,7 @@ export default function Settings() {
       .eq("id", profile.organization_id);
     setSavingCompany(false);
     if (error) {
-      toast.error("Erro ao salvar dados da empresa");
+      toastError("Erro ao salvar dados da empresa", undefined, { module: "Settings" });
     } else {
       toast.success("Dados da empresa atualizados");
     }
@@ -304,12 +305,12 @@ export default function Settings() {
     // Usar delete + insert para consistência com Administration.tsx
     const { error: deleteError } = await supabase.from("user_roles").delete().eq("user_id", memberId);
     if (deleteError) {
-      toast.error("Erro ao alterar cargo");
+      toastError("Erro ao alterar cargo", undefined, { module: "Settings" });
       return;
     }
     const { error: insertError } = await supabase.from("user_roles").insert({ user_id: memberId, role: newRole as Database["public"]["Enums"]["app_role"] });
     if (insertError) {
-      toast.error("Erro ao alterar cargo");
+      toastError("Erro ao alterar cargo", undefined, { module: "Settings" });
       return;
     }
     setTeamMembers(prev => prev.map(m => m.user_id === memberId ? { ...m, role: newRole } : m));

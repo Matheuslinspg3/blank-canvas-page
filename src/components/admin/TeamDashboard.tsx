@@ -26,6 +26,7 @@ import { useUserRoles, AppRole } from "@/hooks/useUserRole";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -120,7 +121,7 @@ export function TeamDashboard() {
       setSelectedRole("");
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Erro ao alterar cargo");
+      toastError("Erro ao alterar cargo", err, { module: "TeamDashboard" });
     },
   });
 

@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 import { Bot, Save, Loader2, ShieldCheck, AlertTriangle, Eye, EyeOff, Key, ExternalLink, Settings2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -160,7 +161,7 @@ export function AIProviderCard() {
       toast.success("Configuração de IA salva com sucesso!");
     } catch (err: any) {
       console.error("Erro ao salvar config:", err);
-      toast.error("Erro ao salvar configuração.");
+      toastError("Erro ao salvar configuração.", undefined, { module: "AIProviderCard" });
     } finally {
       setSaving(false);
     }
