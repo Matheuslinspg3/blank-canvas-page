@@ -307,34 +307,42 @@ export function useImageUpload() {
     let result: UploadedImage | null = null;
     const effectivePropertyId = options?.propertyId || crypto.randomUUID();
 
-    // Try R2 with 1 retry
+    // Try R2 with 1 retry (only if browser supports WebP canvas or the file is already webp/jpeg/png)
     for (let attempt = 0; attempt < 2 && !result; attempt++) {
       if (attempt > 0) {
         console.log(`[UPLOAD] R2 retry #${attempt} for ${file.name}`);
         await new Promise(r => setTimeout(r, 1000 * attempt));
       }
-      result = await uploadToR2Proxy(file, effectivePropertyId);
+      try {
+        result = await uploadToR2Proxy(file, effectivePropertyId);
+      } catch (e) {
+        console.error(`[UPLOAD] R2 attempt ${attempt} exception:`, e);
+      }
     }
 
     // Cloudinary fallback with 1 retry
     if (!result) {
-      if (import.meta.env.DEV) console.log('[UPLOAD] R2 falhou. Tentando Cloudinary como fallback...');
+      console.log(`[UPLOAD] R2 falhou para ${file.name}. Tentando Cloudinary como fallback...`);
       const orgFolder = options?.organizationId ? `${folder}/${options.organizationId}` : folder;
       for (let attempt = 0; attempt < 2 && !result; attempt++) {
         if (attempt > 0) {
           console.log(`[UPLOAD] Cloudinary retry #${attempt} for ${file.name}`);
           await new Promise(r => setTimeout(r, 1000 * attempt));
         }
-        result = await uploadToCloudinary(file, orgFolder);
+        try {
+          result = await uploadToCloudinary(file, orgFolder);
+        } catch (e) {
+          console.error(`[UPLOAD] Cloudinary attempt ${attempt} exception:`, e);
+        }
       }
     }
 
     if (!result) {
-      console.error(`[UPLOAD] Falha total: ${file.name}`);
+      console.error(`[UPLOAD] Falha total: ${file.name} (${file.type}, ${(file.size/1024).toFixed(0)}KB)`);
       return null;
     }
 
-    if (import.meta.env.DEV) console.log(`[UPLOAD] OK via ${result.storageProvider}: ${file.name}`);
+    console.log(`[UPLOAD] OK via ${result.storageProvider}: ${file.name}`);
     return { ...result, phash };
   }, []);
 
