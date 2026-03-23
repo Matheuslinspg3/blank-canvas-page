@@ -1,0 +1,1 @@
+ALTER VIEW public.marketplace_properties_public SET (security_invoker = on);
