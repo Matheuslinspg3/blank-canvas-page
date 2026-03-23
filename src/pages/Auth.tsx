@@ -540,10 +540,11 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="signup-phone" className="editorial-label-muted">Telefone *</Label>
-                  <Input
+                <Input
                     id="signup-phone" placeholder="(11) 99999-9999"
                     value={signupForm.phone}
                     onChange={(e) => setSignupForm({ ...signupForm, phone: formatPhone(e.target.value) })}
+                    onBlur={() => checkDuplicate("phone", signupForm.phone)}
                     className="h-11 bg-muted/40 border-border/50 text-sm"
                   />
                   {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
