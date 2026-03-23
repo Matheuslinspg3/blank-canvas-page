@@ -477,14 +477,29 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                   {errors.full_name && <p className="text-xs text-destructive">{errors.full_name}</p>}
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="signup-phone" className="editorial-label-muted">Telefone</Label>
+                  <Label htmlFor="signup-phone" className="editorial-label-muted">Telefone *</Label>
                   <Input
                     id="signup-phone" placeholder="(11) 99999-9999"
                     value={signupForm.phone}
-                    onChange={(e) => setSignupForm({ ...signupForm, phone: e.target.value })}
+                    onChange={(e) => setSignupForm({ ...signupForm, phone: formatPhone(e.target.value) })}
                     className="h-11 bg-muted/40 border-border/50 text-sm"
                   />
+                  {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="signup-document" className="editorial-label-muted">
+                  {signupForm.account_type === "imobiliaria" ? "CNPJ *" : "CPF *"}
+                </Label>
+                <Input
+                  id="signup-document"
+                  placeholder={signupForm.account_type === "imobiliaria" ? "00.000.000/0000-00" : "000.000.000-00"}
+                  value={signupForm.document}
+                  onChange={(e) => setSignupForm({ ...signupForm, document: formatDocument(e.target.value) })}
+                  className="h-11 bg-muted/40 border-border/50 text-sm"
+                />
+                {errors.document && <p className="text-xs text-destructive">{errors.document}</p>}
               </div>
 
               <div className="space-y-1.5">
