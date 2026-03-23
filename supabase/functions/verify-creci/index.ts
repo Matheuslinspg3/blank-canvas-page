@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 const BUSCA_CRECI_API = "https://api.buscacreci.com.br";
-const N8N_WEBHOOK_URL = "https://n8n.costazul.shop/webhook/verify-creci";
+const N8N_WEBHOOK_URL = Deno.env.get("N8N_CRECI_WEBHOOK_URL") || "https://n8n.costazul.shop/webhook/verify-creci";
 const MAX_POLL_ATTEMPTS = 12;
 const POLL_INTERVAL_MS = 3000;
 

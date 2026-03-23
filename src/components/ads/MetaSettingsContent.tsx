@@ -146,8 +146,7 @@ export default function MetaSettingsContent() {
         origin: window.location.origin,
       }));
 
-      const supabaseProjectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const redirectUri = `https://${supabaseProjectId}.supabase.co/functions/v1/meta-oauth-callback`;
+      const redirectUri = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meta-oauth-callback`;
 
       const oauthUrl = new URL("https://www.facebook.com/v21.0/dialog/oauth");
       oauthUrl.searchParams.set("client_id", data.app_id);

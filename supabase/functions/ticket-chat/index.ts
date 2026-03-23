@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const WEBHOOK_URL = "https://n8n.costazul.shop/webhook/lovableportadocorrerora";
+const WEBHOOK_URL = Deno.env.get("N8N_TICKET_WEBHOOK_URL") || "https://n8n.costazul.shop/webhook/lovableportadocorrerora";
 const MAX_AI_QUESTIONS = 3;
 
 Deno.serve(async (req) => {

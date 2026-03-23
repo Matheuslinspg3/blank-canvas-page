@@ -873,7 +873,7 @@ function PushNotificationCard() {
           <div className="rounded-md border border-border/60 bg-muted p-3">
             <p className="text-xs text-muted-foreground">
               ⚠️ Notificações push não funcionam no modo preview (iframe). Teste na{" "}
-              <a href="https://habitae1.lovable.app/configuracoes" target="_blank" rel="noopener noreferrer" className="underline font-medium">
+              <a href={`${window.location.origin}/configuracoes`} target="_blank" rel="noopener noreferrer" className="underline font-medium">
                 URL publicada
               </a>.
             </p>

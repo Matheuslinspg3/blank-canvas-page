@@ -484,13 +484,12 @@ export default function Maintenance() {
 
   const callExport = async (body: Record<string, string>) => {
     const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
     let authToken = anonKey;
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.access_token) authToken = session.access_token;
 
     const response = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/export-database`,
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/export-database`,
       {
         method: "POST",
         headers: {

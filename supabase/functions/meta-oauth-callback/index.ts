@@ -190,7 +190,7 @@ function selectBestAdAccount(
 }
 
 function redirectToApp(params: string, origin?: string) {
-  const appUrl = origin || Deno.env.get("APP_URL") || "https://habitae1.lovable.app";
+  const appUrl = origin || Deno.env.get("APP_URL") || "https://portadocorretor.com.br";
   const target = `${appUrl}/anuncios?tab=configuracoes${params}`;
   return new Response(null, {
     status: 302,
