@@ -126,12 +126,14 @@ export function usePushNotifications() {
       const blockReason = getOneSignalRuntimeBlockReason();
       if (blockReason) {
         addDebug(`❌ Ambiente bloqueado: ${blockReason}`);
-        toast.error(
+        toastError(
           blockReason === "iframe"
             ? "Notificações push não funcionam no preview do Lovable (iframe). Teste na URL publicada."
             : blockReason === "ios-standalone-required"
               ? "No iPhone/iPad, push só funciona com o app instalado na Tela de Início (modo PWA)."
               : "Push exige HTTPS e contexto seguro. Abra o site publicado em https.",
+          undefined,
+          { module: "usePushNotifications" },
         );
         return false;
       }
