@@ -417,7 +417,63 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
             </div>
           )}
 
-          {showForgotPassword ? (
+          {showEmailVerification ? (
+            /* ===== EMAIL VERIFICATION ===== */
+            <div className="space-y-6 text-center">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Mail className="h-8 w-8 text-primary" />
+                </div>
+                <h2 className="font-display text-2xl font-bold text-foreground">Verifique seu email</h2>
+                <p className="text-sm text-muted-foreground max-w-xs">
+                  Enviamos um código de 6 dígitos para <span className="font-medium text-foreground">{pendingEmail}</span>
+                </p>
+              </div>
+
+              <div className="flex justify-center">
+                <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+
+              <Button
+                onClick={handleVerifyOtp}
+                size="lg"
+                variant="gold"
+                className="w-full h-14 text-base"
+                disabled={otpCode.length !== 6 || verifyingOtp}
+              >
+                {verifyingOtp ? <Loader2 className="h-5 w-5 animate-spin" /> : "Verificar e entrar"}
+              </Button>
+
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={resendCooldown > 0}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                >
+                  {resendCooldown > 0 ? `Reenviar código em ${resendCooldown}s` : "Reenviar código"}
+                </button>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => { setShowEmailVerification(false); setOtpCode(""); }}
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 mx-auto"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" /> Voltar ao cadastro
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : showForgotPassword ? (
             <form onSubmit={handleForgotPassword} className="space-y-5">
               <div className="space-y-2">
                 <button
