@@ -77,7 +77,7 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
 
   const handleSubmit = async () => {
     if (!subject.trim() || !description.trim()) {
-      toast.error("Preencha o assunto e a descrição");
+      toastError("Preencha o assunto e a descrição");
       return;
     }
     if (!user || !profile?.organization_id) {
