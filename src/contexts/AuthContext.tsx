@@ -204,7 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = useCallback(async ({ email, password, name, phone, accountType, companyName, selectedPlan }: SignUpParams) => {
+  const signUp = useCallback(async ({ email, password, name, phone, document, accountType, companyName, selectedPlan }: SignUpParams) => {
     const redirectUrl = `${window.location.origin}/`;
     
     // Trigger no banco de dados vai criar organização/perfil/role/subscription automaticamente
@@ -216,6 +216,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         data: {
           full_name: name,
           phone: phone,
+          document: document || '',
           account_type: accountType,
           company_name: companyName,
           selected_plan: selectedPlan || 'gratuito',
