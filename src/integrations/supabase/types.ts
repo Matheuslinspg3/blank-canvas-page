@@ -5086,6 +5086,39 @@ export type Database = {
         }
         Relationships: []
       }
+      user_sessions: {
+        Row: {
+          created_at: string
+          device_info: string | null
+          device_type: string
+          id: string
+          ip_address: string | null
+          last_seen_at: string
+          session_token: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_info?: string | null
+          device_type?: string
+          id?: string
+          ip_address?: string | null
+          last_seen_at?: string
+          session_token: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_info?: string | null
+          device_type?: string
+          id?: string
+          ip_address?: string | null
+          last_seen_at?: string
+          session_token?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       verification_codes: {
         Row: {
           code: string
@@ -5746,6 +5779,7 @@ export type Database = {
       is_org_admin: { Args: { _user_id: string }; Returns: boolean }
       is_org_manager: { Args: { _user_id: string }; Returns: boolean }
       is_org_manager_or_above: { Args: { _user_id: string }; Returns: boolean }
+      is_session_valid: { Args: { p_session_token: string }; Returns: boolean }
       is_system_admin: { Args: never; Returns: boolean }
       log_bulk_operation: {
         Args: {
@@ -5763,6 +5797,15 @@ export type Database = {
         Returns: boolean
       }
       rebuild_provider_chains: { Args: never; Returns: undefined }
+      register_session: {
+        Args: {
+          p_device_info?: string
+          p_device_type?: string
+          p_ip_address?: string
+          p_session_token: string
+        }
+        Returns: Json
+      }
       search_properties_advanced:
         | {
             Args: {
@@ -5904,6 +5947,7 @@ export type Database = {
       }
       seed_org_lead_stages: { Args: { p_org_id: string }; Returns: undefined }
       seed_org_lead_types: { Args: { p_org_id: string }; Returns: undefined }
+      session_heartbeat: { Args: { p_session_token: string }; Returns: boolean }
       slugify: { Args: { val: string }; Returns: string }
       upsert_ai_router_stats: {
         Args: {
