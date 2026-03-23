@@ -13,7 +13,7 @@ export function useLeadScore(leadId: string | null) {
       if (!leadId) return [];
       const { data, error } = await supabase
         .from("lead_score_events")
-        .select("*")
+        .select("id, lead_id, event_type, score_delta, created_at, metadata")
         .eq("lead_id", leadId)
         .order("created_at", { ascending: false })
         .limit(5);

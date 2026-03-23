@@ -32,7 +32,7 @@ export function useAiRouterProviders() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("ai_router_providers_safe")
-        .select("*")
+        .select("id, provider_key, display_name, provider_type, model_id, env_secret_name, api_base_url, is_free, is_active, priority, supports_image_input, supports_image_output, rate_limit_rpm, rate_limit_rpd, last_error_at, consecutive_errors, notes, has_api_key, created_at")
         .order("provider_type")
         .order("display_name");
       if (error) throw error;

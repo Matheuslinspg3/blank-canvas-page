@@ -39,7 +39,7 @@ export function useCustomRoles() {
       if (!orgId) return [];
       const { data, error } = await supabase
         .from("organization_custom_roles")
-        .select("*")
+        .select("id, organization_id, name, color, base_role, module_permissions, created_at, updated_at")
         .eq("organization_id", orgId)
         .order("name");
       if (error) throw error;

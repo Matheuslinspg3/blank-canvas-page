@@ -17,7 +17,7 @@ export function usePropertyTypes() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('property_types')
-        .select('*')
+        .select('id, name, slug, icon, is_default, organization_id, created_at')
         .order('is_default', { ascending: false })
         .order('name');
 

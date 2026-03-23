@@ -22,7 +22,7 @@ export function useLeadTypes() {
 
       const { data, error } = await supabase
         .from('lead_types')
-        .select('*')
+        .select('id, name, color, icon, position, is_default, organization_id, created_at')
         .eq('organization_id', profile.organization_id)
         .order('position', { ascending: true });
 

@@ -22,7 +22,7 @@ export function useSavedSearches() {
       if (!user?.id) return [];
       const { data, error } = await supabase
         .from('saved_searches')
-        .select('*')
+        .select('id, name, filters, notify_new_matches, created_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       if (error) throw error;

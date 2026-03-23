@@ -26,7 +26,7 @@ export function useAdEntities(search?: string) {
       if (!profile?.organization_id) return [];
       let query = supabase
         .from('ad_entities')
-        .select('*')
+        .select('id, organization_id, provider, entity_type, external_id, name, status, thumbnail_url, parent_external_id, created_at, updated_at')
         .eq('organization_id', profile.organization_id)
         .eq('entity_type', 'ad' as any)
         .order('updated_at', { ascending: false });

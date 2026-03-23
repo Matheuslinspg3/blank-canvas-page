@@ -32,9 +32,10 @@ export function useLeadDocuments(leadId: string | undefined) {
     queryKey: ['lead_documents', leadId],
     queryFn: async () => {
       if (!leadId) return [];
+      // COST OPT: exclude ai_validation (large JSONB) from list query.
       const { data, error } = await supabase
         .from('lead_documents' as any)
-        .select('*')
+        .select('id, lead_id, organization_id, template_item_id, file_name, storage_path, file_size_bytes, mime_type, status, rejection_reason, reviewed_by, reviewed_at, uploaded_by, notes, created_at, updated_at')
         .eq('lead_id', leadId)
         .order('created_at', { ascending: false });
       if (error) throw error;

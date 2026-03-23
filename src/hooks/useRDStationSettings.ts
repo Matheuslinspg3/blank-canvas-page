@@ -23,7 +23,7 @@ export function useRDStationSettings() {
       if (!orgId) return null;
       const { data, error } = await supabase
         .from("rd_station_settings")
-        .select("*")
+        .select("id, organization_id, is_active, auto_send_to_crm, default_stage_id, default_source, api_public_key, api_private_key, oauth_access_token, oauth_refresh_token, oauth_token_expires_at, oauth_client_id, webhook_secret, created_at, updated_at")
         .eq("organization_id", orgId)
         .maybeSingle();
       if (error) throw error;

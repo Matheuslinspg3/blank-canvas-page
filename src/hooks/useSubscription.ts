@@ -121,9 +121,10 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
     queryKey: ["billing-payments", orgId],
     queryFn: async () => {
       if (!orgId) return [];
+      // COST OPT: exclude pix_qr_code (base64 image string) — pix_copy_paste kept for UI.
       const { data, error } = await supabase
         .from("billing_payments")
-        .select("*")
+        .select("id, organization_id, subscription_id, provider, provider_payment_id, amount_cents, method, status, invoice_url, pix_copy_paste, created_at, paid_at")
         .eq("organization_id", orgId)
         .order("created_at", { ascending: false })
         .limit(50);

@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     const rateLimited = await checkAiRateLimit(userId, "summarize-lead", corsHeaders);
     if (rateLimited) return rateLimited;
 
-    const { lead_id } = await req.json();
+    const { lead_id, force_refresh } = await req.json();
     if (!lead_id) {
       return new Response(JSON.stringify({ error: "lead_id required" }), { status: 400, headers: corsHeaders });
     }
@@ -38,12 +38,22 @@ Deno.serve(async (req) => {
     // Get lead data
     const { data: lead, error: leadErr } = await supabase
       .from("leads")
-      .select("id, name, email, phone, estimated_value, temperature, score, source, notes, lead_stage_id")
+      .select("id, name, email, phone, estimated_value, temperature, score, source, notes, lead_stage_id, ai_summary, ai_summary_at")
       .eq("id", lead_id)
       .single();
 
     if (leadErr || !lead) {
       return new Response(JSON.stringify({ error: "Lead não encontrado" }), { status: 404, headers: corsHeaders });
+    }
+
+    // COST OPT: Return cached summary if it's less than 24h old and no force_refresh.
+    if (!force_refresh && lead.ai_summary && lead.ai_summary_at) {
+      const cacheAge = Date.now() - new Date(lead.ai_summary_at).getTime();
+      if (cacheAge < 24 * 60 * 60 * 1000) {
+        return new Response(JSON.stringify({ summary: lead.ai_summary, cached: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     let stageName = "Sem estágio";
