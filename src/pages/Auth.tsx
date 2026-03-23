@@ -407,7 +407,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                         <p>Acesso limitado por 15 dias. Upgrade a qualquer momento.</p>
                       )}
                       {sel.slug !== 'gratuito' && sel.price_monthly > 0 && (
-                        <p>Cobrança de R$ {sel.price_monthly.toFixed(2)}/mês após o período gratuito.</p>
+                        <p>Cobrança de R$ {(sel.price_monthly / 100).toFixed(2)}/mês após o período gratuito.</p>
                       )}
                     </div>
                   );
