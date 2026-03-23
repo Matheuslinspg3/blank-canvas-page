@@ -505,7 +505,10 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
 
               <Button type="submit" size="lg" variant="gold" className="w-full h-14 text-base group glow-primary-hover" disabled={isLoading || isMaintenanceMode}>
                 {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : (
-                  <>Criar Conta Gratuita <ArrowRight className="h-5 w-5 ml-2 transition-transform group-hover:translate-x-1.5" /></>
+                  <>
+                    {signupForm.selected_plan === 'gratuito' ? 'Criar Conta Gratuita' : `Começar com ${signupPlans.find(p => p.slug === signupForm.selected_plan)?.name || 'Starter'}`}
+                    <ArrowRight className="h-5 w-5 ml-2 transition-transform group-hover:translate-x-1.5" />
+                  </>
                 )}
               </Button>
 
