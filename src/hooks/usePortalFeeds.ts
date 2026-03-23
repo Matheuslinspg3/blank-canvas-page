@@ -43,7 +43,7 @@ export function usePortalFeeds() {
 
       const { data, error } = await supabase
         .from('portal_feeds')
-        .select('*')
+        .select('id, organization_id, portal_name, portal_label, is_active, feed_url, property_filter, last_generated_at, total_properties_exported, created_at, updated_at')
         .eq('organization_id', profile.organization_id)
         .order('created_at', { ascending: true });
 

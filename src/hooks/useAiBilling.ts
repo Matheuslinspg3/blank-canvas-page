@@ -14,7 +14,7 @@ export function useAiBillingConfig() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ai_billing_config")
-        .select("*")
+        .select("id, billing_enabled, sandbox_mode, default_markup_percentage, default_currency, stripe_test_mode, updated_at")
         .eq("id", "default")
         .single();
       if (error) throw error;
@@ -53,9 +53,10 @@ export function useAiUsageEvents(filters: {
       const since = new Date();
       since.setDate(since.getDate() - period);
 
+      // COST OPT: explicit columns; metadata excluded from list (can be large JSONB).
       let query = supabase
         .from("ai_token_usage_events")
-        .select("*")
+        .select("id, user_id, organization_id, request_id, provider, model, function_name, input_tokens, output_tokens, total_tokens, estimated_provider_cost, markup_percentage, simulated_bill_amount, currency, request_status, error_message, stripe_meter_event_id, stripe_sync_status, created_at")
         .gte("created_at", since.toISOString())
         .order("created_at", { ascending: false })
         .limit(1000);
@@ -79,7 +80,7 @@ export function useAiBillingPricing() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ai_billing_pricing")
-        .select("*")
+        .select("id, provider, model, price_per_1k_input_tokens, price_per_1k_output_tokens, markup_percentage, fixed_margin, currency, is_active, updated_at")
         .order("provider", { ascending: true });
       if (error) throw error;
       return (data as any[]) as PricingConfig[];

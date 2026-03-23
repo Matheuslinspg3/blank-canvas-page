@@ -33,9 +33,10 @@ export function useAdLeads(filters?: { externalAdId?: string; status?: AdLeadSta
     queryKey: ['ad-leads', profile?.organization_id, filters],
     queryFn: async () => {
       if (!profile?.organization_id) return [];
+      // COST OPT: exclude raw_payload (large JSON column) from default query.
       let query = supabase
         .from('ad_leads')
-        .select('*')
+        .select('id, organization_id, provider, external_lead_id, external_ad_id, external_form_id, name, email, phone, created_time, status, status_reason, crm_record_id, created_at, updated_at')
         .eq('organization_id', profile.organization_id)
         .order('created_time', { ascending: false });
 

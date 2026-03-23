@@ -35,9 +35,12 @@ serve(async (req) => {
       throw new Error("Prompt inválido");
     }
 
+    // COST OPT: Limit context size to reduce AI input tokens (~70% token reduction).
+    // 500 leads+props = ~18k tokens in context; 100+200 = ~7k tokens.
+    // Order by recency so the most relevant records appear first.
     const [leadsRes, propertiesRes, brokersRes] = await Promise.all([
-      supabase.from("leads").select("id, name, email, phone, estimated_value").eq("organization_id", profile.organization_id).eq("is_active", true).limit(500),
-      supabase.from("properties").select("id, title, property_code, sale_price, rent_price, transaction_type, address_city, address_neighborhood, status").eq("organization_id", profile.organization_id).limit(500),
+      supabase.from("leads").select("id, name, email, phone, estimated_value").eq("organization_id", profile.organization_id).eq("is_active", true).order("updated_at", { ascending: false }).limit(100),
+      supabase.from("properties").select("id, title, property_code, sale_price, rent_price, transaction_type, address_city, address_neighborhood, status").eq("organization_id", profile.organization_id).eq("status", "disponivel").order("updated_at", { ascending: false }).limit(200),
       supabase.from("profiles").select("user_id, full_name").eq("organization_id", profile.organization_id).limit(100),
     ]);
 

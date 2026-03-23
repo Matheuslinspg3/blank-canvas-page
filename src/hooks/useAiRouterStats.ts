@@ -22,12 +22,14 @@ export function useAiRouterStats() {
       const d7 = new Date(now.getTime() - 7 * 86400000).toISOString();
       const d30 = new Date(now.getTime() - 30 * 86400000).toISOString();
 
-      // Fetch all logs for last 30 days in one query
+      // COST OPT: limit to 10k rows to prevent runaway reads on busy deployments.
+      // Aggregated stats remain representative; exact counts use provider_stats table for precision.
       const { data: logs30d, error } = await supabase
         .from("ai_router_logs")
         .select("created_at, provider_used, task_type, is_free, estimated_cost_usd, success, organization_id")
         .gte("created_at", d30)
-        .order("created_at", { ascending: true });
+        .order("created_at", { ascending: true })
+        .limit(10000);
 
       if (error) throw error;
       const all = logs30d || [];

@@ -19,7 +19,7 @@ export function useMaintenanceMode() {
     queryFn: async (): Promise<MaintenanceConfig> => {
       const { data, error } = await supabase
         .from("app_runtime_config")
-        .select("*")
+        .select("maintenance_mode, maintenance_message, maintenance_started_at, maintenance_started_by, force_logout_at, updated_at")
         .eq("id", "singleton")
         .single();
 

@@ -26,7 +26,7 @@ export function useAiRouterConfig() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ai_router_config")
-        .select("*")
+        .select("id, task_type, display_name, description, complexity, provider_chain, system_prompt, max_tokens, temperature, is_active, requires_image, created_at, updated_at")
         .order("task_type");
       if (error) throw error;
       return (data || []) as AiRouterTask[];

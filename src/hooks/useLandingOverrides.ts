@@ -27,7 +27,7 @@ export function useLandingOverrides(propertyId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("property_landing_overrides")
-        .select("*")
+        .select("id, property_id, organization_id, custom_headline, custom_subheadline, custom_description, custom_cta_primary, custom_cta_secondary, custom_key_features, hide_exact_address, show_nearby_pois, map_radius_meters, custom_sections")
         .eq("property_id", propertyId!)
         .maybeSingle();
 

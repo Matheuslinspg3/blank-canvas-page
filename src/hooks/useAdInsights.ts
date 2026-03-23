@@ -57,6 +57,7 @@ export function useAdInsights(externalId?: string, dateRange?: { from: Date; to:
       return data as AdInsight[];
     },
     enabled: !!profile?.organization_id,
+    staleTime: 5 * 60_000, // COST OPT: insights data is updated by sync jobs, not real-time
   });
 }
 
@@ -114,5 +115,6 @@ export function useAggregatedInsights(dateRange?: { from: Date; to: Date }) {
       }));
     },
     enabled: !!profile?.organization_id,
+    staleTime: 5 * 60_000, // COST OPT: insights updated by sync jobs, not real-time
   });
 }

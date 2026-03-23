@@ -28,7 +28,7 @@ export function useLeadStages() {
 
       const { data, error } = await supabase
         .from('lead_stages')
-        .select('*')
+        .select('id, name, color, position, organization_id, is_default, is_win, is_loss, created_at')
         .eq('organization_id', profile.organization_id)
         .order('position', { ascending: true });
 
@@ -39,7 +39,7 @@ export function useLeadStages() {
         await supabase.rpc('seed_org_lead_stages', { p_org_id: profile.organization_id });
         const { data: seeded } = await supabase
           .from('lead_stages')
-          .select('*')
+          .select('id, name, color, position, organization_id, is_default, is_win, is_loss, created_at')
           .eq('organization_id', profile.organization_id)
           .order('position', { ascending: true });
         return (seeded || []) as LeadStage[];
