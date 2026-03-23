@@ -337,9 +337,9 @@ export function useProperties() {
           .delete()
           .eq('property_id', id);
 
-        // Inserir novas imagens
+        // Inserir novas imagens em chunks
         if (images.length > 0) {
-        const imagesToInsert = images.map((img, index) => ({
+          const imagesToInsert = images.map((img, index) => ({
             property_id: id,
             url: img.url,
             is_cover: img.is_cover || index === 0,
@@ -350,9 +350,26 @@ export function useProperties() {
             ...(img.storage_provider ? { storage_provider: img.storage_provider } : {}),
           }));
 
-          await supabase
-            .from('property_images')
-            .insert(imagesToInsert);
+          const CHUNK = 20;
+          let totalSaved = 0;
+          for (let i = 0; i < imagesToInsert.length; i += CHUNK) {
+            const chunk = imagesToInsert.slice(i, i + CHUNK);
+            const { error: imagesError, data: insertedData } = await supabase
+              .from('property_images')
+              .insert(chunk)
+              .select('id');
+
+            if (imagesError) {
+              console.error(`[updateProperty] Erro ao salvar imagens (chunk ${i / CHUNK + 1}):`, imagesError);
+              toast({
+                title: 'Erro parcial ao salvar fotos',
+                description: `${totalSaved} de ${imagesToInsert.length} fotos salvas. Erro: ${imagesError.message}`,
+                variant: 'destructive',
+              });
+              break;
+            }
+            totalSaved += insertedData?.length || chunk.length;
+          }
         }
       }
 

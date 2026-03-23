@@ -267,7 +267,7 @@ export function useImageUpload() {
     },
   ): Promise<UploadedImage | null> => {
     // Validate
-    if (!file.type.startsWith('image/')) {
+    if (!file.type.startsWith('image/') && !file.name.match(/\.(heic|heif)$/i)) {
       console.warn(`[UPLOAD] Skipped non-image: ${file.name} (${file.type})`);
       return null;
     }
@@ -307,34 +307,42 @@ export function useImageUpload() {
     let result: UploadedImage | null = null;
     const effectivePropertyId = options?.propertyId || crypto.randomUUID();
 
-    // Try R2 with 1 retry
+    // Try R2 with 1 retry (only if browser supports WebP canvas or the file is already webp/jpeg/png)
     for (let attempt = 0; attempt < 2 && !result; attempt++) {
       if (attempt > 0) {
         console.log(`[UPLOAD] R2 retry #${attempt} for ${file.name}`);
         await new Promise(r => setTimeout(r, 1000 * attempt));
       }
-      result = await uploadToR2Proxy(file, effectivePropertyId);
+      try {
+        result = await uploadToR2Proxy(file, effectivePropertyId);
+      } catch (e) {
+        console.error(`[UPLOAD] R2 attempt ${attempt} exception:`, e);
+      }
     }
 
     // Cloudinary fallback with 1 retry
     if (!result) {
-      if (import.meta.env.DEV) console.log('[UPLOAD] R2 falhou. Tentando Cloudinary como fallback...');
+      console.log(`[UPLOAD] R2 falhou para ${file.name}. Tentando Cloudinary como fallback...`);
       const orgFolder = options?.organizationId ? `${folder}/${options.organizationId}` : folder;
       for (let attempt = 0; attempt < 2 && !result; attempt++) {
         if (attempt > 0) {
           console.log(`[UPLOAD] Cloudinary retry #${attempt} for ${file.name}`);
           await new Promise(r => setTimeout(r, 1000 * attempt));
         }
-        result = await uploadToCloudinary(file, orgFolder);
+        try {
+          result = await uploadToCloudinary(file, orgFolder);
+        } catch (e) {
+          console.error(`[UPLOAD] Cloudinary attempt ${attempt} exception:`, e);
+        }
       }
     }
 
     if (!result) {
-      console.error(`[UPLOAD] Falha total: ${file.name}`);
+      console.error(`[UPLOAD] Falha total: ${file.name} (${file.type}, ${(file.size/1024).toFixed(0)}KB)`);
       return null;
     }
 
-    if (import.meta.env.DEV) console.log(`[UPLOAD] OK via ${result.storageProvider}: ${file.name}`);
+    console.log(`[UPLOAD] OK via ${result.storageProvider}: ${file.name}`);
     return { ...result, phash };
   }, []);
 
@@ -386,20 +394,23 @@ export function useImageUpload() {
     let failed = 0;
     let dupes = 0;
 
-    // Process in batches of 3 for parallelism
-    const BATCH_SIZE = 3;
+    // Process in batches of 2 for stability (avoids memory pressure on mobile)
+    const BATCH_SIZE = 2;
     for (let i = 0; i < files.length; i += BATCH_SIZE) {
       const batch = files.slice(i, i + BATCH_SIZE);
-      const batchResults = await Promise.all(
+      const batchResults = await Promise.allSettled(
         batch.map(file => uploadSingleImage(file, folder, options))
       );
 
       for (const result of batchResults) {
-        if (result) {
-          if (result.isDuplicate) dupes++;
-          results.push(result);
+        if (result.status === 'fulfilled' && result.value) {
+          if (result.value.isDuplicate) dupes++;
+          results.push(result.value);
         } else {
           failed++;
+          if (result.status === 'rejected') {
+            console.error('[UPLOAD] Batch item rejected:', result.reason);
+          }
         }
       }
 
