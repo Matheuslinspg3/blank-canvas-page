@@ -561,6 +561,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                <PasswordStrengthIndicator password={signupForm.password} />
                 {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
               </div>
 
