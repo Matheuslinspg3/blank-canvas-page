@@ -38,7 +38,7 @@ export function useRDStationSettings() {
       if (!orgId) return [];
       const { data, error } = await supabase
         .from("rd_station_webhook_logs")
-        .select("*")
+        .select("id, organization_id, event_type, status, error_message, created_at")
         .eq("organization_id", orgId)
         .order("created_at", { ascending: false })
         .limit(20);

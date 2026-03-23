@@ -221,11 +221,19 @@ export default function GeradorVideoContent() {
     return () => clearInterval(interval);
   }, [jobStatus?.progress]);
 
-  // Polling with failure tracking
-  useEffect(() => {
-    if (!jobId || jobStatus?.status === "completed" || jobStatus?.status === "failed" || jobStatus?.status === "cancelled") return;
+  // Polling with exponential backoff to reduce Edge Function invocations.
+  // COST OPT: 5s→10s→20s→30s (max). A 10-min video needs ~35 polls vs ~120 at 5s flat.
+  const pollDelayRef = useRef(5000);
 
-    const interval = setInterval(async () => {
+  useEffect(() => {
+    if (!jobId || jobStatus?.status === "completed" || jobStatus?.status === "failed" || jobStatus?.status === "cancelled") {
+      pollDelayRef.current = 5000; // reset for next job
+      return;
+    }
+
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const poll = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
@@ -236,23 +244,30 @@ export default function GeradorVideoContent() {
         });
         const data = await response.json();
 
-        setPollFailures(0); // Reset on success
+        setPollFailures(0);
         setJobStatus(data);
 
         if (data.status === "completed") {
           toast.success("Vídeo gerado com sucesso!");
           queryClient.invalidateQueries({ queryKey: ["generated_videos"] });
           setIsGenerating(false);
+          return; // stop polling
         } else if (data.status === "failed") {
           toast.error(data.error || "Erro ao gerar o vídeo. Tente novamente.");
           setIsGenerating(false);
+          return; // stop polling
         }
       } catch {
         setPollFailures((prev) => prev + 1);
       }
-    }, 5000);
 
-    return () => clearInterval(interval);
+      // Exponential backoff: 5s → 10s → 20s → 30s (cap)
+      pollDelayRef.current = Math.min(pollDelayRef.current * 2, 30000);
+      timeoutId = setTimeout(poll, pollDelayRef.current);
+    };
+
+    timeoutId = setTimeout(poll, pollDelayRef.current);
+    return () => clearTimeout(timeoutId);
   }, [jobId, jobStatus?.status, queryClient]);
 
   // Generate

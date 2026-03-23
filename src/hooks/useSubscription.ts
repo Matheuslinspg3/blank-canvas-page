@@ -92,7 +92,7 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
     queryFn: async () => {
       const { data, error } = await supabase
         .from("subscription_plans")
-        .select("*")
+        .select("id, name, slug, description, price_monthly, price_yearly, max_own_properties, max_users, max_leads, marketplace_access, partnership_access, priority_support, features, display_order, plan_type, trial_days, discount_percent")
         .eq("is_active", true)
         .order("display_order");
       if (error) throw error;

@@ -196,9 +196,15 @@ Deno.serve(async (req: Request) => {
       redirectUrl,
     );
 
+    // COST OPT: cache OG pages for 1 hour at CDN/proxy level.
+    // Property data rarely changes within an hour and this reduces Edge Fn invocations.
     return new Response(html, {
       status: 200,
-      headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8" },
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "public, max-age=3600, s-maxage=3600",
+      },
     });
   } catch (err) {
     console.error("og-metadata error:", err);

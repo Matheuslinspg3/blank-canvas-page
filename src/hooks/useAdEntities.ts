@@ -68,7 +68,7 @@ export function useAdEntity(externalId?: string) {
       if (!profile?.organization_id || !externalId) return null;
       const { data, error } = await supabase
         .from('ad_entities')
-        .select('*')
+        .select('id, organization_id, provider, entity_type, external_id, name, status, thumbnail_url, parent_external_id, created_at, updated_at')
         .eq('organization_id', profile.organization_id)
         .eq('external_id', externalId)
         .eq('entity_type', 'ad' as any)
