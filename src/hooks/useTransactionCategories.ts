@@ -13,6 +13,7 @@ export function useTransactionCategories() {
 
   const { data: categories = [], isLoading, error } = useQuery({
     queryKey: ['transaction-categories'],
+    staleTime: 30 * 60_000, // PERF: categories rarely change
     queryFn: async () => {
       const { data, error } = await supabase
         .from('transaction_categories')
