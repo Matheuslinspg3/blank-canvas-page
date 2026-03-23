@@ -229,6 +229,17 @@ export default function Plans() {
         </div>
       )}
 
+      {/* ─── Discount banner ─── */}
+      {hasDiscount && (
+        <div className="bg-primary/10 border-b border-primary/20">
+          <div className="max-w-7xl mx-auto px-4 py-3 text-center">
+            <span className="text-sm font-medium text-primary">
+              🎉 Desconto exclusivo de {DISCOUNT_PCT}% aplicado em todos os planos!
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* ─── HEADER ─── */}
       <section className="py-16 sm:py-20 text-center px-4">
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-foreground mb-4">
