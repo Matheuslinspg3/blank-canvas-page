@@ -142,7 +142,7 @@ export function useWhatsAppInstance() {
       invalidate();
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Erro ao remover instância");
+      toastError("Erro ao remover instância WhatsApp", err, { module: "useWhatsAppInstance" });
     },
   });
 

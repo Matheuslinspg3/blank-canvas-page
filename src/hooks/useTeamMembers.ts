@@ -84,7 +84,7 @@ export function useRemoveMember() {
       toast.success(`${data.name || "Membro"} removido da equipe`);
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Erro ao remover membro");
+      toastError("Erro ao remover membro", err, { module: "useTeamMembers" });
     },
   });
 }
