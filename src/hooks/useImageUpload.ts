@@ -267,7 +267,7 @@ export function useImageUpload() {
     },
   ): Promise<UploadedImage | null> => {
     // Validate
-    if (!file.type.startsWith('image/')) {
+    if (!file.type.startsWith('image/') && !file.name.match(/\.(heic|heif)$/i)) {
       console.warn(`[UPLOAD] Skipped non-image: ${file.name} (${file.type})`);
       return null;
     }
