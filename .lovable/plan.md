@@ -1,49 +1,47 @@
 
 
-# Landing Page de Vendas — portadocorretor.com.br
+## Plan: Fix All Hardcoded URLs
 
-## Resumo
+### Summary
+9 corrections across 10 files, replacing hardcoded domain references with environment variables or dynamic values.
 
-Hoje, acessar `/` redireciona direto para `/dashboard` (área logada). Vamos criar uma landing page de vendas pública em `/` que só redireciona para `/dashboard` se o usuário já estiver logado. Usuários não logados veem a página de vendas.
+### Changes
 
-## O que será feito
+**1. `src/main.tsx`** — Remove the `habitae1.lovable.app` redirect block (lines 83-94). Keep only the `else` body (SW setup + React render).
 
-### 1. Nova página `LandingPage.tsx`
+**2. `src/pages/Settings.tsx`** (line 876) — Replace `https://habitae1.lovable.app/configuracoes` with `${window.location.origin}/configuracoes`.
 
-Landing page de alta conversão com as seguintes seções:
+**3. `supabase/functions/send-push/index.ts`** (line 90) — Change fallback from `"https://habitae1.lovable.app"` to `"https://portadocorretor.com.br"`.
 
-- **Navbar fixa**: Logo + links (Funcionalidades, Planos, FAQ) + botão "Entrar" (→ /auth) + botão CTA "Criar conta grátis" (→ /auth?tab=cadastro)
-- **Hero**: Título forte ("Gerencie sua imobiliária com Inteligência Artificial"), subtítulo, CTA grande "Comece grátis — 15 dias sem compromisso", imagem/mockup do dashboard
-- **Logos/Social proof**: "Usado por +X corretores" (badge simples)
-- **Funcionalidades** (grid 3 colunas): CRM, Marketplace, IA, WhatsApp, Automações, Landing Pages — ícone + título + descrição curta
-- **Como funciona** (3 passos): Crie sua conta → Configure seus imóveis → Gerencie tudo com IA
-- **Planos resumidos**: Puxar os 5 planos do banco, exibir cards simplificados com preço e CTA, link "Ver todos os detalhes" → /planos
-- **Depoimentos/Trust**: Seção com benefícios-chave em bullets
-- **FAQ resumido**: 5 perguntas mais comuns (accordion)
-- **CTA final**: "Pronto para transformar sua imobiliária?" + botão grande
-- **Footer**: Links (Planos, Privacidade, WhatsApp), copyright
+**4. `supabase/functions/meta-oauth-callback/index.ts`** (line 193) — Change fallback from `"https://habitae1.lovable.app"` to `"https://portadocorretor.com.br"`.
 
-### 2. Rota `/` — lógica condicional
+**5. `supabase/functions/rd-station-oauth-callback/index.ts`** (line 105) — Change fallback from `"https://habitae1.lovable.app"` to `"https://portadocorretor.com.br"`.
 
-No `App.tsx`, trocar:
-```
-<Route path="/" element={<Navigate to="/dashboard" replace />} />
-```
-Por um componente que verifica autenticação:
-- Logado → redireciona para `/dashboard`
-- Não logado → renderiza `<LandingPage />`
+**6. `supabase/functions/og-metadata/index.ts`** (line 12) — Replace `const SITE_URL = "https://portadocorretor.com.br"` with `const SITE_URL = Deno.env.get("APP_URL") || "https://portadocorretor.com.br"`.
 
-### 3. Design
+**7. `supabase/functions/ticket-chat/index.ts`** (line 9) — Replace hardcoded URL with `Deno.env.get("N8N_TICKET_WEBHOOK_URL") || "https://n8n.costazul.shop/webhook/lovableportadocorrerora"`.
 
-- Seguir o design system existente (Tailwind, cores do tema, componentes shadcn)
-- Responsivo mobile-first
-- Seções com fundo alternado (background/muted) para ritmo visual
-- CTAs usando o variant `default` (accent) e `gold` para destaque
+**8. `supabase/functions/verify-creci/index.ts`** (line 11) — Replace hardcoded URL with `Deno.env.get("N8N_CRECI_WEBHOOK_URL") || "https://n8n.costazul.shop/webhook/verify-creci"`.
 
-### Detalhes técnicos
+**9. Frontend `supabase.co` URL construction** — In 4 files, replace `https://${projectId}.supabase.co/functions/v1/...` with `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/...`:
+  - `src/components/ads/MetaSettingsContent.tsx` (line 150)
+  - `src/components/ads/MetaConnectionTab.tsx` (line 113)
+  - `src/pages/Maintenance.tsx` (lines 258, 494)
+  - `src/components/developer/SubscriptionsTab.tsx` (lines 44, 68)
 
-- **Arquivo novo**: `src/pages/LandingPage.tsx`
-- **Edição**: `src/App.tsx` — nova lógica na rota `/`
-- **Dados**: Query aos `subscription_plans` para seção de planos (mesma query da página /planos)
-- **Sem backend**: Página 100% estática/client-side, sem novas Edge Functions
+**Note**: `SupportTicketDialog.tsx` references an external Supabase project (`kanrkkvzjbznytensgst`) — this is intentional (external ticketing system) and will NOT be changed.
+
+### Files Modified (10 total)
+1. `src/main.tsx`
+2. `src/pages/Settings.tsx`
+3. `src/pages/Maintenance.tsx`
+4. `src/components/ads/MetaSettingsContent.tsx`
+5. `src/components/ads/MetaConnectionTab.tsx`
+6. `src/components/developer/SubscriptionsTab.tsx`
+7. `supabase/functions/send-push/index.ts`
+8. `supabase/functions/meta-oauth-callback/index.ts`
+9. `supabase/functions/rd-station-oauth-callback/index.ts`
+10. `supabase/functions/og-metadata/index.ts`
+11. `supabase/functions/ticket-chat/index.ts`
+12. `supabase/functions/verify-creci/index.ts`
 
