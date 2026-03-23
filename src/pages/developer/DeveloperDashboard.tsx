@@ -3,7 +3,7 @@ import { useUserRoles } from "@/hooks/useUserRole";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   HardDrive, Cloud, Shield, Users, Database, Download, 
-  Terminal, CreditCard, MessageSquare, Bot, Receipt, ArrowRightLeft, Route
+  Terminal, CreditCard, MessageSquare, Bot, Receipt, ArrowRightLeft, Route, ClipboardCheck
 } from "lucide-react";
 import { SystemHealthCard } from "@/components/developer/SystemHealthCard";
 import { OrgUsageTab } from "@/components/developer/OrgUsageTab";
