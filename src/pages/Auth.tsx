@@ -227,6 +227,28 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
     }
 
     setIsLoading(true);
+
+    // Pre-check all duplicates before attempting signup
+    try {
+      const { data: dupes } = await supabase.rpc("check_signup_duplicates", {
+        p_email: signupForm.email,
+        p_phone: signupForm.phone,
+        p_document: signupForm.document.replace(/\D/g, ""),
+      });
+
+      if (dupes && typeof dupes === "object") {
+        const dupeResult = dupes as Record<string, string>;
+        const hasIssues = Object.keys(dupeResult).length > 0;
+        if (hasIssues) {
+          setErrors(dupeResult);
+          setIsLoading(false);
+          return;
+        }
+      }
+    } catch {
+      // If RPC fails, continue with signup (server will catch duplicates)
+    }
+
     try {
       const { error } = await signUp({
         email: signupForm.email,
@@ -253,23 +275,54 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
         return;
       }
 
-      // Auto-login after successful signup
-      const { error: loginError } = await signIn(signupForm.email, signupForm.password);
+      // Show email verification screen
+      setPendingEmail(signupForm.email);
+      setPendingPassword(signupForm.password);
+      setShowEmailVerification(true);
+      startResendCooldown();
       setIsLoading(false);
 
-      if (loginError) {
-        // If auto-login fails (e.g. email confirmation required), guide user
-        toast({
-          title: "Conta criada!",
-          description: "Verifique seu email para confirmar o cadastro e depois faça login.",
-        });
-      } else {
-        toast({ title: "Bem-vindo!", description: "Sua conta foi criada com sucesso." });
-        navigate("/dashboard", { replace: true });
-      }
     } catch (err: any) {
       setIsLoading(false);
       toast({ variant: "destructive", title: "Erro ao cadastrar", description: err.message || "Erro inesperado." });
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otpCode.length !== 6) return;
+    setVerifyingOtp(true);
+
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: pendingEmail,
+        token: otpCode,
+        type: "signup",
+      });
+
+      if (error) {
+        toast({ variant: "destructive", title: "Código inválido", description: "Verifique o código e tente novamente." });
+        setVerifyingOtp(false);
+        return;
+      }
+
+      // OTP verified - user is now logged in automatically
+      toast({ title: "Bem-vindo!", description: "Email verificado com sucesso!" });
+      navigate("/dashboard", { replace: true });
+    } catch {
+      toast({ variant: "destructive", title: "Erro", description: "Erro ao verificar código." });
+    } finally {
+      setVerifyingOtp(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0) return;
+    try {
+      await supabase.auth.resend({ type: "signup", email: pendingEmail });
+      startResendCooldown();
+      toast({ title: "Código reenviado", description: "Verifique sua caixa de entrada." });
+    } catch {
+      toast({ variant: "destructive", title: "Erro", description: "Não foi possível reenviar o código." });
     }
   };
 
