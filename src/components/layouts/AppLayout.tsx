@@ -7,7 +7,7 @@ import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { MobileTopBar } from "@/components/MobileTopBar";
 import { MobileFAB } from "@/components/MobileFAB";
 import { SupportFAB } from "@/components/SupportFAB";
-import { usePerformanceMode } from "@/hooks/usePerformanceMode";
+
 import { RenewalBanner } from "@/components/RenewalBanner";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
@@ -18,7 +18,7 @@ import { GlobalCommandPalette } from "@/components/GlobalCommandPalette";
 
 export function AppLayout() {
   const { isDemoMode } = useDemo();
-  usePerformanceMode();
+  
   useModuleVisit();
 
   // Push notification permission is now requested only via explicit user gesture
