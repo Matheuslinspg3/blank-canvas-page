@@ -32,6 +32,7 @@ interface SignUpParams {
   password: string;
   name: string;
   phone: string;
+  document?: string;
   accountType: 'corretor_individual' | 'imobiliaria';
   companyName?: string;
   selectedPlan?: string;
