@@ -258,7 +258,8 @@ export function LeadForm({
 
     trackFormError('lead_form');
 
-    toast.error(`${errorCount} campo(s) obrigatório(s) pendente(s)`, {
+    toastError(`${errorCount} campo(s) obrigatório(s) pendente(s)`, undefined, {
+      module: 'LeadForm',
       description: errorMessages.length > 0
         ? `Verifique a(s) aba(s): ${errorMessages.join(', ')}`
         : 'Preencha os campos destacados em vermelho',

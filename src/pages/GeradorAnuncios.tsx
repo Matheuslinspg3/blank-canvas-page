@@ -376,7 +376,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
         toast.success(`Texto de ${CHAR_LIMITS[channel].label} regenerado!`);
       }
     } catch (err: any) {
-      toast.error(err.message || `Erro ao regenerar texto de ${CHAR_LIMITS[channel].label}.`);
+      toastError(err.message || `Erro ao regenerar texto de ${CHAR_LIMITS[channel].label}.`, err, { module: "GeradorAnuncios" });
     } finally {
       setRegeneratingChannel(null);
     }
