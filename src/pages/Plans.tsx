@@ -196,14 +196,37 @@ export default function Plans() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* ─── Current plan banner (logged in) ─── */}
+      {isLoggedIn && currentPlan && (
+        <div className="bg-muted/50 border-b">
+          <div className="max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Badge variant="secondary" className="text-sm">
+                {currentPlan.name}
+              </Badge>
+              <span className="text-sm text-muted-foreground">
+                {trialActive
+                  ? `Trial — ${trialDays} ${trialDays === 1 ? "dia restante" : "dias restantes"}`
+                  : "Plano ativo"}
+              </span>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => navigate("/configuracoes?tab=billing")}>
+              Gerenciar assinatura
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* ─── HEADER ─── */}
       <section className="py-16 sm:py-20 text-center px-4">
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-foreground mb-4">
-          Gerencie sua imobiliária com{" "}
-          <span className="text-primary">Inteligência Artificial</span>
+          {isLoggedIn ? "Escolha o plano ideal" : "Gerencie sua imobiliária com"}{" "}
+          <span className="text-primary">{isLoggedIn ? "para sua operação" : "Inteligência Artificial"}</span>
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-          CRM, Marketplace, IA e Automações — tudo em um só lugar
+          {isLoggedIn
+            ? "Compare os planos e faça upgrade para desbloquear mais recursos"
+            : "CRM, Marketplace, IA e Automações — tudo em um só lugar"}
         </p>
 
         {/* Toggle */}
