@@ -245,7 +245,6 @@ export default function Maintenance() {
 
     setDisabling(true);
     try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
       let authToken = anonKey;
@@ -255,7 +254,7 @@ export default function Maintenance() {
       }
 
       const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/toggle-maintenance-mode`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/toggle-maintenance-mode`,
         {
           method: "POST",
           headers: {
