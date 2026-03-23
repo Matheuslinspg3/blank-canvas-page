@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useDemo } from "@/contexts/DemoContext";
 import { useUserRoles } from "@/hooks/useUserRole";
 import { useFreeTrialExpired } from "@/hooks/useFreeTrialExpired";
+import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { Loader2 } from "lucide-react";
 import { TrialExpiredScreen } from "@/components/TrialExpiredScreen";
 import { FreeExpiredScreen } from "@/components/FreeExpiredScreen";
@@ -18,6 +19,9 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isDeveloperOrLeader, isLoading: rolesLoading } = useUserRoles();
   const { isExpired: freeExpired, loading: freeLoading } = useFreeTrialExpired();
   const location = useLocation();
+
+  // Session guard - limits to 2 devices per user
+  useSessionGuard(user?.id);
 
   // Permitir acesso em modo demo
   if (isDemoMode) {
