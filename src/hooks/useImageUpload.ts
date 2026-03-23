@@ -256,6 +256,88 @@ export function useImageUpload() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [duplicatesFound, setDuplicatesFound] = useState(0);
 
+  const uploadSingleImage = useCallback(async (
+    file: File,
+    folder: string = 'properties',
+    options?: {
+      organizationId?: string;
+      skipDuplicateCheck?: boolean;
+      excludePropertyId?: string;
+      propertyId?: string;
+    },
+  ): Promise<UploadedImage | null> => {
+    // Validate
+    if (!file.type.startsWith('image/')) {
+      console.warn(`[UPLOAD] Skipped non-image: ${file.name} (${file.type})`);
+      return null;
+    }
+    if (file.type === 'image/svg+xml' || file.type === 'image/gif') {
+      console.warn(`[UPLOAD] Skipped unsupported format: ${file.name}`);
+      return null;
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      console.warn(`[UPLOAD] Skipped oversized file: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)`);
+      return null;
+    }
+
+    // ─── Step 1: Generate pHash for visual dedupe ───
+    let phash: string | undefined;
+    try {
+      phash = await generateImagePhash(file);
+    } catch (e) {
+      console.warn('Falha ao gerar pHash:', e);
+    }
+
+    // ─── Step 2: Check pHash duplicates in DB ───
+    if (phash && options?.organizationId && !options?.skipDuplicateCheck) {
+      const duplicate = await findDuplicateByPhash(phash, options.organizationId, options.excludePropertyId);
+      if (duplicate) {
+        if (import.meta.env.DEV) console.log(`[DEDUPE] pHash match → reutilizando: ${duplicate.url}`);
+        return {
+          url: duplicate.url,
+          publicId: '',
+          isDuplicate: true,
+          duplicateOf: duplicate.url,
+          phash,
+        };
+      }
+    }
+
+    // ─── Step 3: Upload with retry (R2 primary, Cloudinary fallback) ───
+    let result: UploadedImage | null = null;
+    const effectivePropertyId = options?.propertyId || crypto.randomUUID();
+
+    // Try R2 with 1 retry
+    for (let attempt = 0; attempt < 2 && !result; attempt++) {
+      if (attempt > 0) {
+        console.log(`[UPLOAD] R2 retry #${attempt} for ${file.name}`);
+        await new Promise(r => setTimeout(r, 1000 * attempt));
+      }
+      result = await uploadToR2Proxy(file, effectivePropertyId);
+    }
+
+    // Cloudinary fallback with 1 retry
+    if (!result) {
+      if (import.meta.env.DEV) console.log('[UPLOAD] R2 falhou. Tentando Cloudinary como fallback...');
+      const orgFolder = options?.organizationId ? `${folder}/${options.organizationId}` : folder;
+      for (let attempt = 0; attempt < 2 && !result; attempt++) {
+        if (attempt > 0) {
+          console.log(`[UPLOAD] Cloudinary retry #${attempt} for ${file.name}`);
+          await new Promise(r => setTimeout(r, 1000 * attempt));
+        }
+        result = await uploadToCloudinary(file, orgFolder);
+      }
+    }
+
+    if (!result) {
+      console.error(`[UPLOAD] Falha total: ${file.name}`);
+      return null;
+    }
+
+    if (import.meta.env.DEV) console.log(`[UPLOAD] OK via ${result.storageProvider}: ${file.name}`);
+    return { ...result, phash };
+  }, []);
+
   const uploadImage = useCallback(async (
     file: File,
     folder: string = 'properties',
@@ -268,83 +350,14 @@ export function useImageUpload() {
   ): Promise<UploadedImage | null> => {
     setIsUploading(true);
     setUploadProgress(0);
-
     try {
-      // Validate
-      if (!file.type.startsWith('image/')) {
-        toast({ title: 'Erro no upload', description: 'Apenas imagens são permitidas', variant: 'destructive' });
-        return null;
-      }
-      if (file.type === 'image/svg+xml' || file.type === 'image/gif') {
-        toast({ title: 'Erro no upload', description: 'SVG e GIF não são permitidos', variant: 'destructive' });
-        return null;
-      }
-      if (file.size > 25 * 1024 * 1024) {
-        toast({ title: 'Erro no upload', description: 'A imagem deve ter no máximo 25MB', variant: 'destructive' });
-        return null;
-      }
-
-      setUploadProgress(5);
-
-      // ─── Step 1: Generate pHash for visual dedupe ───
-      let phash: string | undefined;
-      try {
-        phash = await generateImagePhash(file);
-      } catch (e) {
-        console.warn('Falha ao gerar pHash:', e);
-      }
-      setUploadProgress(15);
-
-      // ─── Step 2: Check pHash duplicates in DB ───
-      if (phash && options?.organizationId && !options?.skipDuplicateCheck) {
-        const duplicate = await findDuplicateByPhash(phash, options.organizationId, options.excludePropertyId);
-        if (duplicate) {
-          if (import.meta.env.DEV) console.log(`[DEDUPE] pHash match → reutilizando: ${duplicate.url}`);
-          setDuplicatesFound((prev) => prev + 1);
-          toast({
-            title: 'Imagem duplicada detectada',
-            description: duplicate.property_title
-              ? `Foto já existe no imóvel "${duplicate.property_title}". Reutilizando.`
-              : 'Foto idêntica já existe. Reutilizando.',
-          });
-          return {
-            url: duplicate.url,
-            publicId: '',
-            isDuplicate: true,
-            duplicateOf: duplicate.url,
-            phash,
-          };
-        }
-      }
-      setUploadProgress(25);
-
-      // ─── Step 3: Upload (R2 presigned primary, Cloudinary fallback) ───
-      let result: UploadedImage | null = null;
-
-      // Always try R2 first — use a temp UUID if propertyId is not yet available
-      const effectivePropertyId = options?.propertyId || crypto.randomUUID();
-      if (import.meta.env.DEV) console.log(`[UPLOAD] Tentando R2 proxy (property: ${effectivePropertyId}, temp=${!options?.propertyId})...`);
-      setUploadProgress(30);
-      result = await uploadToR2Proxy(file, effectivePropertyId);
-      setUploadProgress(80);
-
-      if (!result) {
-        if (import.meta.env.DEV) console.log('[UPLOAD] R2 falhou. Tentando Cloudinary como fallback...');
-        setUploadProgress(50);
-        const orgFolder = options?.organizationId ? `${folder}/${options.organizationId}` : folder;
-        result = await uploadToCloudinary(file, orgFolder);
-        setUploadProgress(90);
-      }
-
-      if (!result) {
-        console.error('[UPLOAD] Falha em todos os providers (R2 + Cloudinary)');
-        toast({ title: 'Erro no upload', description: 'Falha ao enviar imagem. Verifique sua conexão e tente novamente.', variant: 'destructive' });
-        return null;
-      }
-
+      setUploadProgress(10);
+      const result = await uploadSingleImage(file, folder, options);
       setUploadProgress(100);
-      if (import.meta.env.DEV) console.log(`[UPLOAD] Concluído via ${result.storageProvider}: ${result.url}`);
-      return { ...result, phash };
+      if (!result) {
+        toast({ title: 'Erro no upload', description: 'Falha ao enviar imagem. Tente novamente.', variant: 'destructive' });
+      }
+      return result;
     } catch (error: any) {
       console.error('Erro no upload:', error);
       toast({ title: 'Erro no upload', description: error.message || 'Não foi possível enviar a imagem', variant: 'destructive' });
@@ -353,7 +366,7 @@ export function useImageUpload() {
       setIsUploading(false);
       setUploadProgress(0);
     }
-  }, [toast]);
+  }, [uploadSingleImage, toast]);
 
   const uploadMultipleImages = useCallback(async (
     files: File[],
@@ -365,20 +378,62 @@ export function useImageUpload() {
       propertyId?: string;
     },
   ): Promise<UploadedImage[]> => {
+    setIsUploading(true);
+    setUploadProgress(0);
     setDuplicatesFound(0);
+
     const results: UploadedImage[] = [];
-    for (const file of files) {
-      const result = await uploadImage(file, folder, options);
-      if (result) results.push(result);
+    let failed = 0;
+    let dupes = 0;
+
+    // Process in batches of 3 for parallelism
+    const BATCH_SIZE = 3;
+    for (let i = 0; i < files.length; i += BATCH_SIZE) {
+      const batch = files.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.all(
+        batch.map(file => uploadSingleImage(file, folder, options))
+      );
+
+      for (const result of batchResults) {
+        if (result) {
+          if (result.isDuplicate) dupes++;
+          results.push(result);
+        } else {
+          failed++;
+        }
+      }
+
+      // Update progress based on files processed
+      const processed = Math.min(i + BATCH_SIZE, files.length);
+      setUploadProgress(Math.round((processed / files.length) * 100));
     }
-    if (duplicatesFound > 0) {
+
+    setIsUploading(false);
+    setUploadProgress(0);
+
+    if (dupes > 0) {
+      setDuplicatesFound(dupes);
       toast({
-        title: `${duplicatesFound} duplicata(s) reutilizada(s)`,
+        title: `${dupes} duplicata(s) reutilizada(s)`,
         description: 'Imagens idênticas foram reutilizadas, economizando espaço.',
       });
     }
+
+    if (failed > 0) {
+      toast({
+        title: `${failed} imagem(ns) falharam`,
+        description: `${results.length} de ${files.length} imagens enviadas com sucesso. As falhas podem ser reenviadas.`,
+        variant: 'destructive',
+      });
+    } else if (results.length > 0 && failed === 0) {
+      toast({
+        title: `${results.length} imagem(ns) enviada(s)`,
+        description: 'Todas as imagens foram enviadas com sucesso.',
+      });
+    }
+
     return results;
-  }, [uploadImage, duplicatesFound, toast]);
+  }, [uploadSingleImage, toast]);
 
   const deleteImage = useCallback(async (publicId: string): Promise<boolean> => {
     if (import.meta.env.DEV) console.log('Imagem marcada para remoção:', publicId);

@@ -109,6 +109,28 @@ export default function ImportPendencies() {
     enabled: !!profile?.organization_id,
   });
 
+  const markReviewedMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from('properties')
+        .update({ import_status: 'complete' } as any)
+        .in('id', ids);
+      if (error) throw error;
+    },
+    onSuccess: (_, ids) => {
+      queryClient.invalidateQueries({ queryKey: ['incomplete-properties'] });
+      queryClient.invalidateQueries({ queryKey: ['import-pendencies-count'] });
+      toast({
+        title: `${ids.length} imóvel(is) marcado(s) como revisado(s)`,
+        description: 'Os imóveis não aparecerão mais na lista de pendências.',
+      });
+      setSelectedIds(new Set());
+    },
+    onError: () => {
+      toast({ title: 'Erro', description: 'Não foi possível atualizar os imóveis.', variant: 'destructive' });
+    },
+  });
+
   const filteredProperties = useMemo(() => {
     let result = properties;
 
