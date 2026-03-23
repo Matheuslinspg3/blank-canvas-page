@@ -113,7 +113,7 @@ export function CloudinaryMigrationCard() {
       return data as MigrationResult;
     } catch (err: any) {
       if (err.name === "AbortError") return null;
-      toastError("Erro na migração", undefined, { module: "CloudinaryMigrationCard", description: err.message }));
+      toastError("Erro na migração", err, { module: "CloudinaryMigrationCard" });
       return null;
     } finally {
       abortRef.current = null;

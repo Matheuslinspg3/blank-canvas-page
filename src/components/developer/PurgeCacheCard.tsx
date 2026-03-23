@@ -22,7 +22,7 @@ export function PurgeCacheCard() {
         throw new Error(data?.error || "Erro desconhecido");
       }
     } catch (err: any) {
-      toastError("Falha ao limpar cache", undefined, { module: "PurgeCacheCard", description: err.message || "Verifique as credenciais do Cloudflare", }));
+      toastError("Falha ao limpar cache", err, { module: "PurgeCacheCard" });
     } finally {
       setIsPurging(false);
     }
