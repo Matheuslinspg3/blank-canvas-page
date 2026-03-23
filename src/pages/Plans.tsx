@@ -352,15 +352,20 @@ export default function Plans() {
                   )}
 
                   {/* CTA */}
-                  <Button
-                    variant={meta.ctaVariant}
-                    className={cn("w-full mt-auto", meta.highlighted && "shadow-md")}
-                    onClick={() => navigate("/auth")}
-                    disabled={isCurrent}
-                  >
-                    {isCurrent ? "Plano atual" : meta.ctaLabel}
-                    {!isCurrent && <ArrowRight className="h-4 w-4 ml-1" />}
-                  </Button>
+                  {(() => {
+                    const cta = getCtaProps(plan);
+                    return (
+                      <Button
+                        variant={meta.ctaVariant}
+                        className={cn("w-full mt-auto", meta.highlighted && "shadow-md")}
+                        onClick={cta.action}
+                        disabled={cta.disabled}
+                      >
+                        {cta.label}
+                        {!cta.disabled && <ArrowRight className="h-4 w-4 ml-1" />}
+                      </Button>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             );
