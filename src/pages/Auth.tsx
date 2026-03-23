@@ -64,7 +64,7 @@ const validateDocument = (doc: string) => {
 const signupSchema = z.object({
   full_name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
   email: z.string().email("Email inválido"),
-  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres").refine(isPasswordStrong, "Senha muito fraca — atenda pelo menos 3 critérios"),
   company_name: z.string().min(2, "Nome da empresa obrigatório"),
   phone: z.string().min(14, "Telefone obrigatório (com DDD)"),
   document: z.string().refine(validateDocument, "CPF (11 dígitos) ou CNPJ (14 dígitos) inválido"),
