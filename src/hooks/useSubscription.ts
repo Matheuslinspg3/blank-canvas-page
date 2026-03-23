@@ -178,7 +178,7 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
       queryClient.invalidateQueries({ queryKey: ["subscription"] });
       toast.success("Assinatura cancelada");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toastError("Erro ao cancelar assinatura", e, { module: "useSubscription" }),
   });
 
   const renew = useMutation({
