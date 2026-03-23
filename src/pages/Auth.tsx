@@ -229,12 +229,15 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
       });
 
       if (error) {
-        const msg = error.message.includes("already been registered")
-          ? "Este email já está cadastrado. Faça login."
-          : error.message.includes("Telefone ou documento")
-          ? error.message
-          : error.message;
-        toast({ variant: "destructive", title: "Erro ao cadastrar", description: msg });
+        if (error.message.includes("already been registered")) {
+          setErrors((prev) => ({ ...prev, email: "Este email já está cadastrado. Faça login." }));
+        } else if (error.message.includes("Telefone ou documento")) {
+          const msg = error.message;
+          if (msg.includes("telefone")) setErrors((prev) => ({ ...prev, phone: "Este telefone já está cadastrado" }));
+          if (msg.includes("documento")) setErrors((prev) => ({ ...prev, document: "Este CPF/CNPJ já está cadastrado" }));
+        } else {
+          toast({ variant: "destructive", title: "Erro ao cadastrar", description: error.message });
+        }
         setIsLoading(false);
         return;
       }
