@@ -707,6 +707,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                   id="signup-email" type="email" placeholder="seu@email.com"
                   value={signupForm.email}
                   onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
+                  onBlur={() => checkDuplicate("email", signupForm.email)}
                   className="h-11 bg-muted/40 border-border/50 text-sm"
                 />
                 {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
