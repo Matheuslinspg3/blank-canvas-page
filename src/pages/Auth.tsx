@@ -129,54 +129,55 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Inline duplicate checks on blur
-  const checkEmailExists = async (email: string) => {
-    if (!email || !z.string().email().safeParse(email).success) return;
-    const { count } = await supabase.from("profiles").select("id", { count: "exact", head: true }).eq("user_id", email);
-    // Can't query profiles by email directly, use auth approach:
-    // We'll check via a lightweight RPC or just let the signup handle it.
-    // Better: check auth.users indirectly via signInWithPassword dry-run is not possible.
-    // Instead, use a custom RPC. For now, let's query organizations.document and profiles.phone
-  };
-
+  // Inline duplicate checks using server-side RPC
   const checkDuplicate = async (field: "email" | "phone" | "document", value: string) => {
     if (!value) return;
     setErrors((prev) => ({ ...prev, [field]: "" }));
 
     try {
-      if (field === "phone") {
-        const cleanPhone = value.replace(/\D/g, "");
-        if (cleanPhone.length < 10) return;
-        const { count } = await supabase
-          .from("profiles")
-          .select("id", { count: "exact", head: true })
-          .eq("phone", value);
-        if (count && count > 0) {
-          setErrors((prev) => ({ ...prev, phone: "Este telefone já está cadastrado" }));
-        }
-      } else if (field === "document") {
-        const cleanDoc = value.replace(/\D/g, "");
-        if (cleanDoc.length !== 11 && cleanDoc.length !== 14) return;
-        const { count } = await supabase
-          .from("organizations")
-          .select("id", { count: "exact", head: true })
-          .eq("document", cleanDoc);
-        if (count && count > 0) {
-          setErrors((prev) => ({ ...prev, document: "Este CPF/CNPJ já está cadastrado" }));
+      const { data } = await supabase.rpc("check_signup_duplicates", {
+        p_email: field === "email" ? value : "",
+        p_phone: field === "phone" ? value : "",
+        p_document: field === "document" ? value.replace(/\D/g, "") : "",
+      });
+
+      if (data && typeof data === "object") {
+        const result = data as Record<string, string>;
+        if (result[field]) {
+          setErrors((prev) => ({ ...prev, [field]: result[field] }));
         }
       }
     } catch {
-      // Silent fail for duplicate checks
+      // Silent fail
     }
   };
 
+  // Resend cooldown cleanup
   useEffect(() => {
-    if (user && !loading) {
-      // If profile exists and onboarding not completed, redirect to onboarding
-      // Otherwise go to dashboard (AuthContext handles profile fetch)
+    return () => {
+      if (cooldownRef.current) clearInterval(cooldownRef.current);
+    };
+  }, []);
+
+  const startResendCooldown = () => {
+    setResendCooldown(60);
+    if (cooldownRef.current) clearInterval(cooldownRef.current);
+    cooldownRef.current = setInterval(() => {
+      setResendCooldown((prev) => {
+        if (prev <= 1) {
+          if (cooldownRef.current) clearInterval(cooldownRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  useEffect(() => {
+    if (user && !loading && !showEmailVerification) {
       navigate("/dashboard");
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, showEmailVerification]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
