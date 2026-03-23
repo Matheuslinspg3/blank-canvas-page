@@ -80,7 +80,7 @@ export function useUpsertCustomRole() {
       queryClient.invalidateQueries({ queryKey: ["custom-roles"] });
       toast.success("Cargo salvo com sucesso");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toastError("Erro ao salvar cargo", e, { module: "useCustomRoles" }),
   });
 }
 
