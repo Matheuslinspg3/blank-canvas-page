@@ -117,8 +117,9 @@ export function AppSidebar() {
     prevPath.current = currentPath;
   }, [currentPath, isMobile, setOpenMobile]);
 
-  const renderMenuItem = (item: { title: string; url: string; icon: React.ElementType; badge?: boolean }) => {
+  const renderMenuItem = (item: { title: string; url: string; icon: React.ElementType; badge?: boolean; badgeCount?: number }) => {
     const active = isActive(item.url);
+    const count = item.badgeCount ?? (item.badge ? newAdLeadsCount : 0);
     return (
       <SidebarMenuItem key={item.title}>
         <SidebarMenuButton 
@@ -136,9 +137,9 @@ export function AppSidebar() {
           >
             <item.icon className={`h-4 w-4 ${active ? "text-primary" : ""}`} />
             <span>{item.title}</span>
-            {item.badge && newAdLeadsCount > 0 && (
+            {count > 0 && (
               <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs rounded-full bg-destructive text-destructive-foreground">
-                {newAdLeadsCount}
+                {count}
               </span>
             )}
           </NavLink>
