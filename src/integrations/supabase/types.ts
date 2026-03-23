@@ -5408,6 +5408,10 @@ export type Database = {
       }
       can_access_marketplace: { Args: { org_id: string }; Returns: boolean }
       can_access_partnerships: { Args: { org_id: string }; Returns: boolean }
+      check_signup_duplicates: {
+        Args: { p_document: string; p_email: string; p_phone: string }
+        Returns: Json
+      }
       claim_import_chunk: {
         Args: { p_chunk_size: number; p_run_id: string }
         Returns: string[]
