@@ -148,7 +148,8 @@ export default function Plans() {
   const [showComparison, setShowComparison] = useState(false);
   const navigate = useNavigate();
   const { session } = useAuth();
-  const { subscription, isTrialActive, getTrialDaysRemaining, getCurrentPlanSlug } = useSubscription({ enabled: !!session });
+  const { subscription, currentPlan, isTrialActive, getTrialDaysRemaining, getCurrentPlanSlug, canUpgradeTo } = useSubscription({ enabled: !!session });
+  const isLoggedIn = !!session;
 
   const { data: allPlans = [], isLoading } = useQuery({
     queryKey: ["public-plans"],
@@ -166,9 +167,18 @@ export default function Plans() {
   const mainPlans = useMemo(() => allPlans.filter(p => (p as any).plan_type !== 'addon'), [allPlans]);
   const addons = useMemo(() => allPlans.filter(p => (p as any).plan_type === 'addon'), [allPlans]);
 
-  const currentSlug = session ? getCurrentPlanSlug() : null;
-  const trialActive = session ? isTrialActive() : false;
-  const trialDays = session ? getTrialDaysRemaining() : 0;
+  const currentSlug = isLoggedIn ? getCurrentPlanSlug() : null;
+  const trialActive = isLoggedIn ? isTrialActive() : false;
+  const trialDays = isLoggedIn ? getTrialDaysRemaining() : 0;
+
+  const getCtaProps = (plan: SubscriptionPlan) => {
+    const meta = planMeta[plan.slug] || { ctaLabel: "Selecionar", ctaVariant: "default" as const };
+    const isCurrent = currentSlug === plan.slug;
+    if (!isLoggedIn) return { label: meta.ctaLabel, disabled: false, action: () => navigate("/auth") };
+    if (isCurrent) return { label: "Plano atual", disabled: true, action: () => {} };
+    if (canUpgradeTo(plan.slug)) return { label: "Fazer upgrade", disabled: false, action: () => navigate("/configuracoes?tab=billing") };
+    return { label: "Plano inferior", disabled: true, action: () => {} };
+  };
 
   if (isLoading) {
     return (
