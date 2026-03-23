@@ -157,6 +157,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
       phone: signupForm.phone || "",
       accountType: signupForm.account_type,
       companyName: signupForm.company_name,
+      selectedPlan: signupForm.selected_plan,
     });
     setIsLoading(false);
 
