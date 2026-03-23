@@ -25,6 +25,7 @@ import { SecurityAuditCard } from "@/components/developer/SecurityAuditCard";
 import { BillingDashboardTab } from "@/components/developer/billing/BillingDashboardTab";
 import { MigrationTab } from "@/components/developer/MigrationTab";
 import { AiRouterTab } from "@/components/developer/ai-router/AiRouterTab";
+import { SetupChecklistTab } from "@/components/developer/SetupChecklistTab";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 
