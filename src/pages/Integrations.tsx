@@ -29,8 +29,6 @@ export default function Integrations() {
         <div className="max-w-4xl">
           <FeatureFlagGate featureKey="has_whatsapp">
             <WhatsAppIntegrationCard />
-          </FeatureFlagGate>
-        </div>
         </div>
 
         <Separator />
