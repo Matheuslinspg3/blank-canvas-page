@@ -73,6 +73,8 @@ const signupSchema = z.object({
   account_type: z.enum(["imobiliaria", "corretor_individual"]),
 });
 
+const SIGNUP_OTP_LENGTH = 8;
+
 const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -328,7 +330,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
 
   const handleVerifyOtp = async () => {
     const sanitizedOtp = otpCode.replace(/\D/g, "");
-    if (sanitizedOtp.length !== 6) return;
+    if (sanitizedOtp.length !== SIGNUP_OTP_LENGTH) return;
 
     if (!pendingEmail) {
       toast({
@@ -342,31 +344,19 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
     setVerifyingOtp(true);
 
     try {
-      const verificationTypes = ["signup", "email"] as const;
-      let lastError: Error | null = null;
+      const { error } = await supabase.auth.verifyOtp({
+        email: pendingEmail.trim().toLowerCase(),
+        token: sanitizedOtp,
+        type: "signup",
+      });
 
-      for (const type of verificationTypes) {
-        const { error } = await supabase.auth.verifyOtp({
-          email: pendingEmail.trim().toLowerCase(),
-          token: sanitizedOtp,
-          type,
-        });
-
-        if (!error) {
-          toast({ title: "Bem-vindo!", description: "Email verificado com sucesso!" });
-          navigate("/dashboard", { replace: true });
-          return;
-        }
-
-        lastError = error;
-        const shouldTryFallback =
-          type === "signup" &&
-          (((error as { status?: number }).status ?? 0) === 403 || /otp_expired|expired|invalid/i.test(error.message || ""));
-
-        if (!shouldTryFallback) break;
+      if (!error) {
+        toast({ title: "Bem-vindo!", description: "Email verificado com sucesso!" });
+        navigate("/dashboard", { replace: true });
+        return;
       }
 
-      const expiredOrInvalid = /otp_expired|expired|invalid/i.test(lastError?.message || "");
+      const expiredOrInvalid = /otp_expired|expired|invalid/i.test(error.message || "");
       toast({
         variant: "destructive",
         title: expiredOrInvalid ? "Código expirado ou inválido" : "Falha na verificação",
@@ -494,13 +484,13 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                 </div>
                 <h2 className="font-display text-2xl font-bold text-foreground">Verifique seu email</h2>
                 <p className="text-sm text-muted-foreground max-w-xs">
-                  Enviamos um código de 6 dígitos para <span className="font-medium text-foreground">{pendingEmail}</span>
+                  Enviamos um código de {SIGNUP_OTP_LENGTH} dígitos para <span className="font-medium text-foreground">{pendingEmail}</span>
                 </p>
               </div>
 
               <div className="flex justify-center">
                 <InputOTP
-                  maxLength={6}
+                  maxLength={SIGNUP_OTP_LENGTH}
                   pattern={REGEXP_ONLY_DIGITS}
                   value={otpCode}
                   onChange={setOtpCode}
@@ -512,6 +502,8 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                     <InputOTPSlot index={3} />
                     <InputOTPSlot index={4} />
                     <InputOTPSlot index={5} />
+                    <InputOTPSlot index={6} />
+                    <InputOTPSlot index={7} />
                   </InputOTPGroup>
                 </InputOTP>
               </div>
@@ -521,7 +513,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                 size="lg"
                 variant="gold"
                 className="w-full h-14 text-base"
-                disabled={otpCode.length !== 6 || verifyingOtp}
+                disabled={otpCode.length !== SIGNUP_OTP_LENGTH || verifyingOtp}
               >
                 {verifyingOtp ? <Loader2 className="h-5 w-5 animate-spin" /> : "Verificar e entrar"}
               </Button>
