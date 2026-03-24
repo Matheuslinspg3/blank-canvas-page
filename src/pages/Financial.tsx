@@ -59,6 +59,14 @@ const typeLabels: Record<string, string> = {
 };
 
 export default function Financial() {
+  return (
+    <FeatureFlagGate featureKey="has_financial">
+      <FinancialContent />
+    </FeatureFlagGate>
+  );
+}
+
+function FinancialContent() {
   const isMobile = useIsMobile();
   const [transactionFormOpen, setTransactionFormOpen] = useState(false);
   const [invoiceFormOpen, setInvoiceFormOpen] = useState(false);
