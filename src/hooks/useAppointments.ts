@@ -145,7 +145,7 @@ export function useAppointments() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['appointments'], refetchType: 'active' });
       toast({
         title: 'Compromisso removido',
         description: 'O compromisso foi removido com sucesso.',

@@ -116,7 +116,7 @@ export function useLeadInteractions(leadId: string | null) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lead-interactions', leadId] });
-      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['appointments'], refetchType: 'active' });
       toast({ title: 'Interação registrada' });
     },
     onError: (error) => {
