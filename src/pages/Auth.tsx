@@ -73,6 +73,8 @@ const signupSchema = z.object({
   account_type: z.enum(["imobiliaria", "corretor_individual"]),
 });
 
+const SIGNUP_OTP_LENGTH = 8;
+
 const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
