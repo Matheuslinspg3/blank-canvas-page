@@ -78,6 +78,16 @@ const templates: { name: string; description: string; html: string }[] = [
     <p style="color:#4b5563;line-height:1.6;margin:0 0 24px;font-size:15px;">Clique no botão abaixo para confirmar a alteração do seu endereço de e-mail no <strong style="color:#D62828;">Porta do Corretor</strong>.</p>
     ${btn("Confirmar Novo E-mail", "{{ .ConfirmationURL }}")}`),
   },
+  {
+    name: "Reauthentication (OTP)",
+    description: "Confirmação de reautenticação com código OTP de 6 dígitos.",
+    html: wrap(`<h2 style="color:#D62828;margin:0 0 8px;font-size:22px;font-weight:700;">🔒 Confirme sua identidade</h2>
+    <p style="color:#4b5563;line-height:1.6;margin:0 0 20px;font-size:15px;">Para continuar com esta ação sensível no <strong style="color:#D62828;">Porta do Corretor</strong>, use o código abaixo para confirmar sua identidade:</p>
+    <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+      <div style="display:inline-block;background:linear-gradient(135deg,#FFF8F0,#FFF3E0);border:2px solid #FCBF49;padding:18px 36px;border-radius:10px;font-size:32px;font-weight:bold;letter-spacing:4px;color:#D62828;font-family:monospace;">{{ .Token }}</div>
+    </td></tr></table>
+    <p style="color:#6b7280;font-size:13px;margin:20px 0 0;line-height:1.5;">⏳ Este código expira em poucos minutos. Se você não solicitou isso, ignore este e-mail.</p>`),
+  },
 ];
 
 function CopyButton({ html }: { html: string }) {
