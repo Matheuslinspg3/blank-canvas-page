@@ -69,16 +69,19 @@ function setupServiceWorkerUpdateRoutine() {
 }
 
 // Sentry initialization — runs before React mounts
-if (import.meta.env.VITE_SENTRY_DSN) {
-  Sentry.init({
-    dsn: import.meta.env.VITE_SENTRY_DSN,
-    environment: import.meta.env.MODE,
-    tracesSampleRate: 0.1,
-    replaysSessionSampleRate: 0,
-    replaysOnErrorSampleRate: 0.5,
-    release: `porta@${APP_VERSION}`,
-  });
-}
+Sentry.init({
+  dsn: "https://4e7cb884a6e450781b9c709051291981@o4511097037258752.ingest.us.sentry.io/4511097081692160",
+  sendDefaultPii: true,
+  integrations: [
+    Sentry.browserTracingIntegration(),
+    Sentry.replayIntegration(),
+  ],
+  environment: import.meta.env.MODE,
+  tracesSampleRate: 0.1,
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1.0,
+  release: `porta@${APP_VERSION}`,
+});
 
 setupServiceWorkerUpdateRoutine();
 createRoot(document.getElementById("root")!).render(<App />);
