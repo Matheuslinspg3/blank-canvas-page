@@ -4,7 +4,8 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@tanstack/react-query";
+import * as Sentry from "@sentry/react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -95,8 +96,23 @@ const queryClient = new QueryClient({
     mutations: {
       retry: 1,
       retryDelay: 2000,
+      onError: (error) => {
+        Sentry.captureException(error, { tags: { source: 'react-query-mutation' } });
+      },
     },
   },
+  queryCache: new QueryCache({
+    onError: (error, query) => {
+      Sentry.captureException(error, {
+        tags: { source: 'react-query', queryKey: JSON.stringify(query.queryKey).slice(0, 200) },
+      });
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error) => {
+      Sentry.captureException(error, { tags: { source: 'react-query-mutation' } });
+    },
+  }),
 });
 
 const App = () => (
