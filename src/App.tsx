@@ -95,8 +95,23 @@ const queryClient = new QueryClient({
     mutations: {
       retry: 1,
       retryDelay: 2000,
+      onError: (error) => {
+        Sentry.captureException(error, { tags: { source: 'react-query-mutation' } });
+      },
     },
   },
+  queryCache: new QueryCache({
+    onError: (error, query) => {
+      Sentry.captureException(error, {
+        tags: { source: 'react-query', queryKey: JSON.stringify(query.queryKey).slice(0, 200) },
+      });
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error) => {
+      Sentry.captureException(error, { tags: { source: 'react-query-mutation' } });
+    },
+  }),
 });
 
 const App = () => (
