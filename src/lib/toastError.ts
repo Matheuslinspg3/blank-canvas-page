@@ -42,6 +42,15 @@ export function toastError(
   error?: unknown,
   options?: ToastErrorOptions,
 ): string {
+  // Intercept AI rate limit (429) errors with a friendly message
+  if (isAiRateLimitError(error)) {
+    toast.error("Limite de IA atingido", {
+      description: "Você atingiu o limite de uso de IA. Aguarde um momento e tente novamente.",
+      duration: 8000,
+    });
+    return "RATE_LIMIT";
+  }
+
   const errorId = generateErrorId();
   const description = options?.description
     || (options?.retryable ? "Tente novamente em alguns instantes" : undefined);
