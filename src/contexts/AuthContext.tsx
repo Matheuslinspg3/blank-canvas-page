@@ -243,6 +243,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
     setOrganizationType(null);
     logoutOneSignal();
+    resetPostHog();
     await supabase.auth.signOut();
   }, []);
 
