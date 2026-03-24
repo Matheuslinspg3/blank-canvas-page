@@ -125,7 +125,7 @@ export default function MyPlan() {
     <>
       <Helmet><title>Meu Plano | Porta do Corretor</title></Helmet>
       <div className="space-y-6">
-        <PageHeader title="Meu Plano" subtitle="Gerencie sua assinatura, uso e pagamentos" />
+        <PageHeader title="Meu Plano" description="Gerencie sua assinatura, uso e pagamentos" />
 
         {/* ── Section A: Alert Banners ── */}
         {isSandbox && (
