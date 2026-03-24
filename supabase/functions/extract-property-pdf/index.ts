@@ -108,8 +108,12 @@ serve(async (req) => {
     if (claimsError || !claimsData?.claims) {
       return new Response(JSON.stringify({ error: "Token inválido" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+    const userId = claimsData.claims.sub as string;
 
-    // Clone req for getPdfBytes since body can only be read once
+    // Rate limit: 30 req/hour (Upstash Redis)
+    const rateLimited = await checkAiRateLimitRedis(userId, "extract-property-pdf", corsHeaders);
+    if (rateLimited) return rateLimited;
+
     const { bytes, fileName } = await getPdfBytes(req);
 
     const hyperlinks = extractPdfHyperlinks(bytes);
