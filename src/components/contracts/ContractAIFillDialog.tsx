@@ -73,9 +73,13 @@ export function ContractAIFillDialog({
       }, 1500);
     } catch (err: any) {
       console.error("AI fill error:", err);
+      const msg = err?.message || "";
+      const isRateLimit = msg.includes("429") || msg.includes("Rate limit") || msg.includes("Limite de");
       toast({
-        title: "Erro ao preencher com IA",
-        description: err.message || "Tente novamente.",
+        title: isRateLimit ? "Limite de IA atingido" : "Erro ao preencher com IA",
+        description: isRateLimit
+          ? "Você atingiu o limite de uso de IA. Aguarde um momento e tente novamente."
+          : (msg || "Tente novamente."),
         variant: "destructive",
       });
     } finally {
