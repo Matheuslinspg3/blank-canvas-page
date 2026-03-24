@@ -64,6 +64,19 @@ export type PlanLine = "marketplace" | "erp" | "combo" | "main";
 
 const PLAN_ORDER = ['gratuito', 'starter', 'essencial', 'profissional', 'business'];
 
+const ENTERPRISE_UNLIMITED_KEYS = new Set([
+  'max_own_properties',
+  'max_leads',
+  'max_users',
+  'max_marketplace_properties',
+  'max_storage_mb',
+  'ai_credits_limit',
+]);
+
+function ensureArray<T>(value: T[] | null | undefined): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
 export function getPlanLine(plan: SubscriptionPlan | null | undefined): PlanLine | null {
   if (!plan?.features) return null;
   return (plan.features as Record<string, any>).line as PlanLine ?? null;
@@ -86,10 +99,21 @@ const FREE_PLAN_LIMITS: Record<string, number> = {
 };
 
 export function getFeatureLimit(plan: SubscriptionPlan | null | undefined, key: string): number {
-  if (!plan?.features) return FREE_PLAN_LIMITS[key] ?? 0;
-  const val = (plan.features as Record<string, any>)[key];
+  if (!plan) return FREE_PLAN_LIMITS[key] ?? 0;
+
+  const features = (plan.features ?? {}) as Record<string, any>;
+  const val = features[key];
   if (val === -1 || val === true) return Infinity;
   if (typeof val === 'number') return val;
+
+  const topLevelVal = (plan as Record<string, any>)[key];
+  if (topLevelVal === -1 || topLevelVal === true) return Infinity;
+  if (typeof topLevelVal === 'number') return topLevelVal;
+
+  if (plan.slug === 'enterprise' && ENTERPRISE_UNLIMITED_KEYS.has(key)) {
+    return Infinity;
+  }
+
   return FREE_PLAN_LIMITS[key] ?? 0;
 }
 
@@ -107,7 +131,7 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
         .eq("is_active", true)
         .order("display_order");
       if (error) throw error;
-      return data as SubscriptionPlan[];
+      return ensureArray(data as SubscriptionPlan[] | null | undefined);
     },
   });
 
@@ -140,7 +164,7 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
-      return data as BillingPayment[];
+      return ensureArray(data as BillingPayment[] | null | undefined);
     },
     enabled: !!orgId,
   });
@@ -244,13 +268,14 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
   const checkLimit = useCallback((key: string) => getFeatureLimit(currentPlan, key), [currentPlan]);
 
   // Plan groupings
-  const mainPlans = plans.filter(p => (p as any).plan_type !== 'addon');
-  const addonPlans = plans.filter(p => (p as any).plan_type === 'addon');
+  const safePlans = ensureArray(plans);
+  const mainPlans = safePlans.filter(p => (p as any).plan_type !== 'addon');
+  const addonPlans = safePlans.filter(p => (p as any).plan_type === 'addon');
 
   // Legacy groupings (kept for backward compat)
-  const marketplacePlans = plans.filter(p => (p.features as any)?.line === "marketplace");
-  const erpPlans = plans.filter(p => (p.features as any)?.line === "erp");
-  const comboPlans = plans.filter(p => (p.features as any)?.line === "combo");
+  const marketplacePlans = safePlans.filter(p => (p.features as any)?.line === "marketplace");
+  const erpPlans = safePlans.filter(p => (p.features as any)?.line === "erp");
+  const comboPlans = safePlans.filter(p => (p.features as any)?.line === "combo");
 
   // --- New helpers ---
   const getAiCreditsLimit = useCallback(() => checkLimit('ai_credits_limit'), [checkLimit]);
@@ -306,7 +331,7 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
   }, [subscription]);
 
   return {
-    plans,
+    plans: safePlans,
     mainPlans,
     addonPlans,
     marketplacePlans,

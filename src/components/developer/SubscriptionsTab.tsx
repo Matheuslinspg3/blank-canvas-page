@@ -89,8 +89,8 @@ export function SubscriptionsTab() {
     queryFn: () => apiCall("GET"),
   });
 
-  const orgs: OrgRow[] = data?.organizations || [];
-  const plans: PlanOption[] = data?.plans || [];
+  const orgs: OrgRow[] = Array.isArray(data?.organizations) ? data.organizations : [];
+  const plans: PlanOption[] = Array.isArray(data?.plans) ? data.plans : [];
 
   const updateMutation = useMutation({
     mutationFn: (body: any) => apiCall("PATCH", body),

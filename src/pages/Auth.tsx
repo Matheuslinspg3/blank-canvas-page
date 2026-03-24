@@ -126,7 +126,9 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
         .order("display_order")
         .limit(5);
       if (error) throw error;
-      return (data as SignupPlan[]).filter(p => ['gratuito', 'starter', 'essencial', 'profissional'].includes(p.slug));
+
+      const rows = Array.isArray(data) ? (data as SignupPlan[]) : [];
+      return rows.filter((p) => ['gratuito', 'starter', 'essencial', 'profissional'].includes(p.slug));
     },
   });
 
