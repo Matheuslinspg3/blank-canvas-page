@@ -70,25 +70,38 @@ export function AppSidebar() {
   const setupPending = useSetupPendingCount();
   const qc = useQueryClient();
 
-  // PERF: Prefetch route data on hover for faster navigation
+  // PERF: Warm query cache on hover so data is ready when user navigates.
+  // We only call prefetchQuery when the query is already in the cache (i.e. has a
+  // queryFn registered from a previous mount). This avoids "Missing queryFn" errors
+  // that happen when prefetchQuery is called without a queryFn for a cache-cold key.
   const prefetchRoute = useCallback((url: string) => {
     const orgId = profile?.organization_id;
     if (!orgId) return;
+
+    const safePrefetch = (...keys: unknown[][]) => {
+      keys.forEach((queryKey) => {
+        // Only prefetch if the query already exists in cache (has a queryFn)
+        const existing = qc.getQueryState(queryKey);
+        if (existing) {
+          qc.prefetchQuery({ queryKey, staleTime: 60_000 });
+        }
+      });
+    };
+
     if (url === '/imoveis') {
-      qc.prefetchQuery({ queryKey: ['properties', orgId], staleTime: 60_000 });
+      safePrefetch(['properties', orgId]);
     } else if (url === '/crm') {
-      qc.prefetchQuery({ queryKey: ['leads', orgId], staleTime: 60_000 });
+      safePrefetch(['leads', orgId]);
     } else if (url === '/financeiro') {
-      qc.prefetchQuery({ queryKey: ['transactions', orgId], staleTime: 60_000 });
+      safePrefetch(['transactions', orgId]);
     } else if (url === '/agenda') {
-      qc.prefetchQuery({ queryKey: ['appointments', orgId], staleTime: 60_000 });
+      safePrefetch(['appointments', orgId]);
     } else if (url === '/dashboard') {
-      qc.prefetchQuery({ queryKey: ['dashboard-stats', orgId], staleTime: 60_000 });
-      qc.prefetchQuery({ queryKey: ['dashboard-pipeline', orgId], staleTime: 60_000 });
+      safePrefetch(['dashboard-stats', orgId], ['dashboard-pipeline', orgId]);
     } else if (url === '/marketplace') {
-      qc.prefetchQuery({ queryKey: ['marketplace-properties', {}, 0], staleTime: 60_000 });
+      safePrefetch(['marketplace-properties', {}, 0]);
     } else if (url === '/marketing') {
-      qc.prefetchQuery({ queryKey: ['ad-entities', orgId], staleTime: 60_000 });
+      safePrefetch(['ad-entities', orgId]);
     }
   }, [qc, profile?.organization_id]);
 
