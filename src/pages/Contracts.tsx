@@ -21,6 +21,7 @@ import { ContractDetails } from "@/components/contracts/ContractDetails";
 import { ContractFilters } from "@/components/contracts/ContractFilters";
 import { MobileContractCard } from "@/components/contracts/MobileContractCard";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { FeatureFlagGate } from "@/components/FeatureGate";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
