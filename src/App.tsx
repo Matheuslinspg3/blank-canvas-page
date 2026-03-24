@@ -103,6 +103,11 @@ const queryClient = new QueryClient({
   },
   queryCache: new QueryCache({
     onError: (error, query) => {
+      // Skip AbortError (cancelled requests from navigation)
+      const msg = error instanceof Error ? error.message : (error as any)?.message;
+      if (typeof msg === 'string' && msg.includes('AbortError')) return;
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+
       Sentry.captureException(error, {
         tags: { source: 'react-query', queryKey: JSON.stringify(query.queryKey).slice(0, 200) },
       });
@@ -110,6 +115,9 @@ const queryClient = new QueryClient({
   }),
   mutationCache: new MutationCache({
     onError: (error) => {
+      const msg = error instanceof Error ? error.message : (error as any)?.message;
+      if (typeof msg === 'string' && msg.includes('AbortError')) return;
+
       Sentry.captureException(error, { tags: { source: 'react-query-mutation' } });
     },
   }),
