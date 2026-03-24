@@ -101,18 +101,24 @@ const FREE_PLAN_LIMITS: Record<string, number> = {
 export function getFeatureLimit(plan: SubscriptionPlan | null | undefined, key: string): number {
   if (!plan) return FREE_PLAN_LIMITS[key] ?? 0;
 
+  // Enterprise-class plans always get unlimited for core keys
+  const slug = (plan.slug ?? '').toLowerCase();
+  if ((slug.includes('enterprise') || slug.includes('business')) && ENTERPRISE_UNLIMITED_KEYS.has(key)) {
+    return Infinity;
+  }
+
   const features = (plan.features ?? {}) as Record<string, any>;
   const val = features[key];
   if (val === -1 || val === true) return Infinity;
-  if (typeof val === 'number') return val;
+  if (val === null || val === undefined) {
+    // null in features JSON = unlimited
+  } else if (typeof val === 'number') return val;
 
   const topLevelVal = (plan as Record<string, any>)[key];
   if (topLevelVal === -1 || topLevelVal === true) return Infinity;
+  // null in top-level columns (e.g. max_own_properties) = unlimited
+  if (topLevelVal === null) return Infinity;
   if (typeof topLevelVal === 'number') return topLevelVal;
-
-  if (plan.slug === 'enterprise' && ENTERPRISE_UNLIMITED_KEYS.has(key)) {
-    return Infinity;
-  }
 
   return FREE_PLAN_LIMITS[key] ?? 0;
 }
