@@ -137,7 +137,7 @@ export function useProperties() {
 
       const { getFeatureLimit: getLimit } = await import('@/hooks/useSubscription');
       // We need the plan from the subscription — fetch it
-      const { data: subData } = await supabase
+      const { data: activeSubData } = await supabase
         .from('subscriptions')
         .select('*, plan:subscription_plans(*)')
         .eq('organization_id', profile.organization_id)
@@ -146,8 +146,25 @@ export function useProperties() {
         .limit(1)
         .maybeSingle();
 
-      const plan = subData?.plan as any;
-      const limit = getLimit(plan, 'max_own_properties');
+      let plan = activeSubData?.plan as any;
+
+      // Fallback: if no active/trial row is visible (RLS/cache race), use latest subscription.
+      if (!plan) {
+        const { data: latestSubData } = await supabase
+          .from('subscriptions')
+          .select('*, plan:subscription_plans(*)')
+          .eq('organization_id', profile.organization_id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        plan = latestSubData?.plan as any;
+      }
+
+      const rawLimit = getLimit(plan, 'max_own_properties');
+      const safeMinimumLimit = getLimit(undefined, 'max_own_properties');
+      const limit = rawLimit === Infinity ? Infinity : Math.max(rawLimit, safeMinimumLimit);
+
       if (limit !== Infinity && (currentCount ?? 0) >= limit) {
         throw new Error(`Limite de ${limit} imóveis atingido no seu plano. Faça upgrade para adicionar mais.`);
       }
