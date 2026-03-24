@@ -114,14 +114,14 @@ export function useSessionGuard(userId: string | undefined) {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
       if (event === 'SIGNED_OUT') {
-        const token = sessionStorage.getItem(SESSION_TOKEN_KEY);
+        const token = localStorage.getItem(SESSION_TOKEN_KEY);
         if (token) {
           try {
             await supabase.from('user_sessions').delete().eq('session_token', token);
           } catch {
             // Ignore
           }
-          sessionStorage.removeItem(SESSION_TOKEN_KEY);
+          localStorage.removeItem(SESSION_TOKEN_KEY);
         }
         registeredRef.current = false;
       }
