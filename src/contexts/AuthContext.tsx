@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useMemo, u
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { loginOneSignal, logoutOneSignal } from '@/lib/onesignal';
+import { identifyUser, resetPostHog } from '@/lib/posthog';
 import { toast } from 'sonner';
 
 interface Profile {
