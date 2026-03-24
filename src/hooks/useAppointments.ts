@@ -99,7 +99,7 @@ export function useAppointments() {
       return result;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['appointments'], refetchType: 'active' });
       toast({
         title: 'Compromisso atualizado',
         description: 'O compromisso foi atualizado com sucesso.',
