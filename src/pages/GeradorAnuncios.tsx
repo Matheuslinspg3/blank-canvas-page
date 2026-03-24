@@ -260,11 +260,15 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
     }
   };
 
+  const { guard: guardAi } = useFeatureFlag("ai_credits_limit");
+
   const handleGenerate = async () => {
     if (!form.tipo || !form.finalidade || !form.bairro_cidade) {
       toastError("Preencha tipo, finalidade e localização.", undefined, { module: "GeradorAnuncios" });
       return;
     }
+
+    if (!guardAi()) return;
 
     setLoading(true);
     setResults(null);
