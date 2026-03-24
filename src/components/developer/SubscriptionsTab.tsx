@@ -5,12 +5,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
-import { Search, Building2, Clock, Infinity, Plus, Minus, Loader2, User, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  Search, Building2, Clock, Infinity, Plus, Minus, Loader2, User,
+  ChevronDown, ChevronRight, Trash2, CreditCard, AlertTriangle
+} from "lucide-react";
 import { format, addMonths, addDays, addYears } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
 
 interface OrgUser {
   user_id: string;
@@ -19,13 +27,54 @@ interface OrgUser {
   phone: string | null;
 }
 
+interface OrgSubscription {
+  id: string;
+  plan_id: string;
+  plan_name: string;
+  plan_slug: string;
+  status: string;
+  billing_cycle: string;
+  current_period_end: string | null;
+  trial_end: string | null;
+}
+
+interface PlanOption {
+  id: string;
+  name: string;
+  slug: string;
+  price_monthly: number;
+}
+
 interface OrgRow {
   id: string;
   name: string;
   is_active: boolean;
   trial_started_at: string | null;
   trial_ends_at: string | null;
+  subscription: OrgSubscription | null;
   users: OrgUser[];
+}
+
+async function apiCall(method: string, body?: any) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("Não autenticado");
+  const res = await fetch(
+    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-subscriptions`,
+    {
+      method,
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || "Erro na operação");
+  }
+  return res.json();
 }
 
 export function SubscriptionsTab() {
@@ -35,51 +84,16 @@ export function SubscriptionsTab() {
   const [customDays, setCustomDays] = useState("");
   const [expandedOrgs, setExpandedOrgs] = useState<Set<string>>(new Set());
 
-  const { data: orgs, isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["dev-org-subscriptions"],
-    queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error("Não autenticado");
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-subscriptions`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            "Content-Type": "application/json",
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-        }
-      );
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: res.statusText }));
-        throw new Error(err.error || "Erro ao buscar dados");
-      }
-      return (await res.json()) as OrgRow[];
-    },
+    queryFn: () => apiCall("GET"),
   });
 
+  const orgs: OrgRow[] = data?.organizations || [];
+  const plans: PlanOption[] = data?.plans || [];
+
   const updateMutation = useMutation({
-    mutationFn: async ({ orgId, trialEndsAt, trialStartedAt }: { orgId: string; trialEndsAt: string; trialStartedAt?: string }) => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error("Não autenticado");
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-subscriptions`,
-        {
-          method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            "Content-Type": "application/json",
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({ org_id: orgId, trial_ends_at: trialEndsAt, trial_started_at: trialStartedAt }),
-        }
-      );
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: res.statusText }));
-        throw new Error(err.error || "Erro ao atualizar");
-      }
-    },
+    mutationFn: (body: any) => apiCall("PATCH", body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dev-org-subscriptions"] });
       toast.success("Assinatura atualizada");
@@ -88,7 +102,28 @@ export function SubscriptionsTab() {
     onError: (e: Error) => toastError("Erro na operação", e, { module: "SubscriptionsTab" }),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (orgId: string) => apiCall("DELETE", { org_id: orgId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dev-org-subscriptions"] });
+      toast.success("Organização removida");
+    },
+    onError: (e: Error) => toastError("Erro ao remover", e, { module: "SubscriptionsTab" }),
+  });
+
   const getStatus = (org: OrgRow) => {
+    if (org.subscription) {
+      const s = org.subscription.status;
+      if (s === "active") return "ativo";
+      if (s === "trial") {
+        const end = org.subscription.trial_end || org.trial_ends_at;
+        if (end && new Date(end) > new Date()) return "trial";
+        return "expirado";
+      }
+      if (s === "overdue") return "vencido";
+      if (s === "cancelled") return "cancelado";
+      return s;
+    }
     if (!org.trial_ends_at) return "sem_plano";
     const end = new Date(org.trial_ends_at);
     if (end.getFullYear() >= 2099) return "ilimitado";
@@ -97,10 +132,8 @@ export function SubscriptionsTab() {
   };
 
   const STATUS_LABELS: Record<string, string> = {
-    sem_plano: "Sem plano",
-    ilimitado: "Ilimitado",
-    ativo: "Ativo",
-    expirado: "Expirado",
+    sem_plano: "Sem plano", ilimitado: "Ilimitado", ativo: "Ativo",
+    expirado: "Expirado", trial: "Trial", vencido: "Vencido", cancelado: "Cancelado",
   };
 
   const STATUS_COLORS: Record<string, string> = {
@@ -108,6 +141,9 @@ export function SubscriptionsTab() {
     ilimitado: "bg-purple-500/10 text-purple-700 border-purple-200",
     ativo: "bg-green-500/10 text-green-700 border-green-200",
     expirado: "bg-red-500/10 text-red-700 border-red-200",
+    trial: "bg-yellow-500/10 text-yellow-700 border-yellow-200",
+    vencido: "bg-orange-500/10 text-orange-700 border-orange-200",
+    cancelado: "bg-muted text-muted-foreground",
   };
 
   const adjustTime = (org: OrgRow, action: string) => {
@@ -133,9 +169,19 @@ export function SubscriptionsTab() {
     }
 
     updateMutation.mutate({
-      orgId: org.id,
-      trialEndsAt: newEnd!.toISOString(),
-      trialStartedAt: org.trial_started_at || new Date().toISOString(),
+      org_id: org.id,
+      trial_ends_at: newEnd!.toISOString(),
+      trial_started_at: org.trial_started_at || new Date().toISOString(),
+      current_period_end: newEnd!.toISOString(),
+    });
+  };
+
+  const changePlan = (orgId: string, planId: string) => {
+    updateMutation.mutate({
+      org_id: orgId,
+      plan_id: planId,
+      status: "active",
+      current_period_end: "2099-12-31T23:59:59Z",
     });
   };
 
@@ -147,24 +193,68 @@ export function SubscriptionsTab() {
     });
   };
 
-  const filtered = orgs?.filter((o) => {
+  const filtered = orgs.filter((o) => {
     if (!search) return true;
     const q = search.toLowerCase();
     return (
       o.name.toLowerCase().includes(q) ||
+      (o.subscription?.plan_name || "").toLowerCase().includes(q) ||
       STATUS_LABELS[getStatus(o)]?.toLowerCase().includes(q) ||
       o.users?.some(u => u.full_name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q))
     );
   });
 
+  const emptyOrgs = orgs.filter(o => !o.users?.length);
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar organização ou usuário..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+          <Input placeholder="Buscar organização, plano ou usuário..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
-        <Badge variant="outline" className="shrink-0">{filtered?.length ?? 0} organizações</Badge>
+        <Badge variant="outline" className="shrink-0">{filtered.length} organizações</Badge>
+        {emptyOrgs.length > 0 && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="sm" variant="destructive" className="gap-1.5">
+                <Trash2 className="h-3.5 w-3.5" />
+                Limpar {emptyOrgs.length} org{emptyOrgs.length !== 1 ? "s" : ""} vazia{emptyOrgs.length !== 1 ? "s" : ""}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                  Remover organizações vazias?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  Serão removidas {emptyOrgs.length} organização(ões) sem nenhum usuário vinculado. Esta ação não pode ser desfeita.
+                  <div className="mt-3 max-h-40 overflow-y-auto space-y-1">
+                    {emptyOrgs.map(o => (
+                      <div key={o.id} className="text-xs text-muted-foreground">• {o.name}</div>
+                    ))}
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={async () => {
+                    for (const o of emptyOrgs) {
+                      try { await apiCall("DELETE", { org_id: o.id }); } catch {}
+                    }
+                    queryClient.invalidateQueries({ queryKey: ["dev-org-subscriptions"] });
+                    toast.success(`${emptyOrgs.length} organização(ões) removida(s)`);
+                  }}
+                >
+                  Remover todas
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </div>
 
       {isLoading ? (
@@ -173,31 +263,40 @@ export function SubscriptionsTab() {
         </div>
       ) : (
         <div className="grid gap-4">
-          {filtered?.map((org) => {
+          {filtered.map((org) => {
             const status = getStatus(org);
             const isExpanded = expandedOrgs.has(org.id);
+            const hasNoUsers = !org.users?.length;
             return (
-              <Card key={org.id}>
+              <Card key={org.id} className={hasNoUsers ? "border-dashed opacity-70" : ""}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
                       <Building2 className="h-4 w-4 text-primary" />
                       {org.name}
                     </CardTitle>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className={STATUS_COLORS[status] || ""}>{STATUS_LABELS[status]}</Badge>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {org.subscription && (
+                        <Badge variant="outline" className="gap-1">
+                          <CreditCard className="h-3 w-3" />
+                          {org.subscription.plan_name}
+                        </Badge>
+                      )}
+                      <Badge variant="outline" className={STATUS_COLORS[status] || ""}>{STATUS_LABELS[status] || status}</Badge>
                       {!org.is_active && <Badge variant="destructive">Inativa</Badge>}
                       <Badge variant="secondary">{(org.users?.length ?? 0)} usuário{(org.users?.length ?? 0) !== 1 ? "s" : ""}</Badge>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                     <div>
-                      <p className="text-muted-foreground text-xs">Início trial</p>
-                      <p className="font-medium">
-                        {org.trial_started_at ? format(new Date(org.trial_started_at), "dd/MM/yyyy", { locale: ptBR }) : "—"}
-                      </p>
+                      <p className="text-muted-foreground text-xs">Plano</p>
+                      <p className="font-medium">{org.subscription?.plan_name || "Nenhum"}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs">Status assinatura</p>
+                      <p className="font-medium capitalize">{org.subscription?.status || "—"}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground text-xs">Expira em</p>
@@ -206,9 +305,55 @@ export function SubscriptionsTab() {
                       </p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground text-xs">Status</p>
-                      <p className="font-medium">{org.is_active ? "Ativa" : "Inativa"}</p>
+                      <p className="text-muted-foreground text-xs">Período sub.</p>
+                      <p className="font-medium">
+                        {!org.subscription?.current_period_end ? "—" : new Date(org.subscription.current_period_end).getFullYear() >= 2099 ? "♾️" : format(new Date(org.subscription.current_period_end), "dd/MM/yyyy", { locale: ptBR })}
+                      </p>
                     </div>
+                  </div>
+
+                  {/* Plan changer */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Select
+                      value={org.subscription?.plan_id || ""}
+                      onValueChange={(planId) => changePlan(org.id, planId)}
+                    >
+                      <SelectTrigger className="w-52">
+                        <SelectValue placeholder="Alterar plano..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {plans.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name} {p.price_monthly > 0 ? `(R$${(p.price_monthly / 100).toFixed(2)})` : "(Grátis)"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {hasNoUsers && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="ghost" className="text-destructive gap-1">
+                            <Trash2 className="h-3.5 w-3.5" /> Remover org
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Remover "{org.name}"?</AlertDialogTitle>
+                            <AlertDialogDescription>Esta organização não possui usuários. A remoção é permanente.</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              onClick={() => deleteMutation.mutate(org.id)}
+                            >
+                              Remover
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
                   </div>
 
                   {/* Users collapsible */}
@@ -275,7 +420,7 @@ export function SubscriptionsTab() {
               </Card>
             );
           })}
-          {filtered?.length === 0 && <p className="text-center text-muted-foreground py-8">Nenhuma organização encontrada.</p>}
+          {filtered.length === 0 && <p className="text-center text-muted-foreground py-8">Nenhuma organização encontrada.</p>}
         </div>
       )}
     </div>
