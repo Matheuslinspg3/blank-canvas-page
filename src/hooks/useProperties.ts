@@ -129,6 +129,29 @@ export function useProperties() {
         throw new Error('Usuário não está vinculado a uma organização');
       }
 
+      // Feature gate: check max_own_properties limit
+      const { count: currentCount } = await supabase
+        .from('properties')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', profile.organization_id);
+
+      const { getFeatureLimit: getLimit } = await import('@/hooks/useSubscription');
+      // We need the plan from the subscription — fetch it
+      const { data: subData } = await supabase
+        .from('subscriptions')
+        .select('*, plan:subscription_plans(*)')
+        .eq('organization_id', profile.organization_id)
+        .in('status', ['active', 'trial'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const plan = subData?.plan as any;
+      const limit = getLimit(plan, 'max_own_properties');
+      if (limit !== Infinity && (currentCount ?? 0) >= limit) {
+        throw new Error(`Limite de ${limit} imóveis atingido no seu plano. Faça upgrade para adicionar mais.`);
+      }
+
       const { data, error } = await supabase
         .from('properties')
         .insert({

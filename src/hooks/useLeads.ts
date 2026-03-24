@@ -251,6 +251,29 @@ export function useLeads() {
         throw new Error('Usuário não autenticado');
       }
 
+      // Feature gate: check max_leads limit
+      const { count: currentCount } = await supabase
+        .from('leads')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', profile.organization_id)
+        .eq('is_active', true);
+
+      const { getFeatureLimit: getLimit } = await import('@/hooks/useSubscription');
+      const { data: subData } = await supabase
+        .from('subscriptions')
+        .select('*, plan:subscription_plans(*)')
+        .eq('organization_id', profile.organization_id)
+        .in('status', ['active', 'trial'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const plan = subData?.plan as any;
+      const limit = getLimit(plan, 'max_leads');
+      if (limit !== Infinity && (currentCount ?? 0) >= limit) {
+        throw new Error(`Limite de ${limit} leads atingido no seu plano. Faça upgrade para adicionar mais.`);
+      }
+
       const { lead_stage_id, ...rest } = input;
       const defaultStageId = leadStages[0]?.id;
 

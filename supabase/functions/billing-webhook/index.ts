@@ -111,8 +111,27 @@ serve(async (req) => {
     if (event === "PAYMENT_CONFIRMED" || event === "PAYMENT_RECEIVED") {
       log.info("Payment confirmed", { payment_id: paymentId, subscription_found: !!sub });
       if (sub) {
+        // Fetch billing_cycle to compute next period end
+        const { data: subRecord } = await supabase
+          .from("subscriptions")
+          .select("billing_cycle")
+          .eq("id", sub.id)
+          .single();
+
+        const now = new Date();
+        let periodEnd = new Date(now);
+        if (subRecord?.billing_cycle === "yearly") {
+          periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+        } else {
+          periodEnd.setMonth(periodEnd.getMonth() + 1);
+        }
+
         await supabase.from("subscriptions")
-          .update({ status: "active" })
+          .update({
+            status: "active",
+            current_period_start: now.toISOString(),
+            current_period_end: periodEnd.toISOString(),
+          })
           .eq("id", sub.id);
       }
       await supabase.from("billing_payments")
