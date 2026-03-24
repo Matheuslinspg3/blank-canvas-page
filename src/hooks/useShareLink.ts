@@ -58,6 +58,7 @@ export function useShareLink() {
           });
       }
 
+      trackEvent('imovel_compartilhado', { propertyId });
       return `${window.location.origin}/i/${orgData.slug}/${propData.property_code}`;
     } catch (err) {
       console.error("Error generating share link:", err);
