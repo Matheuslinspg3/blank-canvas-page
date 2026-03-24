@@ -30,7 +30,7 @@ serve(async (req) => {
       });
     }
 
-    const rateLimitResp = await checkAiRateLimit(user.id, "validate-document", corsHeaders);
+    const rateLimitResp = await checkAiRateLimitRedis(user.id, "validate-document", corsHeaders);
     if (rateLimitResp) return rateLimitResp;
 
     const { document_id, storage_path, expected_type } = await req.json();

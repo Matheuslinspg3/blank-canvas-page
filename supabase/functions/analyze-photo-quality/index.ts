@@ -31,7 +31,7 @@ serve(async (req) => {
       });
     }
 
-    const rateLimited = await checkAiRateLimit(user.id, "analyze-photo-quality", corsHeaders);
+    const rateLimited = await checkAiRateLimitRedis(user.id, "analyze-photo-quality", corsHeaders);
     if (rateLimited) return rateLimited;
 
     const { imageUrl } = await req.json();

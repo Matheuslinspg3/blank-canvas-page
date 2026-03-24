@@ -22,7 +22,7 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) throw new Error("Unauthorized");
 
-    const rateLimited = await checkAiRateLimit(user.id, "generate-contract-template", corsHeaders);
+    const rateLimited = await checkAiRateLimitRedis(user.id, "generate-contract-template", corsHeaders);
     if (rateLimited) return rateLimited;
 
     const { contractType, templateName, description } = await req.json();

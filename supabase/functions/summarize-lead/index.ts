@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
     }
     const userId = claims.claims.sub as string;
 
-    const rateLimited = await checkAiRateLimit(userId, "summarize-lead", corsHeaders);
+    const rateLimited = await checkAiRateLimitRedis(userId, "summarize-lead", corsHeaders);
     if (rateLimited) return rateLimited;
 
     const { lead_id, force_refresh } = await req.json();

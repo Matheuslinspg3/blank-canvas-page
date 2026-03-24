@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const rateLimited = await checkAiRateLimit(claimsData.claims.sub as string, "generate-landing-content", corsHeaders);
+    const rateLimited = await checkAiRateLimitRedis(claimsData.claims.sub as string, "generate-landing-content", corsHeaders);
     if (rateLimited) return rateLimited;
 
     const { propertyId, forceRegenerate = false } = await req.json();

@@ -24,7 +24,7 @@ serve(async (req) => {
     const { data: { user }, error: authErr } = await anonClient.auth.getUser(token);
     if (authErr || !user) throw new Error("Não autorizado");
 
-    const rateLimited = await checkAiRateLimit(user.id, "contract-ai-fill", corsHeaders);
+    const rateLimited = await checkAiRateLimitRedis(user.id, "contract-ai-fill", corsHeaders);
     if (rateLimited) return rateLimited;
 
     const { data: profile } = await supabase.from("profiles").select("organization_id").eq("user_id", user.id).single();

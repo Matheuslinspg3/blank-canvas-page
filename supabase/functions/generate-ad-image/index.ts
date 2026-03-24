@@ -260,8 +260,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Rate limit: 20 req/hour
-    const rateLimited = await checkAiRateLimit(user.id, "generate-ad-image", corsHeaders);
+    // Rate limit: 30 req/hour (Upstash Redis)
+    const rateLimited = await checkAiRateLimitRedis(user.id, "generate-ad-image", corsHeaders);
     if (rateLimited) return rateLimited;
 
     const body: RequestBody = await req.json();
