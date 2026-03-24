@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, lazy, Suspense } from "react";
 import { QueryErrorState } from "@/components/QueryErrorState";
 import { SectionErrorBoundary } from "@/components/SectionErrorBoundary";
 import { PageHeader } from "@/components/PageHeader";
+import { FeatureFlagGate } from "@/components/FeatureGate";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
