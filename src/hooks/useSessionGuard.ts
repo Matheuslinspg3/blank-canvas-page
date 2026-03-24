@@ -6,11 +6,16 @@ const SESSION_TOKEN_KEY = 'habitae_session_token';
 const HEARTBEAT_INTERVAL = 60_000; // 1 min
 const CHECK_INTERVAL = 30_000; // 30s
 
+/**
+ * Uses localStorage so all tabs in the same browser share one session token.
+ * sessionStorage was causing each tab to register a separate "device",
+ * hitting the 2-session limit and logging the user out.
+ */
 function getOrCreateSessionToken(): string {
-  let token = sessionStorage.getItem(SESSION_TOKEN_KEY);
+  let token = localStorage.getItem(SESSION_TOKEN_KEY);
   if (!token) {
     token = crypto.randomUUID();
-    sessionStorage.setItem(SESSION_TOKEN_KEY, token);
+    localStorage.setItem(SESSION_TOKEN_KEY, token);
   }
   return token;
 }
