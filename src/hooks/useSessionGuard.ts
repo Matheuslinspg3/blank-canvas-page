@@ -70,7 +70,7 @@ export function useSessionGuard(userId: string | undefined) {
           duration: 8000,
         });
         // Clean up and sign out
-        sessionStorage.removeItem(SESSION_TOKEN_KEY);
+        localStorage.removeItem(SESSION_TOKEN_KEY);
         registeredRef.current = false;
         await supabase.auth.signOut();
       }
