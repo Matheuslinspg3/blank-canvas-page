@@ -1,0 +1,1 @@
+ALTER EXTENSION unaccent SET SCHEMA extensions;

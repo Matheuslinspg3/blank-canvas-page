@@ -5953,7 +5953,6 @@ export type Database = {
       seed_org_lead_types: { Args: { p_org_id: string }; Returns: undefined }
       session_heartbeat: { Args: { p_session_token: string }; Returns: boolean }
       slugify: { Args: { val: string }; Returns: string }
-      unaccent: { Args: { "": string }; Returns: string }
       upsert_ai_router_stats: {
         Args: {
           p_cost_usd: number
