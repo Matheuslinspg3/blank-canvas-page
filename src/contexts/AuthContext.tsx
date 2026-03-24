@@ -155,8 +155,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 await fixLegacyUser(session.user.id, session.user.email!, fullName);
               }
               
-              // Vincular usuário ao OneSignal
+              // Vincular usuário ao OneSignal e PostHog
               loginOneSignal(session.user.id).catch(e => console.error("[Auth] OneSignal login error:", e));
+              identifyUser(session.user.id, session.user.email, existingProfile?.full_name || session.user.user_metadata?.full_name);
             } catch (err) {
               console.error('[Auth] Error during session setup:', err);
             } finally {
