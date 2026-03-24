@@ -305,6 +305,7 @@ export function useProperties() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['properties'] });
       queryClient.invalidateQueries({ queryKey: ['properties-advanced-search'] });
+      trackEvent('imovel_cadastrado');
       toast({
         title: 'Imóvel cadastrado',
         description: 'O imóvel foi cadastrado com sucesso.',

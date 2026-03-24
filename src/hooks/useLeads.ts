@@ -274,6 +274,7 @@ export function useLeads() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
+      trackEvent('lead_enviado');
       toast({ title: 'Lead criado', description: 'O lead foi criado com sucesso.' });
     },
     onError: (error) => {
