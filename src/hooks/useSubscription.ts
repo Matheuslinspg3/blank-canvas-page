@@ -75,12 +75,22 @@ export function hasFeature(plan: SubscriptionPlan | null | undefined, key: strin
   return val === true || (typeof val === 'number' && val !== 0);
 }
 
+// Fallback limits for the free plan when no subscription exists
+const FREE_PLAN_LIMITS: Record<string, number> = {
+  max_own_properties: 10,
+  max_leads: 20,
+  max_users: 1,
+  max_marketplace_properties: 0,
+  max_storage_mb: 512,
+  ai_credits_limit: 0,
+};
+
 export function getFeatureLimit(plan: SubscriptionPlan | null | undefined, key: string): number {
-  if (!plan?.features) return 0;
+  if (!plan?.features) return FREE_PLAN_LIMITS[key] ?? 0;
   const val = (plan.features as Record<string, any>)[key];
   if (val === -1 || val === true) return Infinity;
   if (typeof val === 'number') return val;
-  return 0;
+  return FREE_PLAN_LIMITS[key] ?? 0;
 }
 
 export function useSubscription({ enabled = false }: { enabled?: boolean } = {}) {
