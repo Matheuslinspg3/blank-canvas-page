@@ -462,7 +462,12 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
               </div>
 
               <div className="flex justify-center">
-                <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
+                <InputOTP
+                  maxLength={6}
+                  pattern={REGEXP_ONLY_DIGITS}
+                  value={otpCode}
+                  onChange={setOtpCode}
+                >
                   <InputOTPGroup>
                     <InputOTPSlot index={0} />
                     <InputOTPSlot index={1} />
