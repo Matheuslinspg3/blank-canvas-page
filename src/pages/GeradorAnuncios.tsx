@@ -5,6 +5,7 @@ const BrandSettingsContent = lazy(() => import("@/components/marketing/BrandSett
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/posthog";
+import { useFeatureFlag } from "@/hooks/useFeatureGate";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -259,11 +260,15 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
     }
   };
 
+  const { guard: guardAi } = useFeatureFlag("ai_credits_limit");
+
   const handleGenerate = async () => {
     if (!form.tipo || !form.finalidade || !form.bairro_cidade) {
       toastError("Preencha tipo, finalidade e localização.", undefined, { module: "GeradorAnuncios" });
       return;
     }
+
+    if (!guardAi()) return;
 
     setLoading(true);
     setResults(null);
@@ -303,6 +308,8 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
       toastError("Selecione um imóvel com fotos para gerar o anúncio completo.", undefined, { module: "GeradorAnuncios" });
       return;
     }
+
+    if (!guardAi()) return;
 
     setGeneratingFullAd(true);
     setLoading(true);

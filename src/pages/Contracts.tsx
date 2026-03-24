@@ -21,6 +21,7 @@ import { ContractDetails } from "@/components/contracts/ContractDetails";
 import { ContractFilters } from "@/components/contracts/ContractFilters";
 import { MobileContractCard } from "@/components/contracts/MobileContractCard";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { FeatureFlagGate } from "@/components/FeatureGate";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -37,6 +38,14 @@ const typeLabels: Record<string, string> = {
 };
 
 export default function Contracts() {
+  return (
+    <FeatureFlagGate featureKey="has_contracts">
+      <ContractsContent />
+    </FeatureFlagGate>
+  );
+}
+
+function ContractsContent() {
   const isMobile = useIsMobile();
   const { 
     contracts, isLoading, stats, createContract, updateContract, deleteContract,
