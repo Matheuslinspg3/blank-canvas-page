@@ -330,7 +330,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
 
   const handleVerifyOtp = async () => {
     const sanitizedOtp = otpCode.replace(/\D/g, "");
-    if (sanitizedOtp.length !== 6) return;
+    if (sanitizedOtp.length !== SIGNUP_OTP_LENGTH) return;
 
     if (!pendingEmail) {
       toast({
@@ -344,31 +344,19 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
     setVerifyingOtp(true);
 
     try {
-      const verificationTypes = ["signup", "email"] as const;
-      let lastError: Error | null = null;
+      const { error } = await supabase.auth.verifyOtp({
+        email: pendingEmail.trim().toLowerCase(),
+        token: sanitizedOtp,
+        type: "signup",
+      });
 
-      for (const type of verificationTypes) {
-        const { error } = await supabase.auth.verifyOtp({
-          email: pendingEmail.trim().toLowerCase(),
-          token: sanitizedOtp,
-          type,
-        });
-
-        if (!error) {
-          toast({ title: "Bem-vindo!", description: "Email verificado com sucesso!" });
-          navigate("/dashboard", { replace: true });
-          return;
-        }
-
-        lastError = error;
-        const shouldTryFallback =
-          type === "signup" &&
-          (((error as { status?: number }).status ?? 0) === 403 || /otp_expired|expired|invalid/i.test(error.message || ""));
-
-        if (!shouldTryFallback) break;
+      if (!error) {
+        toast({ title: "Bem-vindo!", description: "Email verificado com sucesso!" });
+        navigate("/dashboard", { replace: true });
+        return;
       }
 
-      const expiredOrInvalid = /otp_expired|expired|invalid/i.test(lastError?.message || "");
+      const expiredOrInvalid = /otp_expired|expired|invalid/i.test(error.message || "");
       toast({
         variant: "destructive",
         title: expiredOrInvalid ? "Código expirado ou inválido" : "Falha na verificação",
