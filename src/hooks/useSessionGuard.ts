@@ -81,8 +81,7 @@ export function useSessionGuard(userId: string | undefined) {
 
   const heartbeat = useCallback(async () => {
     if (!userId || !registeredRef.current) return;
-    const token = sessionStorage.getItem(SESSION_TOKEN_KEY);
-    if (!token) return;
+    const token = localStorage.getItem(SESSION_TOKEN_KEY);
     try {
       await supabase.rpc('session_heartbeat', { p_session_token: token });
     } catch {
