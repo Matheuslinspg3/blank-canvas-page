@@ -56,7 +56,7 @@ export function useMarketplace(filters: MarketplaceFiltersState) {
     queryFn: async () => {
       let query = supabase
         .from("marketplace_properties_public")
-        .select("id, title, status, transaction_type, sale_price, rent_price, bedrooms, bathrooms, parking_spots, area_total, area_built, address_city, address_neighborhood, address_state, images, amenities, is_featured, organization_id, property_type_id, commission_percentage, created_at", { count: "exact" })
+        .select("id, title, status, transaction_type, sale_price, rent_price, bedrooms, bathrooms, parking_spots, area_total, area_built, address_city, address_neighborhood, address_state, images, amenities, is_featured, organization_id, property_type_id, created_at", { count: "exact" })
         .eq("status", "disponivel")
         .order("is_featured", { ascending: false })
         .order("created_at", { ascending: false })
