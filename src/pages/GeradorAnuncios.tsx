@@ -4,6 +4,7 @@ import { AdImageGenerator } from "@/components/ads/AdImageGenerator";
 const BrandSettingsContent = lazy(() => import("@/components/marketing/BrandSettingsContent"));
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { trackEvent } from "@/lib/posthog";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
