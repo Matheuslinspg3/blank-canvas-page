@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMaintenanceMode } from "@/hooks/useMaintenanceMode";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
+import { REGEXP_ONLY_DIGITS } from "input-otp";
 import { cn } from "@/lib/utils";
 import { PasswordStrengthIndicator, isPasswordStrong } from "@/components/PasswordStrengthIndicator";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
