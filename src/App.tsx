@@ -132,6 +132,7 @@ const App = () => (
                       <Route path="/i/:orgSlug/:code" element={<PublicPropertyBySlug />} />
                       <Route path="/i/:slug" element={<PublicPropertyBySlug />} />
                       <Route path="/privacidade" element={<PrivacyPolicy />} />
+                      <Route path="/email-templates" element={<EmailTemplates />} />
                       <Route path="/planos" element={<Plans />} />
                       <Route path="/" element={<LandingPage />} />
                       <Route path="/acesso-negado" element={<AccessDenied />} />
