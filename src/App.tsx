@@ -63,6 +63,7 @@ const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const Maintenance = lazy(() => import("./pages/Maintenance"));
 const EmailTemplates = lazy(() => import("./pages/EmailTemplates"));
 const Plans = lazy(() => import("./pages/Plans"));
+const MyPlan = lazy(() => import("./pages/MyPlan"));
 const Onboarding = lazy(() => import("./pages/app/Onboarding"));
 const AppAuth = lazy(() => import("./pages/app/AppAuth"));
 const AppHome = lazy(() => import("./pages/app/Home"));
