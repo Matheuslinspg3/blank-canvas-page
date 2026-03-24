@@ -191,6 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           
           loginOneSignal(session.user.id).catch(e => console.error("[Auth] OneSignal login error:", e));
+          identifyUser(session.user.id, session.user.email, existingProfile?.full_name || session.user.user_metadata?.full_name);
         } catch (err) {
           console.error('[Auth] Error during initial session setup:', err);
         } finally {
