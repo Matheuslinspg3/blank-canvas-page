@@ -212,6 +212,31 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
     }
   };
 
+  const openEmailVerificationStep = (email: string, password: string) => {
+    setPendingEmail(email.trim().toLowerCase());
+    setPendingPassword(password);
+    setOtpCode("");
+    setShowEmailVerification(true);
+    startResendCooldown();
+  };
+
+  const tryResumePendingSignup = async (email: string, password: string) => {
+    const normalizedEmail = email.trim().toLowerCase();
+    const { error } = await supabase.auth.resend({ type: "signup", email: normalizedEmail });
+
+    if (error) {
+      return false;
+    }
+
+    openEmailVerificationStep(normalizedEmail, password);
+    toast({
+      title: "Cadastro pendente encontrado",
+      description: "Enviamos um novo código de confirmação para seu e-mail.",
+    });
+
+    return true;
+  };
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isMaintenanceMode) return;
@@ -240,7 +265,16 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
       if (dupes && typeof dupes === "object") {
         const dupeResult = dupes as Record<string, string>;
         const hasIssues = Object.keys(dupeResult).length > 0;
+
         if (hasIssues) {
+          const resumedPendingSignup =
+            !!dupeResult.email && (await tryResumePendingSignup(signupForm.email, signupForm.password));
+
+          if (resumedPendingSignup) {
+            setIsLoading(false);
+            return;
+          }
+
           setErrors(dupeResult);
           setIsLoading(false);
           return;
@@ -264,7 +298,14 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
 
       if (error) {
         if (error.message.includes("already been registered")) {
-          setErrors((prev) => ({ ...prev, email: "Este email já está cadastrado. Faça login." }));
+          const resumedPendingSignup = await tryResumePendingSignup(signupForm.email, signupForm.password);
+
+          if (resumedPendingSignup) {
+            setIsLoading(false);
+            return;
+          }
+
+          setErrors((prev) => ({ ...prev, email: "Este email já está cadastrado e confirmado. Faça login." }));
         } else if (error.message.includes("Telefone ou documento")) {
           const msg = error.message;
           if (msg.includes("telefone")) setErrors((prev) => ({ ...prev, phone: "Este telefone já está cadastrado" }));
@@ -276,11 +317,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
         return;
       }
 
-      // Show email verification screen
-      setPendingEmail(signupForm.email);
-      setPendingPassword(signupForm.password);
-      setShowEmailVerification(true);
-      startResendCooldown();
+      openEmailVerificationStep(signupForm.email, signupForm.password);
       setIsLoading(false);
 
     } catch (err: any) {
