@@ -5,6 +5,7 @@ const BrandSettingsContent = lazy(() => import("@/components/marketing/BrandSett
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/posthog";
+import { useFeatureFlag } from "@/hooks/useFeatureGate";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
