@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { AwsClient } from "npm:aws4fetch@1.0.20";
-import { checkAiRateLimit } from "../_shared/ai-rate-limit.ts";
+import { checkAiRateLimitRedis } from "../_shared/rate-limiter.ts";
 import { fetchImageAsDataUrl } from "../_shared/gemini.ts";
 
 const corsHeaders = {
