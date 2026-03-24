@@ -322,7 +322,7 @@ export function SubscriptionsTab() {
                         <SelectValue placeholder="Alterar plano..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {plans.map((p) => (
+                        {plans.filter((p: any) => p.plan_type !== 'addon').map((p) => (
                           <SelectItem key={p.id} value={p.id}>
                             {p.name} {p.price_monthly > 0 ? `(R$${(p.price_monthly / 100).toFixed(2)})` : "(Grátis)"}
                           </SelectItem>
