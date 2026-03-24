@@ -484,13 +484,13 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                 </div>
                 <h2 className="font-display text-2xl font-bold text-foreground">Verifique seu email</h2>
                 <p className="text-sm text-muted-foreground max-w-xs">
-                  Enviamos um código de 6 dígitos para <span className="font-medium text-foreground">{pendingEmail}</span>
+                  Enviamos um código de {SIGNUP_OTP_LENGTH} dígitos para <span className="font-medium text-foreground">{pendingEmail}</span>
                 </p>
               </div>
 
               <div className="flex justify-center">
                 <InputOTP
-                  maxLength={6}
+                  maxLength={SIGNUP_OTP_LENGTH}
                   pattern={REGEXP_ONLY_DIGITS}
                   value={otpCode}
                   onChange={setOtpCode}
@@ -502,6 +502,8 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                     <InputOTPSlot index={3} />
                     <InputOTPSlot index={4} />
                     <InputOTPSlot index={5} />
+                    <InputOTPSlot index={6} />
+                    <InputOTPSlot index={7} />
                   </InputOTPGroup>
                 </InputOTP>
               </div>
@@ -511,7 +513,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                 size="lg"
                 variant="gold"
                 className="w-full h-14 text-base"
-                disabled={otpCode.length !== 6 || verifyingOtp}
+                disabled={otpCode.length !== SIGNUP_OTP_LENGTH || verifyingOtp}
               >
                 {verifyingOtp ? <Loader2 className="h-5 w-5 animate-spin" /> : "Verificar e entrar"}
               </Button>
