@@ -38,6 +38,14 @@ const typeLabels: Record<string, string> = {
 };
 
 export default function Contracts() {
+  return (
+    <FeatureFlagGate featureKey="has_contracts">
+      <ContractsContent />
+    </FeatureFlagGate>
+  );
+}
+
+function ContractsContent() {
   const isMobile = useIsMobile();
   const { 
     contracts, isLoading, stats, createContract, updateContract, deleteContract,
