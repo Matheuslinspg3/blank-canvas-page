@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMaintenanceMode } from "@/hooks/useMaintenanceMode";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
+import { REGEXP_ONLY_DIGITS } from "input-otp";
 import { cn } from "@/lib/utils";
 import { PasswordStrengthIndicator, isPasswordStrong } from "@/components/PasswordStrengthIndicator";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
@@ -289,25 +290,53 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
   };
 
   const handleVerifyOtp = async () => {
-    if (otpCode.length !== 6) return;
+    const sanitizedOtp = otpCode.replace(/\D/g, "");
+    if (sanitizedOtp.length !== 6) return;
+
+    if (!pendingEmail) {
+      toast({
+        variant: "destructive",
+        title: "E-mail não encontrado",
+        description: "Volte ao cadastro e solicite um novo código.",
+      });
+      return;
+    }
+
     setVerifyingOtp(true);
 
     try {
-      const { error } = await supabase.auth.verifyOtp({
-        email: pendingEmail,
-        token: otpCode,
-        type: "signup",
-      });
+      const verificationTypes = ["signup", "email"] as const;
+      let lastError: Error | null = null;
 
-      if (error) {
-        toast({ variant: "destructive", title: "Código inválido", description: "Verifique o código e tente novamente." });
-        setVerifyingOtp(false);
-        return;
+      for (const type of verificationTypes) {
+        const { error } = await supabase.auth.verifyOtp({
+          email: pendingEmail.trim().toLowerCase(),
+          token: sanitizedOtp,
+          type,
+        });
+
+        if (!error) {
+          toast({ title: "Bem-vindo!", description: "Email verificado com sucesso!" });
+          navigate("/dashboard", { replace: true });
+          return;
+        }
+
+        lastError = error;
+        const shouldTryFallback =
+          type === "signup" &&
+          (((error as { status?: number }).status ?? 0) === 403 || /otp_expired|expired|invalid/i.test(error.message || ""));
+
+        if (!shouldTryFallback) break;
       }
 
-      // OTP verified - user is now logged in automatically
-      toast({ title: "Bem-vindo!", description: "Email verificado com sucesso!" });
-      navigate("/dashboard", { replace: true });
+      const expiredOrInvalid = /otp_expired|expired|invalid/i.test(lastError?.message || "");
+      toast({
+        variant: "destructive",
+        title: expiredOrInvalid ? "Código expirado ou inválido" : "Falha na verificação",
+        description: expiredOrInvalid
+          ? "Reenvie o código e use apenas o último email recebido."
+          : "Verifique o código e tente novamente.",
+      });
     } catch {
       toast({ variant: "destructive", title: "Erro", description: "Erro ao verificar código." });
     } finally {
@@ -318,9 +347,11 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
   const handleResendOtp = async () => {
     if (resendCooldown > 0) return;
     try {
-      await supabase.auth.resend({ type: "signup", email: pendingEmail });
+      const { error } = await supabase.auth.resend({ type: "signup", email: pendingEmail.trim().toLowerCase() });
+      if (error) throw error;
+      setOtpCode("");
       startResendCooldown();
-      toast({ title: "Código reenviado", description: "Verifique sua caixa de entrada." });
+      toast({ title: "Código reenviado", description: "Use o código mais recente enviado para seu e-mail." });
     } catch {
       toast({ variant: "destructive", title: "Erro", description: "Não foi possível reenviar o código." });
     }
@@ -431,7 +462,12 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
               </div>
 
               <div className="flex justify-center">
-                <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
+                <InputOTP
+                  maxLength={6}
+                  pattern={REGEXP_ONLY_DIGITS}
+                  value={otpCode}
+                  onChange={setOtpCode}
+                >
                   <InputOTPGroup>
                     <InputOTPSlot index={0} />
                     <InputOTPSlot index={1} />
