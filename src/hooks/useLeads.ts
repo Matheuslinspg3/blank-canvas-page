@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { trackEvent } from '@/lib/posthog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -273,6 +274,7 @@ export function useLeads() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
+      trackEvent('lead_enviado');
       toast({ title: 'Lead criado', description: 'O lead foi criado com sucesso.' });
     },
     onError: (error) => {

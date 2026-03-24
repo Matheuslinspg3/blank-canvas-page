@@ -83,5 +83,9 @@ Sentry.init({
   release: `porta@${APP_VERSION}`,
 });
 
+// PostHog initialization — after Sentry, before React
+import { initPostHog } from "./lib/posthog";
+initPostHog();
+
 setupServiceWorkerUpdateRoutine();
 createRoot(document.getElementById("root")!).render(<App />);

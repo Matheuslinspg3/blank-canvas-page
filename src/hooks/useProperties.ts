@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { trackEvent } from '@/lib/posthog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -304,6 +305,7 @@ export function useProperties() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['properties'] });
       queryClient.invalidateQueries({ queryKey: ['properties-advanced-search'] });
+      trackEvent('imovel_cadastrado');
       toast({
         title: 'Imóvel cadastrado',
         description: 'O imóvel foi cadastrado com sucesso.',

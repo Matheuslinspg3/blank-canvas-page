@@ -4,6 +4,7 @@ import { AdImageGenerator } from "@/components/ads/AdImageGenerator";
 const BrandSettingsContent = lazy(() => import("@/components/marketing/BrandSettingsContent"));
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { trackEvent } from "@/lib/posthog";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -402,6 +403,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
       if (error) throw error;
 
       toast.success("Geração salva com sucesso!");
+      trackEvent('anuncio_ia_gerado');
       queryClient.invalidateQueries({ queryKey: ["anuncios_gerados"] });
     } catch {
       toastError("Não foi possível salvar a geração. Tente novamente.", undefined, { module: "GeradorAnuncios" });

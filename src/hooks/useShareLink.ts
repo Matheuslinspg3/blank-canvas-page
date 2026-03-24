@@ -2,6 +2,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { trackEvent } from "@/lib/posthog";
 
 export function useShareLink() {
   const { profile } = useAuth();
@@ -57,6 +58,7 @@ export function useShareLink() {
           });
       }
 
+      trackEvent('imovel_compartilhado', { propertyId });
       return `${window.location.origin}/i/${orgData.slug}/${propData.property_code}`;
     } catch (err) {
       console.error("Error generating share link:", err);
