@@ -101,7 +101,7 @@ export const AppointmentCard = React.memo(function AppointmentCard({
         .update({ interaction_id: interaction.id })
         .eq('id', appointment.id);
 
-      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['appointments'], refetchType: 'active' });
       queryClient.invalidateQueries({ queryKey: ['lead-interactions', appointment.lead_id] });
       toast({ title: 'Interação registrada no CRM' });
       setShowRegisterDialog(false);

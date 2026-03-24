@@ -71,7 +71,7 @@ export function useAppointments() {
       return result;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['appointments'], refetchType: 'active' });
       toast({
         title: 'Compromisso criado',
         description: 'O compromisso foi agendado com sucesso.',
@@ -99,7 +99,7 @@ export function useAppointments() {
       return result;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['appointments'], refetchType: 'active' });
       toast({
         title: 'Compromisso atualizado',
         description: 'O compromisso foi atualizado com sucesso.',
@@ -124,7 +124,7 @@ export function useAppointments() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['appointments'], refetchType: 'active' });
     },
     onError: (error) => {
       toast({
@@ -145,7 +145,7 @@ export function useAppointments() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['appointments'], refetchType: 'active' });
       toast({
         title: 'Compromisso removido',
         description: 'O compromisso foi removido com sucesso.',
