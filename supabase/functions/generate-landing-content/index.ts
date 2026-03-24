@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { checkAiRateLimit } from "../_shared/ai-rate-limit.ts";
+import { checkAiRateLimitRedis } from "../_shared/rate-limiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
