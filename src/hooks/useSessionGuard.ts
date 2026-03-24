@@ -6,11 +6,16 @@ const SESSION_TOKEN_KEY = 'habitae_session_token';
 const HEARTBEAT_INTERVAL = 60_000; // 1 min
 const CHECK_INTERVAL = 30_000; // 30s
 
+/**
+ * Uses localStorage so all tabs in the same browser share one session token.
+ * sessionStorage was causing each tab to register a separate "device",
+ * hitting the 2-session limit and logging the user out.
+ */
 function getOrCreateSessionToken(): string {
-  let token = sessionStorage.getItem(SESSION_TOKEN_KEY);
+  let token = localStorage.getItem(SESSION_TOKEN_KEY);
   if (!token) {
     token = crypto.randomUUID();
-    sessionStorage.setItem(SESSION_TOKEN_KEY, token);
+    localStorage.setItem(SESSION_TOKEN_KEY, token);
   }
   return token;
 }
@@ -53,8 +58,7 @@ export function useSessionGuard(userId: string | undefined) {
 
   const checkValidity = useCallback(async () => {
     if (!userId || !registeredRef.current) return;
-    const token = sessionStorage.getItem(SESSION_TOKEN_KEY);
-    if (!token) return;
+    const token = localStorage.getItem(SESSION_TOKEN_KEY);
 
     try {
       const { data } = await supabase.rpc('is_session_valid', {
@@ -66,7 +70,7 @@ export function useSessionGuard(userId: string | undefined) {
           duration: 8000,
         });
         // Clean up and sign out
-        sessionStorage.removeItem(SESSION_TOKEN_KEY);
+        localStorage.removeItem(SESSION_TOKEN_KEY);
         registeredRef.current = false;
         await supabase.auth.signOut();
       }
@@ -77,8 +81,7 @@ export function useSessionGuard(userId: string | undefined) {
 
   const heartbeat = useCallback(async () => {
     if (!userId || !registeredRef.current) return;
-    const token = sessionStorage.getItem(SESSION_TOKEN_KEY);
-    if (!token) return;
+    const token = localStorage.getItem(SESSION_TOKEN_KEY);
     try {
       await supabase.rpc('session_heartbeat', { p_session_token: token });
     } catch {
@@ -111,14 +114,14 @@ export function useSessionGuard(userId: string | undefined) {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
       if (event === 'SIGNED_OUT') {
-        const token = sessionStorage.getItem(SESSION_TOKEN_KEY);
+        const token = localStorage.getItem(SESSION_TOKEN_KEY);
         if (token) {
           try {
             await supabase.from('user_sessions').delete().eq('session_token', token);
           } catch {
             // Ignore
           }
-          sessionStorage.removeItem(SESSION_TOKEN_KEY);
+          localStorage.removeItem(SESSION_TOKEN_KEY);
         }
         registeredRef.current = false;
       }
