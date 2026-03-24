@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import { checkAiRateLimit } from "../_shared/ai-rate-limit.ts";
+import { checkAiRateLimitRedis } from "../_shared/rate-limiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,7 +24,7 @@ serve(async (req) => {
     const { data: { user }, error: authErr } = await anonClient.auth.getUser(token);
     if (authErr || !user) throw new Error("Não autorizado");
 
-    const rateLimited = await checkAiRateLimit(user.id, "contract-ai-fill", corsHeaders);
+    const rateLimited = await checkAiRateLimitRedis(user.id, "contract-ai-fill", corsHeaders);
     if (rateLimited) return rateLimited;
 
     const { data: profile } = await supabase.from("profiles").select("organization_id").eq("user_id", user.id).single();

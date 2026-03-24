@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { checkAiRateLimit } from "../_shared/ai-rate-limit.ts";
+import { checkAiRateLimitRedis } from "../_shared/rate-limiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,8 +30,8 @@ Deno.serve(async (req) => {
     }
     const userId = claims.claims.sub as string;
 
-    // Rate limit: 20 req/hour
-    const rateLimited = await checkAiRateLimit(userId, "generate-property-video", corsHeaders);
+    // Rate limit: 30 req/hour (Upstash Redis)
+    const rateLimited = await checkAiRateLimitRedis(userId, "generate-property-video", corsHeaders);
     if (rateLimited) return rateLimited;
 
     const { data: profile } = await supabase

@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { checkAiRateLimit } from "../_shared/ai-rate-limit.ts";
+import { checkAiRateLimitRedis } from "../_shared/rate-limiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,7 +31,7 @@ serve(async (req) => {
       });
     }
 
-    const rateLimited = await checkAiRateLimit(user.id, "analyze-photo-quality", corsHeaders);
+    const rateLimited = await checkAiRateLimitRedis(user.id, "analyze-photo-quality", corsHeaders);
     if (rateLimited) return rateLimited;
 
     const { imageUrl } = await req.json();

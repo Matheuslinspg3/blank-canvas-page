@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { checkAiRateLimitRedis } from "../_shared/rate-limiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,6 +34,10 @@ Deno.serve(async (req) => {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Rate limit: 30 req/hour (Upstash Redis)
+    const rateLimited = await checkAiRateLimitRedis(user.id, "ticket-chat", corsHeaders);
+    if (rateLimited) return rateLimited;
 
     // Get ticket info
     const { data: ticket, error: ticketError } = await supabase

@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { checkAiRateLimit } from "../_shared/ai-rate-limit.ts";
+import { checkAiRateLimitRedis } from "../_shared/rate-limiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,7 +30,7 @@ serve(async (req) => {
       });
     }
 
-    const rateLimitResp = await checkAiRateLimit(user.id, "validate-document", corsHeaders);
+    const rateLimitResp = await checkAiRateLimitRedis(user.id, "validate-document", corsHeaders);
     if (rateLimitResp) return rateLimitResp;
 
     const { document_id, storage_path, expected_type } = await req.json();

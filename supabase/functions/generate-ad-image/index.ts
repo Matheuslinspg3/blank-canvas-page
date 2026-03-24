@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { trackAiBilling } from "../_shared/ai-billing.ts";
 import { callGeminiImageEdit, getGeminiApiKeys } from "../_shared/gemini.ts";
-import { checkAiRateLimit } from "../_shared/ai-rate-limit.ts";
+import { checkAiRateLimitRedis } from "../_shared/rate-limiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -260,8 +260,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Rate limit: 20 req/hour
-    const rateLimited = await checkAiRateLimit(user.id, "generate-ad-image", corsHeaders);
+    // Rate limit: 30 req/hour (Upstash Redis)
+    const rateLimited = await checkAiRateLimitRedis(user.id, "generate-ad-image", corsHeaders);
     if (rateLimited) return rateLimited;
 
     const body: RequestBody = await req.json();

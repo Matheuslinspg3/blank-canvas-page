@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { checkAiRateLimit } from "../_shared/ai-rate-limit.ts";
+import { checkAiRateLimitRedis } from "../_shared/rate-limiter.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -34,7 +34,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const rateLimited = await checkAiRateLimit(user.id, "generate-ad-content", corsHeaders);
+    const rateLimited = await checkAiRateLimitRedis(user.id, "generate-ad-content", corsHeaders);
     if (rateLimited) return rateLimited;
 
     const { formData, leadName, tone, channel } = await req.json();
