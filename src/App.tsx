@@ -60,6 +60,7 @@ const _GeradorAnuncios = lazy(() => import("./pages/GeradorAnuncios")); // embed
 const PublicPropertyBySlug = lazy(() => import("./pages/PublicPropertyBySlug"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const Maintenance = lazy(() => import("./pages/Maintenance"));
+const EmailTemplates = lazy(() => import("./pages/EmailTemplates"));
 const Plans = lazy(() => import("./pages/Plans"));
 const Onboarding = lazy(() => import("./pages/app/Onboarding"));
 const AppAuth = lazy(() => import("./pages/app/AppAuth"));
@@ -131,6 +132,7 @@ const App = () => (
                       <Route path="/i/:orgSlug/:code" element={<PublicPropertyBySlug />} />
                       <Route path="/i/:slug" element={<PublicPropertyBySlug />} />
                       <Route path="/privacidade" element={<PrivacyPolicy />} />
+                      <Route path="/email-templates" element={<EmailTemplates />} />
                       <Route path="/planos" element={<Plans />} />
                       <Route path="/" element={<LandingPage />} />
                       <Route path="/acesso-negado" element={<AccessDenied />} />
