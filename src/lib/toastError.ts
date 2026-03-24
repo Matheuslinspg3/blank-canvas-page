@@ -2,6 +2,19 @@ import { toast } from "sonner";
 import * as Sentry from "@sentry/react";
 
 /**
+ * Detect if an error is an AI rate limit (429) response.
+ */
+function isAiRateLimitError(error: unknown): boolean {
+  if (!error) return false;
+  const msg = error instanceof Error ? error.message : String(error);
+  if (msg.includes("429") || msg.includes("Rate limit") || msg.includes("Limite de")) return true;
+  // FunctionsHttpError from supabase SDK
+  const status = (error as any)?.context?.response?.status ?? (error as any)?.status;
+  if (status === 429) return true;
+  return false;
+}
+
+/**
  * Generate a short, human-readable error ID (e.g. "ERR-A3F2").
  * Uses 4 hex chars from crypto for uniqueness within a support session.
  */
