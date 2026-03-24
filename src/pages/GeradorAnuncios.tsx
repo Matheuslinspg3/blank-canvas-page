@@ -309,6 +309,8 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
       return;
     }
 
+    if (!guardAi()) return;
+
     setGeneratingFullAd(true);
     setLoading(true);
     setResults(null);
