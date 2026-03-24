@@ -311,6 +311,7 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
     cancel,
     renew,
     isActive,
+    isPending,
     isOverdue,
     isCancelled,
     currentPlan,
