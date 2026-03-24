@@ -1,77 +1,65 @@
 
 
-# Auditoria Completa: Pagamentos e Feature Gating
+# Pagina "Meu Plano" — Consolidacao do Billing no Dashboard
 
-## Status Atual
+## O que ja existe (nao sera reescrito)
 
-### Fluxo de Pagamento (Asaas)
-O fluxo de criacao de assinatura esta **estruturalmente correto**:
-- **PIX**: Cria subscription como `pending` → gera QR Code → webhook `PAYMENT_CONFIRMED` → atualiza para `active` com `current_period_end` correto
-- **Cartao**: Cria subscription como `pending` → redireciona para invoice Asaas → webhook confirma → `active`
-- **Boleto**: Cria como `pending` (corrigido anteriormente) → webhook confirma → `active`
-- **Real-time**: Canal Supabase escuta mudancas em `subscriptions` e exibe toast "Assinatura ativada!" quando status muda para `active`
+| Componente | Status |
+|---|---|
+| `useSubscription` hook (status, planos, pagamentos, subscribe/cancel/renew) | Completo |
+| `CheckoutDialog` (PIX, Cartao, QR Code) | Completo |
+| Edge Function `billing` (Asaas sandbox/production auto-detect) | Completo |
+| Edge Function `billing-webhook` (confirmacao, overdue, cancelled) | Completo |
+| `/planos` — pagina publica de comparacao | Completo |
+| `BillingTab` em Configuracoes — uso atual | Completo |
+| Feature gating (`useFeatureGate`, `FeatureFlagGate`) | Completo |
+| Real-time listener para ativacao automatica | Completo |
 
-**Nenhum pagamento real foi processado ainda** — nao ha registros em `billing_payments` nem em `billing_webhook_logs`. Todos os usuarios atuais estao em planos `trial` (Starter) ou `active` (Gratuito), criados automaticamente pelo trigger de cadastro.
+## O que sera criado
 
-### isActive Logic (Corrigido)
-```
-isActive = status === "active" || (status === "trial" && trial_end > now)
-```
-Isso esta correto. `pending` nao conta como ativo.
+### 1. Nova pagina `src/pages/MyPlan.tsx`
+Pagina unificada com 4 secoes:
 
----
+**Secao A — Banner de alerta** (condicional)
+- Plano vencido: banner vermelho "Seu plano expirou"
+- Menos de 7 dias: banner amarelo "Seu plano vence em X dias"
+- Sandbox: banner amarelo "Modo Sandbox — pagamentos simulados"
 
-## PROBLEMA CRITICO: Feature Gating NAO Aplicado
+**Secao B — Status atual do plano**
+- Card com: nome do plano, badge de status (verde/amarelo/vermelho), data de vencimento, ciclo de cobranca
+- Barras de progresso de uso (imoveis, leads, creditos IA) — reutiliza logica do `BillingTab`
+- Botao "Trocar plano" e "Cancelar assinatura"
 
-Os hooks `useFeatureGate` e o componente `FeatureGate` **existem no codigo**, mas **nao sao usados em nenhum lugar da aplicacao**. Isso significa:
+**Secao C — Planos disponiveis** (cards lado a lado)
+- Reutiliza dados de `useSubscription().plans`
+- Destaque visual no plano atual
+- Botao "Assinar" / "Renovar" / "Upgrade" que abre o `CheckoutDialog` existente
+- Toggle mensal/anual
 
-| Recurso | Limite no Gratuito | Bloqueio Real? |
-|---|---|---|
-| Criar imovel | 10 | **NAO** — sem verificacao |
-| Criar lead | 20 | **NAO** — sem verificacao |
-| IA (creditos) | 0 | **NAO** — sem verificacao |
-| Contratos | false | **NAO** — sem verificacao |
-| Financeiro | false | **NAO** — sem verificacao |
-| WhatsApp | false | **NAO** — sem verificacao |
-| Automacoes | limitado | Unico com bloqueio ✓ |
+**Secao D — Historico de pagamentos**
+- Tabela com dados de `useSubscription().payments`
+- Colunas: Data, Valor, Metodo, Status (badge), Link do boleto/invoice
 
-Um usuario no plano Gratuito pode criar imoveis, leads e usar recursos ilimitadamente.
+### 2. Menu lateral — renomear item
+- Em `AppSidebar.tsx`, alterar o item existente "Planos" (`/planos`) para "Meu Plano" (`/meu-plano`)
+- Manter icone `CreditCard`
 
----
+### 3. Rota
+- Adicionar rota `/meu-plano` protegida (dentro do layout autenticado) apontando para `MyPlan`
+- Manter `/planos` como rota publica existente (landing)
 
-## Plano de Correcao
+### 4. Sandbox banner
+- Ler `import.meta.env.VITE_ASAAS_MODE` no frontend
+- Se `=== 'sandbox'`, exibir banner amarelo no topo da pagina
+- A Edge Function `billing` ja detecta sandbox automaticamente via `ASAAS_SANDBOX` env — nenhuma alteracao no backend
 
-### Etapa 1: Enforcement em Criacao de Imoveis
-- Em `useProperties.ts`, na mutation de criacao, adicionar verificacao com `useFeatureGate('max_own_properties', totalImoveis)`
-- Se `guard()` retornar false, bloquear a insercao e mostrar toast de upgrade
+## Arquivos
 
-### Etapa 2: Enforcement em Criacao de Leads
-- Em `useLeads.ts`, na mutation de criacao, adicionar verificacao com `useFeatureGate('max_leads', totalLeads)`
-- Mesmo padrao: toast + bloqueio
+| Arquivo | Acao |
+|---|---|
+| `src/pages/MyPlan.tsx` | Criar |
+| `src/components/AppSidebar.tsx` | Editar (renomear "Planos" → "Meu Plano", rota `/meu-plano`) |
+| `src/App.tsx` | Editar (adicionar rota `/meu-plano`) |
 
-### Etapa 3: Gates em Rotas/Componentes
-Envolver com `<FeatureFlagGate>` os componentes de:
-- Contratos (`has_contracts`)
-- Financeiro (`has_financial`)
-- WhatsApp (`has_whatsapp`)
-
-### Etapa 4: Gate em chamadas de IA
-Nos hooks que chamam Edge Functions de IA, verificar `ai_credits_limit` antes de invocar
-
----
-
-## Detalhes Tecnicos
-
-**Arquivos a modificar:**
-1. `src/hooks/useProperties.ts` — adicionar `useFeatureGate` na mutation `createProperty`
-2. `src/hooks/useLeads.ts` — adicionar `useFeatureGate` na mutation `createLead`
-3. Componentes de Contratos, Financeiro, WhatsApp — envolver com `<FeatureFlagGate>`
-4. Hooks de IA (generate-ad-content, etc.) — verificar `ai_credits_limit` antes da chamada
-
-**O que ja funciona:**
-- Webhook ativa subscription corretamente ao confirmar pagamento
-- Real-time notifica o frontend da mudanca de status
-- `isActive` so retorna true para `active` e `trial` valido
-- Boleto cria como `pending` (nao mais como `active`)
-- `current_period_end` e atualizado no webhook
+Nenhuma alteracao em Edge Functions, webhook, banco de dados ou fluxo de autenticacao.
 
