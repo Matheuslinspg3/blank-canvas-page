@@ -307,7 +307,7 @@ serve(async (req) => {
         .insert({
           organization_id: orgId,
           plan_id: planId,
-          status: "active",
+          status: "pending",
           billing_cycle: billingCycle,
           provider: "asaas",
           provider_customer_id: customerId,

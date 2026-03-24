@@ -223,8 +223,8 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
   }, [orgId, queryClient, enabled]);
 
   const isActive = subscription?.status === "active" || 
-    subscription?.status === "pending" ||
     (subscription?.status === "trial" && subscription.trial_end && new Date(subscription.trial_end) > new Date());
+  const isPending = subscription?.status === "pending";
   const isOverdue = subscription?.status === "overdue";
   const isCancelled = subscription?.status === "cancelled";
 
@@ -311,6 +311,7 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
     cancel,
     renew,
     isActive,
+    isPending,
     isOverdue,
     isCancelled,
     currentPlan,
