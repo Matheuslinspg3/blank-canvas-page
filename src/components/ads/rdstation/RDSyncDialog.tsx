@@ -118,7 +118,7 @@ export default function RDSyncDialog({ open, onOpenChange }: RDSyncDialogProps) 
       toast.success(
         `Importação concluída: ${data.created || 0} criados, ${data.updated || 0} atualizados, ${data.duplicates || 0} duplicados.`
       );
-      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["leads"], refetchType: "active" });
       queryClient.invalidateQueries({ queryKey: ["rd-station-logs"] });
       onOpenChange(false);
     } catch (err: any) {

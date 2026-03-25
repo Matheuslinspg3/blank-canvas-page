@@ -296,7 +296,7 @@ export function useLeads() {
       return data as Lead;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['leads'], refetchType: 'active' });
       trackEvent('lead_enviado');
       toast({ title: 'Lead criado', description: 'O lead foi criado com sucesso.' });
     },
@@ -321,7 +321,7 @@ export function useLeads() {
       return data as Lead;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['leads'], refetchType: 'active' });
       toast({ title: 'Lead atualizado', description: 'O lead foi atualizado com sucesso.' });
     },
     onError: (error) => {
@@ -362,7 +362,7 @@ export function useLeads() {
       toast({ title: 'Erro ao mover lead', description: error.message, variant: 'destructive' });
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['leads'], refetchType: 'active' });
     },
   });
 
@@ -373,7 +373,7 @@ export function useLeads() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['leads'], refetchType: 'active' });
       toast({ title: 'Lead removido', description: 'O lead foi removido com sucesso.' });
     },
     onError: (error) => {
@@ -387,7 +387,7 @@ export function useLeads() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['leads'], refetchType: 'active' });
       toast({ title: 'Lead inativado', description: 'O lead foi movido para a lista de inativos.' });
     },
     onError: (error) => {
@@ -401,7 +401,7 @@ export function useLeads() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['leads'], refetchType: 'active' });
       toast({ title: 'Lead reativado', description: 'O lead foi movido de volta para o Kanban.' });
     },
     onError: (error) => {
@@ -430,7 +430,7 @@ export function useLeads() {
       if (context?.previous) queryClient.setQueryData(['leads'], context.previous);
       toast({ title: 'Erro ao remover leads', description: error.message, variant: 'destructive' });
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['leads'] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['leads'], refetchType: 'active' }),
   });
 
   const bulkInactivateLeads = useMutation({
@@ -452,7 +452,7 @@ export function useLeads() {
       if (context?.previous) queryClient.setQueryData(['leads'], context.previous);
       toast({ title: 'Erro ao inativar leads', description: error.message, variant: 'destructive' });
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['leads'] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['leads'], refetchType: 'active' }),
   });
 
   const bulkMoveStage = useMutation({
@@ -473,7 +473,7 @@ export function useLeads() {
       if (context?.previous) queryClient.setQueryData(['leads'], context.previous);
       toast({ title: 'Erro ao mover leads', description: error.message, variant: 'destructive' });
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['leads'] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['leads'], refetchType: 'active' }),
   });
 
   const reorderLeads = useMutation({
@@ -512,7 +512,7 @@ export function useLeads() {
       toast({ title: 'Erro ao reordenar leads', description: error.message, variant: 'destructive' });
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['leads'], refetchType: 'active' });
     },
   });
 
