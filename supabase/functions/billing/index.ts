@@ -23,28 +23,40 @@ function getCorsHeaders(req: Request) {
   };
 }
 
-// Use sandbox for testing, production for live
-// Auto-detect sandbox from ASAAS_SANDBOX flag OR from API key prefix
-const apiKey = Deno.env.get("ASAAS_API_KEY") || "";
-const isSandbox = Deno.env.get("ASAAS_SANDBOX") === "true" || apiKey.startsWith("$aact_hmlg");
-const ASAAS_BASE = isSandbox
-  ? "https://sandbox.asaas.com/api/v3" 
-  : "https://api.asaas.com/v3";
+// Asaas environment helpers
+// Default mode: auto-detect from ASAAS_SANDBOX flag or API key prefix
+const defaultApiKey = Deno.env.get("ASAAS_API_KEY") || "";
+const defaultIsSandbox = Deno.env.get("ASAAS_SANDBOX") === "true" || defaultApiKey.startsWith("$aact_hmlg");
 
-async function asaasFetch(path: string, opts: RequestInit = {}) {
-  const key = Deno.env.get("ASAAS_API_KEY");
-  if (!key) throw new Error("ASAAS_API_KEY not configured");
-  const res = await fetch(`${ASAAS_BASE}${path}`, {
-    ...opts,
-    headers: {
-      ...opts.headers as Record<string,string>,
-      "access_token": key,
-      "Content-Type": "application/json",
-    },
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.errors?.[0]?.description || JSON.stringify(data));
-  return data;
+function getAsaasConfig(useSandbox: boolean | null) {
+  // If explicitly requested, use the corresponding key
+  const sandbox = useSandbox ?? defaultIsSandbox;
+  
+  if (sandbox) {
+    // Prefer dedicated sandbox key, fall back to main key
+    const key = Deno.env.get("ASAAS_SANDBOX_API_KEY") || Deno.env.get("ASAAS_API_KEY") || "";
+    return { key, base: "https://sandbox.asaas.com/api/v3", isSandbox: true };
+  }
+  
+  const key = Deno.env.get("ASAAS_API_KEY") || "";
+  return { key, base: "https://api.asaas.com/v3", isSandbox: false };
+}
+
+function makeAsaasFetch(config: { key: string; base: string }) {
+  return async function asaasFetch(path: string, opts: RequestInit = {}) {
+    if (!config.key) throw new Error("ASAAS_API_KEY not configured");
+    const res = await fetch(`${config.base}${path}`, {
+      ...opts,
+      headers: {
+        ...opts.headers as Record<string,string>,
+        "access_token": config.key,
+        "Content-Type": "application/json",
+      },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.errors?.[0]?.description || JSON.stringify(data));
+    return data;
+  };
 }
 
 serve(async (req) => {
