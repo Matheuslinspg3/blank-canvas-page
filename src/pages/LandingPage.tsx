@@ -18,8 +18,8 @@ import {
 import { cn } from "@/lib/utils";
 
 /* ─── Helpers ─── */
-const fmt = (value: number) =>
-  (value / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = (value: number | null | undefined) =>
+  ((value ?? 0) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /* ─── Section wrapper ─── */
 const Section = ({ children, className, id }: { children: React.ReactNode; className?: string; id?: string }) => (
