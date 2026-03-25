@@ -3,6 +3,7 @@ import { useStorefront } from "@/hooks/useStorefront";
 import { SEOHead } from "@/components/SEOHead";
 import { StorefrontHero } from "@/components/storefront/StorefrontHero";
 import { StorefrontProperties } from "@/components/storefront/StorefrontProperties";
+import { StorefrontAbout } from "@/components/storefront/StorefrontAbout";
 import { StorefrontContact } from "@/components/storefront/StorefrontContact";
 import { StorefrontWhatsAppFloat } from "@/components/storefront/StorefrontWhatsAppFloat";
 import { StorefrontFooter } from "@/components/storefront/StorefrontFooter";
@@ -50,6 +51,8 @@ export default function Storefront() {
         primaryColor={primaryColor}
         orgSlug={org.slug}
       />
+
+      <StorefrontAbout org={org} brand={brand} website={website} />
 
       <StorefrontContact
         org={org}

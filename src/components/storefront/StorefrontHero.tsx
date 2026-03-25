@@ -30,6 +30,9 @@ export function StorefrontHero({ org, brand, website }: Props) {
           <a href="#imoveis" className="text-white/80 hover:text-white text-sm font-medium transition-colors">
             Imóveis
           </a>
+          <a href="#sobre" className="text-white/80 hover:text-white text-sm font-medium transition-colors">
+            Sobre
+          </a>
           <a href="#contato" className="text-white/80 hover:text-white text-sm font-medium transition-colors">
             Contato
           </a>
