@@ -108,10 +108,35 @@ export function useStorefront(orgSlug: string | undefined) {
     },
   });
 
-  // 4. Fetch public properties for this org
+  // 4. Check if org has an active subscription that includes the website feature
+  const subscriptionQuery = useQuery({
+    queryKey: ["storefront-subscription", orgId],
+    enabled: !!orgId,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("subscriptions")
+        .select("status, plan:subscription_plans(slug, features)")
+        .eq("organization_id", orgId!)
+        .in("status", ["active", "trial"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!data) return { allowed: false };
+      const slug = ((data.plan as any)?.slug ?? "").toLowerCase();
+      const features = ((data.plan as any)?.features ?? {}) as Record<string, any>;
+      // Site completo: only business/enterprise plans or plans with has_website feature
+      const allowed = slug.includes("business") || slug.includes("enterprise") || features.has_website === true;
+      return { allowed };
+    },
+  });
+
+  const websiteAllowed = subscriptionQuery.data?.allowed ?? false;
+
+  // 5. Fetch public properties for this org (only if website is allowed)
   const propertiesQuery = useQuery({
     queryKey: ["storefront-properties", orgId],
-    enabled: !!orgId,
+    enabled: !!orgId && websiteAllowed,
     staleTime: 3 * 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -132,7 +157,7 @@ export function useStorefront(orgSlug: string | undefined) {
     brand: brandQuery.data ?? null,
     website: websiteQuery.data ?? null,
     properties: propertiesQuery.data ?? [],
-    isLoading: orgQuery.isLoading,
-    notFound: orgQuery.isError || (orgQuery.isFetched && !orgQuery.data),
+    isLoading: orgQuery.isLoading || subscriptionQuery.isLoading,
+    notFound: orgQuery.isError || (orgQuery.isFetched && !orgQuery.data) || (subscriptionQuery.isFetched && !websiteAllowed),
   };
 }
