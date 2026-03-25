@@ -379,6 +379,10 @@ export function PlanCatalogDialog({ open, onOpenChange }: Props) {
                 </p>
                 {renderPlanCards(comboPlans)}
               </TabsContent>
+
+              <TabsContent value="custom" className="mt-3">
+                <CustomPlanBuilder />
+              </TabsContent>
             </Tabs>
           </div>
         )}
