@@ -25,21 +25,23 @@ import {
 import { cn } from "@/lib/utils";
 
 /* ─── Helpers ─── */
-const fmt = (cents: number) => {
-  const val = cents / 100;
+const fmt = (cents: number | null | undefined) => {
+  const val = (cents ?? 0) / 100;
   return val.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-const fmtInt = (cents: number) => {
-  return Math.floor(cents / 100).toLocaleString("pt-BR");
+const fmtInt = (cents: number | null | undefined) => {
+  return Math.floor((cents ?? 0) / 100).toLocaleString("pt-BR");
 };
 
-const storageFmt = (mb: number) => {
-  if (mb >= 1024) return `${(mb / 1024).toFixed(0)} GB`;
-  return `${mb} MB`;
+const storageFmt = (mb: number | null | undefined) => {
+  const v = mb ?? 0;
+  if (v >= 1024) return `${(v / 1024).toFixed(0)} GB`;
+  return `${v} MB`;
 };
 
-const limitDisplay = (val: number) => {
+const limitDisplay = (val: number | null | undefined) => {
+  if (val == null) return "0";
   if (val === -1) return "Ilimitado";
   return val.toLocaleString("pt-BR");
 };
