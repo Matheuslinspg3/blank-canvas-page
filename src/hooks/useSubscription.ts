@@ -175,10 +175,9 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
     enabled: !!orgId,
   });
 
-  const callBilling = async (action: string, body?: any, sandbox?: boolean) => {
-    const sandboxParam = sandbox != null ? `&sandbox=${sandbox}` : "";
+  const callBilling = async (action: string, body?: any) => {
     const res = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/billing?action=${action}${sandboxParam}`,
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/billing?action=${action}`,
       {
         method: "POST",
         headers: {
@@ -194,12 +193,12 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
   };
 
   const subscribe = useMutation({
-    mutationFn: async (params: { planId: string; billingCycle: string; paymentMethod: string; customerName?: string; customerCpf?: string; sandbox?: boolean }) => {
+    mutationFn: async (params: { planId: string; billingCycle: string; paymentMethod: string; customerName?: string; customerCpf?: string }) => {
       const { customerId } = await callBilling("create-customer", {
         customerName: params.customerName,
         customerCpf: params.customerCpf,
-      }, params.sandbox);
-      return callBilling("create-subscription", { ...params, customerId }, params.sandbox);
+      });
+      return callBilling("create-subscription", { ...params, customerId });
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["subscription"] });

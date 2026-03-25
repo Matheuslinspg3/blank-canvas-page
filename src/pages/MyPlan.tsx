@@ -24,13 +24,13 @@ import {
   ExternalLink,
   XCircle,
   Clock,
-  TriangleAlert,
+  
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-const isSandbox = import.meta.env.VITE_ASAAS_MODE === "sandbox";
+
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
@@ -67,7 +67,6 @@ export default function MyPlan() {
   } = useSubscription({ enabled: true });
 
   const [checkoutPlan, setCheckoutPlan] = useState<SubscriptionPlan | null>(null);
-  const [checkoutSandbox, setCheckoutSandbox] = useState(false);
   const [billingToggle, setBillingToggle] = useState<"monthly" | "yearly">("monthly");
 
   // Usage counts
@@ -129,14 +128,6 @@ export default function MyPlan() {
         <PageHeader title="Meu Plano" description="Gerencie sua assinatura, uso e pagamentos" />
 
         {/* ── Section A: Alert Banners ── */}
-        {isSandbox && (
-          <div className="flex items-center gap-3 p-4 rounded-xl border border-yellow-500/30 bg-yellow-500/5">
-            <TriangleAlert className="h-5 w-5 text-yellow-600 shrink-0" />
-            <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
-              ⚠️ Modo Sandbox — Pagamentos são simulados e não geram cobrança real
-            </p>
-          </div>
-        )}
 
         {(isOverdue || isCancelled) && (
           <div className="flex items-center gap-3 p-4 rounded-xl border border-destructive/30 bg-destructive/5">
@@ -217,7 +208,6 @@ export default function MyPlan() {
                   <Button
                     size="sm"
                     onClick={() => {
-                      setCheckoutSandbox(false);
                       setCheckoutPlan(currentPlan || displayPlans[0] || null);
                     }}
                   >
@@ -320,26 +310,16 @@ export default function MyPlan() {
                     {plan.features && (plan.features as any).has_financial && <PlanFeature label="Financeiro" />}
                     {plan.features && (plan.features as any).has_whatsapp && <PlanFeature label="WhatsApp" />}
                   </CardContent>
-                  <div className="p-4 pt-0 flex gap-2">
+                  <div className="p-4 pt-0">
                     <Button
                       variant={isCurrent ? "outline" : "default"}
                       size="sm"
-                      className="flex-1"
+                      className="w-full"
                       disabled={isCurrent}
-                      onClick={() => { setCheckoutSandbox(false); setCheckoutPlan(plan); }}
+                      onClick={() => setCheckoutPlan(plan)}
                     >
                       {isCurrent ? "Plano atual" : price === 0 ? "Grátis" : "Assinar"}
                     </Button>
-                    {!isCurrent && price > 0 && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-[10px] px-2 border-yellow-500/50 text-yellow-600 hover:bg-yellow-500/10"
-                        onClick={() => { setCheckoutSandbox(true); setCheckoutPlan(plan); }}
-                      >
-                        Sandbox
-                      </Button>
-                    )}
                   </div>
                 </Card>
               );
@@ -408,13 +388,9 @@ export default function MyPlan() {
       <CheckoutDialog
         open={!!checkoutPlan}
         onOpenChange={(open) => {
-          if (!open) {
-            setCheckoutPlan(null);
-            setCheckoutSandbox(false);
-          }
+          if (!open) setCheckoutPlan(null);
         }}
         plan={checkoutPlan}
-        defaultSandbox={checkoutSandbox}
       />
     </>
   );
