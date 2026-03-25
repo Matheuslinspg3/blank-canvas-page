@@ -403,6 +403,7 @@ export default function MyPlan() {
         open={!!checkoutPlan}
         onOpenChange={(open) => !open && setCheckoutPlan(null)}
         plan={checkoutPlan}
+        defaultSandbox={checkoutSandbox}
       />
     </>
   );
