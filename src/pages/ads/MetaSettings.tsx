@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { CheckCircle2, XCircle, Loader2, RefreshCw, Zap } from "lucide-react";
+import MetaLeadImport from "@/components/ads/MetaLeadImport";
 
 export default function MetaSettings() {
   const { account, isConnected, saveAccount, disconnectAccount, isSaving } = useAdAccount();
