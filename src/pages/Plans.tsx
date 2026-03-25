@@ -44,6 +44,17 @@ const limitDisplay = (val: number) => {
   return val.toLocaleString("pt-BR");
 };
 
+const getNumericFeature = (plan: SubscriptionPlan, key: string, fallback = 0) => {
+  const features = (plan.features ?? {}) as Record<string, unknown>;
+  const featureVal = features[key];
+  if (typeof featureVal === "number") return featureVal;
+
+  const topLevelVal = (plan as Record<string, unknown>)[key];
+  if (typeof topLevelVal === "number") return topLevelVal;
+
+  return fallback;
+};
+
 /* ─── Plan card config ─── */
 interface PlanMeta { icon: React.ElementType; badge?: string; highlighted?: boolean; ctaLabel: string; ctaVariant: "default" | "outline" }
 
@@ -172,7 +183,7 @@ export default function Plans() {
     },
   });
 
-  const mainPlans = useMemo(() => allPlans.filter(p => (p as any).plan_type !== 'addon'), [allPlans]);
+  const mainPlans = useMemo(() => allPlans.filter((p) => (p as any).plan_type === 'plan'), [allPlans]);
   const addons = useMemo(() => allPlans.filter(p => (p as any).plan_type === 'addon'), [allPlans]);
 
   const currentSlug = isLoggedIn ? getCurrentPlanSlug() : null;
@@ -274,6 +285,13 @@ export default function Plans() {
             const meta: PlanMeta = planMeta[plan.slug] || { icon: Star, ctaLabel: "Selecionar", ctaVariant: "default" as const };
             const Icon = meta.icon;
             const isCurrent = currentSlug === plan.slug;
+            const maxUsers = getNumericFeature(plan, "max_users");
+            const maxOwnProperties = getNumericFeature(plan, "max_own_properties");
+            const maxLeads = getNumericFeature(plan, "max_leads");
+            const maxStorageMb = getNumericFeature(plan, "max_storage_mb");
+            const aiCreditsLimit = getNumericFeature(plan, "ai_credits_limit");
+            const maxMarketplaceProperties = getNumericFeature(plan, "max_marketplace_properties");
+            const extraUserPrice = getNumericFeature(plan, "extra_user_price");
             const originalPrice = annual ? Math.round(plan.price_yearly / 12) : plan.price_monthly;
             const monthlyPrice = plan.slug !== 'gratuito' ? applyDiscount(originalPrice) : originalPrice;
             const showStrikethrough = hasDiscount && plan.slug !== 'gratuito' && monthlyPrice !== originalPrice;
@@ -336,27 +354,27 @@ export default function Plans() {
                   <div className="space-y-2 mb-4 text-sm">
                     <div className="flex items-center gap-2">
                       <Users className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span>{limitDisplay(f.max_users)} {f.max_users === 1 ? "usuário" : "usuários"}</span>
+                      <span>{limitDisplay(maxUsers)} {maxUsers === 1 ? "usuário" : "usuários"}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span>{limitDisplay(f.max_own_properties)} imóveis</span>
+                      <span>{limitDisplay(maxOwnProperties)} imóveis</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <UserCheck className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span>{limitDisplay(f.max_leads)} leads</span>
+                      <span>{limitDisplay(maxLeads)} leads</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <HardDrive className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span>{storageFmt(f.max_storage_mb)}</span>
+                      <span>{storageFmt(maxStorageMb)}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Sparkles className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span>{f.ai_credits_limit === 0 ? "Sem IA" : `${limitDisplay(f.ai_credits_limit)} créditos IA`}</span>
+                      <span>{aiCreditsLimit === 0 ? "Sem IA" : `${limitDisplay(aiCreditsLimit)} créditos IA`}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Store className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span>{f.max_marketplace_properties === 0 ? "Sem marketplace" : `${limitDisplay(f.max_marketplace_properties)} marketplace`}</span>
+                      <span>{maxMarketplaceProperties === 0 ? "Sem marketplace" : `${limitDisplay(maxMarketplaceProperties)} marketplace`}</span>
                     </div>
                   </div>
 
@@ -377,9 +395,9 @@ export default function Plans() {
                     })}
                   </div>
 
-                  {f.extra_user_price > 0 && (
+                  {extraUserPrice > 0 && (
                     <p className="text-xs text-muted-foreground mb-4">
-                      +R${fmt(f.extra_user_price)} por membro extra
+                      +R${fmt(extraUserPrice)} por membro extra
                     </p>
                   )}
 
@@ -499,7 +517,7 @@ export default function Plans() {
                           <td className="p-3 text-muted-foreground">{row.label}</td>
                           {mainPlans.map(p => {
                             const f = (p.features as Record<string, any>) || {};
-                            const val = f[row.key];
+                            const val = f[row.key] ?? (p as Record<string, any>)[row.key];
                             const isPro = p.slug === "profissional";
 
                             let display: React.ReactNode;
