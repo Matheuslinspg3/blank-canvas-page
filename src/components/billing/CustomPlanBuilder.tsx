@@ -152,6 +152,10 @@ export function CustomPlanBuilder() {
         <p className="text-sm text-muted-foreground">
           Escolha apenas os módulos que você precisa e pague somente pelo que usar
         </p>
+        <Badge variant="outline" className="text-xs gap-1 mx-auto">
+          <Sparkles className="h-3 w-3" />
+          7 dias grátis para testar
+        </Badge>
       </div>
 
       {/* Billing toggle */}
@@ -282,7 +286,7 @@ export function CustomPlanBuilder() {
               onClick={() => setCheckoutOpen(true)}
             >
               <ShoppingCart className="h-4 w-4" />
-              Assinar plano personalizado
+              Testar 7 dias grátis
             </Button>
           </div>
         </>

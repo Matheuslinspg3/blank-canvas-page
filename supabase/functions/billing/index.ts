@@ -372,9 +372,11 @@ serve(async (req) => {
 
       const priceInReais = totalPrice / 100;
       const now = new Date();
+      // Custom plans get 7-day free trial (not 15 days like standard plans)
+      const trialEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
       const periodEnd = billingCycle === "yearly"
-        ? new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000)
-        : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        ? new Date(trialEnd.getTime() + 365 * 24 * 60 * 60 * 1000)
+        : new Date(trialEnd.getTime() + 30 * 24 * 60 * 60 * 1000);
 
       // Save module selections
       await supabase.from("custom_plan_selections").delete().eq("organization_id", orgId);
@@ -387,7 +389,8 @@ serve(async (req) => {
 
       // Create Asaas payment (PIX or subscription)
       if (paymentMethod === "pix") {
-        const dueDate = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+        // Due date = after 7-day trial
+        const dueDate = trialEnd.toISOString().split("T")[0];
         const payment = await asaasFetch("/payments", {
           method: "POST",
           body: JSON.stringify({
@@ -406,13 +409,13 @@ serve(async (req) => {
           .insert({
             organization_id: orgId,
             plan_id: customPlan.id,
-            status: "pending",
+            status: "trial",
             billing_cycle: billingCycle,
             provider: "asaas",
             provider_customer_id: customerId,
             payment_method: "pix",
             current_period_start: now.toISOString(),
-            current_period_end: periodEnd.toISOString(),
+            current_period_end: trialEnd.toISOString(),
           })
           .select()
           .single();
@@ -442,8 +445,9 @@ serve(async (req) => {
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      // Credit card
+      // Credit card — schedule first charge after 7-day trial
       const cycle = billingCycle === "yearly" ? "YEARLY" : "MONTHLY";
+      const nextDueDate = trialEnd.toISOString().split("T")[0];
       const asaasSub = await asaasFetch("/subscriptions", {
         method: "POST",
         body: JSON.stringify({
@@ -451,6 +455,7 @@ serve(async (req) => {
           billingType: "CREDIT_CARD",
           value: priceInReais,
           cycle,
+          nextDueDate,
           description: `Habitae Personalizado - ${customModules.length} módulos`,
           externalReference: orgId,
         }),
@@ -464,14 +469,14 @@ serve(async (req) => {
         .insert({
           organization_id: orgId,
           plan_id: customPlan.id,
-          status: "pending",
+          status: "trial",
           billing_cycle: billingCycle,
           provider: "asaas",
           provider_customer_id: customerId,
           provider_subscription_id: asaasSub.id,
           payment_method: "credit_card",
           current_period_start: now.toISOString(),
-          current_period_end: periodEnd.toISOString(),
+          current_period_end: trialEnd.toISOString(),
         })
         .select()
         .single();
