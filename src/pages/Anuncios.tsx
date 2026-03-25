@@ -139,21 +139,24 @@ export default function Anuncios() {
           </TabsContent>
 
           {/* ── Gerador IA ── */}
-          <TabsContent value="gerador" className="mt-4">
+          <TabsContent value="gerador" className="mt-4 space-y-3">
+            <AiCreditsBadge />
             <Suspense fallback={<TabLoader />}>
               <GeradorAnunciosContent />
             </Suspense>
           </TabsContent>
 
           {/* ── Gerador de Artes ── */}
-          <TabsContent value="artes" className="mt-4">
+          <TabsContent value="artes" className="mt-4 space-y-3">
+            <AiCreditsBadge />
             <Suspense fallback={<TabLoader />}>
               <GeradorArtesContent />
             </Suspense>
           </TabsContent>
 
           {/* ── Gerador de Vídeo ── */}
-          <TabsContent value="video" className="mt-4">
+          <TabsContent value="video" className="mt-4 space-y-3">
+            <AiCreditsBadge />
             <Suspense fallback={<TabLoader />}>
               <GeradorVideoContent />
             </Suspense>
