@@ -387,7 +387,7 @@ export function CheckoutDialog({ open, onOpenChange, plan }: CheckoutDialogProps
                 Processando...
               </>
             ) : (
-              `Assinar por R$ ${Number(price).toFixed(2)}`
+              `Assinar por R$ ${(Number(price) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
             )}
           </Button>
         </div>
