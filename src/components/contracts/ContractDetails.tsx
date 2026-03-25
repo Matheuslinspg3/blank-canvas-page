@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -21,9 +22,11 @@ import {
   Trash2,
   Building2,
   Phone,
-  Mail
+  Mail,
+  Eye
 } from "lucide-react";
 import type { ContractWithDetails } from "@/hooks/useContracts";
+import { ContractDocumentPreview } from "./ContractDocumentPreview";
 
 interface ContractDetailsProps {
   contract: ContractWithDetails | null;
@@ -46,6 +49,8 @@ const typeLabels: Record<string, string> = {
 };
 
 export function ContractDetails({ contract, open, onOpenChange, onEdit, onDelete }: ContractDetailsProps) {
+  const [previewOpen, setPreviewOpen] = useState(false);
+
   if (!contract) return null;
 
   const status = statusConfig[contract.status] || statusConfig.rascunho;
@@ -222,6 +227,14 @@ export function ContractDetails({ contract, open, onOpenChange, onEdit, onDelete
 
           {/* Ações */}
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setPreviewOpen(true)}
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Visualizar
+            </Button>
             <Button 
               variant="outline" 
               className="flex-1"
@@ -254,6 +267,12 @@ export function ContractDetails({ contract, open, onOpenChange, onEdit, onDelete
           </div>
         </div>
       </SheetContent>
+
+      <ContractDocumentPreview
+        contract={contract}
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+      />
     </Sheet>
   );
 }
