@@ -62,10 +62,15 @@ export function SimulationResults({ resultado: r, itbiRate, itbiValue, state }: 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: r.cor }} />
-          {r.banco} — Resultado Detalhado ({r.sistema})
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: r.cor }} />
+            {r.banco} — Resultado Detalhado ({r.sistema})
+          </CardTitle>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => gerarPdfSimulacao(r)}>
+            <Download className="h-3.5 w-3.5" /> PDF
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="resumo">
