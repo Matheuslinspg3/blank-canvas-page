@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowRight, ArrowLeft, Construction, Building2, User, Eye, EyeOff, Check, Gift, Crown, Zap, Star, Mail } from "lucide-react";
+import { Loader2, ArrowRight, ArrowLeft, Construction, Building2, User, Eye, EyeOff, Check, Gift, Crown, Zap, Star, Mail, Landmark } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +32,7 @@ interface SignupPlan {
 const PLAN_ICONS: Record<string, React.ElementType> = {
   gratuito: Gift,
   starter: Zap,
+  correspondente: Landmark,
   essencial: Star,
   profissional: Crown,
 };
@@ -124,11 +125,11 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
         .eq("is_active", true)
         .neq("plan_type", "addon")
         .order("display_order")
-        .limit(5);
+        .limit(6);
       if (error) throw error;
 
       const rows = Array.isArray(data) ? (data as SignupPlan[]) : [];
-      return rows.filter((p) => ['gratuito', 'starter', 'essencial', 'profissional'].includes(p.slug));
+      return rows.filter((p) => ['gratuito', 'starter', 'correspondente', 'essencial', 'profissional'].includes(p.slug));
     },
   });
 
