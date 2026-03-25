@@ -30,6 +30,7 @@ import { ContractFilters } from "@/components/contracts/ContractFilters";
 import { MobileContractCard } from "@/components/contracts/MobileContractCard";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ContractTemplatesTab } from "@/components/contracts/ContractTemplatesTab";
+const QuickContractDialog = lazy(() => import("@/components/contracts/QuickContractDialog").then(m => ({ default: m.QuickContractDialog })));
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -94,6 +95,7 @@ function FinancialContent() {
   const [contractDetailsOpen, setContractDetailsOpen] = useState(false);
   const [deleteContractDialogOpen, setDeleteContractDialogOpen] = useState(false);
   const [contractToDelete, setContractToDelete] = useState<string | null>(null);
+  const [quickContractOpen, setQuickContractOpen] = useState(false);
 
   // PERF: memoized inline counts
   const paidCount = useMemo(() => transactions.filter(t => t.paid).length, [transactions]);
@@ -157,10 +159,16 @@ function FinancialContent() {
         description="Gerencie finanças, cobranças e contratos"
         actions={
           finTab === "contracts" ? (
-            <Button onClick={handleCreateContract} size={isMobile ? "icon" : "default"}>
-              <Plus className="h-4 w-4" />
-              {!isMobile && <span className="ml-2">Novo Contrato</span>}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button onClick={() => setQuickContractOpen(true)} variant="outline" size={isMobile ? "icon" : "default"}>
+                <Sparkles className="h-4 w-4" />
+                {!isMobile && <span className="ml-2">Criar com Template</span>}
+              </Button>
+              <Button onClick={handleCreateContract} size={isMobile ? "icon" : "default"}>
+                <Plus className="h-4 w-4" />
+                {!isMobile && <span className="ml-2">Novo Contrato</span>}
+              </Button>
+            </div>
           ) : (
             <Button onClick={() => { setEditingTransaction(null); setTransactionFormOpen(true); }}>
               <Plus className="h-4 w-4 mr-2" />
