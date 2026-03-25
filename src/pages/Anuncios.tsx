@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTabParam } from "@/hooks/useTabParam";
 import { useAdLeadsCount } from "@/hooks/useAdLeads";
 import { Loader2, Megaphone, BarChart3, Sparkles, Palette, Video, Stamp, Link2, Users, TrendingUp, LayoutList, ScrollText } from "lucide-react";
+import { AiCreditsBadge } from "@/components/ai/AiCreditsBadge";
 
 import MetaConnectionTab from "@/components/ads/MetaConnectionTab";
 import MetaLeadsInboxContent from "@/components/ads/MetaLeadsInboxContent";
