@@ -128,14 +128,6 @@ export default function MyPlan() {
         <PageHeader title="Meu Plano" description="Gerencie sua assinatura, uso e pagamentos" />
 
         {/* ── Section A: Alert Banners ── */}
-        {isSandbox && (
-          <div className="flex items-center gap-3 p-4 rounded-xl border border-yellow-500/30 bg-yellow-500/5">
-            <TriangleAlert className="h-5 w-5 text-yellow-600 shrink-0" />
-            <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
-              ⚠️ Modo Sandbox — Pagamentos são simulados e não geram cobrança real
-            </p>
-          </div>
-        )}
 
         {(isOverdue || isCancelled) && (
           <div className="flex items-center gap-3 p-4 rounded-xl border border-destructive/30 bg-destructive/5">
