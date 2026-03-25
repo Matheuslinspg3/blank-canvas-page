@@ -181,18 +181,25 @@ export function useProperties() {
 
       if (error) throw error;
 
-      // Salvar imagens
+      // Salvar imagens (deduplicate by URL within same property)
       if (images.length > 0) {
-        const imagesToInsert = images.map((img, index) => ({
-          property_id: data.id,
-          url: img.url,
-          is_cover: img.is_cover || index === 0,
-          display_order: img.display_order ?? index,
-          ...(img.phash ? { phash: img.phash } : {}),
-          ...(img.r2_key_full ? { r2_key_full: img.r2_key_full } : {}),
-          ...(img.r2_key_thumb ? { r2_key_thumb: img.r2_key_thumb } : {}),
-          ...(img.storage_provider ? { storage_provider: img.storage_provider } : {}),
-        }));
+        const seenUrls = new Set<string>();
+        const imagesToInsert = images
+          .map((img, index) => ({
+            property_id: data.id,
+            url: img.url,
+            is_cover: img.is_cover || index === 0,
+            display_order: img.display_order ?? index,
+            ...(img.phash ? { phash: img.phash } : {}),
+            ...(img.r2_key_full ? { r2_key_full: img.r2_key_full } : {}),
+            ...(img.r2_key_thumb ? { r2_key_thumb: img.r2_key_thumb } : {}),
+            ...(img.storage_provider ? { storage_provider: img.storage_provider } : {}),
+          }))
+          .filter(img => {
+            if (seenUrls.has(img.url)) return false;
+            seenUrls.add(img.url);
+            return true;
+          });
         // Insert in chunks of 20 to avoid payload size issues
         const CHUNK = 20;
         let totalSaved = 0;
@@ -381,16 +388,23 @@ export function useProperties() {
 
         // Inserir novas imagens em chunks
         if (images.length > 0) {
-          const imagesToInsert = images.map((img, index) => ({
-            property_id: id,
-            url: img.url,
-            is_cover: img.is_cover || index === 0,
-            display_order: img.display_order ?? index,
-            ...(img.phash ? { phash: img.phash } : {}),
-            ...(img.r2_key_full ? { r2_key_full: img.r2_key_full } : {}),
-            ...(img.r2_key_thumb ? { r2_key_thumb: img.r2_key_thumb } : {}),
-            ...(img.storage_provider ? { storage_provider: img.storage_provider } : {}),
-          }));
+          const seenUrls = new Set<string>();
+          const imagesToInsert = images
+            .map((img, index) => ({
+              property_id: id,
+              url: img.url,
+              is_cover: img.is_cover || index === 0,
+              display_order: img.display_order ?? index,
+              ...(img.phash ? { phash: img.phash } : {}),
+              ...(img.r2_key_full ? { r2_key_full: img.r2_key_full } : {}),
+              ...(img.r2_key_thumb ? { r2_key_thumb: img.r2_key_thumb } : {}),
+              ...(img.storage_provider ? { storage_provider: img.storage_provider } : {}),
+            }))
+            .filter(img => {
+              if (seenUrls.has(img.url)) return false;
+              seenUrls.add(img.url);
+              return true;
+            });
 
           const CHUNK = 20;
           let totalSaved = 0;

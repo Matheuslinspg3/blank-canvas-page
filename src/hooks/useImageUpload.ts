@@ -20,6 +20,9 @@ interface DuplicateMatch {
   url: string;
   phash: string;
   property_title?: string;
+  r2KeyFull?: string;
+  r2KeyThumb?: string;
+  storageProvider?: string;
 }
 
 // ── Presigned R2 Upload ──
@@ -218,7 +221,7 @@ async function findDuplicateByPhash(
 ): Promise<DuplicateMatch | null> {
   const { data: existingImages } = await supabase
     .from('property_images')
-    .select(`url, phash, properties!inner(organization_id, title)`)
+    .select(`url, phash, r2_key_full, r2_key_thumb, storage_provider, properties!inner(organization_id, title)`)
     .not('phash', 'is', null)
     .eq('properties.organization_id', organizationId);
 
@@ -226,7 +229,14 @@ async function findDuplicateByPhash(
     for (const img of existingImages) {
       if (img.phash && hammingDistance(phash, img.phash) <= PHASH_DUPLICATE_THRESHOLD) {
         const prop = img.properties as any;
-        return { url: img.url, phash: img.phash, property_title: prop?.title };
+        return {
+          url: img.url,
+          phash: img.phash,
+          property_title: prop?.title,
+          r2KeyFull: img.r2_key_full || undefined,
+          r2KeyThumb: img.r2_key_thumb || undefined,
+          storageProvider: img.storage_provider || undefined,
+        };
       }
     }
   }
@@ -299,6 +309,9 @@ export function useImageUpload() {
           isDuplicate: true,
           duplicateOf: duplicate.url,
           phash,
+          r2KeyFull: duplicate.r2KeyFull,
+          r2KeyThumb: duplicate.r2KeyThumb,
+          storageProvider: duplicate.storageProvider as 'r2' | 'cloudinary' | undefined,
         };
       }
     }

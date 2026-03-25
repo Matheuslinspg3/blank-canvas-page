@@ -48,13 +48,13 @@ export function PropertyImageUpload({ images, onChange, maxImages = 200, organiz
     if (uploadedImages.length > 0) {
       const newImages: PropertyImage[] = uploadedImages.map((img, index) => ({
         url: img.url,
-        publicId: img.publicId,
+        publicId: img.publicId || undefined,
         is_cover: images.length === 0 && index === 0,
         display_order: images.length + index,
         phash: img.phash,
-        r2_key_full: img.r2KeyFull,
-        r2_key_thumb: img.r2KeyThumb,
-        storage_provider: img.storageProvider,
+        r2_key_full: img.r2KeyFull || undefined,
+        r2_key_thumb: img.r2KeyThumb || undefined,
+        storage_provider: img.storageProvider || undefined,
       }));
 
       onChange([...images, ...newImages]);
