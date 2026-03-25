@@ -67,7 +67,6 @@ export default function MyPlan() {
   } = useSubscription({ enabled: true });
 
   const [checkoutPlan, setCheckoutPlan] = useState<SubscriptionPlan | null>(null);
-  const [checkoutSandbox, setCheckoutSandbox] = useState(false);
   const [billingToggle, setBillingToggle] = useState<"monthly" | "yearly">("monthly");
 
   // Usage counts
