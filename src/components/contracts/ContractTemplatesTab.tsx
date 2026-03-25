@@ -84,10 +84,16 @@ export function ContractTemplatesTab() {
           <h3 className="text-lg font-semibold">Templates de Contrato</h3>
           <p className="text-sm text-muted-foreground">Modelos reutilizáveis com variáveis auto-preenchíveis</p>
         </div>
-        <Button onClick={handleCreate} size="sm" className="gap-1.5">
-          <Plus className="h-4 w-4" />
-          Novo Template
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={handleSeedTemplates} size="sm" variant="outline" className="gap-1.5" disabled={seedingTemplates}>
+            {seedingTemplates ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookTemplate className="h-4 w-4" />}
+            Templates Prontos
+          </Button>
+          <Button onClick={handleCreate} size="sm" className="gap-1.5">
+            <Plus className="h-4 w-4" />
+            Novo Template
+          </Button>
+        </div>
       </div>
 
       {templates.length === 0 ? (
