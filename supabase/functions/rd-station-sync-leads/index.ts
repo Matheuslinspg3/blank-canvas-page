@@ -362,6 +362,7 @@ async function handleSelectiveSync(req: Request, supabase: any, body: Record<str
         duplicates++;
       } else {
         const source = settings.default_source || "RD Station";
+        const propertyId = await matchProperty(supabase, orgId, contact);
         const { error: insertError } = await supabase.from("leads").insert({
           organization_id: orgId, name, email, phone, source,
           lead_stage_id: settings.default_stage_id,
@@ -369,6 +370,7 @@ async function handleSelectiveSync(req: Request, supabase: any, body: Record<str
           external_id: contact.uuid || null,
           external_source: "rdstation",
           notes,
+          property_id: propertyId,
         });
         if (insertError) errors++;
         else created++;
@@ -697,6 +699,7 @@ async function processContacts(
       if (settings.auto_send_to_crm) {
         const source = settings.default_source || "RD Station";
         const notes = buildNotes(contact);
+        const propertyId = await matchProperty(supabase, orgId, contact);
 
         const { data: newLead, error: insertError } = await supabase
           .from("leads")
@@ -711,6 +714,7 @@ async function processContacts(
             external_id: contact.uuid || null,
             external_source: "rdstation",
             notes,
+            property_id: propertyId,
           })
           .select("id")
           .single();

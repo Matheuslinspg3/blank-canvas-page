@@ -135,6 +135,8 @@ Deno.serve(async (req) => {
 
           // Use upsert-style insert: if a race condition causes a duplicate email,
           // the unique index will reject it and we treat it as duplicate
+          const propertyId = await matchProperty(supabase, orgId, leadData);
+
           const { data: newLead, error: insertError } = await supabase
             .from("leads")
             .insert({
@@ -148,6 +150,7 @@ Deno.serve(async (req) => {
               external_id: leadData.id?.toString() || null,
               external_source: "rdstation",
               notes: buildNotes(leadData),
+              property_id: propertyId,
             })
             .select("id")
             .single();
