@@ -59,6 +59,7 @@ const MetaAdDetail = lazy(() => import("./pages/ads/MetaAdDetail"));
 const Owners = lazy(() => import("./pages/Owners"));
 const _GeradorAnuncios = lazy(() => import("./pages/GeradorAnuncios")); // embedded in Anuncios
 const PublicPropertyBySlug = lazy(() => import("./pages/PublicPropertyBySlug"));
+const Storefront = lazy(() => import("./pages/Storefront"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const Maintenance = lazy(() => import("./pages/Maintenance"));
 const EmailTemplates = lazy(() => import("./pages/EmailTemplates"));
@@ -154,6 +155,7 @@ const App = () => (
                       <Route path="/demo" element={<Demo />} />
                       <Route path="/imovel/:id" element={<PropertyLandingPage />} />
                       <Route path="/instalar" element={<Install />} />
+                      <Route path="/site/:orgSlug" element={<Storefront />} />
                       <Route path="/i/:orgSlug/:code" element={<PublicPropertyBySlug />} />
                       <Route path="/i/:slug" element={<PublicPropertyBySlug />} />
                       <Route path="/privacidade" element={<PrivacyPolicy />} />

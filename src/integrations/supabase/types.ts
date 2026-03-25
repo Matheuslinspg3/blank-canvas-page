@@ -5242,6 +5242,71 @@ export type Database = {
         }
         Relationships: []
       }
+      website_settings: {
+        Row: {
+          about_text: string | null
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string | null
+          custom_domain: string | null
+          hero_subtitle: string | null
+          hero_title: string | null
+          id: string
+          is_active: boolean | null
+          meta_description: string | null
+          meta_title: string | null
+          organization_id: string
+          show_whatsapp_float: boolean | null
+          updated_at: string | null
+          whatsapp_message: string | null
+          whatsapp_number: string | null
+        }
+        Insert: {
+          about_text?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          custom_domain?: string | null
+          hero_subtitle?: string | null
+          hero_title?: string | null
+          id?: string
+          is_active?: boolean | null
+          meta_description?: string | null
+          meta_title?: string | null
+          organization_id: string
+          show_whatsapp_float?: boolean | null
+          updated_at?: string | null
+          whatsapp_message?: string | null
+          whatsapp_number?: string | null
+        }
+        Update: {
+          about_text?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          custom_domain?: string | null
+          hero_subtitle?: string | null
+          hero_title?: string | null
+          id?: string
+          is_active?: boolean | null
+          meta_description?: string | null
+          meta_title?: string | null
+          organization_id?: string
+          show_whatsapp_float?: boolean | null
+          updated_at?: string | null
+          whatsapp_message?: string | null
+          whatsapp_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "website_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_instances: {
         Row: {
           created_at: string
