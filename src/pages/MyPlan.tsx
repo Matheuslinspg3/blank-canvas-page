@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { Navigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { useSubscription, SubscriptionPlan } from "@/hooks/useSubscription";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserRoles } from "@/hooks/useUserRole";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { CheckoutDialog } from "@/components/billing/CheckoutDialog";
@@ -57,6 +59,7 @@ function PaymentStatusBadge({ status }: { status: string }) {
 
 export default function MyPlan() {
   const { profile } = useAuth();
+  const { isAdminOrAbove, isLoading: rolesLoading } = useUserRoles();
   const orgId = profile?.organization_id;
   const {
     plans, mainPlans, subscription, payments, currentPlan,
@@ -111,7 +114,7 @@ export default function MyPlan() {
     (p) => (p as any).plan_type !== "addon"
   );
 
-  if (loadingSub || loadingPlans) {
+  if (loadingSub || loadingPlans || rolesLoading) {
     return (
       <div className="space-y-6 p-6">
         <Skeleton className="h-10 w-48" />
@@ -119,6 +122,11 @@ export default function MyPlan() {
         <Skeleton className="h-64 w-full rounded-xl" />
       </div>
     );
+  }
+
+  // Only admins, sub_admins, developers, and leaders can access this page
+  if (!isAdminOrAbove) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return (

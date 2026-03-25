@@ -223,7 +223,7 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {renderMenuItem({ title: "Meu Plano", url: "/meu-plano", icon: CreditCard })}
+              {isAdminOrAbove && renderMenuItem({ title: "Meu Plano", url: "/meu-plano", icon: CreditCard })}
               {renderMenuItem({ title: "Configurações", url: "/configuracoes", icon: Settings })}
             </SidebarMenu>
           </SidebarGroupContent>
