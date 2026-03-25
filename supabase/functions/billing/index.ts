@@ -389,7 +389,8 @@ serve(async (req) => {
 
       // Create Asaas payment (PIX or subscription)
       if (paymentMethod === "pix") {
-        const dueDate = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+        // Due date = after 7-day trial
+        const dueDate = trialEnd.toISOString().split("T")[0];
         const payment = await asaasFetch("/payments", {
           method: "POST",
           body: JSON.stringify({
@@ -408,13 +409,13 @@ serve(async (req) => {
           .insert({
             organization_id: orgId,
             plan_id: customPlan.id,
-            status: "pending",
+            status: "trial",
             billing_cycle: billingCycle,
             provider: "asaas",
             provider_customer_id: customerId,
             payment_method: "pix",
             current_period_start: now.toISOString(),
-            current_period_end: periodEnd.toISOString(),
+            current_period_end: trialEnd.toISOString(),
           })
           .select()
           .single();
