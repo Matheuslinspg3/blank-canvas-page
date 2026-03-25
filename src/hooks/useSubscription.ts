@@ -83,7 +83,11 @@ export function getPlanLine(plan: SubscriptionPlan | null | undefined): PlanLine
 }
 
 export function hasFeature(plan: SubscriptionPlan | null | undefined, key: string): boolean {
-  if (!plan?.features) return false;
+  if (!plan) return false;
+  // Enterprise/Business plans have access to all features
+  const slug = (plan.slug || '').toLowerCase();
+  if (slug.includes('enterprise') || slug.includes('business')) return true;
+  if (!plan.features) return false;
   const val = (plan.features as Record<string, any>)[key];
   return val === true || (typeof val === 'number' && val !== 0);
 }
