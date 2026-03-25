@@ -403,7 +403,9 @@ function FinancialContent() {
       <Suspense fallback={null}>
         <ContractDetails contract={selectedContract} open={contractDetailsOpen} onOpenChange={setContractDetailsOpen} onEdit={handleEditContract} onDelete={deleteContractFn} />
       </Suspense>
-
+      <Suspense fallback={null}>
+        <QuickContractDialog open={quickContractOpen} onOpenChange={setQuickContractOpen} />
+      </Suspense>
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
