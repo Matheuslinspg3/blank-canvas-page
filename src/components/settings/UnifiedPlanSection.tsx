@@ -373,7 +373,7 @@ export function UnifiedPlanSection() {
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-primary" />
-              Finalizar Assinatura — Professional R$ {plans.find(p => p.slug === "pro")?.price_monthly?.toFixed(2) || "5.00"}/mês
+              Finalizar Assinatura — Professional R$ {((plans.find(p => p.slug === "pro")?.price_monthly ?? 500) / 100).toFixed(2)}/mês
             </CardTitle>
             <CardDescription>Preencha seus dados e escolha a forma de pagamento</CardDescription>
           </CardHeader>
