@@ -10,7 +10,7 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, FileText, MoreHorizontal, Pencil, Trash2, Eye } from "lucide-react";
+import { Plus, FileText, FileUp, MoreHorizontal, Pencil, Trash2, Eye } from "lucide-react";
 import { useContractTemplates, type ContractTemplate, type ContractTemplateFormData } from "@/hooks/useContractTemplates";
 import { ContractTemplateForm } from "./ContractTemplateForm";
 import { ContractTemplatePreview } from "./ContractTemplatePreview";
@@ -118,6 +118,12 @@ export function ContractTemplatesTab() {
                   <Badge variant="outline" className="text-xs">
                     {typeLabels[t.contract_type] || t.contract_type}
                   </Badge>
+                  {t.template_type === "pdf" && (
+                    <Badge variant="secondary" className="text-xs gap-1">
+                      <FileUp className="h-3 w-3" />
+                      PDF
+                    </Badge>
+                  )}
                   {t.variables.length > 0 && (
                     <span className="text-xs text-muted-foreground">
                       {t.variables.length} variáve{t.variables.length > 1 ? "is" : "l"}

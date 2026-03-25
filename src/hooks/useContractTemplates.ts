@@ -15,6 +15,9 @@ export interface ContractTemplate {
   created_by: string;
   created_at: string;
   updated_at: string;
+  template_type: 'html' | 'pdf';
+  pdf_url: string | null;
+  field_positions: any[] | null;
 }
 
 export interface ContractTemplateFormData {
@@ -24,6 +27,9 @@ export interface ContractTemplateFormData {
   body_html: string;
   variables: string[];
   is_default?: boolean;
+  template_type?: 'html' | 'pdf';
+  pdf_url?: string | null;
+  field_positions?: any[] | null;
 }
 
 export function useContractTemplates() {
@@ -37,7 +43,7 @@ export function useContractTemplates() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contract_templates")
-        .select("id, organization_id, name, description, contract_type, body_html, variables, is_default, created_by, created_at, updated_at")
+        .select("id, organization_id, name, description, contract_type, body_html, variables, is_default, created_by, created_at, updated_at, template_type, pdf_url, field_positions")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data || []) as ContractTemplate[];
