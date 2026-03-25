@@ -49,6 +49,8 @@ const typeLabels: Record<string, string> = {
 };
 
 export function ContractDetails({ contract, open, onOpenChange, onEdit, onDelete }: ContractDetailsProps) {
+  const [previewOpen, setPreviewOpen] = useState(false);
+
   if (!contract) return null;
 
   const status = statusConfig[contract.status] || statusConfig.rascunho;
