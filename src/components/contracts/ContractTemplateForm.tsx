@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import DOMPurify from "dompurify";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
@@ -13,8 +13,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Eye, Pencil, Sparkles } from "lucide-react"; // AI icon
+import { Loader2, Eye, Pencil, Sparkles, FileUp, FileText } from "lucide-react";
 import LazyRichTextEditor, { AVAILABLE_VARIABLES } from "@/components/editors/LazyRichTextEditor";
+import { PdfFieldEditor } from "./pdf-editor/PdfFieldEditor";
+import type { PdfFieldPosition } from "./pdf-editor/types";
 import { supabase } from "@/integrations/supabase/client";
 import type { ContractTemplate, ContractTemplateFormData } from "@/hooks/useContractTemplates";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -22,6 +24,7 @@ import { cn } from "@/lib/utils";
 import {
   ResizablePanelGroup, ResizablePanel, ResizableHandle,
 } from "@/components/ui/resizable";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface ContractTemplateFormProps {
   open: boolean;
@@ -74,6 +77,9 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSubmit, i
   const [description, setDescription] = useState("");
   const [contractType, setContractType] = useState("venda");
   const [bodyHtml, setBodyHtml] = useState("");
+  const [templateType, setTemplateType] = useState<"html" | "pdf">("html");
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [fieldPositions, setFieldPositions] = useState<PdfFieldPosition[]>([]);
   const [mobileTab, setMobileTab] = useState<"editor" | "preview">("editor");
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
@@ -112,11 +118,17 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSubmit, i
       setDescription(template.description || "");
       setContractType(template.contract_type);
       setBodyHtml(template.body_html);
+      setTemplateType(template.template_type || "html");
+      setPdfUrl(template.pdf_url || null);
+      setFieldPositions((template.field_positions as PdfFieldPosition[]) || []);
     } else {
       setName("");
       setDescription("");
       setContractType("venda");
       setBodyHtml("");
+      setTemplateType("html");
+      setPdfUrl(null);
+      setFieldPositions([]);
     }
     setMobileTab("editor");
   }, [template, open]);
@@ -130,20 +142,65 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSubmit, i
     e.preventDefault();
     if (!name.trim()) return;
 
-    onSubmit({
-      name: name.trim(),
-      description: description.trim() || null,
-      contract_type: contractType,
-      body_html: bodyHtml,
-      variables: extractVariables(bodyHtml),
-    });
+    if (templateType === "pdf") {
+      if (!pdfUrl) {
+        toast.error("Envie um PDF antes de salvar");
+        return;
+      }
+      const variables = fieldPositions.map(f => f.variable);
+      onSubmit({
+        name: name.trim(),
+        description: description.trim() || null,
+        contract_type: contractType,
+        body_html: "",
+        variables: [...new Set(variables)],
+        template_type: "pdf",
+        pdf_url: pdfUrl,
+        field_positions: fieldPositions,
+      });
+    } else {
+      onSubmit({
+        name: name.trim(),
+        description: description.trim() || null,
+        contract_type: contractType,
+        body_html: bodyHtml,
+        variables: extractVariables(bodyHtml),
+        template_type: "html",
+        pdf_url: null,
+        field_positions: null,
+      });
+    }
     onOpenChange(false);
   };
 
-  const detectedVars = extractVariables(bodyHtml);
+  const detectedVars = templateType === "html" ? extractVariables(bodyHtml) : [...new Set(fieldPositions.map(f => f.variable))];
 
   const metaFields = (
     <div className="space-y-3 px-1">
+      {/* Template type selector */}
+      <div className="flex gap-2 pb-1">
+        <Button
+          type="button"
+          variant={templateType === "html" ? "default" : "outline"}
+          size="sm"
+          className="gap-1.5 flex-1"
+          onClick={() => setTemplateType("html")}
+        >
+          <FileText className="h-3.5 w-3.5" />
+          Editor de Texto
+        </Button>
+        <Button
+          type="button"
+          variant={templateType === "pdf" ? "default" : "outline"}
+          size="sm"
+          className="gap-1.5 flex-1"
+          onClick={() => setTemplateType("pdf")}
+        >
+          <FileUp className="h-3.5 w-3.5" />
+          Enviar PDF
+        </Button>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="sm:col-span-2">
           <Label htmlFor="tpl-name">Nome do Template *</Label>
@@ -170,16 +227,18 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSubmit, i
           </Select>
         </div>
       </div>
-      <div>
-        <Label htmlFor="tpl-desc">Descrição (opcional)</Label>
-        <Textarea
-          id="tpl-desc"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Breve descrição do template..."
-          className="mt-1.5 min-h-[50px] resize-none"
-        />
-      </div>
+      {templateType === "html" && (
+        <div>
+          <Label htmlFor="tpl-desc">Descrição (opcional)</Label>
+          <Textarea
+            id="tpl-desc"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Breve descrição do template..."
+            className="mt-1.5 min-h-[50px] resize-none"
+          />
+        </div>
+      )}
     </div>
   );
 
@@ -221,32 +280,21 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSubmit, i
         </Badge>
       </div>
       <div className="flex-1 min-h-0 border rounded-md bg-muted/40 overflow-y-auto flex justify-center py-6 px-4">
-        {/* A4 paper simulation: 210mm × 297mm ratio ≈ 1:1.414 */}
         <div
           className="bg-white shadow-lg border border-border/60 shrink-0"
-          style={{
-            width: "210mm",
-            maxWidth: "100%",
-            minHeight: "297mm",
-            aspectRatio: "210 / 297",
-          }}
+          style={{ width: "210mm", maxWidth: "100%", minHeight: "297mm", aspectRatio: "210 / 297" }}
         >
-          {/* Header bar */}
           <div className="border-b px-8 py-5 flex items-center justify-between">
             <div>
               <h3 className="font-semibold text-base text-foreground">{name || "Título do Contrato"}</h3>
               <p className="text-xs text-muted-foreground mt-0.5">{typeLabels[contractType] || contractType}</p>
             </div>
-            <span className="text-xs text-muted-foreground">
-              {new Date().toLocaleDateString("pt-BR")}
-            </span>
+            <span className="text-xs text-muted-foreground">{new Date().toLocaleDateString("pt-BR")}</span>
           </div>
-          {/* Body */}
           <div
             className="prose prose-sm max-w-none px-8 py-6 text-foreground [&_p]:leading-relaxed"
             dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(renderPreviewHtml(bodyHtml)) }}
           />
-          {/* Signature area pinned at bottom */}
           <div className="border-t px-8 py-8 mt-auto">
             <div className="grid grid-cols-2 gap-12">
               <div className="text-center">
@@ -271,7 +319,10 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSubmit, i
         <DialogHeader className="px-6 pt-5 pb-3 border-b shrink-0">
           <DialogTitle>{template ? "Editar Template" : "Novo Template de Contrato"}</DialogTitle>
           <DialogDescription>
-            Use variáveis como {"{{nome_cliente}}"} para campos que serão preenchidos automaticamente.
+            {templateType === "pdf"
+              ? "Envie um PDF e posicione os campos onde os dados serão preenchidos."
+              : "Use variáveis como {{nome_cliente}} para campos que serão preenchidos automaticamente."
+            }
           </DialogDescription>
         </DialogHeader>
 
@@ -280,48 +331,59 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSubmit, i
             {metaFields}
           </div>
 
-          {/* Mobile toggle */}
-          {isMobile && (
-            <div className="flex gap-1 px-6 pb-2 shrink-0">
-              <Button
-                type="button" variant={mobileTab === "editor" ? "default" : "outline"}
-                size="sm" className="flex-1 gap-1.5"
-                onClick={() => setMobileTab("editor")}
-              >
-                <Pencil className="h-3.5 w-3.5" /> Editor
-              </Button>
-              <Button
-                type="button" variant={mobileTab === "preview" ? "default" : "outline"}
-                size="sm" className="flex-1 gap-1.5"
-                onClick={() => setMobileTab("preview")}
-              >
-                <Eye className="h-3.5 w-3.5" /> Preview
-              </Button>
-            </div>
-          )}
-
-          {/* Split canvas */}
-          <div className="flex-1 min-h-0 px-4 pb-2">
-            {isMobile ? (
-              <div className="h-full">
-                {mobileTab === "editor" ? editorPanel : previewPanel}
+          {/* Content area */}
+          {templateType === "pdf" ? (
+            <div className="flex-1 min-h-0 px-4 pb-2">
+              <div className="h-full rounded-lg border overflow-hidden">
+                <PdfFieldEditor
+                  pdfUrl={pdfUrl}
+                  onPdfUploaded={setPdfUrl}
+                  fieldPositions={fieldPositions}
+                  onFieldPositionsChange={setFieldPositions}
+                />
               </div>
-            ) : (
-              <ResizablePanelGroup direction="horizontal" className="h-full rounded-lg border">
-                <ResizablePanel defaultSize={55} minSize={35}>
-                  <div className="h-full p-3">
-                    {editorPanel}
+            </div>
+          ) : (
+            <>
+              {/* Mobile toggle */}
+              {isMobile && (
+                <div className="flex gap-1 px-6 pb-2 shrink-0">
+                  <Button
+                    type="button" variant={mobileTab === "editor" ? "default" : "outline"}
+                    size="sm" className="flex-1 gap-1.5"
+                    onClick={() => setMobileTab("editor")}
+                  >
+                    <Pencil className="h-3.5 w-3.5" /> Editor
+                  </Button>
+                  <Button
+                    type="button" variant={mobileTab === "preview" ? "default" : "outline"}
+                    size="sm" className="flex-1 gap-1.5"
+                    onClick={() => setMobileTab("preview")}
+                  >
+                    <Eye className="h-3.5 w-3.5" /> Preview
+                  </Button>
+                </div>
+              )}
+
+              <div className="flex-1 min-h-0 px-4 pb-2">
+                {isMobile ? (
+                  <div className="h-full">
+                    {mobileTab === "editor" ? editorPanel : previewPanel}
                   </div>
-                </ResizablePanel>
-                <ResizableHandle withHandle />
-                <ResizablePanel defaultSize={45} minSize={30}>
-                  <div className="h-full p-3">
-                    {previewPanel}
-                  </div>
-                </ResizablePanel>
-              </ResizablePanelGroup>
-            )}
-          </div>
+                ) : (
+                  <ResizablePanelGroup direction="horizontal" className="h-full rounded-lg border">
+                    <ResizablePanel defaultSize={55} minSize={35}>
+                      <div className="h-full p-3">{editorPanel}</div>
+                    </ResizablePanel>
+                    <ResizableHandle withHandle />
+                    <ResizablePanel defaultSize={45} minSize={30}>
+                      <div className="h-full p-3">{previewPanel}</div>
+                    </ResizablePanel>
+                  </ResizablePanelGroup>
+                )}
+              </div>
+            </>
+          )}
 
           {/* Detected variables */}
           {detectedVars.length > 0 && (
