@@ -332,6 +332,176 @@ serve(async (req) => {
       });
     }
 
+    if (action === "create-custom-subscription") {
+      const body = await req.json();
+      const { customModules, billingCycle, paymentMethod, customerId } = body;
+
+      if (!customModules || !Array.isArray(customModules) || customModules.length === 0) {
+        throw new Error("Selecione pelo menos um módulo");
+      }
+
+      // Get the custom plan
+      const { data: customPlan } = await supabase
+        .from("subscription_plans")
+        .select("*")
+        .eq("slug", "personalizado")
+        .single();
+      if (!customPlan) throw new Error("Plano personalizado não encontrado");
+
+      // Get all selected modules
+      const moduleIds = customModules.map((m: any) => m.moduleId);
+      const { data: modules } = await supabase
+        .from("plan_modules")
+        .select("*")
+        .in("id", moduleIds)
+        .eq("is_active", true);
+      if (!modules || modules.length === 0) throw new Error("Módulos não encontrados");
+
+      // Calculate total price
+      let totalPrice = 0;
+      for (const sel of customModules) {
+        const mod = modules.find((m: any) => m.id === sel.moduleId);
+        if (!mod) continue;
+        const price = billingCycle === "yearly" ? mod.price_yearly : mod.price_monthly;
+        const isNumeric = typeof mod.feature_value === "number" || !isNaN(Number(mod.feature_value));
+        const qty = isNumeric ? (sel.quantity || 1) : 1;
+        totalPrice += price * qty;
+      }
+
+      if (totalPrice <= 0) throw new Error("Valor total deve ser maior que zero");
+
+      const priceInReais = totalPrice / 100;
+      const now = new Date();
+      const periodEnd = billingCycle === "yearly"
+        ? new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000)
+        : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+      // Save module selections
+      await supabase.from("custom_plan_selections").delete().eq("organization_id", orgId);
+      const selectionsToInsert = customModules.map((sel: any) => ({
+        organization_id: orgId,
+        module_id: sel.moduleId,
+        quantity: sel.quantity || 1,
+      }));
+      await supabase.from("custom_plan_selections").insert(selectionsToInsert);
+
+      // Create Asaas payment (PIX or subscription)
+      if (paymentMethod === "pix") {
+        const dueDate = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+        const payment = await asaasFetch("/payments", {
+          method: "POST",
+          body: JSON.stringify({
+            customer: customerId,
+            billingType: "PIX",
+            value: priceInReais,
+            dueDate,
+            description: `Habitae Personalizado - ${customModules.length} módulos - ${billingCycle === "yearly" ? "Anual" : "Mensal"}`,
+            externalReference: orgId,
+          }),
+        });
+        const pixInfo = await asaasFetch(`/payments/${payment.id}/pixQrCode`);
+
+        const { data: newSub, error: subErr } = await supabase
+          .from("subscriptions")
+          .insert({
+            organization_id: orgId,
+            plan_id: customPlan.id,
+            status: "pending",
+            billing_cycle: billingCycle,
+            provider: "asaas",
+            provider_customer_id: customerId,
+            payment_method: "pix",
+            current_period_start: now.toISOString(),
+            current_period_end: periodEnd.toISOString(),
+          })
+          .select()
+          .single();
+        if (subErr) throw subErr;
+
+        await supabase.from("subscriptions")
+          .update({ status: "cancelled", cancelled_at: now.toISOString() })
+          .eq("organization_id", orgId)
+          .in("status", ["active", "trial"])
+          .neq("id", newSub.id);
+
+        await supabase.from("billing_payments").insert({
+          organization_id: orgId,
+          subscription_id: newSub.id,
+          provider: "asaas",
+          provider_payment_id: payment.id,
+          amount_cents: totalPrice,
+          method: "pix",
+          status: "pending",
+          pix_qr_code: pixInfo.encodedImage,
+          pix_copy_paste: pixInfo.payload,
+        });
+
+        return new Response(JSON.stringify({
+          subscription: newSub,
+          pixData: { paymentId: payment.id, qrCode: pixInfo.encodedImage, copyPaste: pixInfo.payload },
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // Credit card
+      const cycle = billingCycle === "yearly" ? "YEARLY" : "MONTHLY";
+      const asaasSub = await asaasFetch("/subscriptions", {
+        method: "POST",
+        body: JSON.stringify({
+          customer: customerId,
+          billingType: "CREDIT_CARD",
+          value: priceInReais,
+          cycle,
+          description: `Habitae Personalizado - ${customModules.length} módulos`,
+          externalReference: orgId,
+        }),
+      });
+
+      const payments = await asaasFetch(`/subscriptions/${asaasSub.id}/payments?limit=1`);
+      const firstPayment = payments.data?.[0];
+
+      const { data: newSub, error: subErr } = await supabase
+        .from("subscriptions")
+        .insert({
+          organization_id: orgId,
+          plan_id: customPlan.id,
+          status: "pending",
+          billing_cycle: billingCycle,
+          provider: "asaas",
+          provider_customer_id: customerId,
+          provider_subscription_id: asaasSub.id,
+          payment_method: "credit_card",
+          current_period_start: now.toISOString(),
+          current_period_end: periodEnd.toISOString(),
+        })
+        .select()
+        .single();
+      if (subErr) throw subErr;
+
+      await supabase.from("subscriptions")
+        .update({ status: "cancelled", cancelled_at: now.toISOString() })
+        .eq("organization_id", orgId)
+        .in("status", ["active", "trial"])
+        .neq("id", newSub.id);
+
+      if (firstPayment) {
+        await supabase.from("billing_payments").insert({
+          organization_id: orgId,
+          subscription_id: newSub.id,
+          provider: "asaas",
+          provider_payment_id: firstPayment.id,
+          amount_cents: totalPrice,
+          method: "credit_card",
+          status: "pending",
+          invoice_url: firstPayment.invoiceUrl || null,
+        });
+      }
+
+      return new Response(JSON.stringify({
+        subscription: newSub,
+        invoiceUrl: firstPayment?.invoiceUrl || null,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     if (action === "cancel-subscription") {
       const { data: sub } = await supabase
         .from("subscriptions")
