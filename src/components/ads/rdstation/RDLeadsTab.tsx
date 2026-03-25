@@ -150,9 +150,15 @@ export default function RDLeadsTab() {
             <div key={lead.id} className="flex items-center justify-between p-3 rounded-lg border bg-card text-sm hover:bg-muted/50 transition-colors">
               <div className="min-w-0 flex-1">
                 <p className="font-medium truncate">{lead.name || "Sem nome"}</p>
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  {lead.email && <span>{lead.email}</span>}
-                  {lead.phone && <span>{lead.phone}</span>}
+                <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                  {lead.email && <span className="truncate">{lead.email}</span>}
+                  {lead.phone && (
+                    <span className="flex items-center gap-1">
+                      <Phone className="h-3 w-3 shrink-0" />
+                      {lead.phone}
+                    </span>
+                  )}
+                  {!lead.phone && !lead.email && <span className="italic">Sem contato</span>}
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
