@@ -12,6 +12,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Plus, TrendingUp, TrendingDown, Wallet, CreditCard, FileText, LayoutTemplate, Sparkles } from "lucide-react";
+import { Landmark } from "lucide-react";
 import { useTransactions, type Transaction } from "@/hooks/useTransactions";
 import { useInvoices, type Invoice } from "@/hooks/useInvoices";
 import { useCommissions } from "@/hooks/useCommissions";
@@ -31,6 +32,9 @@ import { MobileContractCard } from "@/components/contracts/MobileContractCard";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ContractTemplatesTab } from "@/components/contracts/ContractTemplatesTab";
 const QuickContractDialog = lazy(() => import("@/components/contracts/QuickContractDialog").then(m => ({ default: m.QuickContractDialog })));
+const FinancingSimulatorLazy = lazy(() => import("@/components/financing/FinancingSimulator").then(m => ({ default: m.FinancingSimulator })));
+const FinancingPipelineLazy = lazy(() => import("@/components/financing/FinancingPipeline").then(m => ({ default: m.FinancingPipeline })));
+const FinancingDocsChecklistLazy = lazy(() => import("@/components/financing/FinancingDocsChecklist").then(m => ({ default: m.FinancingDocsChecklist })));
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -250,6 +254,10 @@ function FinancialContent() {
               <LayoutTemplate className="h-4 w-4" />
               Templates
             </TabsTrigger>
+            <TabsTrigger value="financiamentos" className="flex-1 sm:flex-initial min-h-[44px] gap-2">
+              <Landmark className="h-4 w-4" />
+              Financiamentos
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="transactions" className="mt-4">
@@ -391,6 +399,21 @@ function FinancialContent() {
 
           <TabsContent value="templates" className="mt-4">
             <ContractTemplatesTab />
+          </TabsContent>
+
+          <TabsContent value="financiamentos" className="mt-4 space-y-6">
+            <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+              <Tabs defaultValue="simulador">
+                <TabsList>
+                  <TabsTrigger value="simulador">Simulador</TabsTrigger>
+                  <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
+                  <TabsTrigger value="documentacao">Documentação</TabsTrigger>
+                </TabsList>
+                <TabsContent value="simulador"><FinancingSimulatorLazy /></TabsContent>
+                <TabsContent value="pipeline"><FinancingPipelineLazy /></TabsContent>
+                <TabsContent value="documentacao"><FinancingDocsChecklistLazy /></TabsContent>
+              </Tabs>
+            </Suspense>
           </TabsContent>
         </Tabs>
       </div>

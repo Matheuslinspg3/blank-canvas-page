@@ -65,7 +65,6 @@ const Maintenance = lazy(() => import("./pages/Maintenance"));
 const EmailTemplates = lazy(() => import("./pages/EmailTemplates"));
 const Plans = lazy(() => import("./pages/Plans"));
 const MyPlan = lazy(() => import("./pages/MyPlan"));
-const Financiamentos = lazy(() => import("./pages/Financiamentos"));
 const Onboarding = lazy(() => import("./pages/app/Onboarding"));
 const AppAuth = lazy(() => import("./pages/app/AppAuth"));
 const AppHome = lazy(() => import("./pages/app/Home"));
@@ -203,8 +202,7 @@ const App = () => (
                         <Route path="/integracoes" element={<Integrations />} />
                         <Route path="/configuracoes" element={<Settings />} />
                         <Route path="/meu-plano" element={<MyPlan />} />
-                        <Route path="/financiamentos" element={<Financiamentos />} />
-                        
+
                         {/* Marketing module - consolidated */}
                         <Route path="/marketing" element={<Anuncios />} />
                         <Route path="/marketing/ad/:externalId" element={<MetaAdDetail />} />
