@@ -164,6 +164,49 @@ export function ContractForm({ open, onOpenChange, contract, onSubmit, isSubmitt
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit, handleInvalid)} className="space-y-4">
+            {/* Template selector — only for new contracts */}
+            {!contract && templates.length > 0 && (
+              <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <FileText className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">Template do contrato</span>
+                </div>
+                <Select
+                  value={selectedTemplateId || undefined}
+                  onValueChange={(val) => {
+                    setSelectedTemplateId(val);
+                    const tpl = templates.find(t => t.id === val);
+                    if (tpl) {
+                      if (tpl.contract_type === "venda" || tpl.contract_type === "locacao") {
+                        form.setValue("type", tpl.contract_type);
+                      }
+                    }
+                  }}
+                >
+                  <SelectTrigger className="min-h-[44px] bg-background">
+                    <SelectValue placeholder="Selecione um template (opcional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templates.map((tpl) => (
+                      <SelectItem key={tpl.id} value={tpl.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{tpl.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            ({tpl.contract_type === "venda" ? "Venda" : "Locação"})
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedTemplateId && (
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    O template será aplicado ao gerar o documento do contrato.
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Essential fields — always visible */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField
