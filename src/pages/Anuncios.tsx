@@ -79,65 +79,69 @@ export default function Anuncios() {
 
           {/* ── Meta Ads ── */}
           <TabsContent value="meta" className="mt-4 space-y-4">
-            <Tabs value={metaTab} onValueChange={setMetaTab}>
-              <TabsList className="w-full sm:w-auto">
-                <TabsTrigger value="conexao" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5">
-                  <Link2 className="h-3.5 w-3.5" />
-                  Conexão
-                </TabsTrigger>
-                <TabsTrigger value="leads" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5 relative">
-                  <Users className="h-3.5 w-3.5" />
-                  Leads
-                  {totalNew > 0 && (
-                    <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] rounded-full bg-destructive text-destructive-foreground">
-                      {totalNew}
-                    </span>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="estatisticas" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5">
-                  <TrendingUp className="h-3.5 w-3.5" />
-                  Estatísticas
-                </TabsTrigger>
-                <TabsTrigger value="anuncios" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5">
-                  <LayoutList className="h-3.5 w-3.5" />
-                  Anúncios
-                </TabsTrigger>
-              </TabsList>
+            <FeatureFlagGate featureKey="has_meta_ads">
+              <Tabs value={metaTab} onValueChange={setMetaTab}>
+                <TabsList className="w-full sm:w-auto">
+                  <TabsTrigger value="conexao" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5">
+                    <Link2 className="h-3.5 w-3.5" />
+                    Conexão
+                  </TabsTrigger>
+                  <TabsTrigger value="leads" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5 relative">
+                    <Users className="h-3.5 w-3.5" />
+                    Leads
+                    {totalNew > 0 && (
+                      <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] rounded-full bg-destructive text-destructive-foreground">
+                        {totalNew}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="estatisticas" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5">
+                    <TrendingUp className="h-3.5 w-3.5" />
+                    Estatísticas
+                  </TabsTrigger>
+                  <TabsTrigger value="anuncios" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5">
+                    <LayoutList className="h-3.5 w-3.5" />
+                    Anúncios
+                  </TabsTrigger>
+                </TabsList>
 
-              <TabsContent value="conexao" className="mt-4"><MetaConnectionTab /></TabsContent>
-              <TabsContent value="leads" className="mt-4"><MetaLeadsInboxContent /></TabsContent>
-              <TabsContent value="estatisticas" className="mt-4"><MetaStatsContent /></TabsContent>
-              <TabsContent value="anuncios" className="mt-4"><MetaAdsListContent /></TabsContent>
-            </Tabs>
+                <TabsContent value="conexao" className="mt-4"><MetaConnectionTab /></TabsContent>
+                <TabsContent value="leads" className="mt-4"><MetaLeadsInboxContent /></TabsContent>
+                <TabsContent value="estatisticas" className="mt-4"><MetaStatsContent /></TabsContent>
+                <TabsContent value="anuncios" className="mt-4"><MetaAdsListContent /></TabsContent>
+              </Tabs>
+            </FeatureFlagGate>
           </TabsContent>
 
           {/* ── RD Station ── */}
           <TabsContent value="rdstation" className="mt-4 space-y-4">
-            <Tabs value={rdTab} onValueChange={setRdTab}>
-              <TabsList className="w-full sm:w-auto">
-                <TabsTrigger value="conexao" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5">
-                  <Link2 className="h-3.5 w-3.5" />
-                  Conexão
-                </TabsTrigger>
-                <TabsTrigger value="leads" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5">
-                  <Users className="h-3.5 w-3.5" />
-                  Leads
-                </TabsTrigger>
-                <TabsTrigger value="estatisticas" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5">
-                  <TrendingUp className="h-3.5 w-3.5" />
-                  Estatísticas
-                </TabsTrigger>
-                <TabsTrigger value="webhook_logs" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5">
-                  <ScrollText className="h-3.5 w-3.5" />
-                  Webhook Logs
-                </TabsTrigger>
-              </TabsList>
+            <FeatureFlagGate featureKey="has_rd_station">
+              <Tabs value={rdTab} onValueChange={setRdTab}>
+                <TabsList className="w-full sm:w-auto">
+                  <TabsTrigger value="conexao" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5">
+                    <Link2 className="h-3.5 w-3.5" />
+                    Conexão
+                  </TabsTrigger>
+                  <TabsTrigger value="leads" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5">
+                    <Users className="h-3.5 w-3.5" />
+                    Leads
+                  </TabsTrigger>
+                  <TabsTrigger value="estatisticas" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5">
+                    <TrendingUp className="h-3.5 w-3.5" />
+                    Estatísticas
+                  </TabsTrigger>
+                  <TabsTrigger value="webhook_logs" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5">
+                    <ScrollText className="h-3.5 w-3.5" />
+                    Webhook Logs
+                  </TabsTrigger>
+                </TabsList>
 
-              <TabsContent value="conexao" className="mt-4"><RDConnectionTab /></TabsContent>
-              <TabsContent value="leads" className="mt-4"><RDLeadsTab /></TabsContent>
-              <TabsContent value="estatisticas" className="mt-4"><RDStationStatsContent /></TabsContent>
-              <TabsContent value="webhook_logs" className="mt-4"><RDWebhookTab /></TabsContent>
-            </Tabs>
+                <TabsContent value="conexao" className="mt-4"><RDConnectionTab /></TabsContent>
+                <TabsContent value="leads" className="mt-4"><RDLeadsTab /></TabsContent>
+                <TabsContent value="estatisticas" className="mt-4"><RDStationStatsContent /></TabsContent>
+                <TabsContent value="webhook_logs" className="mt-4"><RDWebhookTab /></TabsContent>
+              </Tabs>
+            </FeatureFlagGate>
           </TabsContent>
 
           {/* ── Gerador IA ── */}
