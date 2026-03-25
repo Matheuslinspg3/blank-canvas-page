@@ -103,7 +103,7 @@ export function useLeadScore(leadId: string | null) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["leads"], refetchType: "active" });
     },
   });
 
