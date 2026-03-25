@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +39,10 @@ export function CheckoutDialog({ open, onOpenChange, plan, defaultSandbox = fals
   const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [useSandbox, setUseSandbox] = useState(defaultSandbox);
+
+  useEffect(() => {
+    if (open) setUseSandbox(defaultSandbox);
+  }, [defaultSandbox, open]);
 
   if (!plan) return null;
 

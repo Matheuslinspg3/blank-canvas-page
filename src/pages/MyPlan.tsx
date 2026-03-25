@@ -214,7 +214,13 @@ export default function MyPlan() {
 
               <div className="flex gap-2 pt-1">
                 {(isOverdue || isCancelled || trialActive) && (
-                  <Button size="sm" onClick={() => setCheckoutPlan(currentPlan || displayPlans[0] || null)}>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setCheckoutSandbox(false);
+                      setCheckoutPlan(currentPlan || displayPlans[0] || null);
+                    }}
+                  >
                     Renovar plano
                   </Button>
                 )}
@@ -401,7 +407,12 @@ export default function MyPlan() {
 
       <CheckoutDialog
         open={!!checkoutPlan}
-        onOpenChange={(open) => !open && setCheckoutPlan(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCheckoutPlan(null);
+            setCheckoutSandbox(false);
+          }
+        }}
         plan={checkoutPlan}
         defaultSandbox={checkoutSandbox}
       />
