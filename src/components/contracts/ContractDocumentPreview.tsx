@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import DOMPurify from "dompurify";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -93,12 +93,12 @@ export function ContractDocumentPreview({
   }, [profile?.organization_id]);
 
   // Reset state when opening
-  useState(() => {
+  useEffect(() => {
     if (open) {
       fetchOrgName();
       if (initialTemplateId) setSelectedTemplateId(initialTemplateId);
     }
-  });
+  }, [open, fetchOrgName, initialTemplateId]);
 
   const selectedTemplate = templates.find((t) => t.id === selectedTemplateId) || null;
 
