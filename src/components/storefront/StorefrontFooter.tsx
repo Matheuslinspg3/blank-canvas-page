@@ -16,9 +16,6 @@ export function StorefrontFooter({ org, brand }: Props) {
         )}
         <p>© {new Date().getFullYear()} {org.name}. Todos os direitos reservados.</p>
         {brand?.tagline && <p className="mt-1 text-xs">{brand.tagline}</p>}
-        <p className="mt-3 text-xs opacity-50">
-          Desenvolvido com <a href="https://portadocorretor.com.br" target="_blank" rel="noopener" className="underline hover:text-white">Porta do Corretor</a>
-        </p>
       </div>
     </footer>
   );
