@@ -62,7 +62,7 @@ export interface BillingPayment {
 
 export type PlanLine = "marketplace" | "erp" | "combo" | "main";
 
-const PLAN_ORDER = ['gratuito', 'starter', 'essencial', 'profissional', 'business'];
+const PLAN_ORDER = ['gratuito', 'starter', 'correspondente', 'essencial', 'profissional', 'business'];
 
 const ENTERPRISE_UNLIMITED_KEYS = new Set([
   'max_own_properties',

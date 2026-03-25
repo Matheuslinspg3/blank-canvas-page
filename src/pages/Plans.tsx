@@ -268,7 +268,7 @@ export default function Plans() {
 
       {/* ─── PLAN CARDS ─── */}
       <section className="max-w-7xl mx-auto px-4 pb-16">
-        <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory md:grid md:grid-cols-3 lg:grid-cols-5 md:overflow-visible md:pb-0">
+        <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory md:grid md:grid-cols-3 lg:grid-cols-6 md:overflow-visible md:pb-0">
           {mainPlans.map((plan) => {
             const f = plan.features as Record<string, any> || {};
             const meta: PlanMeta = planMeta[plan.slug] || { icon: Star, ctaLabel: "Selecionar", ctaVariant: "default" as const };
