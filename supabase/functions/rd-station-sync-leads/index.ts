@@ -881,7 +881,7 @@ async function importContactEvents(
 
     for (const event of events.slice(0, 50)) {
       const eventType = event.event_type || event.type || "CONVERSION";
-      const interactionType = interactionTypeMap[eventType] || "anotacao";
+      const interactionType = interactionTypeMap[eventType] || "nota";
       const occurredAt = event.event_timestamp || event.created_at || new Date().toISOString();
 
       let description = `[RD Station] ${eventType}`;
