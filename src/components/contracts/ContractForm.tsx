@@ -107,7 +107,10 @@ export function ContractForm({ open, onOpenChange, contract, onSubmit, isSubmitt
   }, [contract, form, open]);
 
   const handleSubmit = (data: FormData) => {
-    onSubmit(data as ContractFormData);
+    const submitData = selectedTemplateId
+      ? { ...data, template_id: selectedTemplateId }
+      : data;
+    onSubmit(submitData as ContractFormData);
     if (getStoredConsent() === "granted") {
       clarityEvent(contract ? "contract_updated" : "contract_created");
     }
