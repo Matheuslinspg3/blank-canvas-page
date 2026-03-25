@@ -175,10 +175,9 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
     enabled: !!orgId,
   });
 
-  const callBilling = async (action: string, body?: any, sandbox?: boolean) => {
-    const sandboxParam = sandbox != null ? `&sandbox=${sandbox}` : "";
+  const callBilling = async (action: string, body?: any) => {
     const res = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/billing?action=${action}${sandboxParam}`,
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/billing?action=${action}`,
       {
         method: "POST",
         headers: {
