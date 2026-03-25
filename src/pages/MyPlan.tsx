@@ -300,7 +300,7 @@ export default function MyPlan() {
                     </div>
                     {billingToggle === "yearly" && (
                       <p className="text-[10px] text-muted-foreground">
-                        R$ {Number(price).toFixed(2)}/ano
+                        R$ {(Number(price) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/ano
                       </p>
                     )}
                   </CardHeader>
