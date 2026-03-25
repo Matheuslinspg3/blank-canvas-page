@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Inbox, Download, Users } from "lucide-react";
+import { Search, Inbox, Download, Users, Phone, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
 import { format } from "date-fns";
@@ -21,6 +21,24 @@ export default function RDLeadsTab() {
   const { hasOAuth } = useRDStationSettings();
   const [search, setSearch] = useState("");
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+  const [isBackfilling, setIsBackfilling] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleBackfillPhones = async () => {
+    setIsBackfilling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("rd-station-backfill-phones");
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`${data.updated || 0} leads atualizados com telefone!`);
+      queryClient.invalidateQueries({ queryKey: ["rd-station-leads"] });
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+    } catch (err: any) {
+      toastError("Erro ao atualizar telefones.", err, { module: "RDLeadsTab" });
+    } finally {
+      setIsBackfilling(false);
+    }
+  };
 
   const { data: rdLeads = [], isLoading } = useQuery({
     queryKey: ["rd-station-leads", orgId],
