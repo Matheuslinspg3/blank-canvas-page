@@ -122,32 +122,8 @@ export default function MetaSettings() {
         </CardContent>
       </Card>
 
-      {/* Sync buttons */}
-      {isConnected && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2"><RefreshCw className="h-4 w-4" /> Sincronização</CardTitle>
-            <CardDescription>Sincronize dados manualmente com o Meta Ads.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-xs text-muted-foreground">
-              A sincronização completa será realizada pelas funções de backend. Use os botões abaixo para disparar manualmente.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <Button variant="outline" size="sm" disabled>
-                <RefreshCw className="h-4 w-4 mr-2" /> Sincronizar Ads
-              </Button>
-              <Button variant="outline" size="sm" disabled>
-                <RefreshCw className="h-4 w-4 mr-2" /> Sincronizar Estatísticas (30 dias)
-              </Button>
-              <Button variant="outline" size="sm" disabled>
-                <RefreshCw className="h-4 w-4 mr-2" /> Backfill Leads (7 dias)
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground italic">Os endpoints de sincronização serão habilitados após configuração do backend.</p>
-          </CardContent>
-        </Card>
-      )}
+      {/* Lead Import */}
+      {isConnected && <MetaLeadImport />}
     </div>
   );
 }
