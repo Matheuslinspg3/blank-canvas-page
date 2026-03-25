@@ -160,7 +160,21 @@ Deno.serve(async (req) => {
       if (contacts.length === 0) break;
 
       for (const contact of contacts) {
-        const phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhone(contact) || null;
+        let phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhone(contact) || null;
+
+        // If no phone in segmentation data, fetch full contact details
+        if (!phone && contact.uuid) {
+          try {
+            const detailRes = await fetch(`https://api.rd.services/platform/contacts/${contact.uuid}`, { headers: apiHeaders });
+            if (detailRes.ok) {
+              const fullContact = await detailRes.json();
+              phone = fullContact.personal_phone || fullContact.mobile_phone || fullContact.phone || fullContact.cellphone || extractPhone(fullContact) || null;
+            }
+            // Rate limit delay
+            await new Promise(r => setTimeout(r, 200));
+          } catch { /* skip */ }
+        }
+
         if (!phone) continue;
 
         let matchedLead: typeof leadsWithoutPhone[0] | undefined;
@@ -191,6 +205,47 @@ Deno.serve(async (req) => {
 
       hasMore = typeof data?.has_more === "boolean" ? data.has_more : contacts.length >= pageSize;
       page++;
+    }
+
+    // If we still have leads without phone, try fetching them directly by UUID
+    const remainingByUuid = [...extIdMap.entries()];
+    for (const [uuid, lead] of remainingByUuid) {
+      try {
+        const detailRes = await fetch(`https://api.rd.services/platform/contacts/${uuid}`, { headers: apiHeaders });
+        if (detailRes.ok) {
+          const fullContact = await detailRes.json();
+          const phone = fullContact.personal_phone || fullContact.mobile_phone || fullContact.phone || fullContact.cellphone || extractPhone(fullContact) || null;
+          if (phone) {
+            const { error: updateErr } = await supabase
+              .from("leads")
+              .update({ phone })
+              .eq("id", lead.id);
+            if (!updateErr) updated++;
+          }
+        }
+        await new Promise(r => setTimeout(r, 300));
+      } catch { /* skip */ }
+    }
+
+    // Also try fetching by email for remaining leads
+    const remainingByEmail = [...emailMap.entries()];
+    for (const [email, lead] of remainingByEmail) {
+      if (extIdMap.has(lead.external_id || "")) continue; // already tried
+      try {
+        const detailRes = await fetch(`https://api.rd.services/platform/contacts/email:${encodeURIComponent(email)}`, { headers: apiHeaders });
+        if (detailRes.ok) {
+          const fullContact = await detailRes.json();
+          const phone = fullContact.personal_phone || fullContact.mobile_phone || fullContact.phone || fullContact.cellphone || extractPhone(fullContact) || null;
+          if (phone) {
+            const { error: updateErr } = await supabase
+              .from("leads")
+              .update({ phone })
+              .eq("id", lead.id);
+            if (!updateErr) updated++;
+          }
+        }
+        await new Promise(r => setTimeout(r, 300));
+      } catch { /* skip */ }
     }
 
     console.log(`[backfill] Updated ${updated} leads with phone numbers`);
