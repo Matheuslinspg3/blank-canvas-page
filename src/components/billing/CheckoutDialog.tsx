@@ -77,6 +77,7 @@ export function CheckoutDialog({ open, onOpenChange, plan }: CheckoutDialogProps
         paymentMethod,
         customerName: customerName.trim(),
         customerCpf: customerCpf.replace(/\D/g, ""),
+        sandbox: useSandbox,
       },
       {
         onSuccess: (data: any) => {
