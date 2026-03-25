@@ -10,12 +10,14 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, FileText, FileUp, MoreHorizontal, Pencil, Trash2, Eye } from "lucide-react";
+import { Plus, FileText, FileUp, MoreHorizontal, Pencil, Trash2, Eye, BookTemplate, Loader2 } from "lucide-react";
 import { useContractTemplates, type ContractTemplate, type ContractTemplateFormData } from "@/hooks/useContractTemplates";
 import { ContractTemplateForm } from "./ContractTemplateForm";
 import { ContractTemplatePreview } from "./ContractTemplatePreview";
+import { DEFAULT_CONTRACT_TEMPLATES } from "./defaultContractTemplates";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
 
 const typeLabels: Record<string, string> = {
   venda: "Venda",
@@ -31,8 +33,31 @@ export function ContractTemplatesTab() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [templateToDelete, setTemplateToDelete] = useState<string | null>(null);
 
+  const [seedingTemplates, setSeedingTemplates] = useState(false);
+
   const handleCreate = () => { setEditingTemplate(null); setFormOpen(true); };
   const handleEdit = (t: ContractTemplate) => { setEditingTemplate(t); setFormOpen(true); };
+
+  const handleSeedTemplates = async () => {
+    setSeedingTemplates(true);
+    try {
+      const existingNames = templates.map(t => t.name);
+      const toCreate = DEFAULT_CONTRACT_TEMPLATES.filter(t => !existingNames.includes(t.name));
+      if (toCreate.length === 0) {
+        toast.info("Todos os templates padrão já foram adicionados.");
+        return;
+      }
+      for (const tpl of toCreate) {
+        const { key, ...data } = tpl;
+        createTemplate(data);
+      }
+      toast.success(`${toCreate.length} template(s) adicionado(s) com sucesso!`);
+    } catch (err) {
+      toast.error("Erro ao adicionar templates padrão.");
+    } finally {
+      setSeedingTemplates(false);
+    }
+  };
 
   const handleSubmit = (data: ContractTemplateFormData) => {
     if (editingTemplate) {
@@ -59,10 +84,16 @@ export function ContractTemplatesTab() {
           <h3 className="text-lg font-semibold">Templates de Contrato</h3>
           <p className="text-sm text-muted-foreground">Modelos reutilizáveis com variáveis auto-preenchíveis</p>
         </div>
-        <Button onClick={handleCreate} size="sm" className="gap-1.5">
-          <Plus className="h-4 w-4" />
-          Novo Template
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={handleSeedTemplates} size="sm" variant="outline" className="gap-1.5" disabled={seedingTemplates}>
+            {seedingTemplates ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookTemplate className="h-4 w-4" />}
+            Templates Prontos
+          </Button>
+          <Button onClick={handleCreate} size="sm" className="gap-1.5">
+            <Plus className="h-4 w-4" />
+            Novo Template
+          </Button>
+        </div>
       </div>
 
       {templates.length === 0 ? (
