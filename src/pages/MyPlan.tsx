@@ -294,19 +294,19 @@ export default function MyPlan() {
                     <CardTitle className="text-sm">{plan.name}</CardTitle>
                     <div className="pt-1">
                       <span className="text-2xl font-bold">
-                        R$ {Math.round(monthlyEq)}
+                        R$ {Math.round(monthlyEq / 100)}
                       </span>
                       <span className="text-xs text-muted-foreground">/mês</span>
                     </div>
                     {billingToggle === "yearly" && (
                       <p className="text-[10px] text-muted-foreground">
-                        R$ {Number(price).toFixed(2)}/ano
+                        R$ {(Number(price) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/ano
                       </p>
                     )}
                   </CardHeader>
                   <CardContent className="flex-1 space-y-2 text-xs">
-                    <PlanFeature label={`${fmtLimit(plan.max_own_properties ?? 0)} imóveis`} />
-                    <PlanFeature label={`${fmtLimit(plan.max_leads ?? 0)} leads`} />
+                    <PlanFeature label={`${plan.max_own_properties === null || plan.max_own_properties === -1 ? "Ilimitado" : fmtLimit(plan.max_own_properties ?? 0)} imóveis`} />
+                    <PlanFeature label={`${plan.max_leads === null || plan.max_leads === -1 ? "Ilimitado" : fmtLimit(plan.max_leads ?? 0)} leads`} />
                     {plan.marketplace_access && <PlanFeature label="Marketplace" />}
                     {plan.priority_support && <PlanFeature label="Suporte prioritário" />}
                     {plan.features && (plan.features as any).has_contracts && <PlanFeature label="Contratos" />}

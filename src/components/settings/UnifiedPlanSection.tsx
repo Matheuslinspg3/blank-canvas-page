@@ -280,7 +280,7 @@ export function UnifiedPlanSection() {
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold">
-                      R$ {plans.find(p => p.slug === "pro")?.price_monthly?.toFixed(0) || "5"}
+                      R$ {((plans.find(p => p.slug === "pro")?.price_monthly ?? 500) / 100).toFixed(0)}
                       <span className="text-sm text-muted-foreground font-normal">/mês</span>
                     </p>
                   </div>
@@ -306,7 +306,7 @@ export function UnifiedPlanSection() {
 
                 <Button className="w-full" size="lg" onClick={() => setShowCheckout(true)}>
                   <Crown className="h-4 w-4 mr-2" />
-                  Assinar Professional — R$ {plans.find(p => p.slug === "pro")?.price_monthly?.toFixed(0) || "5"}/mês
+                  Assinar Professional — R$ {((plans.find(p => p.slug === "pro")?.price_monthly ?? 500) / 100).toFixed(0)}/mês
                 </Button>
               </div>
             </>
@@ -373,7 +373,7 @@ export function UnifiedPlanSection() {
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-primary" />
-              Finalizar Assinatura — Professional R$ {plans.find(p => p.slug === "pro")?.price_monthly?.toFixed(2) || "5.00"}/mês
+              Finalizar Assinatura — Professional R$ {((plans.find(p => p.slug === "pro")?.price_monthly ?? 500) / 100).toFixed(2)}/mês
             </CardTitle>
             <CardDescription>Preencha seus dados e escolha a forma de pagamento</CardDescription>
           </CardHeader>
@@ -457,7 +457,7 @@ export function UnifiedPlanSection() {
                 <p className="text-sm font-semibold">Total</p>
                 <p className="text-xs text-muted-foreground">Cobrança mensal</p>
               </div>
-              <p className="text-xl font-bold">R$ {plans.find(p => p.slug === "pro")?.price_monthly?.toFixed(2) || "5.00"}</p>
+              <p className="text-xl font-bold">R$ {((plans.find(p => p.slug === "pro")?.price_monthly ?? 500) / 100).toFixed(2)}</p>
             </div>
 
             <div className="flex gap-2">
