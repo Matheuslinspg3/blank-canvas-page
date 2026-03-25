@@ -49,7 +49,7 @@ const getNumericFeature = (plan: SubscriptionPlan, key: string, fallback = 0) =>
   const featureVal = features[key];
   if (typeof featureVal === "number") return featureVal;
 
-  const topLevelVal = (plan as Record<string, unknown>)[key];
+  const topLevelVal = (plan as unknown as Record<string, unknown>)[key];
   if (typeof topLevelVal === "number") return topLevelVal;
 
   return fallback;
