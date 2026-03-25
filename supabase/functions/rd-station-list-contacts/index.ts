@@ -229,6 +229,44 @@ function extractPhoneFromCustomFields(contact: any): string | null {
 }
 
 async function refreshToken(
-...
+  supabase: any,
+  settings: any,
+  orgId: string
+): Promise<{ error?: string; access_token?: string }> {
+  try {
+    const clientId = Deno.env.get("RD_STATION_CLIENT_ID");
+    const clientSecret = Deno.env.get("RD_STATION_CLIENT_SECRET");
+
+    if (!clientId || !clientSecret || !settings.oauth_refresh_token) {
+      return { error: "Missing OAuth credentials" };
+    }
+
+    const res = await fetch("https://api.rd.services/auth/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: settings.oauth_refresh_token,
+      }),
+    });
+
+    if (!res.ok) return { error: `Refresh failed: ${res.status}` };
+
+    const data = await res.json();
+    const expiresAt = new Date(Date.now() + (data.expires_in || 86400) * 1000).toISOString();
+
+    await supabase
+      .from("rd_station_settings")
+      .update({
+        oauth_access_token: data.access_token,
+        oauth_refresh_token: data.refresh_token || settings.oauth_refresh_token,
+        oauth_token_expires_at: expiresAt,
+      })
+      .eq("organization_id", orgId);
+
+    return { access_token: data.access_token };
+  } catch (err: any) {
+    return { error: err.message };
   }
 }
