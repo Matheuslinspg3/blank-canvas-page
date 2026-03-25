@@ -694,16 +694,24 @@ async function processContacts(
           .maybeSingle();
 
         if (existingByEmail) {
-          duplicates++;
-          if (!options?.skipDuplicateLog) {
-            await supabase.from("rd_station_webhook_logs").insert({
-              organization_id: orgId,
-              event_type: "api_sync",
-              payload: { name, email, phone, rd_uuid: contact.uuid },
-              status: "duplicate",
-              error_message: "Duplicado por email",
-            });
+          // Update existing lead with missing data (phone, external_id, notes)
+          const updateData: Record<string, any> = {};
+          if (phone) updateData.phone = phone;
+          if (contact.uuid) {
+            updateData.external_id = contact.uuid;
+            updateData.external_source = "rdstation";
           }
+          const notes = buildNotes(contact);
+          if (notes && notes !== "[Sincronizado via RD Station API]") updateData.notes = notes;
+          if (Object.keys(updateData).length > 0) {
+            await supabase.from("leads").update(updateData).eq("id", existingByEmail.id);
+          }
+          // Import activities for existing lead too
+          if (contact.uuid && apiHeaders) {
+            await importContactEvents(supabase, contact.uuid, existingByEmail.id, orgId, userId, apiHeaders);
+            await sleep(200);
+          }
+          duplicates++;
           continue;
         }
       }
