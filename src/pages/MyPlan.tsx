@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-const isSandbox = import.meta.env.VITE_ASAAS_MODE === "sandbox";
+
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
