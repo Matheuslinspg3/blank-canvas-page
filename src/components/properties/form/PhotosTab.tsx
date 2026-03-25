@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { PropertyImageUpload } from "../PropertyImageUpload";
 import { Video } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSubscription } from "@/hooks/useSubscription";
 
 interface PropertyImage {
   id?: string;
@@ -23,7 +24,12 @@ interface PhotosTabProps {
 }
 
 export function PhotosTab({ form, images, onImagesChange }: PhotosTabProps) {
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
+  const { getFeatureLimit } = useSubscription({ enabled: !!session });
+
+  // Plan-based image limit (0 or missing = default 50)
+  const planImageLimit = getFeatureLimit("max_images_per_property");
+  const maxImages = planImageLimit > 0 && planImageLimit < Infinity ? planImageLimit : 50;
 
   return (
     <div className="mt-4 space-y-4">
@@ -33,7 +39,7 @@ export function PhotosTab({ form, images, onImagesChange }: PhotosTabProps) {
       <PropertyImageUpload
         images={images}
         onChange={onImagesChange}
-        maxImages={50}
+        maxImages={maxImages}
         organizationId={profile?.organization_id}
       />
 
