@@ -280,7 +280,7 @@ export function UnifiedPlanSection() {
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold">
-                      R$ {plans.find(p => p.slug === "pro")?.price_monthly?.toFixed(0) || "5"}
+                      R$ {((plans.find(p => p.slug === "pro")?.price_monthly ?? 500) / 100).toFixed(0)}
                       <span className="text-sm text-muted-foreground font-normal">/mês</span>
                     </p>
                   </div>
