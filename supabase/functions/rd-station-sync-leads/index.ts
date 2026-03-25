@@ -667,14 +667,13 @@ async function processContacts(
       let contact = rawContact;
       let phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
 
-      // If no phone and we have uuid + apiHeaders, fetch full contact details
-      if (!phone && contact.uuid && apiHeaders) {
+      // ALWAYS fetch full contact details — the segmentation endpoint returns very limited data
+      if (contact.uuid && apiHeaders) {
         const fullContact = await fetchFullContactDetails(contact.uuid, apiHeaders);
         if (fullContact) {
           contact = { ...contact, ...fullContact };
           phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
         }
-        // Small delay to respect rate limits
         await sleep(200);
       }
 
