@@ -52,11 +52,11 @@ const mainItems = [
   { title: "Imóveis", url: "/imoveis", icon: Home },
   { title: "Proprietários", url: "/proprietarios", icon: Building2 },
   { title: "CRM", url: "/crm", icon: Users },
+  { title: "Financiamentos", url: "/financiamentos", icon: Landmark },
   { title: "Agenda", url: "/agenda", icon: Calendar },
   { title: "Marketplace", url: "/marketplace", icon: Store },
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
   { title: "Marketing", url: "/marketing", icon: Megaphone, badge: true },
-  { title: "Financiamentos", url: "/financiamentos", icon: Landmark },
 ];
 
 // ── Component ────────────────────────────────────────────────
