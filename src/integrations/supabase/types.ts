@@ -4789,6 +4789,118 @@ export type Database = {
         }
         Relationships: []
       }
+      simulacoes_financiamento: {
+        Row: {
+          aprovado: boolean
+          banco_id: string
+          cet_anual_estimado: number
+          comprometimento_renda: number
+          corretor_id: string
+          created_at: string | null
+          id: string
+          idade_comprador: number
+          imovel_id: string | null
+          lead_id: string | null
+          observacoes: string | null
+          organization_id: string
+          prazo_meses: number
+          primeira_parcela: number
+          renda_mensal: number
+          sistema_amortizacao: string
+          taxa_anual: number
+          total_juros: number
+          total_pago: number
+          total_seguros: number
+          tr_mensal: number
+          ultima_parcela: number
+          updated_at: string | null
+          valor_entrada: number
+          valor_fgts: number | null
+          valor_financiado: number
+          valor_imovel: number
+        }
+        Insert: {
+          aprovado: boolean
+          banco_id: string
+          cet_anual_estimado: number
+          comprometimento_renda: number
+          corretor_id: string
+          created_at?: string | null
+          id?: string
+          idade_comprador: number
+          imovel_id?: string | null
+          lead_id?: string | null
+          observacoes?: string | null
+          organization_id: string
+          prazo_meses: number
+          primeira_parcela: number
+          renda_mensal: number
+          sistema_amortizacao: string
+          taxa_anual: number
+          total_juros: number
+          total_pago: number
+          total_seguros: number
+          tr_mensal: number
+          ultima_parcela: number
+          updated_at?: string | null
+          valor_entrada: number
+          valor_fgts?: number | null
+          valor_financiado: number
+          valor_imovel: number
+        }
+        Update: {
+          aprovado?: boolean
+          banco_id?: string
+          cet_anual_estimado?: number
+          comprometimento_renda?: number
+          corretor_id?: string
+          created_at?: string | null
+          id?: string
+          idade_comprador?: number
+          imovel_id?: string | null
+          lead_id?: string | null
+          observacoes?: string | null
+          organization_id?: string
+          prazo_meses?: number
+          primeira_parcela?: number
+          renda_mensal?: number
+          sistema_amortizacao?: string
+          taxa_anual?: number
+          total_juros?: number
+          total_pago?: number
+          total_seguros?: number
+          tr_mensal?: number
+          ultima_parcela?: number
+          updated_at?: string | null
+          valor_entrada?: number
+          valor_fgts?: number | null
+          valor_financiado?: number
+          valor_imovel?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "simulacoes_financiamento_imovel_id_fkey"
+            columns: ["imovel_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "simulacoes_financiamento_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "simulacoes_financiamento_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_plans: {
         Row: {
           created_at: string
