@@ -59,6 +59,7 @@ function PaymentStatusBadge({ status }: { status: string }) {
 
 export default function MyPlan() {
   const { profile } = useAuth();
+  const { isAdminOrAbove, isLoading: rolesLoading } = useUserRoles();
   const orgId = profile?.organization_id;
   const {
     plans, mainPlans, subscription, payments, currentPlan,
