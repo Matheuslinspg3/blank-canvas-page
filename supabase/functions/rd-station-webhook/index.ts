@@ -135,6 +135,8 @@ Deno.serve(async (req) => {
 
           // Use upsert-style insert: if a race condition causes a duplicate email,
           // the unique index will reject it and we treat it as duplicate
+          const propertyId = await matchProperty(supabase, orgId, leadData);
+
           const { data: newLead, error: insertError } = await supabase
             .from("leads")
             .insert({
@@ -148,6 +150,7 @@ Deno.serve(async (req) => {
               external_id: leadData.id?.toString() || null,
               external_source: "rdstation",
               notes: buildNotes(leadData),
+              property_id: propertyId,
             })
             .select("id")
             .single();
@@ -228,6 +231,86 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+async function matchProperty(
+  supabase: any,
+  orgId: string,
+  contact: Record<string, any>
+): Promise<string | null> {
+  try {
+    const hints: string[] = [];
+
+    const extractConversionId = (conv: any) => {
+      if (!conv) return;
+      const content = conv.content || conv;
+      const id = content.identifier || content.conversion_identifier;
+      if (id) hints.push(id);
+    };
+    extractConversionId(contact.first_conversion);
+    extractConversionId(contact.last_conversion);
+    if (contact.conversion_identifier) hints.push(contact.conversion_identifier);
+
+    if (Array.isArray(contact.tags)) {
+      hints.push(...contact.tags.filter((t: any) => typeof t === "string"));
+    }
+
+    if (contact.custom_fields && typeof contact.custom_fields === "object") {
+      for (const [key, value] of Object.entries(contact.custom_fields)) {
+        if (value && typeof value === "string" && /imovel|imóvel|property|empreendimento|lote|casa|apto|apartamento|loteamento/i.test(key)) {
+          hints.push(value);
+        }
+      }
+    }
+
+    if (contact.cf_imovel_interesse) hints.push(contact.cf_imovel_interesse);
+    if (contact.cf_empreendimento) hints.push(contact.cf_empreendimento);
+
+    if (hints.length === 0) return null;
+
+    const { data: properties } = await supabase
+      .from("properties")
+      .select("id, title, property_code")
+      .eq("organization_id", orgId)
+      .limit(500);
+
+    if (!properties || properties.length === 0) return null;
+
+    for (const hint of hints) {
+      const normalized = hint.trim().toLowerCase();
+      for (const prop of properties) {
+        if (prop.property_code && prop.property_code.toLowerCase() === normalized) {
+          return prop.id;
+        }
+      }
+    }
+
+    for (const hint of hints) {
+      const normalized = hint.toLowerCase();
+      for (const prop of properties) {
+        if (prop.property_code && normalized.includes(prop.property_code.toLowerCase())) {
+          return prop.id;
+        }
+      }
+    }
+
+    for (const hint of hints) {
+      const normalized = hint.toLowerCase();
+      if (normalized.length < 3) continue;
+      for (const prop of properties) {
+        const title = (prop.title || "").toLowerCase();
+        if (title.length < 3) continue;
+        if (normalized.includes(title) || title.includes(normalized)) {
+          return prop.id;
+        }
+      }
+    }
+
+    return null;
+  } catch (err) {
+    console.error("matchProperty error:", err);
+    return null;
+  }
+}
 
 function buildNotes(data: Record<string, any>): string {
   const ignore = new Set([
