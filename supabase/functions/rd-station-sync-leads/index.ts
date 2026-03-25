@@ -616,6 +616,29 @@ async function refreshToken(
   }
 }
 
+// ─── FETCH FULL CONTACT DETAILS from /platform/contacts/{uuid} ───
+
+async function fetchFullContactDetails(
+  uuid: string,
+  apiHeaders: Record<string, string>
+): Promise<Record<string, any> | null> {
+  try {
+    const res = await fetchWithTimeout(
+      `https://api.rd.services/platform/contacts/${uuid}`,
+      apiHeaders,
+      10000
+    );
+    if (!res.ok) {
+      console.log(`[fetchFull] Failed for ${uuid}: ${res.status}`);
+      return null;
+    }
+    return await res.json();
+  } catch (err: any) {
+    console.log(`[fetchFull] Error for ${uuid}: ${err.message}`);
+    return null;
+  }
+}
+
 async function processContacts(
   supabase: any,
   contacts: any[],
@@ -623,18 +646,32 @@ async function processContacts(
   settings: any,
   userId: string,
   counters: { created: number; duplicates: number; errors: number },
-  options?: { skipDuplicateLog?: boolean }
+  options?: { skipDuplicateLog?: boolean },
+  apiHeaders?: Record<string, string>
 ) {
   let { created, duplicates, errors } = counters;
 
-  for (const contact of contacts) {
+  for (const rawContact of contacts) {
     try {
+      let contact = rawContact;
+      let phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
+
+      // If no phone and we have uuid + apiHeaders, fetch full contact details
+      if (!phone && contact.uuid && apiHeaders) {
+        const fullContact = await fetchFullContactDetails(contact.uuid, apiHeaders);
+        if (fullContact) {
+          contact = { ...contact, ...fullContact };
+          phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
+        }
+        // Small delay to respect rate limits
+        await sleep(200);
+      }
+
       const email = contact.email || null;
       const name =
         contact.name ||
         `${contact.first_name || ""} ${contact.last_name || ""}`.trim() ||
         "Lead RD Station";
-      const phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
 
       // Check duplicate by email
       if (email) {
