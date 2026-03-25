@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTabParam } from "@/hooks/useTabParam";
 import { useAdLeadsCount } from "@/hooks/useAdLeads";
 import { Loader2, Megaphone, BarChart3, Sparkles, Palette, Video, Stamp, Link2, Users, TrendingUp, LayoutList, ScrollText } from "lucide-react";
+import { AiCreditsBadge } from "@/components/ai/AiCreditsBadge";
 
 import MetaConnectionTab from "@/components/ads/MetaConnectionTab";
 import MetaLeadsInboxContent from "@/components/ads/MetaLeadsInboxContent";
@@ -138,21 +139,24 @@ export default function Anuncios() {
           </TabsContent>
 
           {/* ── Gerador IA ── */}
-          <TabsContent value="gerador" className="mt-4">
+          <TabsContent value="gerador" className="mt-4 space-y-3">
+            <AiCreditsBadge />
             <Suspense fallback={<TabLoader />}>
               <GeradorAnunciosContent />
             </Suspense>
           </TabsContent>
 
           {/* ── Gerador de Artes ── */}
-          <TabsContent value="artes" className="mt-4">
+          <TabsContent value="artes" className="mt-4 space-y-3">
+            <AiCreditsBadge />
             <Suspense fallback={<TabLoader />}>
               <GeradorArtesContent />
             </Suspense>
           </TabsContent>
 
           {/* ── Gerador de Vídeo ── */}
-          <TabsContent value="video" className="mt-4">
+          <TabsContent value="video" className="mt-4 space-y-3">
+            <AiCreditsBadge />
             <Suspense fallback={<TabLoader />}>
               <GeradorVideoContent />
             </Suspense>
