@@ -309,6 +309,9 @@ export function useImageUpload() {
           isDuplicate: true,
           duplicateOf: duplicate.url,
           phash,
+          r2KeyFull: duplicate.r2KeyFull,
+          r2KeyThumb: duplicate.r2KeyThumb,
+          storageProvider: duplicate.storageProvider as 'r2' | 'cloudinary' | undefined,
         };
       }
     }
