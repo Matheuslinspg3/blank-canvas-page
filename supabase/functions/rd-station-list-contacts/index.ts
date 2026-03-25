@@ -194,6 +194,7 @@ Deno.serve(async (req) => {
         company: contact.company || null,
         job_title: contact.job_title || null,
         tags: contact.tags || [],
+        created_at: contact.created_at || contact.last_conversion_date || null,
         existsInCRM,
         existingLeadId,
       };
