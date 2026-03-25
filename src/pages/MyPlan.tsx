@@ -396,13 +396,9 @@ export default function MyPlan() {
       <CheckoutDialog
         open={!!checkoutPlan}
         onOpenChange={(open) => {
-          if (!open) {
-            setCheckoutPlan(null);
-            setCheckoutSandbox(false);
-          }
+          if (!open) setCheckoutPlan(null);
         }}
         plan={checkoutPlan}
-        defaultSandbox={checkoutSandbox}
       />
     </>
   );
