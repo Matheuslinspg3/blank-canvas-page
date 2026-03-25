@@ -336,14 +336,42 @@ export function CheckoutDialog({ open, onOpenChange, plan }: CheckoutDialogProps
             </RadioGroup>
           </div>
 
+          <Separator />
+
+          {/* Ambiente Asaas */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <FlaskConical className="h-4 w-4" />
+              Ambiente de pagamento
+            </Label>
+            <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium">{useSandbox ? "Sandbox (Teste)" : "Produção"}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {useSandbox ? "Cobranças simuladas, sem valor real" : "Cobranças reais via Asaas"}
+                </p>
+              </div>
+              <Switch
+                checked={useSandbox}
+                onCheckedChange={setUseSandbox}
+              />
+            </div>
+            {useSandbox && (
+              <Badge variant="outline" className="text-[10px] border-yellow-500/50 text-yellow-600 bg-yellow-500/10">
+                ⚠️ Modo sandbox — nenhuma cobrança real será gerada
+              </Badge>
+            )}
+          </div>
+
           {/* Summary */}
           <div className="p-3 rounded-lg bg-muted/50 space-y-1">
             <div className="flex justify-between text-sm">
               <span>Plano {plan.name}</span>
-              <span className="font-medium">R$ {Number(price).toFixed(2)}</span>
+              <span className="font-medium">R$ {(Number(price) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
             </div>
             <p className="text-xs text-muted-foreground">
               {billingCycle === "yearly" ? "Cobrado anualmente" : "Cobrado mensalmente"} via {paymentMethod === "pix" ? "PIX" : "Cartão"}
+              {useSandbox ? " (Sandbox)" : ""}
             </p>
           </div>
 
