@@ -10,10 +10,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Check, Loader2, Crown, Zap, Building2, QrCode, CreditCard, Banknote,
   Eye, Search, Megaphone, Sparkles, Store, Briefcase, Rocket, Shield, Package,
+  Puzzle,
 } from "lucide-react";
 import { useSubscription, type SubscriptionPlan } from "@/hooks/useSubscription";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { CustomPlanBuilder } from "@/components/billing/CustomPlanBuilder";
 
 interface Props {
   open: boolean;
