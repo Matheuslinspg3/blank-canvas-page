@@ -236,6 +236,22 @@ export default function MyPlan() {
                   </Button>
                 )}
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Usage */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Uso atual</CardTitle>
+              <CardDescription>Consumo dos recursos do seu plano</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <UsageRow icon={Building2} label="Imóveis" used={usageData.properties} limit={limits.properties} pct={pct} fmtLimit={fmtLimit} />
+              <UsageRow icon={UserCheck} label="Leads" used={usageData.leads} limit={limits.leads} pct={pct} fmtLimit={fmtLimit} />
+              <UsageRow icon={Sparkles} label="Créditos de IA" used={0} limit={limits.ai} pct={pct} fmtLimit={fmtLimit} />
+            </CardContent>
+          </Card>
+        </div>
 
         {/* ── Section C: Available Plans ── */}
         <div className="space-y-4">
