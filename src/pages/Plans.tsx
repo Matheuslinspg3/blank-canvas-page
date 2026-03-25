@@ -20,7 +20,7 @@ import {
 import {
   Check, X, Users, Building2, UserCheck, HardDrive, Sparkles, Store,
   Crown, Star, Briefcase, Zap, MessageCircle, Bot, Workflow,
-  ChevronDown, ArrowRight, Shield, Clock,
+  ChevronDown, ArrowRight, Shield, Clock, Landmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -50,6 +50,7 @@ interface PlanMeta { icon: React.ElementType; badge?: string; highlighted?: bool
 const planMeta: Record<string, PlanMeta> = {
   gratuito: { icon: Shield, ctaLabel: "Começar grátis", ctaVariant: "outline" },
   starter: { icon: Star, ctaLabel: "Testar 15 dias grátis", ctaVariant: "default" },
+  correspondente: { icon: Landmark, badge: "Para Financiamentos", ctaLabel: "Testar 7 dias grátis", ctaVariant: "default" },
   essencial: { icon: Briefcase, badge: "Melhor custo", ctaLabel: "Testar 7 dias grátis", ctaVariant: "default" },
   profissional: { icon: Crown, badge: "Mais popular", highlighted: true, ctaLabel: "Testar 7 dias grátis", ctaVariant: "default" },
   business: { icon: Building2, ctaLabel: "Testar 7 dias grátis", ctaVariant: "default" },
