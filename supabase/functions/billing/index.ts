@@ -63,11 +63,16 @@ serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const log = createLogger("billing", req);
-  log.info("Request received", { sandbox: isSandbox });
 
   try {
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
+    const sandboxParam = url.searchParams.get("sandbox");
+    const useSandbox = sandboxParam === "true" ? true : sandboxParam === "false" ? false : null;
+    const asaasConfig = getAsaasConfig(useSandbox);
+    const asaasFetch = makeAsaasFetch(asaasConfig);
+    const isSandbox = asaasConfig.isSandbox;
+    log.info("Request received", { sandbox: isSandbox, action });
     
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
