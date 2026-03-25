@@ -316,7 +316,7 @@ async function handleSelectiveSync(req: Request, supabase: any, body: Record<str
     try {
       const email = contact.email || null;
       const name = contact.name || `${contact.first_name || ""} ${contact.last_name || ""}`.trim() || "Lead RD Station";
-      const phone = contact.personal_phone || contact.mobile_phone || null;
+      const phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
       const notes = buildNotes(contact);
 
       let existingLead: any = null;
@@ -632,7 +632,7 @@ async function processContacts(
         contact.name ||
         `${contact.first_name || ""} ${contact.last_name || ""}`.trim() ||
         "Lead RD Station";
-      const phone = contact.personal_phone || contact.mobile_phone || null;
+      const phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
 
       // Check duplicate by email
       if (email) {
@@ -782,6 +782,18 @@ async function processContacts(
   }
 
   return { created, duplicates, errors };
+}
+
+function extractPhoneFromCustomFields(contact: any): string | null {
+  if (contact.custom_fields && typeof contact.custom_fields === "object") {
+    for (const [key, value] of Object.entries(contact.custom_fields)) {
+      if (value && typeof value === "string" && /phone|telefone|celular|whatsapp|fone/i.test(key)) {
+        const digits = value.replace(/\D/g, "");
+        if (digits.length >= 8) return value;
+      }
+    }
+  }
+  return null;
 }
 
 function buildNotes(data: Record<string, any>): string {
