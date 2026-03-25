@@ -10,12 +10,14 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, FileText, FileUp, MoreHorizontal, Pencil, Trash2, Eye } from "lucide-react";
+import { Plus, FileText, FileUp, MoreHorizontal, Pencil, Trash2, Eye, BookTemplate, Loader2 } from "lucide-react";
 import { useContractTemplates, type ContractTemplate, type ContractTemplateFormData } from "@/hooks/useContractTemplates";
 import { ContractTemplateForm } from "./ContractTemplateForm";
 import { ContractTemplatePreview } from "./ContractTemplatePreview";
+import { DEFAULT_CONTRACT_TEMPLATES } from "./defaultContractTemplates";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
 
 const typeLabels: Record<string, string> = {
   venda: "Venda",
