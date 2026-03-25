@@ -513,7 +513,7 @@ async function syncOrgContacts(
 
     const result = await processContacts(supabase, contacts, orgId, settings, userId, {
       created, duplicates, errors,
-    }, options);
+    }, options, apiHeaders);
     created = result.created;
     duplicates = result.duplicates;
     errors = result.errors;
