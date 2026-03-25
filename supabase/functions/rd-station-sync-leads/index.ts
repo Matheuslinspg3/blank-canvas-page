@@ -694,16 +694,24 @@ async function processContacts(
           .maybeSingle();
 
         if (existingByEmail) {
-          duplicates++;
-          if (!options?.skipDuplicateLog) {
-            await supabase.from("rd_station_webhook_logs").insert({
-              organization_id: orgId,
-              event_type: "api_sync",
-              payload: { name, email, phone, rd_uuid: contact.uuid },
-              status: "duplicate",
-              error_message: "Duplicado por email",
-            });
+          // Update existing lead with missing data (phone, external_id, notes)
+          const updateData: Record<string, any> = {};
+          if (phone) updateData.phone = phone;
+          if (contact.uuid) {
+            updateData.external_id = contact.uuid;
+            updateData.external_source = "rdstation";
           }
+          const notes = buildNotes(contact);
+          if (notes && notes !== "[Sincronizado via RD Station API]") updateData.notes = notes;
+          if (Object.keys(updateData).length > 0) {
+            await supabase.from("leads").update(updateData).eq("id", existingByEmail.id);
+          }
+          // Import activities for existing lead too
+          if (contact.uuid && apiHeaders) {
+            await importContactEvents(supabase, contact.uuid, existingByEmail.id, orgId, userId, apiHeaders);
+            await sleep(200);
+          }
+          duplicates++;
           continue;
         }
       }
@@ -728,16 +736,24 @@ async function processContacts(
           });
 
           if (phoneMatch) {
-            duplicates++;
-            if (!options?.skipDuplicateLog) {
-              await supabase.from("rd_station_webhook_logs").insert({
-                organization_id: orgId,
-                event_type: "api_sync",
-                payload: { name, email, phone, rd_uuid: contact.uuid },
-                status: "duplicate",
-                error_message: "Duplicado por telefone",
-              });
+            // Update existing lead with missing data
+            const updateData: Record<string, any> = {};
+            if (email) updateData.email = email;
+            if (contact.uuid) {
+              updateData.external_id = contact.uuid;
+              updateData.external_source = "rdstation";
             }
+            const notes = buildNotes(contact);
+            if (notes && notes !== "[Sincronizado via RD Station API]") updateData.notes = notes;
+            if (Object.keys(updateData).length > 0) {
+              await supabase.from("leads").update(updateData).eq("id", phoneMatch.id);
+            }
+            // Import activities for existing lead
+            if (contact.uuid && apiHeaders) {
+              await importContactEvents(supabase, contact.uuid, phoneMatch.id, orgId, userId, apiHeaders);
+              await sleep(200);
+            }
+            duplicates++;
             continue;
           }
         }
@@ -867,21 +883,21 @@ async function importContactEvents(
     if (events.length === 0) return;
 
     const interactionTypeMap: Record<string, string> = {
-      "CONVERSION": "anotacao",
-      "OPPORTUNITY": "anotacao",
-      "SALE": "anotacao",
-      "OPPORTUNITY_LOST": "anotacao",
+      "CONVERSION": "nota",
+      "OPPORTUNITY": "nota",
+      "SALE": "nota",
+      "OPPORTUNITY_LOST": "nota",
       "EMAIL": "email",
       "EMAIL_CLICK": "email",
       "EMAIL_OPEN": "email",
       "CHAT": "whatsapp",
       "CALL": "ligacao",
-      "MEDIA": "anotacao",
+      "MEDIA": "nota",
     };
 
     for (const event of events.slice(0, 50)) {
       const eventType = event.event_type || event.type || "CONVERSION";
-      const interactionType = interactionTypeMap[eventType] || "anotacao";
+      const interactionType = interactionTypeMap[eventType] || "nota";
       const occurredAt = event.event_timestamp || event.created_at || new Date().toISOString();
 
       let description = `[RD Station] ${eventType}`;
