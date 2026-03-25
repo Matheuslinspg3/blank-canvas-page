@@ -266,14 +266,13 @@ export function ContractDetails({ contract, open, onOpenChange, onEdit, onDelete
             <p>Atualizado em: {formatDate(contract.updated_at)}</p>
           </div>
         </div>
-
-        <ContractDocumentPreview
-          contract={contract}
-          open={previewOpen}
-          onOpenChange={setPreviewOpen}
-        />
-        </div>
       </SheetContent>
+
+      <ContractDocumentPreview
+        contract={contract}
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+      />
     </Sheet>
   );
 }
