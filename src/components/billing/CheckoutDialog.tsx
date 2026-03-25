@@ -19,10 +19,11 @@ import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
 import { cn } from "@/lib/utils";
 
-interface CheckoutDialogProps {
+export interface CheckoutDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   plan: SubscriptionPlan | null;
+  customModules?: { moduleId: string; quantity: number }[];
 }
 
 export function CheckoutDialog({ open, onOpenChange, plan }: CheckoutDialogProps) {
