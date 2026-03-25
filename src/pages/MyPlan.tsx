@@ -214,7 +214,13 @@ export default function MyPlan() {
 
               <div className="flex gap-2 pt-1">
                 {(isOverdue || isCancelled || trialActive) && (
-                  <Button size="sm" onClick={() => setCheckoutPlan(currentPlan || displayPlans[0] || null)}>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setCheckoutSandbox(false);
+                      setCheckoutPlan(currentPlan || displayPlans[0] || null);
+                    }}
+                  >
                     Renovar plano
                   </Button>
                 )}
@@ -230,178 +236,15 @@ export default function MyPlan() {
                   </Button>
                 )}
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Usage */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Uso atual</CardTitle>
-              <CardDescription>Consumo dos recursos do seu plano</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <UsageRow icon={Building2} label="Imóveis" used={usageData.properties} limit={limits.properties} pct={pct} fmtLimit={fmtLimit} />
-              <UsageRow icon={UserCheck} label="Leads" used={usageData.leads} limit={limits.leads} pct={pct} fmtLimit={fmtLimit} />
-              <UsageRow icon={Sparkles} label="Créditos de IA" used={0} limit={limits.ai} pct={pct} fmtLimit={fmtLimit} />
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* ── Section C: Available Plans ── */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Planos disponíveis</h2>
-            <div className="flex items-center rounded-lg border bg-muted/50 p-0.5">
-              <button
-                onClick={() => setBillingToggle("monthly")}
-                className={cn(
-                  "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
-                  billingToggle === "monthly" ? "bg-background shadow-sm" : "text-muted-foreground"
-                )}
-              >
-                Mensal
-              </button>
-              <button
-                onClick={() => setBillingToggle("yearly")}
-                className={cn(
-                  "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
-                  billingToggle === "yearly" ? "bg-background shadow-sm" : "text-muted-foreground"
-                )}
-              >
-                Anual
-              </button>
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {displayPlans.map((plan) => {
-              const isCurrent = plan.slug === planSlug;
-              const price = billingToggle === "yearly" ? plan.price_yearly : plan.price_monthly;
-              const monthlyEq = billingToggle === "yearly" ? plan.price_yearly / 12 : plan.price_monthly;
-              return (
-                <Card
-                  key={plan.id}
-                  className={cn(
-                    "relative flex flex-col transition-all hover:shadow-md",
-                    isCurrent && "ring-2 ring-primary"
-                  )}
-                >
-                  {isCurrent && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      <Badge className="bg-primary text-primary-foreground text-[10px]">Plano atual</Badge>
-                    </div>
-                  )}
-                  <CardHeader className="pb-2 pt-5">
-                    <CardTitle className="text-sm">{plan.name}</CardTitle>
-                    <div className="pt-1">
-                      <span className="text-2xl font-bold">
-                        R$ {Math.round(monthlyEq / 100)}
-                      </span>
-                      <span className="text-xs text-muted-foreground">/mês</span>
-                    </div>
-                    {billingToggle === "yearly" && (
-                      <p className="text-[10px] text-muted-foreground">
-                        R$ {(Number(price) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/ano
-                      </p>
-                    )}
-                  </CardHeader>
-                  <CardContent className="flex-1 space-y-2 text-xs">
-                    <PlanFeature label={`${plan.max_own_properties === null || plan.max_own_properties === -1 ? "Ilimitado" : fmtLimit(plan.max_own_properties ?? 0)} imóveis`} />
-                    <PlanFeature label={`${plan.max_leads === null || plan.max_leads === -1 ? "Ilimitado" : fmtLimit(plan.max_leads ?? 0)} leads`} />
-                    {plan.marketplace_access && <PlanFeature label="Marketplace" />}
-                    {plan.priority_support && <PlanFeature label="Suporte prioritário" />}
-                    {plan.features && (plan.features as any).has_contracts && <PlanFeature label="Contratos" />}
-                    {plan.features && (plan.features as any).has_financial && <PlanFeature label="Financeiro" />}
-                    {plan.features && (plan.features as any).has_whatsapp && <PlanFeature label="WhatsApp" />}
-                  </CardContent>
-                  <div className="p-4 pt-0 flex gap-2">
-                    <Button
-                      variant={isCurrent ? "outline" : "default"}
-                      size="sm"
-                      className="flex-1"
-                      disabled={isCurrent}
-                      onClick={() => { setCheckoutSandbox(false); setCheckoutPlan(plan); }}
-                    >
-                      {isCurrent ? "Plano atual" : price === 0 ? "Grátis" : "Assinar"}
-                    </Button>
-                    {!isCurrent && price > 0 && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-[10px] px-2 border-yellow-500/50 text-yellow-600 hover:bg-yellow-500/10"
-                        onClick={() => { setCheckoutSandbox(true); setCheckoutPlan(plan); }}
-                      >
-                        Sandbox
-                      </Button>
-                    )}
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ── Section D: Payment History ── */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Histórico de pagamentos</CardTitle>
-            <CardDescription>Últimos pagamentos realizados</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loadingPayments ? (
-              <Skeleton className="h-24 w-full rounded-lg" />
-            ) : payments.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-6 text-center">Nenhum pagamento registrado</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-muted-foreground">
-                      <th className="py-2 pr-4 font-medium">Data</th>
-                      <th className="py-2 pr-4 font-medium">Valor</th>
-                      <th className="py-2 pr-4 font-medium">Método</th>
-                      <th className="py-2 pr-4 font-medium">Status</th>
-                      <th className="py-2 font-medium"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {payments.slice(0, 20).map((p) => (
-                      <tr key={p.id} className="border-b last:border-0">
-                        <td className="py-2.5 pr-4">
-                          {format(new Date(p.created_at), "dd/MM/yyyy", { locale: ptBR })}
-                        </td>
-                        <td className="py-2.5 pr-4 font-medium">
-                          R$ {(p.amount_cents / 100).toFixed(2)}
-                        </td>
-                        <td className="py-2.5 pr-4 capitalize text-muted-foreground">
-                          {p.method === "pix" ? "PIX" : p.method === "credit_card" ? "Cartão" : p.method || "—"}
-                        </td>
-                        <td className="py-2.5 pr-4">
-                          <PaymentStatusBadge status={p.status} />
-                        </td>
-                        <td className="py-2.5">
-                          {p.invoice_url && (
-                            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" asChild>
-                              <a href={p.invoice_url} target="_blank" rel="noopener noreferrer">
-                                <ExternalLink className="h-3 w-3" />
-                                Fatura
-                              </a>
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
+...
       <CheckoutDialog
         open={!!checkoutPlan}
-        onOpenChange={(open) => !open && setCheckoutPlan(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCheckoutPlan(null);
+            setCheckoutSandbox(false);
+          }
+        }}
         plan={checkoutPlan}
         defaultSandbox={checkoutSandbox}
       />
