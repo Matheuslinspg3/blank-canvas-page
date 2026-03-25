@@ -57,8 +57,10 @@ export function ContractForm({ open, onOpenChange, contract, onSubmit, isSubmitt
   const { properties } = useProperties();
   const { leads } = useLeads();
   const { brokers } = useBrokers();
+  const { templates } = useContractTemplates();
   const [isAIOpen, setIsAIOpen] = useState(false);
   const [showExtras, setShowExtras] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const formStartRef = useRef(Date.now());
 
   const form = useForm<FormData>({
