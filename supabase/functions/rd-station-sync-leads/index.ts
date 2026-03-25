@@ -312,11 +312,22 @@ async function handleSelectiveSync(req: Request, supabase: any, body: Record<str
   let duplicates = 0;
   let errors = 0;
 
-  for (const contact of selectedContacts) {
+  for (const rawContact of selectedContacts) {
     try {
+      let contact = rawContact;
       const email = contact.email || null;
       const name = contact.name || `${contact.first_name || ""} ${contact.last_name || ""}`.trim() || "Lead RD Station";
-      const phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
+      let phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
+
+      // If no phone and we have uuid, fetch full contact details
+      if (!phone && contact.uuid) {
+        const fullContact = await fetchFullContactDetails(contact.uuid, apiHeaders);
+        if (fullContact) {
+          contact = { ...contact, ...fullContact };
+          phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
+        }
+        await sleep(200);
+      }
       const notes = buildNotes(contact);
 
       let existingLead: any = null;
