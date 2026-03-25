@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,10 +12,9 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
 import { useSubscription, SubscriptionPlan } from "@/hooks/useSubscription";
 import { useAuth } from "@/contexts/AuthContext";
-import { QrCode, Copy, Check, Loader2, CreditCard, ExternalLink, FlaskConical } from "lucide-react";
+import { QrCode, Copy, Check, Loader2, CreditCard, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
 import { cn } from "@/lib/utils";
@@ -24,10 +23,9 @@ interface CheckoutDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   plan: SubscriptionPlan | null;
-  defaultSandbox?: boolean;
 }
 
-export function CheckoutDialog({ open, onOpenChange, plan, defaultSandbox = false }: CheckoutDialogProps) {
+export function CheckoutDialog({ open, onOpenChange, plan }: CheckoutDialogProps) {
   const { subscribe } = useSubscription({ enabled: true });
   const { profile } = useAuth();
 
@@ -38,11 +36,6 @@ export function CheckoutDialog({ open, onOpenChange, plan, defaultSandbox = fals
   const [pixData, setPixData] = useState<{ qrCode: string; copyPaste: string } | null>(null);
   const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [useSandbox, setUseSandbox] = useState(defaultSandbox);
-
-  useEffect(() => {
-    if (open) setUseSandbox(defaultSandbox);
-  }, [defaultSandbox, open]);
 
   if (!plan) return null;
 
@@ -82,7 +75,6 @@ export function CheckoutDialog({ open, onOpenChange, plan, defaultSandbox = fals
         paymentMethod,
         customerName: customerName.trim(),
         customerCpf: customerCpf.replace(/\D/g, ""),
-        sandbox: useSandbox,
       },
       {
         onSuccess: (data: any) => {
@@ -343,31 +335,6 @@ export function CheckoutDialog({ open, onOpenChange, plan, defaultSandbox = fals
 
           <Separator />
 
-          {/* Ambiente Asaas */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium flex items-center gap-2">
-              <FlaskConical className="h-4 w-4" />
-              Ambiente de pagamento
-            </Label>
-            <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
-              <div className="space-y-0.5">
-                <p className="text-sm font-medium">{useSandbox ? "Sandbox (Teste)" : "Produção"}</p>
-                <p className="text-[10px] text-muted-foreground">
-                  {useSandbox ? "Cobranças simuladas, sem valor real" : "Cobranças reais via Asaas"}
-                </p>
-              </div>
-              <Switch
-                checked={useSandbox}
-                onCheckedChange={setUseSandbox}
-              />
-            </div>
-            {useSandbox && (
-              <Badge variant="outline" className="text-[10px] border-yellow-500/50 text-yellow-600 bg-yellow-500/10">
-                ⚠️ Modo sandbox — nenhuma cobrança real será gerada
-              </Badge>
-            )}
-          </div>
-
           {/* Summary */}
           <div className="p-3 rounded-lg bg-muted/50 space-y-1">
             <div className="flex justify-between text-sm">
@@ -376,7 +343,6 @@ export function CheckoutDialog({ open, onOpenChange, plan, defaultSandbox = fals
             </div>
             <p className="text-xs text-muted-foreground">
               {billingCycle === "yearly" ? "Cobrado anualmente" : "Cobrado mensalmente"} via {paymentMethod === "pix" ? "PIX" : "Cartão"}
-              {useSandbox ? " (Sandbox)" : ""}
             </p>
           </div>
 

@@ -9,7 +9,6 @@ const ALLOWED_ORIGINS = (Deno.env.get("APP_ALLOWED_ORIGINS") || "").split(",").m
 function getCorsHeaders(req: Request) {
   const origin = req.headers.get("Origin") || "";
   if (ALLOWED_ORIGINS.length === 0) {
-    // Fail-closed: no allowlist configured = reject cross-origin in production
     console.warn("[billing] APP_ALLOWED_ORIGINS not configured — CORS will be restrictive");
     return {
       "Access-Control-Allow-Origin": origin || "null",
@@ -23,23 +22,10 @@ function getCorsHeaders(req: Request) {
   };
 }
 
-// Asaas environment helpers
-// Default mode: auto-detect from ASAAS_SANDBOX flag or API key prefix
-const defaultApiKey = Deno.env.get("ASAAS_API_KEY") || "";
-const defaultIsSandbox = Deno.env.get("ASAAS_SANDBOX") === "true" || defaultApiKey.startsWith("$aact_hmlg");
-
-function getAsaasConfig(useSandbox: boolean | null) {
-  // If explicitly requested, use the corresponding key
-  const sandbox = useSandbox ?? defaultIsSandbox;
-  
-  if (sandbox) {
-    // Prefer dedicated sandbox key, fall back to main key
-    const key = Deno.env.get("ASAAS_SANDBOX_API_KEY") || Deno.env.get("ASAAS_API_KEY") || "";
-    return { key, base: "https://sandbox.asaas.com/api/v3", isSandbox: true };
-  }
-  
+// Always use production Asaas
+function getAsaasConfig() {
   const key = Deno.env.get("ASAAS_API_KEY") || "";
-  return { key, base: "https://api.asaas.com/v3", isSandbox: false };
+  return { key, base: "https://api.asaas.com/v3" };
 }
 
 function makeAsaasFetch(config: { key: string; base: string }) {
@@ -67,12 +53,9 @@ serve(async (req) => {
   try {
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
-    const sandboxParam = url.searchParams.get("sandbox");
-    const useSandbox = sandboxParam === "true" ? true : sandboxParam === "false" ? false : null;
-    const asaasConfig = getAsaasConfig(useSandbox);
+    const asaasConfig = getAsaasConfig();
     const asaasFetch = makeAsaasFetch(asaasConfig);
-    const isSandbox = asaasConfig.isSandbox;
-    log.info("Request received", { sandbox: isSandbox, action });
+    log.info("Request received", { action });
     
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -231,7 +214,6 @@ serve(async (req) => {
       }
 
       // Credit/Debit Card: create RECURRING SUBSCRIPTION on Asaas
-      // Asaas manages billing automatically; user can cancel anytime
       if (paymentMethod === "credit_card") {
         const cycle = billingCycle === "yearly" ? "YEARLY" : "MONTHLY";
 
@@ -430,7 +412,6 @@ serve(async (req) => {
 
     throw new Error(`Unknown action: ${action}`);
   } catch (error) {
-    // A05/A09: Don't leak internal error details to client
     const msg = error instanceof Error ? error.message : "Erro interno";
     const safeMsg = msg.includes("API") || msg.includes("key") || msg.includes("token")
       ? "Erro no processamento do pagamento"
