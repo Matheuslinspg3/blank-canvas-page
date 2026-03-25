@@ -736,16 +736,24 @@ async function processContacts(
           });
 
           if (phoneMatch) {
-            duplicates++;
-            if (!options?.skipDuplicateLog) {
-              await supabase.from("rd_station_webhook_logs").insert({
-                organization_id: orgId,
-                event_type: "api_sync",
-                payload: { name, email, phone, rd_uuid: contact.uuid },
-                status: "duplicate",
-                error_message: "Duplicado por telefone",
-              });
+            // Update existing lead with missing data
+            const updateData: Record<string, any> = {};
+            if (email) updateData.email = email;
+            if (contact.uuid) {
+              updateData.external_id = contact.uuid;
+              updateData.external_source = "rdstation";
             }
+            const notes = buildNotes(contact);
+            if (notes && notes !== "[Sincronizado via RD Station API]") updateData.notes = notes;
+            if (Object.keys(updateData).length > 0) {
+              await supabase.from("leads").update(updateData).eq("id", phoneMatch.id);
+            }
+            // Import activities for existing lead
+            if (contact.uuid && apiHeaders) {
+              await importContactEvents(supabase, contact.uuid, phoneMatch.id, orgId, userId, apiHeaders);
+              await sleep(200);
+            }
+            duplicates++;
             continue;
           }
         }
