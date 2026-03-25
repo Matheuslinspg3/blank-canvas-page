@@ -93,10 +93,16 @@ export default function RDLeadsTab() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Buscar por nome, email ou telefone..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {hasOAuth && (
             <Button variant="outline" size="sm" onClick={() => setSyncDialogOpen(true)}>
               <Users className="h-4 w-4 mr-1.5" /> Importar do RD
+            </Button>
+          )}
+          {hasOAuth && rdLeads.some((l: any) => !l.phone) && (
+            <Button variant="outline" size="sm" onClick={handleBackfillPhones} disabled={isBackfilling}>
+              {isBackfilling ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Phone className="h-3.5 w-3.5 mr-1.5" />}
+              {isBackfilling ? "Atualizando..." : "Puxar telefones"}
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={rdLeads.length === 0}>
