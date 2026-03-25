@@ -18,7 +18,6 @@ import {
   Megaphone,
   Search,
   CreditCard,
-  Landmark,
 } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { NavLink } from "@/components/NavLink";
@@ -52,7 +51,6 @@ const mainItems = [
   { title: "Imóveis", url: "/imoveis", icon: Home },
   { title: "Proprietários", url: "/proprietarios", icon: Building2 },
   { title: "CRM", url: "/crm", icon: Users },
-  { title: "Financiamentos", url: "/financiamentos", icon: Landmark },
   { title: "Agenda", url: "/agenda", icon: Calendar },
   { title: "Marketplace", url: "/marketplace", icon: Store },
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
