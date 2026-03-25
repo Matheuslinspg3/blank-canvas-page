@@ -800,6 +800,97 @@ function extractPhoneFromCustomFields(contact: any): string | null {
   return null;
 }
 
+// ─── MATCH PROPERTY from RD Station contact data ───
+
+async function matchProperty(
+  supabase: any,
+  orgId: string,
+  contact: Record<string, any>
+): Promise<string | null> {
+  try {
+    // Collect all text hints from the contact that could reference a property
+    const hints: string[] = [];
+
+    // Conversion identifiers (form names, landing page names)
+    const extractConversionId = (conv: any) => {
+      if (!conv) return;
+      const content = conv.content || conv;
+      const id = content.identifier || content.conversion_identifier;
+      if (id) hints.push(id);
+    };
+    extractConversionId(contact.first_conversion);
+    extractConversionId(contact.last_conversion);
+    if (contact.conversion_identifier) hints.push(contact.conversion_identifier);
+
+    // Tags
+    if (Array.isArray(contact.tags)) {
+      hints.push(...contact.tags.filter((t: any) => typeof t === "string"));
+    }
+
+    // Custom fields that might reference a property
+    if (contact.custom_fields && typeof contact.custom_fields === "object") {
+      for (const [key, value] of Object.entries(contact.custom_fields)) {
+        if (value && typeof value === "string" && /imovel|imóvel|property|empreendimento|lote|casa|apto|apartamento|loteamento/i.test(key)) {
+          hints.push(value);
+        }
+      }
+    }
+
+    // Direct fields
+    if (contact.cf_imovel_interesse) hints.push(contact.cf_imovel_interesse);
+    if (contact.cf_empreendimento) hints.push(contact.cf_empreendimento);
+
+    if (hints.length === 0) return null;
+
+    // Fetch properties for this org
+    const { data: properties } = await supabase
+      .from("properties")
+      .select("id, title, property_code")
+      .eq("organization_id", orgId)
+      .limit(500);
+
+    if (!properties || properties.length === 0) return null;
+
+    // Try exact match by property_code first
+    for (const hint of hints) {
+      const normalized = hint.trim().toLowerCase();
+      for (const prop of properties) {
+        if (prop.property_code && prop.property_code.toLowerCase() === normalized) {
+          return prop.id;
+        }
+      }
+    }
+
+    // Try if property_code appears inside any hint
+    for (const hint of hints) {
+      const normalized = hint.toLowerCase();
+      for (const prop of properties) {
+        if (prop.property_code && normalized.includes(prop.property_code.toLowerCase())) {
+          return prop.id;
+        }
+      }
+    }
+
+    // Try title match (hint contains title or title contains hint)
+    for (const hint of hints) {
+      const normalized = hint.toLowerCase();
+      if (normalized.length < 3) continue;
+      for (const prop of properties) {
+        const title = (prop.title || "").toLowerCase();
+        if (title.length < 3) continue;
+        if (normalized.includes(title) || title.includes(normalized)) {
+          return prop.id;
+        }
+      }
+    }
+
+    return null;
+  } catch (err) {
+    console.error("matchProperty error:", err);
+    return null;
+  }
+}
+
 function buildNotes(data: Record<string, any>): string {
   const ignore = new Set([
     "uuid", "name", "email", "personal_phone", "mobile_phone",
