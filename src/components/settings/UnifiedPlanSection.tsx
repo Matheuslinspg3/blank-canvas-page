@@ -457,7 +457,7 @@ export function UnifiedPlanSection() {
                 <p className="text-sm font-semibold">Total</p>
                 <p className="text-xs text-muted-foreground">Cobrança mensal</p>
               </div>
-              <p className="text-xl font-bold">R$ {plans.find(p => p.slug === "pro")?.price_monthly?.toFixed(2) || "5.00"}</p>
+              <p className="text-xl font-bold">R$ {((plans.find(p => p.slug === "pro")?.price_monthly ?? 500) / 100).toFixed(2)}</p>
             </div>
 
             <div className="flex gap-2">
