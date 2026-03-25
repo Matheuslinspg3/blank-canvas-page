@@ -24,9 +24,10 @@ interface CheckoutDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   plan: SubscriptionPlan | null;
+  defaultSandbox?: boolean;
 }
 
-export function CheckoutDialog({ open, onOpenChange, plan }: CheckoutDialogProps) {
+export function CheckoutDialog({ open, onOpenChange, plan, defaultSandbox = false }: CheckoutDialogProps) {
   const { subscribe } = useSubscription({ enabled: true });
   const { profile } = useAuth();
 
