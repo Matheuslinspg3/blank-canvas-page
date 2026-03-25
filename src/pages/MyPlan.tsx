@@ -216,7 +216,6 @@ export default function MyPlan() {
                   <Button
                     size="sm"
                     onClick={() => {
-                      setCheckoutSandbox(false);
                       setCheckoutPlan(currentPlan || displayPlans[0] || null);
                     }}
                   >
