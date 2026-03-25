@@ -17,10 +17,11 @@ import {
 import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Loader2, Sparkles, ChevronDown } from "lucide-react";
+import { Loader2, Sparkles, ChevronDown, FileText } from "lucide-react";
 import { useProperties } from "@/hooks/useProperties";
 import { useLeads } from "@/hooks/useLeads";
 import { useBrokers } from "@/hooks/useBrokers";
+import { useContractTemplates } from "@/hooks/useContractTemplates";
 import { ContractAIFillDialog } from "./ContractAIFillDialog";
 import { trackFormError } from "@/components/ClarityProvider";
 import { clarityEvent } from "@/lib/clarity";
