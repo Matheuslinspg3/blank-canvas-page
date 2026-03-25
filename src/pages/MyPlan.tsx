@@ -305,8 +305,8 @@ export default function MyPlan() {
                     )}
                   </CardHeader>
                   <CardContent className="flex-1 space-y-2 text-xs">
-                    <PlanFeature label={`${fmtLimit(plan.max_own_properties ?? 0)} imóveis`} />
-                    <PlanFeature label={`${fmtLimit(plan.max_leads ?? 0)} leads`} />
+                    <PlanFeature label={`${plan.max_own_properties === null || plan.max_own_properties === -1 ? "Ilimitado" : fmtLimit(plan.max_own_properties ?? 0)} imóveis`} />
+                    <PlanFeature label={`${plan.max_leads === null || plan.max_leads === -1 ? "Ilimitado" : fmtLimit(plan.max_leads ?? 0)} leads`} />
                     {plan.marketplace_access && <PlanFeature label="Marketplace" />}
                     {plan.priority_support && <PlanFeature label="Suporte prioritário" />}
                     {plan.features && (plan.features as any).has_contracts && <PlanFeature label="Contratos" />}

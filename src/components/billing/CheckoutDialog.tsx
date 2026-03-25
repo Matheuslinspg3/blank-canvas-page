@@ -246,7 +246,7 @@ export function CheckoutDialog({ open, onOpenChange, plan }: CheckoutDialogProps
                 )}
               >
                 <p className="text-sm font-medium">Mensal</p>
-                <p className="text-lg font-bold">R$ {Number(plan.price_monthly).toFixed(0)}</p>
+                <p className="text-lg font-bold">R$ {(Number(plan.price_monthly) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
               </button>
               <button
                 type="button"
