@@ -445,8 +445,9 @@ serve(async (req) => {
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      // Credit card
+      // Credit card — schedule first charge after 7-day trial
       const cycle = billingCycle === "yearly" ? "YEARLY" : "MONTHLY";
+      const nextDueDate = trialEnd.toISOString().split("T")[0];
       const asaasSub = await asaasFetch("/subscriptions", {
         method: "POST",
         body: JSON.stringify({
@@ -454,6 +455,7 @@ serve(async (req) => {
           billingType: "CREDIT_CARD",
           value: priceInReais,
           cycle,
+          nextDueDate,
           description: `Habitae Personalizado - ${customModules.length} módulos`,
           externalReference: orgId,
         }),
@@ -467,14 +469,14 @@ serve(async (req) => {
         .insert({
           organization_id: orgId,
           plan_id: customPlan.id,
-          status: "pending",
+          status: "trial",
           billing_cycle: billingCycle,
           provider: "asaas",
           provider_customer_id: customerId,
           provider_subscription_id: asaasSub.id,
           payment_method: "credit_card",
           current_period_start: now.toISOString(),
-          current_period_end: periodEnd.toISOString(),
+          current_period_end: trialEnd.toISOString(),
         })
         .select()
         .single();
