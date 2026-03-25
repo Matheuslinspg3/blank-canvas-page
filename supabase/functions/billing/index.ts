@@ -372,9 +372,11 @@ serve(async (req) => {
 
       const priceInReais = totalPrice / 100;
       const now = new Date();
+      // Custom plans get 7-day free trial (not 15 days like standard plans)
+      const trialEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
       const periodEnd = billingCycle === "yearly"
-        ? new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000)
-        : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        ? new Date(trialEnd.getTime() + 365 * 24 * 60 * 60 * 1000)
+        : new Date(trialEnd.getTime() + 30 * 24 * 60 * 60 * 1000);
 
       // Save module selections
       await supabase.from("custom_plan_selections").delete().eq("organization_id", orgId);
