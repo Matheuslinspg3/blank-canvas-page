@@ -102,6 +102,7 @@ export function ContractForm({ open, onOpenChange, contract, onSubmit, isSubmitt
         status: "rascunho", notes: null,
       });
       setShowExtras(false);
+      setSelectedTemplateId(null);
     }
   }, [contract, form, open]);
 
