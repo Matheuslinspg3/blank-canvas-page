@@ -227,6 +227,14 @@ export function ContractDetails({ contract, open, onOpenChange, onEdit, onDelete
 
           {/* Ações */}
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setPreviewOpen(true)}
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Visualizar
+            </Button>
             <Button 
               variant="outline" 
               className="flex-1"
@@ -257,6 +265,13 @@ export function ContractDetails({ contract, open, onOpenChange, onEdit, onDelete
             <p>Criado em: {formatDate(contract.created_at)}</p>
             <p>Atualizado em: {formatDate(contract.updated_at)}</p>
           </div>
+        </div>
+
+        <ContractDocumentPreview
+          contract={contract}
+          open={previewOpen}
+          onOpenChange={setPreviewOpen}
+        />
         </div>
       </SheetContent>
     </Sheet>
