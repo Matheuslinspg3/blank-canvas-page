@@ -496,6 +496,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
     <TooltipProvider>
       <div className="space-y-6">
         {!embedded && <PageHeader title="Gerador de Anúncios" description="Gere textos e imagens otimizados para anúncios com IA" />}
+        {!embedded && <AiCreditsBadge />}
 
         {/* Property & Lead Selection */}
         <Card>
