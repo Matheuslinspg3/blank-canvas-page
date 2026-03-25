@@ -76,6 +76,7 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
         paymentMethod,
         customerName: customerName.trim(),
         customerCpf: customerCpf.replace(/\D/g, ""),
+        ...(customModules ? { customModules } : {}),
       },
       {
         onSuccess: (data: any) => {
