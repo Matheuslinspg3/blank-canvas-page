@@ -353,7 +353,9 @@ export default function Settings() {
               {isDeveloperOrLeader && (
                 <TabsTrigger value="clients" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><Megaphone className="h-4 w-4 shrink-0" /><span>Clientes</span></TabsTrigger>
               )}
-              <TabsTrigger value="billing" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><CreditCard className="h-4 w-4 shrink-0" /><span>Assinatura</span></TabsTrigger>
+              {isAdminOrAbove && (
+                <TabsTrigger value="billing" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><CreditCard className="h-4 w-4 shrink-0" /><span>Assinatura</span></TabsTrigger>
+              )}
               <TabsTrigger value="support" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><MessageSquare className="h-4 w-4 shrink-0" /><span>Suporte</span></TabsTrigger>
             </TabsList>
           </div>
@@ -816,9 +818,11 @@ export default function Settings() {
             </TabsContent>
           )}
 
-          <TabsContent value="billing">
-            <BillingTab />
-          </TabsContent>
+          {isAdminOrAbove && (
+            <TabsContent value="billing">
+              <BillingTab />
+            </TabsContent>
+          )}
 
           <TabsContent value="support">
             <div className="grid gap-6 max-w-2xl">
