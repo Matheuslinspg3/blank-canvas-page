@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/posthog";
 import { useFeatureFlag } from "@/hooks/useFeatureGate";
 import { PageHeader } from "@/components/PageHeader";
+import { AiCreditsBadge } from "@/components/ai/AiCreditsBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
