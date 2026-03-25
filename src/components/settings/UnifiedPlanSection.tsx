@@ -306,7 +306,7 @@ export function UnifiedPlanSection() {
 
                 <Button className="w-full" size="lg" onClick={() => setShowCheckout(true)}>
                   <Crown className="h-4 w-4 mr-2" />
-                  Assinar Professional — R$ {plans.find(p => p.slug === "pro")?.price_monthly?.toFixed(0) || "5"}/mês
+                  Assinar Professional — R$ {((plans.find(p => p.slug === "pro")?.price_monthly ?? 500) / 100).toFixed(0)}/mês
                 </Button>
               </div>
             </>
