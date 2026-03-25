@@ -667,14 +667,13 @@ async function processContacts(
       let contact = rawContact;
       let phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
 
-      // If no phone and we have uuid + apiHeaders, fetch full contact details
-      if (!phone && contact.uuid && apiHeaders) {
+      // ALWAYS fetch full contact details — the segmentation endpoint returns very limited data
+      if (contact.uuid && apiHeaders) {
         const fullContact = await fetchFullContactDetails(contact.uuid, apiHeaders);
         if (fullContact) {
           contact = { ...contact, ...fullContact };
           phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
         }
-        // Small delay to respect rate limits
         await sleep(200);
       }
 
@@ -782,6 +781,12 @@ async function processContacts(
 
         created++;
 
+        // Import activities/events from RD Station
+        if (newLead?.id && contact.uuid && apiHeaders) {
+          await importContactEvents(supabase, contact.uuid, newLead.id, orgId, userId, apiHeaders);
+          await sleep(200);
+        }
+
         // Notify org managers about new RD Station lead
         if (newLead?.id) {
           const { data: managers } = await supabase
@@ -834,6 +839,76 @@ async function processContacts(
   }
 
   return { created, duplicates, errors };
+}
+
+// ─── IMPORT CONTACT EVENTS from /platform/contacts/{uuid}/events ───
+
+async function importContactEvents(
+  supabase: any,
+  uuid: string,
+  leadId: string,
+  orgId: string,
+  userId: string,
+  apiHeaders: Record<string, string>
+): Promise<void> {
+  try {
+    const res = await fetchWithTimeout(
+      `https://api.rd.services/platform/contacts/${uuid}/events`,
+      apiHeaders,
+      10000
+    );
+    if (!res.ok) {
+      console.log(`[events] Failed for ${uuid}: ${res.status}`);
+      return;
+    }
+    const data = await res.json();
+    const events = Array.isArray(data?.events) ? data.events : (Array.isArray(data) ? data : []);
+
+    if (events.length === 0) return;
+
+    const interactionTypeMap: Record<string, string> = {
+      "CONVERSION": "anotacao",
+      "OPPORTUNITY": "anotacao",
+      "SALE": "anotacao",
+      "OPPORTUNITY_LOST": "anotacao",
+      "EMAIL": "email",
+      "EMAIL_CLICK": "email",
+      "EMAIL_OPEN": "email",
+      "CHAT": "whatsapp",
+      "CALL": "ligacao",
+      "MEDIA": "anotacao",
+    };
+
+    for (const event of events.slice(0, 50)) {
+      const eventType = event.event_type || event.type || "CONVERSION";
+      const interactionType = interactionTypeMap[eventType] || "anotacao";
+      const occurredAt = event.event_timestamp || event.created_at || new Date().toISOString();
+
+      let description = `[RD Station] ${eventType}`;
+      if (event.event_identifier || event.conversion_identifier) {
+        description += `: ${event.event_identifier || event.conversion_identifier}`;
+      }
+      if (event.content) {
+        const content = typeof event.content === "string" ? event.content : JSON.stringify(event.content);
+        if (content.length < 500) description += `\n${content}`;
+      }
+      if (event.event_source) {
+        description += `\nOrigem: ${event.event_source}`;
+      }
+
+      await supabase.from("lead_interactions").insert({
+        lead_id: leadId,
+        type: interactionType,
+        description,
+        occurred_at: occurredAt,
+        created_by: userId,
+      });
+    }
+
+    console.log(`[events] Imported ${Math.min(events.length, 50)} events for lead ${leadId}`);
+  } catch (err: any) {
+    console.error(`[events] Error importing events for ${uuid}:`, err.message);
+  }
 }
 
 function extractPhoneFromCustomFields(contact: any): string | null {
