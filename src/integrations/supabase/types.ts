@@ -1538,10 +1538,13 @@ export type Database = {
           created_at: string
           created_by: string
           description: string | null
+          field_positions: Json | null
           id: string
           is_default: boolean
           name: string
           organization_id: string
+          pdf_url: string | null
+          template_type: string
           updated_at: string
           variables: string[]
         }
@@ -1551,10 +1554,13 @@ export type Database = {
           created_at?: string
           created_by: string
           description?: string | null
+          field_positions?: Json | null
           id?: string
           is_default?: boolean
           name: string
           organization_id: string
+          pdf_url?: string | null
+          template_type?: string
           updated_at?: string
           variables?: string[]
         }
@@ -1564,10 +1570,13 @@ export type Database = {
           created_at?: string
           created_by?: string
           description?: string | null
+          field_positions?: Json | null
           id?: string
           is_default?: boolean
           name?: string
           organization_id?: string
+          pdf_url?: string | null
+          template_type?: string
           updated_at?: string
           variables?: string[]
         }
