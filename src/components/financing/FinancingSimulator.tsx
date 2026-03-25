@@ -1,222 +1,246 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Calculator, Users, Wifi, WifiOff, DollarSign,
+  Calculator, Wifi, WifiOff, ShieldCheck, ShieldAlert,
+  AlertTriangle, CheckCircle2,
 } from "lucide-react";
+import { useTaxaReferencial } from "@/hooks/useTaxaReferencial";
 import { useSelicRate } from "@/hooks/financing/useSelicRate";
-import { useBankRates, DEFAULT_BANK_RATES } from "@/hooks/financing/useBankRates";
-import { buildBankSummary } from "./utils/simulationCalc";
+import { simularTodosBancos, type ResultadoSimulacao } from "./utils/simulationCalc";
 import { BankComparisonView } from "./BankComparisonView";
-
-const ITBI_RATES: Record<string, number> = {
-  SP: 3, RJ: 3, MG: 3, PR: 2.5, SC: 2, RS: 3, BA: 3, PE: 2, CE: 2, DF: 3,
-  GO: 2.5, ES: 2, MA: 2, PA: 2, MT: 2, MS: 2, RN: 3, PB: 3, AL: 2, SE: 2,
-  PI: 2, RO: 2, TO: 2, AC: 2, AM: 2, AP: 2, RR: 2,
-};
+import { SimulationResults } from "./SimulationResults";
+import {
+  TETO_SFH, IDADE_MAX_FIM_CONTRATO, COMPROMETIMENTO_MAX_RENDA,
+  ITBI_RATES,
+} from "@/constants/bancos-financiamento";
+import { CurrencyInput } from "@/components/ui/currency-input";
 
 const fmtBRL = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export function FinancingSimulator() {
-  const [propertyValue, setPropertyValue] = useState("");
-  const [downPayment, setDownPayment] = useState("");
-  const [termMonths, setTermMonths] = useState("360");
-  const [system, setSystem] = useState<"sac" | "price">("sac");
-  const [clientIncome, setClientIncome] = useState("");
+  const [valorImovel, setValorImovel] = useState(500_000);
+  const [percEntrada, setPercEntrada] = useState(20);
+  const [prazoAnos, setPrazoAnos] = useState(30);
+  const [sistema, setSistema] = useState<"SAC" | "PRICE">("SAC");
+  const [rendaMensal, setRendaMensal] = useState<number | null>(null);
+  const [idade, setIdade] = useState(30);
+  const [usarFgts, setUsarFgts] = useState(false);
+  const [valorFgts, setValorFgts] = useState<number | null>(null);
   const [state, setState] = useState("SP");
+  const [selectedBankId, setSelectedBankId] = useState<string | null>(null);
 
-  // ─── Enriched data sources ───
-  const { data: selicRate, isLoading: selicLoading, isError: selicError } = useSelicRate();
-  const { data: bankRates, isLoading: ratesLoading } = useBankRates();
+  const { data: trMensal, isLoading: trLoading, isError: trError } = useTaxaReferencial();
+  const { data: selicRate } = useSelicRate();
 
-  const banks = useMemo(() => {
-    return bankRates ?? DEFAULT_BANK_RATES.map((r, i) => ({ ...r, id: `default-${i}` }));
-  }, [bankRates]);
+  const prazoMaxIdade = Math.floor((IDADE_MAX_FIM_CONTRATO - idade) * 12);
+  const prazoMaxAnos = Math.min(35, Math.floor(prazoMaxIdade / 12));
+  const prazoMeses = Math.min(prazoAnos * 12, prazoMaxIdade);
 
-  // ─── Computed values ───
-  const propertyValueNum = useMemo(
-    () => parseFloat(propertyValue.replace(/\D/g, "")) || 0,
-    [propertyValue]
-  );
+  const valorEntrada = valorImovel * (percEntrada / 100);
+  const valorFinanciado = Math.max(valorImovel - valorEntrada - (usarFgts ? (valorFgts ?? 0) : 0), 0);
+  const isSFH = valorImovel <= TETO_SFH;
 
-  const financedAmount = useMemo(() => {
-    const dp = parseFloat(downPayment.replace(/\D/g, "")) || 0;
-    return Math.max(propertyValueNum - dp, 0);
-  }, [propertyValueNum, downPayment]);
-
-  const clientIncomeNum = useMemo(
-    () => parseFloat(clientIncome.replace(/\D/g, "")) || 0,
-    [clientIncome]
-  );
-
-  const downPaymentPct =
-    propertyValueNum > 0
-      ? ((parseFloat(downPayment.replace(/\D/g, "")) || 0) / propertyValueNum) * 100
-      : 0;
-
-  // ─── Multi-bank simulation ───
-  const bankSummaries = useMemo(() => {
-    if (financedAmount <= 0) return [];
-    const n = parseInt(termMonths) || 360;
-
-    return banks.map((b) => {
-      const effectiveRate =
-        b.spread_over_selic > 0 && selicRate
-          ? selicRate + b.spread_over_selic
-          : b.rate_min;
-
-      return buildBankSummary(
-        b.bank_code,
-        b.bank_name,
-        effectiveRate,
-        financedAmount,
-        n,
-        system
-      );
+  const resultados = useMemo(() => {
+    if (valorFinanciado <= 0 || prazoMeses <= 0) return [];
+    return simularTodosBancos({
+      valorImovel,
+      valorEntrada,
+      valorFgts: usarFgts ? (valorFgts ?? 0) : 0,
+      prazoMeses,
+      idadeComprador: idade,
+      rendaMensal: rendaMensal ?? 0,
+      sistema,
+      trMensal: trMensal ?? 0.169,
     });
-  }, [banks, financedAmount, termMonths, system, selicRate]);
+  }, [valorImovel, valorEntrada, valorFgts, usarFgts, prazoMeses, idade, rendaMensal, sistema, trMensal]);
 
-  // ─── ITBI / Custos ───
+  const selectedResult = useMemo(() => {
+    if (!selectedBankId) return resultados[0] ?? null;
+    return resultados.find(r => r.bancoId === selectedBankId) ?? resultados[0] ?? null;
+  }, [resultados, selectedBankId]);
+
+  const handleSelectBank = useCallback((id: string) => setSelectedBankId(id), []);
+
+  // ITBI
   const itbiRate = ITBI_RATES[state] ?? 3;
-  const itbiValue = propertyValueNum * (itbiRate / 100);
-  const registroEstimado = propertyValueNum > 0 ? Math.max(propertyValueNum * 0.012, 1500) : 0;
-  const totalCustos = itbiValue + registroEstimado;
+  const itbiValue = valorImovel * (itbiRate / 100);
 
   return (
     <div className="space-y-6">
-      {/* ─── Selic indicator ─── */}
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        {selicLoading ? (
-          <Skeleton className="h-4 w-40" />
-        ) : selicError ? (
+      {/* TR / Selic indicator */}
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        {trLoading ? (
+          <Skeleton className="h-4 w-48" />
+        ) : trError ? (
           <>
             <WifiOff className="h-3.5 w-3.5 text-destructive" />
-            <span>Selic indisponível — usando taxas fixas</span>
+            <span>TR indisponível — usando fallback 0,1690%</span>
           </>
         ) : (
           <>
             <Wifi className="h-3.5 w-3.5 text-green-500" />
-            <span>Selic atual: <strong>{selicRate?.toFixed(2)}% a.a.</strong> (BCB)</span>
-            {ratesLoading ? (
-              <Skeleton className="h-4 w-24" />
-            ) : bankRates && bankRates[0]?.id !== "default-0" ? (
-              <Badge variant="outline" className="text-[10px]">Taxas personalizadas</Badge>
-            ) : (
-              <Badge variant="secondary" className="text-[10px]">Taxas padrão</Badge>
-            )}
+            <span>TR mensal: <strong>{trMensal?.toFixed(4)}%</strong></span>
+            {selicRate && <span>| Selic: <strong>{selicRate.toFixed(2)}% a.a.</strong></span>}
+            <Badge variant="outline" className="text-[10px]">BCB em tempo real</Badge>
           </>
         )}
       </div>
 
-      {/* ─── Input Form ─── */}
+      {/* ── Input Form ── */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calculator className="h-5 w-5 text-primary" />
-            Simulador de Financiamento — Todos os Bancos
+            Simulador de Financiamento Imobiliário
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label>Valor do imóvel (R$)</Label>
-              <Input
-                placeholder="500.000"
-                value={propertyValue}
-                onChange={(e) => setPropertyValue(e.target.value)}
+        <CardContent className="space-y-6">
+          {/* Row 1 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <Label>Valor do Imóvel: {fmtBRL(valorImovel)}</Label>
+              <Slider
+                min={100_000} max={5_000_000} step={10_000}
+                value={[valorImovel]}
+                onValueChange={([v]) => setValorImovel(v)}
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>R$ 100 mil</span><span>R$ 5 mi</span>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <Label>Entrada: {percEntrada}% ({fmtBRL(valorEntrada)})</Label>
+              <Slider
+                min={10} max={80} step={1}
+                value={[percEntrada]}
+                onValueChange={([v]) => setPercEntrada(v)}
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>10%</span><span>80%</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2 */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-3">
+              <Label>Prazo: {prazoAnos} anos ({prazoMeses} meses)</Label>
+              <Slider
+                min={5} max={prazoMaxAnos} step={1}
+                value={[Math.min(prazoAnos, prazoMaxAnos)]}
+                onValueChange={([v]) => setPrazoAnos(v)}
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>5 anos</span><span>{prazoMaxAnos} anos (máx. idade)</span>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <Label>Renda Mensal Bruta</Label>
+              <CurrencyInput
+                value={rendaMensal}
+                onChange={setRendaMensal}
+                placeholder="R$ 8.000,00"
               />
             </div>
-            <div className="space-y-2">
-              <Label>
-                Entrada (R$)
-                {downPaymentPct > 0 && (
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    ({downPaymentPct.toFixed(1)}%)
-                  </span>
-                )}
-              </Label>
+            <div className="space-y-3">
+              <Label>Idade do Comprador</Label>
               <Input
-                placeholder="100.000"
-                value={downPayment}
-                onChange={(e) => setDownPayment(e.target.value)}
+                type="number" min={18} max={75}
+                value={idade}
+                onChange={(e) => setIdade(Math.max(18, Math.min(75, parseInt(e.target.value) || 18)))}
               />
             </div>
-            <div className="space-y-2">
-              <Label>Prazo (meses)</Label>
-              <Select value={termMonths} onValueChange={setTermMonths}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {[60, 120, 180, 240, 300, 360, 420].map((m) => (
-                    <SelectItem key={m} value={m.toString()}>
-                      {m} meses ({(m / 12).toFixed(0)} anos)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Sistema</Label>
-              <Tabs value={system} onValueChange={(v) => setSystem(v as "sac" | "price")}>
+          </div>
+
+          {/* Row 3 */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-3">
+              <Label>Sistema de Amortização</Label>
+              <Tabs value={sistema} onValueChange={(v) => setSistema(v as "SAC" | "PRICE")}>
                 <TabsList className="w-full">
-                  <TabsTrigger value="sac" className="flex-1">SAC</TabsTrigger>
-                  <TabsTrigger value="price" className="flex-1">PRICE</TabsTrigger>
+                  <TabsTrigger value="SAC" className="flex-1">SAC</TabsTrigger>
+                  <TabsTrigger value="PRICE" className="flex-1">PRICE</TabsTrigger>
                 </TabsList>
               </Tabs>
+              <p className="text-[10px] text-muted-foreground">
+                {sistema === "SAC"
+                  ? "Parcelas decrescentes — amortização constante"
+                  : "Parcelas fixas — amortização crescente"}
+              </p>
             </div>
-            <div className="space-y-2">
-              <Label className="flex items-center gap-1.5">
-                <Users className="h-3.5 w-3.5" />
-                Renda bruta do cliente (R$)
-              </Label>
-              <Input
-                placeholder="8.000"
-                value={clientIncome}
-                onChange={(e) => setClientIncome(e.target.value)}
-              />
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Switch checked={usarFgts} onCheckedChange={setUsarFgts} />
+                <Label>Usar FGTS na entrada</Label>
+              </div>
+              {usarFgts && (
+                <CurrencyInput
+                  value={valorFgts}
+                  onChange={setValorFgts}
+                  placeholder="R$ 50.000,00"
+                />
+              )}
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label>Estado (para ITBI)</Label>
               <Select value={state} onValueChange={setState}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {Object.keys(ITBI_RATES).sort().map((uf) => (
-                    <SelectItem key={uf} value={uf}>
-                      {uf} ({ITBI_RATES[uf]}%)
-                    </SelectItem>
+                    <SelectItem key={uf} value={uf}>{uf} ({ITBI_RATES[uf]}%)</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          {/* ─── Custos extras ─── */}
-          {propertyValueNum > 0 && (
-            <>
-              <Separator className="my-4" />
-              <div className="flex items-center gap-4 text-sm">
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Custos estimados:</span>
-                <span className="font-medium">
-                  ITBI {fmtBRL(itbiValue)} + Registro {fmtBRL(registroEstimado)} = <strong>{fmtBRL(totalCustos)}</strong>
-                </span>
-              </div>
-            </>
-          )}
+          {/* Badges */}
+          <Separator />
+          <div className="flex flex-wrap gap-2">
+            <Badge variant={isSFH ? "default" : "destructive"} className="gap-1">
+              {isSFH ? <ShieldCheck className="h-3 w-3" /> : <ShieldAlert className="h-3 w-3" />}
+              {isSFH ? "SFH" : "SFI (acima do teto)"}
+            </Badge>
+            <Badge variant="outline">Financiado: {fmtBRL(valorFinanciado)}</Badge>
+            <Badge variant="outline">Prazo máx. idade: {Math.floor(prazoMaxIdade / 12)} anos</Badge>
+            {rendaMensal && rendaMensal > 0 && resultados[0] && (
+              <Badge variant={resultados[0].aprovado ? "default" : "destructive"} className="gap-1">
+                {resultados[0].aprovado
+                  ? <><CheckCircle2 className="h-3 w-3" /> Renda compatível</>
+                  : <><AlertTriangle className="h-3 w-3" /> Renda insuficiente</>
+                }
+              </Badge>
+            )}
+          </div>
         </CardContent>
       </Card>
 
-      {/* ─── Multi-bank Results ─── */}
-      {bankSummaries.length > 0 && (
+      {/* ── Bank Comparison ── */}
+      {resultados.length > 0 && (
         <BankComparisonView
-          summaries={bankSummaries}
-          clientIncome={clientIncomeNum}
+          resultados={resultados}
+          selectedBankId={selectedBankId}
+          onSelectBank={handleSelectBank}
+        />
+      )}
+
+      {/* ── Detailed Results ── */}
+      {selectedResult && (
+        <SimulationResults
+          resultado={selectedResult}
+          itbiRate={itbiRate}
+          itbiValue={itbiValue}
+          state={state}
         />
       )}
     </div>
