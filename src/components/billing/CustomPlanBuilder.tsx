@@ -286,7 +286,7 @@ export function CustomPlanBuilder() {
               onClick={() => setCheckoutOpen(true)}
             >
               <ShoppingCart className="h-4 w-4" />
-              Assinar plano personalizado
+              Testar 7 dias grátis
             </Button>
           </div>
         </>
