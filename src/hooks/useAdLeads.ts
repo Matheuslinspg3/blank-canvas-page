@@ -117,7 +117,7 @@ export function useAdLeads(filters?: { externalAdId?: string; status?: AdLeadSta
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ad-leads'] });
       queryClient.invalidateQueries({ queryKey: ['ad-leads-count'] });
-      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['leads'], refetchType: 'active' });
       toast({ title: 'Enviado ao CRM', description: 'Lead enviado ao CRM com sucesso.' });
     },
     onError: (error) => {

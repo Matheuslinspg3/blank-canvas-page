@@ -123,7 +123,7 @@ export function useLeadAssignment() {
       return { leadId, brokerId, brokerName };
     },
     onSuccess: ({ brokerName }) => {
-      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['leads'], refetchType: 'active' });
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       toast({
         title: 'Lead atribuído',
