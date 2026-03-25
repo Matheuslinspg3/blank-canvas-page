@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
     let body: any = {};
     try { body = await req.json(); } catch {}
 
-    const mode = body.mode || "preview"; // "preview" | "import"
+    const mode = body.mode || "sync"; // "sync" (default, legacy) | "preview" | "import"
     const daysBack = Math.min(body.days_back || 7, 90);
     const selectedLeadIds: string[] = body.selected_lead_ids || [];
     const crmStageId: string | null = body.crm_stage_id || null;
