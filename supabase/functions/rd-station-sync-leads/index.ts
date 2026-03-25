@@ -781,6 +781,12 @@ async function processContacts(
 
         created++;
 
+        // Import activities/events from RD Station
+        if (newLead?.id && contact.uuid && apiHeaders) {
+          await importContactEvents(supabase, contact.uuid, newLead.id, orgId, userId, apiHeaders);
+          await sleep(200);
+        }
+
         // Notify org managers about new RD Station lead
         if (newLead?.id) {
           const { data: managers } = await supabase
