@@ -205,7 +205,7 @@ export function CheckoutDialog({ open, onOpenChange, plan }: CheckoutDialogProps
             </div>
 
             <div className="text-center space-y-1">
-              <p className="text-sm font-medium">R$ {Number(price).toFixed(2)}</p>
+              <p className="text-sm font-medium">R$ {(Number(price) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
               <p className="text-xs text-muted-foreground">
                 Plano {plan.name} — {billingCycle === "yearly" ? "Anual" : "Mensal"}
               </p>
