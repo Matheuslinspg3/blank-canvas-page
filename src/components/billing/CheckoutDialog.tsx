@@ -24,9 +24,10 @@ interface CheckoutDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   plan: SubscriptionPlan | null;
+  defaultSandbox?: boolean;
 }
 
-export function CheckoutDialog({ open, onOpenChange, plan }: CheckoutDialogProps) {
+export function CheckoutDialog({ open, onOpenChange, plan, defaultSandbox = false }: CheckoutDialogProps) {
   const { subscribe } = useSubscription({ enabled: true });
   const { profile } = useAuth();
 
@@ -37,7 +38,7 @@ export function CheckoutDialog({ open, onOpenChange, plan }: CheckoutDialogProps
   const [pixData, setPixData] = useState<{ qrCode: string; copyPaste: string } | null>(null);
   const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [useSandbox, setUseSandbox] = useState(false);
+  const [useSandbox, setUseSandbox] = useState(defaultSandbox);
 
   if (!plan) return null;
 
