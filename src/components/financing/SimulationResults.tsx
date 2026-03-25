@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
   DollarSign, TrendingDown, TrendingUp, Percent, ShieldCheck,
-  FileText, AlertTriangle, ChevronDown, ChevronUp,
+  FileText, AlertTriangle, ChevronDown, ChevronUp, Download,
 } from "lucide-react";
+import { gerarPdfSimulacao } from "./SimulationPdfGenerator";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import type { ResultadoSimulacao } from "./utils/simulationCalc";
 import { COMPROMETIMENTO_MAX_RENDA } from "@/constants/bancos-financiamento";
