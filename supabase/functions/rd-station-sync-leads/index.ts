@@ -841,6 +841,76 @@ async function processContacts(
   return { created, duplicates, errors };
 }
 
+// ─── IMPORT CONTACT EVENTS from /platform/contacts/{uuid}/events ───
+
+async function importContactEvents(
+  supabase: any,
+  uuid: string,
+  leadId: string,
+  orgId: string,
+  userId: string,
+  apiHeaders: Record<string, string>
+): Promise<void> {
+  try {
+    const res = await fetchWithTimeout(
+      `https://api.rd.services/platform/contacts/${uuid}/events`,
+      apiHeaders,
+      10000
+    );
+    if (!res.ok) {
+      console.log(`[events] Failed for ${uuid}: ${res.status}`);
+      return;
+    }
+    const data = await res.json();
+    const events = Array.isArray(data?.events) ? data.events : (Array.isArray(data) ? data : []);
+
+    if (events.length === 0) return;
+
+    const interactionTypeMap: Record<string, string> = {
+      "CONVERSION": "anotacao",
+      "OPPORTUNITY": "anotacao",
+      "SALE": "anotacao",
+      "OPPORTUNITY_LOST": "anotacao",
+      "EMAIL": "email",
+      "EMAIL_CLICK": "email",
+      "EMAIL_OPEN": "email",
+      "CHAT": "whatsapp",
+      "CALL": "ligacao",
+      "MEDIA": "anotacao",
+    };
+
+    for (const event of events.slice(0, 50)) {
+      const eventType = event.event_type || event.type || "CONVERSION";
+      const interactionType = interactionTypeMap[eventType] || "anotacao";
+      const occurredAt = event.event_timestamp || event.created_at || new Date().toISOString();
+
+      let description = `[RD Station] ${eventType}`;
+      if (event.event_identifier || event.conversion_identifier) {
+        description += `: ${event.event_identifier || event.conversion_identifier}`;
+      }
+      if (event.content) {
+        const content = typeof event.content === "string" ? event.content : JSON.stringify(event.content);
+        if (content.length < 500) description += `\n${content}`;
+      }
+      if (event.event_source) {
+        description += `\nOrigem: ${event.event_source}`;
+      }
+
+      await supabase.from("lead_interactions").insert({
+        lead_id: leadId,
+        type: interactionType,
+        description,
+        occurred_at: occurredAt,
+        created_by: userId,
+      });
+    }
+
+    console.log(`[events] Imported ${Math.min(events.length, 50)} events for lead ${leadId}`);
+  } catch (err: any) {
+    console.error(`[events] Error importing events for ${uuid}:`, err.message);
+  }
+}
+
 function extractPhoneFromCustomFields(contact: any): string | null {
   if (contact.custom_fields && typeof contact.custom_fields === "object") {
     for (const [key, value] of Object.entries(contact.custom_fields)) {
