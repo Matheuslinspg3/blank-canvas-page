@@ -353,6 +353,10 @@ export function PlanCatalogDialog({ open, onOpenChange }: Props) {
                   <Package className="h-3.5 w-3.5 mr-1" />
                   Combos
                 </TabsTrigger>
+                <TabsTrigger value="custom" className="flex-1 text-xs">
+                  <Puzzle className="h-3.5 w-3.5 mr-1" />
+                  Personalizado
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="marketplace" className="mt-3">
