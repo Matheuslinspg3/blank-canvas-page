@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
     const mappedContacts = allContacts.map((contact: any) => {
       const email = contact.email || null;
       const name = contact.name || `${contact.first_name || ""} ${contact.last_name || ""}`.trim() || "Lead RD Station";
-      const phone = contact.personal_phone || contact.mobile_phone || null;
+      const phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
       const normalizedPhone = phone ? phone.replace(/\D/g, "") : "";
 
       let existsInCRM = false;

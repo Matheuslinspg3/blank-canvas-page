@@ -316,7 +316,7 @@ async function handleSelectiveSync(req: Request, supabase: any, body: Record<str
     try {
       const email = contact.email || null;
       const name = contact.name || `${contact.first_name || ""} ${contact.last_name || ""}`.trim() || "Lead RD Station";
-      const phone = contact.personal_phone || contact.mobile_phone || null;
+      const phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
       const notes = buildNotes(contact);
 
       let existingLead: any = null;
@@ -632,7 +632,7 @@ async function processContacts(
         contact.name ||
         `${contact.first_name || ""} ${contact.last_name || ""}`.trim() ||
         "Lead RD Station";
-      const phone = contact.personal_phone || contact.mobile_phone || null;
+      const phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
 
       // Check duplicate by email
       if (email) {
