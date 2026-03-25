@@ -33,8 +33,31 @@ export function ContractTemplatesTab() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [templateToDelete, setTemplateToDelete] = useState<string | null>(null);
 
+  const [seedingTemplates, setSeedingTemplates] = useState(false);
+
   const handleCreate = () => { setEditingTemplate(null); setFormOpen(true); };
   const handleEdit = (t: ContractTemplate) => { setEditingTemplate(t); setFormOpen(true); };
+
+  const handleSeedTemplates = async () => {
+    setSeedingTemplates(true);
+    try {
+      const existingNames = templates.map(t => t.name);
+      const toCreate = DEFAULT_CONTRACT_TEMPLATES.filter(t => !existingNames.includes(t.name));
+      if (toCreate.length === 0) {
+        toast.info("Todos os templates padrão já foram adicionados.");
+        return;
+      }
+      for (const tpl of toCreate) {
+        const { key, ...data } = tpl;
+        createTemplate(data);
+      }
+      toast.success(`${toCreate.length} template(s) adicionado(s) com sucesso!`);
+    } catch (err) {
+      toast.error("Erro ao adicionar templates padrão.");
+    } finally {
+      setSeedingTemplates(false);
+    }
+  };
 
   const handleSubmit = (data: ContractTemplateFormData) => {
     if (editingTemplate) {
