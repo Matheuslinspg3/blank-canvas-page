@@ -1,16 +1,18 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Calculator, TrendingDown, TrendingUp, DollarSign,
-  Users, AlertTriangle, CheckCircle2, FileDown, Percent,
+  Users, AlertTriangle, CheckCircle2, Percent, Wifi, WifiOff,
 } from "lucide-react";
+import { useSelicRate } from "@/hooks/financing/useSelicRate";
+import { useBankRates, DEFAULT_BANK_RATES } from "@/hooks/financing/useBankRates";
 
 interface SimulationResult {
   parcela: number;
@@ -19,24 +21,13 @@ interface SimulationResult {
   saldoDevedor: number;
 }
 
-const BANKS = [
-  { id: "caixa", name: "Caixa Econômica", taxMin: 8.99, taxMax: 11.49 },
-  { id: "bb", name: "Banco do Brasil", taxMin: 9.39, taxMax: 11.69 },
-  { id: "itau", name: "Itaú", taxMin: 9.5, taxMax: 11.59 },
-  { id: "bradesco", name: "Bradesco", taxMin: 9.5, taxMax: 11.9 },
-  { id: "santander", name: "Santander", taxMin: 9.49, taxMax: 11.99 },
-  { id: "custom", name: "Taxa personalizada", taxMin: 0, taxMax: 0 },
-];
-
-/** Regra padrão dos bancos: parcela ≤ 30% da renda bruta */
-const INCOME_COMMITMENT_RATIO = 0.30;
-
-/** ITBI médio por estado (%) */
 const ITBI_RATES: Record<string, number> = {
   SP: 3, RJ: 3, MG: 3, PR: 2.5, SC: 2, RS: 3, BA: 3, PE: 2, CE: 2, DF: 3,
   GO: 2.5, ES: 2, MA: 2, PA: 2, MT: 2, MS: 2, RN: 3, PB: 3, AL: 2, SE: 2,
   PI: 2, RO: 2, TO: 2, AC: 2, AM: 2, AP: 2, RR: 2,
 };
+
+const INCOME_COMMITMENT_RATIO = 0.30;
 
 const fmtBRL = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -51,6 +42,24 @@ export function FinancingSimulator() {
   const [clientIncome, setClientIncome] = useState("");
   const [state, setState] = useState("SP");
 
+  // ─── Enriched data sources ───
+  const { data: selicRate, isLoading: selicLoading, isError: selicError } = useSelicRate();
+  const { data: bankRates, isLoading: ratesLoading } = useBankRates();
+
+  const banks = useMemo(() => {
+    const list = bankRates ?? DEFAULT_BANK_RATES.map((r, i) => ({ ...r, id: `default-${i}` }));
+    return [
+      ...list,
+      { id: "custom", bank_name: "Taxa personalizada", bank_code: "custom", rate_min: 0, rate_max: 0, spread_over_selic: 0, max_ltv: 100, max_term_months: 420, notes: null, is_active: true },
+    ];
+  }, [bankRates]);
+
+  const selectedBank = useMemo(
+    () => banks.find((b) => b.bank_code === bank) ?? banks[0],
+    [banks, bank]
+  );
+
+  // ─── Computed values ───
   const propertyValueNum = useMemo(
     () => parseFloat(propertyValue.replace(/\D/g, "")) || 0,
     [propertyValue]
@@ -100,7 +109,6 @@ export function FinancingSimulator() {
   const totalPaid = results.reduce((s, r) => s + r.parcela, 0);
   const totalInterest = results.reduce((s, r) => s + r.juros, 0);
 
-  // ─── Renda mínima ───
   const minIncome = useMemo(
     () => (firstPayment > 0 ? firstPayment / INCOME_COMMITMENT_RATIO : 0),
     [firstPayment]
@@ -117,26 +125,55 @@ export function FinancingSimulator() {
       ? (firstPayment / clientIncomeNum) * 100
       : 0;
 
-  // ─── Custos cartorários / ITBI ───
   const itbiRate = ITBI_RATES[state] ?? 3;
   const itbiValue = propertyValueNum * (itbiRate / 100);
   const registroEstimado = propertyValueNum > 0 ? Math.max(propertyValueNum * 0.012, 1500) : 0;
   const totalCustos = itbiValue + registroEstimado;
 
-  // ─── Down payment percentage ───
   const downPaymentPct =
     propertyValueNum > 0
       ? ((parseFloat(downPayment.replace(/\D/g, "")) || 0) / propertyValueNum) * 100
       : 0;
 
-  const handleBankChange = (bankId: string) => {
-    setBank(bankId);
-    const b = BANKS.find((x) => x.id === bankId);
-    if (b && bankId !== "custom") setAnnualRate(b.taxMin.toString());
+  const handleBankChange = (bankCode: string) => {
+    setBank(bankCode);
+    const b = banks.find((x) => x.bank_code === bankCode);
+    if (b && bankCode !== "custom") {
+      // If bank has spread_over_selic and we have Selic, calculate effective rate
+      if (b.spread_over_selic > 0 && selicRate) {
+        setAnnualRate((selicRate + b.spread_over_selic).toFixed(2));
+      } else {
+        setAnnualRate(b.rate_min.toString());
+      }
+    }
   };
 
   return (
     <div className="space-y-6">
+      {/* ─── Selic indicator ─── */}
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        {selicLoading ? (
+          <Skeleton className="h-4 w-40" />
+        ) : selicError ? (
+          <>
+            <WifiOff className="h-3.5 w-3.5 text-destructive" />
+            <span>Selic indisponível — usando taxas fixas</span>
+          </>
+        ) : (
+          <>
+            <Wifi className="h-3.5 w-3.5 text-green-500" />
+            <span>Selic atual: <strong>{selicRate?.toFixed(2)}% a.a.</strong> (BCB)</span>
+            {ratesLoading ? (
+              <Skeleton className="h-4 w-24" />
+            ) : bankRates && bankRates[0]?.id !== "default-0" ? (
+              <Badge variant="outline" className="text-[10px]">Taxas personalizadas</Badge>
+            ) : (
+              <Badge variant="secondary" className="text-[10px]">Taxas padrão</Badge>
+            )}
+          </>
+        )}
+      </div>
+
       {/* ─── Input Form ─── */}
       <Card>
         <CardHeader>
@@ -188,9 +225,9 @@ export function FinancingSimulator() {
               <Select value={bank} onValueChange={handleBankChange}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {BANKS.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.name} {b.id !== "custom" && `(${b.taxMin}% ~ ${b.taxMax}%)`}
+                  {banks.map((b) => (
+                    <SelectItem key={b.bank_code} value={b.bank_code}>
+                      {b.bank_name} {b.bank_code !== "custom" && `(${b.rate_min}% ~ ${b.rate_max}%)`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -217,7 +254,6 @@ export function FinancingSimulator() {
 
           <Separator className="my-4" />
 
-          {/* Renda e custos */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label className="flex items-center gap-1.5">
@@ -250,7 +286,6 @@ export function FinancingSimulator() {
       {/* ─── Results ─── */}
       {results.length > 0 && (
         <>
-          {/* Summary cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             <Card>
               <CardContent className="pt-4 text-center">
@@ -280,8 +315,6 @@ export function FinancingSimulator() {
                 <p className="text-lg font-bold">{fmtBRL(totalInterest)}</p>
               </CardContent>
             </Card>
-
-            {/* Renda mínima */}
             <Card className="border-primary/30">
               <CardContent className="pt-4 text-center">
                 <Users className="h-5 w-5 mx-auto text-primary mb-1" />
@@ -290,8 +323,6 @@ export function FinancingSimulator() {
                 <p className="text-[10px] text-muted-foreground">30% comprometimento</p>
               </CardContent>
             </Card>
-
-            {/* Custos extras */}
             <Card>
               <CardContent className="pt-4 text-center">
                 <DollarSign className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
@@ -304,7 +335,6 @@ export function FinancingSimulator() {
             </Card>
           </div>
 
-          {/* Income analysis */}
           {clientIncomeNum > 0 && (
             <Card className={incomeOk ? "border-green-500/30 bg-green-500/5" : "border-destructive/30 bg-destructive/5"}>
               <CardContent className="pt-4 flex items-center gap-3">
@@ -333,7 +363,6 @@ export function FinancingSimulator() {
             </Card>
           )}
 
-          {/* Amortization table */}
           <Card>
             <CardHeader>
               <CardTitle className="text-sm">Tabela de Amortização (primeiras 12 parcelas)</CardTitle>

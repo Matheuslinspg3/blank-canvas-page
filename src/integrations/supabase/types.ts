@@ -1806,6 +1806,62 @@ export type Database = {
         }
         Relationships: []
       }
+      financing_bank_rates: {
+        Row: {
+          bank_code: string
+          bank_name: string
+          id: string
+          is_active: boolean | null
+          max_ltv: number | null
+          max_term_months: number | null
+          notes: string | null
+          organization_id: string
+          rate_max: number
+          rate_min: number
+          spread_over_selic: number | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          bank_code: string
+          bank_name: string
+          id?: string
+          is_active?: boolean | null
+          max_ltv?: number | null
+          max_term_months?: number | null
+          notes?: string | null
+          organization_id: string
+          rate_max: number
+          rate_min: number
+          spread_over_selic?: number | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          bank_code?: string
+          bank_name?: string
+          id?: string
+          is_active?: boolean | null
+          max_ltv?: number | null
+          max_term_months?: number | null
+          notes?: string | null
+          organization_id?: string
+          rate_max?: number
+          rate_min?: number
+          spread_over_selic?: number | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financing_bank_rates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generated_arts: {
         Row: {
           config: Json | null
