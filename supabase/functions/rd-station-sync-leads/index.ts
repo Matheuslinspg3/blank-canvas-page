@@ -867,16 +867,16 @@ async function importContactEvents(
     if (events.length === 0) return;
 
     const interactionTypeMap: Record<string, string> = {
-      "CONVERSION": "anotacao",
-      "OPPORTUNITY": "anotacao",
-      "SALE": "anotacao",
-      "OPPORTUNITY_LOST": "anotacao",
+      "CONVERSION": "nota",
+      "OPPORTUNITY": "nota",
+      "SALE": "nota",
+      "OPPORTUNITY_LOST": "nota",
       "EMAIL": "email",
       "EMAIL_CLICK": "email",
       "EMAIL_OPEN": "email",
       "CHAT": "whatsapp",
       "CALL": "ligacao",
-      "MEDIA": "anotacao",
+      "MEDIA": "nota",
     };
 
     for (const event of events.slice(0, 50)) {
