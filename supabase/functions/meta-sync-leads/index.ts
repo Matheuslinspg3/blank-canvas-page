@@ -157,7 +157,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ── PREVIEW MODE (default) ── fetch from Meta, save to ad_leads, return list
+    // ── PREVIEW & SYNC MODES ── fetch from Meta, save to ad_leads
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - daysBack);
 
@@ -174,13 +174,16 @@ Deno.serve(async (req) => {
 
     const pages = pagesData.data || [];
     if (pages.length === 0) {
-      return new Response(
-        JSON.stringify({ leads: [], message: "Nenhuma página encontrada. Verifique as permissões do token." }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      const emptyResult = mode === "preview"
+        ? { leads: [], message: "Nenhuma página encontrada. Verifique as permissões do token." }
+        : { synced: 0, skipped: 0, auto_sent: 0, forms: 0, message: "Nenhuma página encontrada." };
+      return new Response(JSON.stringify(emptyResult), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const allLeads: any[] = [];
+    let totalSynced = 0;
+    let totalSkipped = 0;
+    let totalForms = 0;
 
     for (const page of pages) {
       const pageToken = page.access_token || accessToken;
@@ -191,7 +194,10 @@ Deno.serve(async (req) => {
       const formsData = await formsRes.json();
       if (formsData.error) continue;
 
-      for (const form of (formsData.data || [])) {
+      const forms = formsData.data || [];
+      totalForms += forms.length;
+
+      for (const form of forms) {
         let leadsUrl: string | null = `https://graph.facebook.com/v21.0/${form.id}/leads?fields=id,created_time,field_data,ad_id&limit=100&access_token=${pageToken}`;
 
         while (leadsUrl) {
@@ -213,8 +219,7 @@ Deno.serve(async (req) => {
             const email = getField("email");
             const phone = getField("phone_number") || getField("telefone") || getField("phone");
 
-            // Upsert into ad_leads
-            const { data: upserted } = await supabase
+            const { data: upserted, error: upsertError } = await supabase
               .from("ad_leads")
               .upsert({
                 organization_id: orgId,
@@ -232,12 +237,13 @@ Deno.serve(async (req) => {
               .select("id, name, email, phone, created_time, status, external_form_id, external_ad_id")
               .single();
 
-            if (upserted) {
-              allLeads.push({
-                ...upserted,
-                form_name: form.name,
-                page_name: page.name,
-              });
+            if (upsertError) {
+              totalSkipped++;
+            } else {
+              totalSynced++;
+              if (upserted) {
+                allLeads.push({ ...upserted, form_name: form.name, page_name: page.name });
+              }
             }
           }
 
@@ -246,8 +252,70 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── SYNC MODE: auto-send to CRM ──
+    if (mode === "sync") {
+      const { data: adSettings } = await supabase
+        .from("ad_settings")
+        .select("auto_send_to_crm, crm_stage_id")
+        .eq("organization_id", orgId)
+        .single();
+
+      let autoSent = 0;
+      if (adSettings?.auto_send_to_crm && adSettings?.crm_stage_id) {
+        const { data: newLeads } = await supabase
+          .from("ad_leads")
+          .select("id, name, email, phone, external_ad_id")
+          .eq("organization_id", orgId)
+          .eq("status", "new");
+
+        for (const nl of (newLeads || [])) {
+          let existingCrmLead: any = null;
+          if (nl.email) {
+            const { data: byEmail } = await supabase
+              .from("leads").select("id")
+              .eq("organization_id", orgId).eq("email", nl.email).eq("is_active", true)
+              .limit(1).maybeSingle();
+            if (byEmail) existingCrmLead = byEmail;
+          }
+          if (!existingCrmLead && nl.phone) {
+            const normalizedPhone = nl.phone.replace(/\D/g, "");
+            if (normalizedPhone.length >= 8) {
+              const { data: allCrmLeads } = await supabase
+                .from("leads").select("id, phone")
+                .eq("organization_id", orgId).eq("is_active", true).not("phone", "is", null);
+              const match = (allCrmLeads || []).find((l: any) => {
+                const lPhone = (l.phone || "").replace(/\D/g, "");
+                return lPhone.length >= 8 && (lPhone === normalizedPhone || lPhone.endsWith(normalizedPhone) || normalizedPhone.endsWith(lPhone));
+              });
+              if (match) existingCrmLead = match;
+            }
+          }
+          if (existingCrmLead) {
+            await supabase.from("ad_leads").update({ status: "sent_to_crm", crm_record_id: existingCrmLead.id, updated_at: new Date().toISOString() }).eq("id", nl.id);
+            autoSent++;
+            continue;
+          }
+          const { data: crmLead, error: crmError } = await supabase
+            .from("leads")
+            .insert({ name: nl.name || "Lead de Anúncio", email: nl.email, phone: nl.phone, organization_id: orgId, created_by: userId, lead_stage_id: adSettings.crm_stage_id, stage: "novo", source: "anuncio", notes: `Lead importado automaticamente de Meta Ads (Ad ID: ${nl.external_ad_id})` })
+            .select("id").single();
+          if (!crmError && crmLead) {
+            await supabase.from("ad_leads").update({ status: "sent_to_crm", crm_record_id: crmLead.id, updated_at: new Date().toISOString() }).eq("id", nl.id);
+            autoSent++;
+          }
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ synced: totalSynced, skipped: totalSkipped, auto_sent: autoSent, forms: totalForms, pages: pages.length }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ── PREVIEW MODE: return leads for selection ──
+    const newLeads = allLeads.filter((l: any) => l.status === "new");
     return new Response(
-      JSON.stringify({ leads: allLeads, total: allLeads.length, pages: pages.length }),
+      JSON.stringify({ leads: newLeads, total: newLeads.length, pages: pages.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
