@@ -10,10 +10,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Check, Loader2, Crown, Zap, Building2, QrCode, CreditCard, Banknote,
   Eye, Search, Megaphone, Sparkles, Store, Briefcase, Rocket, Shield, Package,
+  Puzzle,
 } from "lucide-react";
 import { useSubscription, type SubscriptionPlan } from "@/hooks/useSubscription";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { CustomPlanBuilder } from "@/components/billing/CustomPlanBuilder";
 
 interface Props {
   open: boolean;
@@ -351,6 +353,10 @@ export function PlanCatalogDialog({ open, onOpenChange }: Props) {
                   <Package className="h-3.5 w-3.5 mr-1" />
                   Combos
                 </TabsTrigger>
+                <TabsTrigger value="custom" className="flex-1 text-xs">
+                  <Puzzle className="h-3.5 w-3.5 mr-1" />
+                  Personalizado
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="marketplace" className="mt-3">
@@ -372,6 +378,10 @@ export function PlanCatalogDialog({ open, onOpenChange }: Props) {
                   Marketplace + ERP juntos com <strong>20% de desconto</strong>.
                 </p>
                 {renderPlanCards(comboPlans)}
+              </TabsContent>
+
+              <TabsContent value="custom" className="mt-3">
+                <CustomPlanBuilder />
               </TabsContent>
             </Tabs>
           </div>

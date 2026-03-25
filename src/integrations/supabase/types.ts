@@ -1722,6 +1722,45 @@ export type Database = {
           },
         ]
       }
+      custom_plan_selections: {
+        Row: {
+          created_at: string
+          id: string
+          module_id: string
+          organization_id: string
+          quantity: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          module_id: string
+          organization_id: string
+          quantity?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          module_id?: string
+          organization_id?: string
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_plan_selections_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "plan_modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_plan_selections_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deleted_property_media: {
         Row: {
           cleaned_at: string | null
@@ -3275,6 +3314,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      plan_modules: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          display_order: number
+          feature_key: string
+          feature_value: Json
+          icon: string | null
+          id: string
+          is_active: boolean
+          name: string
+          price_monthly: number
+          price_yearly: number
+          slug: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          feature_key: string
+          feature_value?: Json
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          price_monthly?: number
+          price_yearly?: number
+          slug: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          feature_key?: string
+          feature_value?: Json
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          price_monthly?: number
+          price_yearly?: number
+          slug?: string
+        }
+        Relationships: []
       }
       platform_invites: {
         Row: {

@@ -193,12 +193,15 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
   };
 
   const subscribe = useMutation({
-    mutationFn: async (params: { planId: string; billingCycle: string; paymentMethod: string; customerName?: string; customerCpf?: string }) => {
+    mutationFn: async (params: { planId: string; billingCycle: string; paymentMethod: string; customerName?: string; customerCpf?: string; customModules?: { moduleId: string; quantity: number }[] }) => {
       const { customerId } = await callBilling("create-customer", {
         customerName: params.customerName,
         customerCpf: params.customerCpf,
       });
-      return callBilling("create-subscription", { ...params, customerId });
+      return callBilling(params.customModules ? "create-custom-subscription" : "create-subscription", {
+        ...params,
+        customerId,
+      });
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["subscription"] });

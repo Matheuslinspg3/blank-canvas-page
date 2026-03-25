@@ -19,13 +19,14 @@ import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
 import { cn } from "@/lib/utils";
 
-interface CheckoutDialogProps {
+export interface CheckoutDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   plan: SubscriptionPlan | null;
+  customModules?: { moduleId: string; quantity: number }[];
 }
 
-export function CheckoutDialog({ open, onOpenChange, plan }: CheckoutDialogProps) {
+export function CheckoutDialog({ open, onOpenChange, plan, customModules }: CheckoutDialogProps) {
   const { subscribe } = useSubscription({ enabled: true });
   const { profile } = useAuth();
 
@@ -75,6 +76,7 @@ export function CheckoutDialog({ open, onOpenChange, plan }: CheckoutDialogProps
         paymentMethod,
         customerName: customerName.trim(),
         customerCpf: customerCpf.replace(/\D/g, ""),
+        ...(customModules ? { customModules } : {}),
       },
       {
         onSuccess: (data: any) => {
