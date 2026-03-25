@@ -314,16 +314,26 @@ export default function MyPlan() {
                     {plan.features && (plan.features as any).has_financial && <PlanFeature label="Financeiro" />}
                     {plan.features && (plan.features as any).has_whatsapp && <PlanFeature label="WhatsApp" />}
                   </CardContent>
-                  <div className="p-4 pt-0">
+                  <div className="p-4 pt-0 flex gap-2">
                     <Button
                       variant={isCurrent ? "outline" : "default"}
                       size="sm"
-                      className="w-full"
+                      className="flex-1"
                       disabled={isCurrent}
-                      onClick={() => setCheckoutPlan(plan)}
+                      onClick={() => { setCheckoutSandbox(false); setCheckoutPlan(plan); }}
                     >
                       {isCurrent ? "Plano atual" : price === 0 ? "Grátis" : "Assinar"}
                     </Button>
+                    {!isCurrent && price > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-[10px] px-2 border-yellow-500/50 text-yellow-600 hover:bg-yellow-500/10"
+                        onClick={() => { setCheckoutSandbox(true); setCheckoutPlan(plan); }}
+                      >
+                        Sandbox
+                      </Button>
+                    )}
                   </div>
                 </Card>
               );
