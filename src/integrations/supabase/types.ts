@@ -2696,6 +2696,7 @@ export type Database = {
           ai_summary: string | null
           ai_summary_at: string | null
           broker_id: string | null
+          conversion_identifier: string | null
           created_at: string
           created_by: string
           email: string | null
@@ -2729,6 +2730,7 @@ export type Database = {
           source: string | null
           stage: Database["public"]["Enums"]["lead_stage"]
           temperature: string | null
+          traffic_source: string | null
           transaction_interest: string | null
           updated_at: string
         }
@@ -2737,6 +2739,7 @@ export type Database = {
           ai_summary?: string | null
           ai_summary_at?: string | null
           broker_id?: string | null
+          conversion_identifier?: string | null
           created_at?: string
           created_by: string
           email?: string | null
@@ -2770,6 +2773,7 @@ export type Database = {
           source?: string | null
           stage?: Database["public"]["Enums"]["lead_stage"]
           temperature?: string | null
+          traffic_source?: string | null
           transaction_interest?: string | null
           updated_at?: string
         }
@@ -2778,6 +2782,7 @@ export type Database = {
           ai_summary?: string | null
           ai_summary_at?: string | null
           broker_id?: string | null
+          conversion_identifier?: string | null
           created_at?: string
           created_by?: string
           email?: string | null
@@ -2811,6 +2816,7 @@ export type Database = {
           source?: string | null
           stage?: Database["public"]["Enums"]["lead_stage"]
           temperature?: string | null
+          traffic_source?: string | null
           transaction_interest?: string | null
           updated_at?: string
         }
