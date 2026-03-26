@@ -1,117 +1,78 @@
 
 
-# Plano: Simulador de Financiamento Imobiliário Realista
+# Otimização do Porta do Corretor
 
-## Situacao Atual
+## Estado Atual
 
-O simulador existente faz calculos basicos (SAC/PRICE) sem seguros MIP/DFI, sem taxa administrativa, sem TR, sem idade do comprador, sem CET. A interface usa inputs de texto simples sem sliders. O modulo ja esta integrado como sub-aba em Financeiro.
-
-## O Que Muda
-
-Reconstruir o motor de calculo e a interface do simulador para incluir todos os custos reais de um financiamento imobiliario brasileiro: seguros obrigatorios (MIP por faixa etaria, DFI), taxa administrativa, TR do BCB, CET estimado, validacao por idade, e FGTS na entrada.
+O sistema tem ~89K LOC frontend, 73+ Edge Functions, 311 componentes, e custos fixos de ~R$240/mês. Os audits existentes (`AUDITORIA_VELOCIDADE_ENTREGA.md` e `AUDITORIA_CUSTOS_TOTAIS.md`) já mapeiam os gargalos. Abaixo está um resumo priorizado do que otimizar.
 
 ---
 
-## Etapas de Implementacao
+## 1. Performance (Impacto direto no usuário)
 
-### 1. Constantes e Tabelas (novos arquivos)
+| Problema | Solução | Esforço |
+|----------|---------|---------|
+| Leads sem paginação (trava com >300) | Paginar por estágio no Kanban | Alto |
+| Dashboard faz 4 queries separadas | RPC `compute_financial_summary()` — 1 query | Baixo |
+| God Hooks (useProperties 930 linhas) | Quebrar em usePropertyCRUD + Images + Owners | Médio |
+| useLeads 551 linhas | Quebrar em useLeadCRUD + Kanban + BulkOps | Médio |
 
-- `src/constants/bancos-financiamento.ts` — 6 bancos com taxas atuais, taxa admin, cores, teto SFH (R$ 2.25M), limites
-- `src/constants/tabela-mip.ts` — tabela de aliquotas MIP por faixa etaria (11 faixas, 18-80 anos) + aliquota DFI fixa
+## 2. Segurança (Risco real)
 
-### 2. Hook da Taxa Referencial (TR)
+| Problema | Solução | Esforço |
+|----------|---------|---------|
+| CORS `*` em 70+ functions | Allowlist de domínios | Médio |
+| Race condition em generateCode() | RPC `generate_contract_code()` com lock | Baixo |
+| Deleção parcial de imóvel | RPC `delete_property_cascade()` | Baixo |
+| Sem plan limits | Trigger que rejeita INSERT acima do limite | Baixo |
 
-- `src/hooks/useTaxaReferencial.ts` — busca serie 7811 do BCB (TR mensal), staleTime 24h, fallback 0.1690%
+## 3. Custo de Desenvolvimento (DX)
 
-### 3. Motor de Calculo Completo
+| Problema | Solução | Esforço |
+|----------|---------|---------|
+| 73 functions com auth/CORS duplicado | `_shared/auth.ts`, `cors.ts`, `response.ts` | Médio |
+| 5 testes para 89K LOC | Testes para useLeads, useProperties, useContracts | Médio |
+| Arquivos >700 linhas (9 arquivos) | Regra de max 500 linhas, split Settings/GeradorAnuncios | Médio |
+| Sem seed para dev local | `seed-dev-data.sql` | Baixo |
 
-- Reescrever `src/components/financing/utils/simulationCalc.ts`:
-  - Taxa mensal efetiva = taxa base + TR
-  - Parcela SAC e PRICE com MIP (avanca idade ao longo do contrato), DFI, taxa admin
-  - Calculo do CET por busca binaria
-  - Retorna `ResultadoSimulacao` completo com evolucao mes a mes
-  - Validacao de idade (prazo maximo = 80.5 - idade)
-  - Renda minima e comprometimento de 30%
+## 4. Custo Financeiro
 
-### 4. Interface Reformulada
+| Problema | Solução | Economia |
+|----------|---------|----------|
+| 3 storage providers simultâneos | Finalizar migração R2, remover Cloudinary | ~$5/mês + 3 functions a menos |
+| IA sem cache em alguns endpoints | Já parcialmente feito (summarize-lead) | ~80% chamadas |
+| VPS WhatsApp R$90/mês (38% do fixo) | Avaliar UAZAPI Cloud no médio prazo | R$40-60/mês |
+| ai_router_logs sem TTL | Verificar pg_cron ativo para cleanup | Previne billing extra |
 
-- Reescrever `src/components/financing/FinancingSimulator.tsx`:
-  - **Formulario**: sliders + inputs para valor do imovel, % entrada, prazo (anos), renda, idade, sistema SAC/PRICE, toggle FGTS
-  - **Badges informativos**: SFH/SFI, valor entrada, financiado, prazo maximo por idade, status aprovacao
-  - **Grid de bancos**: cards com cor do banco, taxa + TR, 1a parcela total (com seguros), CET, destaque no mais economico, economia vs mais caro. Card clicavel para selecionar banco
+## 5. Ordem de Execução Recomendada
 
-- Novo `src/components/financing/BankComparisonView.tsx` (reescrito):
-  - Cards rankeados com cores dos bancos
-  - Tabela comparativa com CET, seguros, taxa admin
+```text
+SEMANA 1 — Quick Wins (~10h)
+├── RPC generate_contract_code() com lock
+├── RPC delete_property_cascade()
+├── Plan limits enforcement (trigger)
+├── _shared/ modules para Edge Functions
+└── Seed script para dev
 
-- Novo `src/components/financing/SimulationResults.tsx`:
-  - **Aba Resumo**: cards de metricas + grafico donut da composicao da 1a parcela + barra de custo total
-  - **Aba Evolucao**: tabela com primeiros 12 meses + marcos a cada 5 anos + ultimo mes, botao expandir
-  - **Aba Analise de Renda**: gauge de comprometimento, marca 30%, sugestoes se reprovado, comparativo SAC vs PRICE
-  - **Aba Custos Extras**: ITBI, escritura, registro, avaliacao estimados
+SEMANA 2 — Modularização (~12h)
+├── Quebrar useProperties → 3 hooks
+├── Quebrar useLeads → 3 hooks
+└── Split Settings.tsx em 5 sub-componentes
 
-### 5. Componentes Reutilizaveis
+SEMANA 3-4 — Escala (~14h)
+├── Paginar leads por estágio
+├── RPC compute_financial_summary()
+├── Split GeradorAnuncios.tsx e PropertyDetails.tsx
+└── CORS allowlist
 
-- `CurrencyInput` — input com mascara monetaria pt-BR
-- `PercentSlider` — slider com label de percentual
-
-### 6. Migration Supabase — Tabela de Simulacoes
-
-```sql
-CREATE TABLE simulacoes_financiamento (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  corretor_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  lead_id UUID REFERENCES leads(id) ON DELETE SET NULL,
-  imovel_id UUID REFERENCES properties(id) ON DELETE SET NULL,
-  valor_imovel NUMERIC NOT NULL,
-  valor_entrada NUMERIC NOT NULL,
-  valor_fgts NUMERIC DEFAULT 0,
-  valor_financiado NUMERIC NOT NULL,
-  prazo_meses INTEGER NOT NULL,
-  idade_comprador INTEGER NOT NULL,
-  renda_mensal NUMERIC NOT NULL,
-  sistema_amortizacao TEXT NOT NULL,
-  banco_id TEXT NOT NULL,
-  taxa_anual NUMERIC NOT NULL,
-  tr_mensal NUMERIC NOT NULL,
-  primeira_parcela NUMERIC NOT NULL,
-  ultima_parcela NUMERIC NOT NULL,
-  total_pago NUMERIC NOT NULL,
-  total_juros NUMERIC NOT NULL,
-  total_seguros NUMERIC NOT NULL,
-  cet_anual_estimado NUMERIC NOT NULL,
-  comprometimento_renda NUMERIC NOT NULL,
-  aprovado BOOLEAN NOT NULL,
-  observacoes TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
--- RLS: corretor ve apenas suas simulacoes
+SEMANA 5-6 — Estrutura (~12h)
+├── Reorganizar src/modules/ por domínio
+├── Feature flags (tabela + hook)
+├── Testes para hooks e Edge Functions críticas
+└── Finalizar migração R2
 ```
 
-- Botao "Salvar Simulacao" com opcao de vincular a lead/imovel existente
+## Resumo
 
-### 7. Gerar PDF
-
-- Botao "Gerar PDF" usando jspdf + html2canvas (ja disponivel no projeto)
-- Conteudo: dados do imovel, comprador, resultado completo, tabela de evolucao resumida, comparativo de bancos, disclaimer, dados do corretor (nome, CRECI)
-
----
-
-## Arquivos Afetados
-
-| Acao | Arquivo |
-|------|---------|
-| Criar | `src/constants/bancos-financiamento.ts` |
-| Criar | `src/constants/tabela-mip.ts` |
-| Criar | `src/hooks/useTaxaReferencial.ts` |
-| Reescrever | `src/components/financing/utils/simulationCalc.ts` |
-| Reescrever | `src/components/financing/FinancingSimulator.tsx` |
-| Reescrever | `src/components/financing/BankComparisonView.tsx` |
-| Criar | `src/components/financing/SimulationResults.tsx` |
-| Criar | `src/components/financing/CurrencyInput.tsx` |
-| Criar | `src/components/financing/PercentSlider.tsx` |
-| Criar | `src/components/financing/SimulationPdfGenerator.ts` |
-| Migration | `simulacoes_financiamento` table + RLS |
-| Manter | `src/pages/Financial.tsx` (sem mudancas, ja integra o componente) |
+O custo de infra é saudável (R$240/mês). O maior gasto é **~8h/mês de tempo de dev** perdido em complexidade acidental. As otimizações P0-P1 (~8h de implementação) eliminam ~4h/mês de retrabalho — ROI positivo em 2 meses.
 
