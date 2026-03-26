@@ -179,8 +179,8 @@ export function WhatsAppIntegrationCard() {
               Ative o WhatsApp para enviar mensagens automáticas diretamente do CRM.
               Este é um add-on cobrado separadamente.
             </p>
-            <Button onClick={handleCreate} disabled={isCreating}>
-              {isCreating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Smartphone className="h-4 w-4 mr-2" />}
+            <Button onClick={handleCreate} disabled={isActivating}>
+              {isActivating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Smartphone className="h-4 w-4 mr-2" />}
               Ativar WhatsApp
             </Button>
           </div>
