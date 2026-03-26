@@ -85,29 +85,25 @@ Deno.serve(async (req) => {
 
     console.log("Sending webhook:", JSON.stringify(payload));
 
-    const webhookRes = await fetch(WEBHOOK_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!webhookRes.ok) {
-      const text = await webhookRes.text();
-      console.error("Webhook error:", webhookRes.status, text);
-      return new Response(
-        JSON.stringify({ error: `Webhook retornou status ${webhookRes.status}` }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    let webhookData: unknown = null;
+    // Fire-and-forget: send webhook but don't fail if N8N doesn't respond properly
+    let webhookStatus = "sent";
     try {
-      webhookData = await webhookRes.json();
-    } catch {
-      webhookData = await webhookRes.text().catch(() => null);
+      const webhookRes = await fetch(WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      webhookStatus = webhookRes.ok ? "ok" : `http_${webhookRes.status}`;
+      if (!webhookRes.ok) {
+        const text = await webhookRes.text().catch(() => "");
+        console.warn("Webhook non-ok response (continuing):", webhookRes.status, text);
+      }
+    } catch (fetchErr) {
+      console.warn("Webhook fetch error (continuing):", fetchErr);
+      webhookStatus = "fetch_error";
     }
 
-    return new Response(JSON.stringify({ success: true, data: webhookData, payload }), {
+    return new Response(JSON.stringify({ success: true, webhookStatus, payload }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
