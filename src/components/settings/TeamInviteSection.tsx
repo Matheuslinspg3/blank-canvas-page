@@ -270,8 +270,20 @@ export function TeamInviteSection() {
               </Select>
             </div>
           </div>
+          {isAtUserLimit && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+              <ShieldAlert className="h-4 w-4 shrink-0" />
+              <span>Limite de {maxUsers} usuário(s) do plano atingido. Faça upgrade para convidar mais membros.</span>
+            </div>
+          )}
 
-          <Button onClick={() => createInvite.mutate()} disabled={createInvite.isPending || !inviteEmail.trim()}>
+          {maxUsers != null && maxUsers > 0 && !isAtUserLimit && (
+            <p className="text-xs text-muted-foreground">
+              {memberCount + pendingInviteCount} de {maxUsers} vaga(s) utilizadas
+            </p>
+          )}
+
+          <Button onClick={() => createInvite.mutate()} disabled={createInvite.isPending || !inviteEmail.trim() || isAtUserLimit}>
             {createInvite.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
