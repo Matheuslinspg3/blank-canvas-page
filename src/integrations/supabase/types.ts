@@ -5817,6 +5817,10 @@ export type Database = {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
       }
+      delete_property_cascade: {
+        Args: { p_property_id: string }
+        Returns: undefined
+      }
       fix_user_without_organization: {
         Args: { p_email: string; p_full_name?: string; p_user_id: string }
         Returns: string
