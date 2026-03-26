@@ -42,36 +42,47 @@ Deno.serve(async (req) => {
         body: JSON.stringify(payload),
       });
 
-      if (res.ok) {
-        try {
-          const data = await res.json();
-          rawResponse = data;
-          const obj = Array.isArray(data) ? data[0] : data;
+      const rawText = await res.text().catch(() => "");
+      console.log("Polling raw response (status " + res.status + "):", rawText.substring(0, 500));
+      rawResponse = rawText;
 
-          // Check various possible response shapes for connected status
+      if (res.ok && rawText) {
+        let obj: any = null;
+        try {
+          const parsed = JSON.parse(rawText);
+          obj = Array.isArray(parsed) ? parsed[0] : parsed;
+        } catch {
+          // Try to find connectionStatus in raw text
+          if (/connectionStatus.*open/i.test(rawText) || /\"open\"/i.test(rawText)) {
+            connected = true;
+          }
+        }
+
+        if (obj) {
+          // Deep search for connectionStatus in any nested structure
+          const jsonStr = JSON.stringify(obj).toLowerCase();
+          
           const status = (
             obj?.status ?? obj?.data?.status ?? obj?.state ?? obj?.data?.state ?? ""
           ).toString().toLowerCase();
 
-          // Check connectionStatus field directly
           const connStatus = (
-            obj?.connectionStatus ?? obj?.data?.connectionStatus ?? ""
+            obj?.connectionStatus ?? obj?.data?.connectionStatus ?? 
+            obj?.instance?.connectionStatus ?? ""
           ).toString().toLowerCase();
 
           connected =
             obj?.connected === true ||
             obj?.data?.connected === true ||
             connStatus === "open" ||
+            jsonStr.includes('"connectionstatus":"open"') ||
             /connected|open|ready|online|authorized/.test(status);
 
           phoneNumber =
             obj?.phone ?? obj?.data?.phone ?? obj?.phoneNumber ?? obj?.data?.phoneNumber ?? null;
-        } catch {
-          console.warn("Polling response not JSON");
         }
-      } else {
-        const text = await res.text().catch(() => "");
-        console.warn("Polling webhook error:", res.status, text);
+      } else if (!res.ok) {
+        console.warn("Polling webhook error:", res.status, rawText.substring(0, 200));
       }
     } catch (fetchErr) {
       console.warn("Polling webhook fetch error:", fetchErr);
