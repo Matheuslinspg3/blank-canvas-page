@@ -1,5 +1,4 @@
-import { createServiceClient } from "../_shared/auth.ts";
-import { getAuthenticatedUser } from "../_shared/auth.ts";
+import { createServiceClient, getAuthenticatedUser } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,7 +15,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Authenticate user
     const { user, error: authError } = await getAuthenticatedUser(req);
     if (authError || !user) {
       return new Response(JSON.stringify({ error: authError ?? "Não autenticado" }), {
@@ -25,7 +23,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get user profile → organization_id
     const sb = createServiceClient();
     const { data: profile } = await sb
       .from("profiles")
@@ -41,7 +38,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch organization details
     const { data: org } = await sb
       .from("organizations")
       .select("id, name, slug, created_at")
@@ -55,21 +51,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Build orgName: slug (already no spaces/accents) or sanitized name
     const orgName = org.slug ||
       org.name
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .replace(/[^a-zA-Z0-9]/g, "");
 
-    // Build orgId: sequential — count orgs created before this one + 1
     const { count } = await sb
       .from("organizations")
       .select("id", { count: "exact", head: true })
       .lte("created_at", org.created_at);
     const orgSequential = String(count ?? 1).padStart(3, "0");
 
-    // Build date: ddmmyyyy from now
     const now = new Date();
     const dd = String(now.getDate()).padStart(2, "0");
     const mm = String(now.getMonth() + 1).padStart(2, "0");
@@ -85,7 +78,7 @@ Deno.serve(async (req) => {
 
     console.log("Sending webhook:", JSON.stringify(payload));
 
-    // Fire-and-forget: send webhook but don't fail if N8N doesn't respond properly
+    let webhookData: any = null;
     let webhookStatus = "sent";
     try {
       const webhookRes = await fetch(WEBHOOK_URL, {
@@ -94,16 +87,35 @@ Deno.serve(async (req) => {
         body: JSON.stringify(payload),
       });
       webhookStatus = webhookRes.ok ? "ok" : `http_${webhookRes.status}`;
-      if (!webhookRes.ok) {
+      if (webhookRes.ok) {
+        try {
+          webhookData = await webhookRes.json();
+        } catch {
+          const text = await webhookRes.text().catch(() => "");
+          console.warn("Webhook response not JSON:", text);
+        }
+      } else {
         const text = await webhookRes.text().catch(() => "");
-        console.warn("Webhook non-ok response (continuing):", webhookRes.status, text);
+        console.warn("Webhook non-ok response:", webhookRes.status, text);
       }
     } catch (fetchErr) {
       console.warn("Webhook fetch error (continuing):", fetchErr);
       webhookStatus = "fetch_error";
     }
 
-    return new Response(JSON.stringify({ success: true, webhookStatus, payload }), {
+    // Extract QR code data from webhook response
+    const qrBase64 = webhookData?.data?.base64 ?? null;
+    const pairingCode = webhookData?.data?.pairingCode ?? null;
+    const code = webhookData?.data?.code ?? null;
+
+    return new Response(JSON.stringify({
+      success: true,
+      webhookStatus,
+      payload,
+      qrCode: qrBase64,
+      pairingCode,
+      code,
+    }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
