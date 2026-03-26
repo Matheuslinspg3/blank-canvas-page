@@ -57,11 +57,11 @@ Deno.serve(async (req) => {
         .replace(/[\u0300-\u036f]/g, "")
         .replace(/[^a-zA-Z0-9]/g, "");
 
-    const { count } = await sb
+    const { count: orgCount } = await sb
       .from("organizations")
       .select("id", { count: "exact", head: true })
       .lte("created_at", org.created_at);
-    const orgSequential = String(count ?? 1).padStart(3, "0");
+    const orgSequential = String(orgCount ?? 1).padStart(3, "0");
 
     const now = new Date();
     const dd = String(now.getDate()).padStart(2, "0");
