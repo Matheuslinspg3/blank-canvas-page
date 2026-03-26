@@ -111,9 +111,9 @@ export function InactiveLeadsList({
             <TableRow>
               <TableHead>Nome</TableHead>
               <TableHead className="hidden sm:table-cell">Contato</TableHead>
-              <TableHead className="hidden md:table-cell">Estágio</TableHead>
-              <TableHead className="hidden lg:table-cell">Valor</TableHead>
-              <TableHead className="hidden sm:table-cell">Último Tipo</TableHead>
+              <TableHead className="hidden md:table-cell">Motivo</TableHead>
+              <TableHead className="hidden lg:table-cell">Atendido por</TableHead>
+              <TableHead className="hidden sm:table-cell">Último Estágio</TableHead>
               <TableHead className="text-right">Ação</TableHead>
             </TableRow>
           </TableHeader>
@@ -138,19 +138,18 @@ export function InactiveLeadsList({
                     </div>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
-                    {lead.lead_type ? (
-                      <Badge
-                        variant="secondary"
-                        style={{ backgroundColor: lead.lead_type.color || undefined }}
-                      >
-                        {lead.lead_type.name}
-                      </Badge>
+                    {(lead as any).inactivation_reason ? (
+                      <span className="text-sm text-muted-foreground">{(lead as any).inactivation_reason}</span>
                     ) : (
                       <span className="text-muted-foreground">-</span>
                     )}
                   </TableCell>
                   <TableCell className="hidden lg:table-cell">
-                    {formatCurrency(lead.estimated_value)}
+                    {(lead as any).inactivated_by ? (
+                      <span className="text-sm">{(lead as any).inactivated_by}</span>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
                     {stage && (
