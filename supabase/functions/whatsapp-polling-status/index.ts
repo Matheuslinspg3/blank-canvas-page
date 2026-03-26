@@ -53,9 +53,15 @@ Deno.serve(async (req) => {
             obj?.status ?? obj?.data?.status ?? obj?.state ?? obj?.data?.state ?? ""
           ).toString().toLowerCase();
 
+          // Check connectionStatus field directly
+          const connStatus = (
+            obj?.connectionStatus ?? obj?.data?.connectionStatus ?? ""
+          ).toString().toLowerCase();
+
           connected =
             obj?.connected === true ||
             obj?.data?.connected === true ||
+            connStatus === "open" ||
             /connected|open|ready|online|authorized/.test(status);
 
           phoneNumber =
