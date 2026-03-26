@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
       console.warn("Polling webhook fetch error:", fetchErr);
     }
 
-    // If connected, update whatsapp_instances in DB
+    // If connected, upsert whatsapp_instances in DB
     if (connected) {
       try {
         const supabaseClient = createClient(
@@ -114,16 +114,26 @@ Deno.serve(async (req) => {
           .single();
 
         if (profile?.organization_id) {
-          const updatePayload: Record<string, any> = {
+          const fallbackInstanceName = `whatsapp-${String(profile.organization_id).slice(0, 8)}`;
+          const upsertPayload: Record<string, any> = {
+            organization_id: profile.organization_id,
+            instance_name: fallbackInstanceName,
             status: "connected",
             qr_code: null,
+            updated_at: new Date().toISOString(),
           };
-          if (phoneNumber) updatePayload.phone_number = phoneNumber;
 
-          await supabaseClient
+          if (phoneNumber) upsertPayload.phone_number = phoneNumber;
+
+          const { error: upsertError } = await supabaseClient
             .from("whatsapp_instances")
-            .update(updatePayload)
-            .eq("organization_id", profile.organization_id);
+            .upsert(upsertPayload, { onConflict: "organization_id" });
+
+          if (upsertError) {
+            console.warn("DB upsert error:", upsertError);
+          } else {
+            console.log("Connection persisted for organization:", profile.organization_id);
+          }
         }
       } catch (dbErr) {
         console.warn("DB update error:", dbErr);
