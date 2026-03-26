@@ -54,7 +54,8 @@ Deno.serve(async (req) => {
       if (res.ok) {
         try {
           const data = await res.json();
-          qrBase64 = data?.data?.base64 ?? null;
+          const obj = Array.isArray(data) ? data[0] : data;
+          qrBase64 = obj?.data?.base64 ?? null;
         } catch {
           console.warn("Refresh response not JSON");
         }
