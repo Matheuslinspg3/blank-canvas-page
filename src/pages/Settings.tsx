@@ -647,7 +647,15 @@ export default function Settings() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="cnpj">CNPJ</Label>
-                      <Input id="cnpj" value={companyCnpj} onChange={(e) => setCompanyCnpj(e.target.value)} placeholder="00.000.000/0001-00" disabled={!canEditCompany} />
+                      <div className="flex gap-2">
+                        <Input id="cnpj" value={companyCnpj} onChange={(e) => setCompanyCnpj(e.target.value)} placeholder="00.000.000/0001-00" disabled={!canEditCompany} className="flex-1" />
+                        {canEditCompany && (
+                          <Button type="button" variant="outline" size="icon" onClick={handleSearchCnpj} disabled={searchingCnpj}>
+                            {searchingCnpj ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">Digite o CNPJ e clique na lupa para preencher automaticamente</p>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="company-phone">Telefone</Label>
@@ -666,7 +674,14 @@ export default function Settings() {
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
                         <Label htmlFor="company-zipcode">CEP</Label>
-                        <Input id="company-zipcode" value={companyZipcode} onChange={(e) => setCompanyZipcode(e.target.value)} placeholder="00000-000" disabled={!canEditCompany} />
+                        <div className="flex gap-2">
+                          <Input id="company-zipcode" value={companyZipcode} onChange={(e) => setCompanyZipcode(e.target.value)} placeholder="00000-000" disabled={!canEditCompany} className="flex-1" />
+                          {canEditCompany && (
+                            <Button type="button" variant="outline" size="icon" onClick={handleSearchCompanyCep} disabled={searchingCompanyCep}>
+                              {searchingCompanyCep ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="company-state">Estado</Label>
