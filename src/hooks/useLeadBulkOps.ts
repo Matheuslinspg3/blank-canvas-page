@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Lead } from './useLeadCRUD';
 
 /**
@@ -8,7 +9,11 @@ import type { Lead } from './useLeadCRUD';
  */
 export function useLeadBulkOps() {
   const { toast } = useToast();
+  const { profile } = useAuth();
   const queryClient = useQueryClient();
+
+  /** Helper: exact query key for the active leads list */
+  const leadsKey = ['leads', profile?.organization_id] as const;
 
   const bulkDeleteLeads = useMutation({
     mutationFn: async (ids: string[]) => {
@@ -17,14 +22,14 @@ export function useLeadBulkOps() {
     },
     onMutate: async (ids) => {
       await queryClient.cancelQueries({ queryKey: ['leads'] });
-      const previous = queryClient.getQueryData<Lead[]>(['leads']);
+      const previous = queryClient.getQueryData<Lead[]>(leadsKey);
       const idSet = new Set(ids);
-      queryClient.setQueryData<Lead[]>(['leads'], (old) => (old || []).filter(l => !idSet.has(l.id)));
+      queryClient.setQueryData<Lead[]>(leadsKey, (old) => (old || []).filter(l => !idSet.has(l.id)));
       return { previous };
     },
     onSuccess: (_d, ids) => { toast({ title: 'Leads removidos', description: `${ids.length} lead(s) removido(s) com sucesso.` }); },
     onError: (error, _v, context) => {
-      if (context?.previous) queryClient.setQueryData(['leads'], context.previous);
+      if (context?.previous) queryClient.setQueryData(leadsKey, context.previous);
       toast({ title: 'Erro ao remover leads', description: error.message, variant: 'destructive' });
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['leads'], refetchType: 'active' }),
@@ -37,14 +42,14 @@ export function useLeadBulkOps() {
     },
     onMutate: async (ids) => {
       await queryClient.cancelQueries({ queryKey: ['leads'] });
-      const previous = queryClient.getQueryData<Lead[]>(['leads']);
+      const previous = queryClient.getQueryData<Lead[]>(leadsKey);
       const idSet = new Set(ids);
-      queryClient.setQueryData<Lead[]>(['leads'], (old) => (old || []).filter(l => !idSet.has(l.id)));
+      queryClient.setQueryData<Lead[]>(leadsKey, (old) => (old || []).filter(l => !idSet.has(l.id)));
       return { previous };
     },
     onSuccess: (_d, ids) => { toast({ title: 'Leads inativados', description: `${ids.length} lead(s) movido(s) para inativos.` }); },
     onError: (error, _v, context) => {
-      if (context?.previous) queryClient.setQueryData(['leads'], context.previous);
+      if (context?.previous) queryClient.setQueryData(leadsKey, context.previous);
       toast({ title: 'Erro ao inativar leads', description: error.message, variant: 'destructive' });
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['leads'], refetchType: 'active' }),
@@ -57,15 +62,15 @@ export function useLeadBulkOps() {
     },
     onMutate: async ({ ids, lead_stage_id }) => {
       await queryClient.cancelQueries({ queryKey: ['leads'] });
-      const previous = queryClient.getQueryData<Lead[]>(['leads']);
+      const previous = queryClient.getQueryData<Lead[]>(leadsKey);
       const idSet = new Set(ids);
-      queryClient.setQueryData<Lead[]>(['leads'], (old) =>
+      queryClient.setQueryData<Lead[]>(leadsKey, (old) =>
         (old || []).map(l => idSet.has(l.id) ? { ...l, lead_stage_id } : l)
       );
       return { previous };
     },
     onError: (error, _v, context) => {
-      if (context?.previous) queryClient.setQueryData(['leads'], context.previous);
+      if (context?.previous) queryClient.setQueryData(leadsKey, context.previous);
       toast({ title: 'Erro ao mover leads', description: error.message, variant: 'destructive' });
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['leads'], refetchType: 'active' }),
@@ -82,9 +87,9 @@ export function useLeadBulkOps() {
     },
     onMutate: async (updates) => {
       await queryClient.cancelQueries({ queryKey: ['leads'] });
-      const previousLeads = queryClient.getQueryData<Lead[]>(['leads']);
+      const previousLeads = queryClient.getQueryData<Lead[]>(leadsKey);
       if (previousLeads) {
-        queryClient.setQueryData<Lead[]>(['leads'], (old) => {
+        queryClient.setQueryData<Lead[]>(leadsKey, (old) => {
           if (!old) return old;
           const updateMap = new Map(updates.map(u => [u.id, u]));
           return old.map(lead => {
@@ -96,7 +101,7 @@ export function useLeadBulkOps() {
       return { previousLeads };
     },
     onError: (error, _variables, context) => {
-      if (context?.previousLeads) queryClient.setQueryData(['leads'], context.previousLeads);
+      if (context?.previousLeads) queryClient.setQueryData(leadsKey, context.previousLeads);
       toast({ title: 'Erro ao reordenar leads', description: error.message, variant: 'destructive' });
     },
     onSettled: () => { queryClient.invalidateQueries({ queryKey: ['leads'], refetchType: 'active' }); },
