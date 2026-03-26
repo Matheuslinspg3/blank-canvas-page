@@ -382,8 +382,14 @@ export function useLeads() {
   });
 
   const inactivateLead = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('leads').update({ is_active: false }).eq('id', id);
+    mutationFn: async ({ id, reason }: { id: string; reason?: string }) => {
+      const updateData: Record<string, any> = {
+        is_active: false,
+        inactivated_at: new Date().toISOString(),
+        inactivated_by: profile?.full_name || user?.email || null,
+      };
+      if (reason) updateData.inactivation_reason = reason;
+      const { error } = await supabase.from('leads').update(updateData).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {

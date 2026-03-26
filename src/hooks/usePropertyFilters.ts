@@ -13,8 +13,8 @@ export interface PropertyFilters {
   minPrice: number | null;
   maxPrice: number | null;
   minBedrooms: number | null;
-  neighborhood: string;
-  city: string;
+  neighborhoods: string[];
+  cities: string[];
   minArea: number | null;
   minSuites: number | null;
   minParking: number | null;
@@ -37,8 +37,8 @@ const defaultFilters: PropertyFilters = {
   minPrice: null,
   maxPrice: null,
   minBedrooms: null,
-  neighborhood: '',
-  city: '',
+  neighborhoods: [],
+  cities: [],
   minArea: null,
   minSuites: null,
   minParking: null,
@@ -65,8 +65,8 @@ export function usePropertyFilters() {
     minPrice: searchParams.get('min_preco') ? Number(searchParams.get('min_preco')) : null,
     maxPrice: searchParams.get('max_preco') ? Number(searchParams.get('max_preco')) : null,
     minBedrooms: searchParams.get('quartos') ? Number(searchParams.get('quartos')) : null,
-    neighborhood: searchParams.get('bairro') || '',
-    city: searchParams.get('cidade') || '',
+    neighborhoods: searchParams.get('bairros') ? searchParams.get('bairros')!.split(',') : [],
+    cities: searchParams.get('cidades') ? searchParams.get('cidades')!.split(',') : [],
     minArea: searchParams.get('area') ? Number(searchParams.get('area')) : null,
     minSuites: searchParams.get('suites') ? Number(searchParams.get('suites')) : null,
     minParking: searchParams.get('vagas') ? Number(searchParams.get('vagas')) : null,
@@ -92,8 +92,8 @@ export function usePropertyFilters() {
     if (filters.minPrice) params.set('min_preco', String(filters.minPrice));
     if (filters.maxPrice) params.set('max_preco', String(filters.maxPrice));
     if (filters.minBedrooms) params.set('quartos', String(filters.minBedrooms));
-    if (filters.neighborhood) params.set('bairro', filters.neighborhood);
-    if (filters.city) params.set('cidade', filters.city);
+    if (filters.neighborhoods.length > 0) params.set('bairros', filters.neighborhoods.join(','));
+    if (filters.cities.length > 0) params.set('cidades', filters.cities.join(','));
     if (filters.minArea) params.set('area', String(filters.minArea));
     if (filters.minSuites) params.set('suites', String(filters.minSuites));
     if (filters.minParking) params.set('vagas', String(filters.minParking));
@@ -201,8 +201,8 @@ export function usePropertyFilters() {
       filters.minPrice !== null ||
       filters.maxPrice !== null ||
       filters.minBedrooms !== null ||
-      filters.neighborhood !== '' ||
-      filters.city !== '' ||
+      filters.neighborhoods.length > 0 ||
+      filters.cities.length > 0 ||
       filters.minArea !== null ||
       filters.minSuites !== null ||
       filters.minParking !== null ||
@@ -226,8 +226,8 @@ export function usePropertyFilters() {
     if (filters.minPrice !== null) count++;
     if (filters.maxPrice !== null) count++;
     if (filters.minBedrooms !== null) count++;
-    if (filters.neighborhood !== '') count++;
-    if (filters.city !== '') count++;
+    if (filters.neighborhoods.length > 0) count++;
+    if (filters.cities.length > 0) count++;
     if (filters.minArea !== null) count++;
     if (filters.minSuites !== null) count++;
     if (filters.minParking !== null) count++;

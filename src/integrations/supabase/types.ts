@@ -2705,6 +2705,9 @@ export type Database = {
           external_source: string | null
           id: string
           imported_at: string | null
+          inactivated_at: string | null
+          inactivated_by: string | null
+          inactivation_reason: string | null
           interested_property_type_id: string | null
           interested_property_type_ids: string[] | null
           is_active: boolean
@@ -2748,6 +2751,9 @@ export type Database = {
           external_source?: string | null
           id?: string
           imported_at?: string | null
+          inactivated_at?: string | null
+          inactivated_by?: string | null
+          inactivation_reason?: string | null
           interested_property_type_id?: string | null
           interested_property_type_ids?: string[] | null
           is_active?: boolean
@@ -2791,6 +2797,9 @@ export type Database = {
           external_source?: string | null
           id?: string
           imported_at?: string | null
+          inactivated_at?: string | null
+          inactivated_by?: string | null
+          inactivation_reason?: string | null
           interested_property_type_id?: string | null
           interested_property_type_ids?: string[] | null
           is_active?: boolean
@@ -6241,6 +6250,57 @@ export type Database = {
               p_min_price?: number
               p_min_suites?: number
               p_neighborhood?: string
+              p_offset?: number
+              p_organization_id: string
+              p_property_code?: string
+              p_property_condition?: string
+              p_property_type_id?: string
+              p_search_text?: string
+              p_status?: string
+              p_transaction_type?: string
+            }
+            Returns: {
+              address_city: string
+              address_neighborhood: string
+              address_state: string
+              area_built: number
+              area_total: number
+              bathrooms: number
+              bedrooms: number
+              cover_image_url: string
+              created_at: string
+              description: string
+              id: string
+              parking_spots: number
+              property_code: string
+              property_type_id: string
+              rent_price: number
+              sale_price: number
+              status: Database["public"]["Enums"]["property_status"]
+              title: string
+              transaction_type: Database["public"]["Enums"]["transaction_type"]
+              updated_at: string
+            }[]
+          }
+        | {
+            Args: {
+              p_amenities?: string[]
+              p_cities?: string[]
+              p_city?: string
+              p_launch_stage?: string
+              p_limit?: number
+              p_max_area?: number
+              p_max_beach_distance?: number
+              p_max_condominium?: number
+              p_max_price?: number
+              p_min_area?: number
+              p_min_bedrooms?: number
+              p_min_condominium?: number
+              p_min_parking?: number
+              p_min_price?: number
+              p_min_suites?: number
+              p_neighborhood?: string
+              p_neighborhoods?: string[]
               p_offset?: number
               p_organization_id: string
               p_property_code?: string
