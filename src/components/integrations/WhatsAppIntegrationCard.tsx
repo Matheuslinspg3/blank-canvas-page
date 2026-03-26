@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -19,16 +19,16 @@ import {
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
 
+const QR_REFRESH_INTERVAL = 45_000; // 45 seconds
+
 export function WhatsAppIntegrationCard() {
   const {
     instance,
     isLoading,
-    createInstance,
     connectInstance,
     checkStatus,
     disconnectInstance,
     deleteInstance,
-    isCreating,
     isConnecting,
     isCheckingStatus,
     isDisconnecting,
@@ -36,20 +36,42 @@ export function WhatsAppIntegrationCard() {
   } = useWhatsAppInstance();
 
   const [qrCode, setQrCode] = useState<string | null>(null);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [isActivating, setIsActivating] = useState(false);
+  // Store activation context for QR refresh
+  const activationCtxRef = useRef<{
+    pairingCode: string | null;
+    code: string | null;
+    count: number;
+    orgName: string;
+    orgId: string;
+    date: string;
+    companyId: string;
+  } | null>(null);
+  const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const statusPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const stopPolling = useCallback(() => {
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
+  const stopRefresh = useCallback(() => {
+    if (refreshTimerRef.current) {
+      clearInterval(refreshTimerRef.current);
+      refreshTimerRef.current = null;
     }
   }, []);
 
-  // Auto-poll DB directly (no edge function / Cloud cost) every 5s when QR is shown
-  const startPolling = useCallback(() => {
-    stopPolling();
+  const stopStatusPolling = useCallback(() => {
+    if (statusPollingRef.current) {
+      clearInterval(statusPollingRef.current);
+      statusPollingRef.current = null;
+    }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => () => { stopRefresh(); stopStatusPolling(); }, [stopRefresh, stopStatusPolling]);
+
+  // Auto-poll DB for connection status when QR is shown
+  const startStatusPolling = useCallback(() => {
+    stopStatusPolling();
     if (!instance?.id) return;
-    pollingRef.current = setInterval(async () => {
+    statusPollingRef.current = setInterval(async () => {
       try {
         const { data } = await supabase
           .from("whatsapp_instances" as any)
@@ -58,28 +80,48 @@ export function WhatsAppIntegrationCard() {
           .maybeSingle();
         if ((data as any)?.status === "connected") {
           setQrCode(null);
-          stopPolling();
+          stopRefresh();
+          stopStatusPolling();
+          activationCtxRef.current = null;
           toast.success("WhatsApp conectado com sucesso!");
-          checkStatus().catch(() => {}); // refresh full state via edge fn once
+          checkStatus().catch(() => {});
         }
       } catch { /* silent */ }
     }, 5000);
-  }, [instance?.id, stopPolling, checkStatus]);
+  }, [instance?.id, stopRefresh, stopStatusPolling, checkStatus]);
 
-  useEffect(() => () => stopPolling(), [stopPolling]);
+  // Refresh QR code every 45s
+  const startQrRefresh = useCallback(() => {
+    stopRefresh();
+    refreshTimerRef.current = setInterval(async () => {
+      const ctx = activationCtxRef.current;
+      if (!ctx) return;
 
-  const normalizeQrCodeSrc = (value?: string | null) => {
-    if (!value) return null;
-    const trimmed = value.trim();
-    if (trimmed.startsWith("data:image") || trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-      return trimmed;
-    }
-    return `data:image/png;base64,${trimmed}`;
-  };
+      try {
+        const { data, error } = await supabase.functions.invoke("whatsapp-refresh-qrcode", {
+          body: {
+            pairingCode: ctx.pairingCode,
+            code: ctx.code,
+            count: ctx.count,
+            orgName: ctx.orgName,
+            orgId: ctx.orgId,
+            date: ctx.date,
+            companyId: ctx.companyId,
+          },
+        });
+        if (!error && data?.qrCode) {
+          setQrCode(data.qrCode);
+          // Update code/pairingCode if returned
+          if (data.code) ctx.code = data.code;
+          if (data.pairingCode) ctx.pairingCode = data.pairingCode;
+        }
+      } catch {
+        console.warn("QR refresh failed");
+      }
+    }, QR_REFRESH_INTERVAL);
+  }, [stopRefresh]);
 
-  const [isActivating, setIsActivating] = useState(false);
-
-  const handleCreate = async () => {
+  const handleActivate = async () => {
     setIsActivating(true);
     try {
       const { data, error } = await supabase.functions.invoke("whatsapp-activate-webhook", {
@@ -87,7 +129,25 @@ export function WhatsAppIntegrationCard() {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      toast.success("Ativação do WhatsApp enviada! O agente será configurado em breve.");
+
+      if (data?.qrCode) {
+        setQrCode(data.qrCode);
+        // Store context for refresh
+        activationCtxRef.current = {
+          pairingCode: data.pairingCode ?? null,
+          code: data.code ?? null,
+          count: 1,
+          orgName: data.payload?.orgName ?? "",
+          orgId: data.payload?.orgId ?? "",
+          date: data.payload?.date ?? "",
+          companyId: data.payload?.companyId ?? "",
+        };
+        startQrRefresh();
+        startStatusPolling();
+        toast.success("QR Code gerado! Escaneie com o WhatsApp.");
+      } else {
+        toast.success("Ativação enviada! Aguarde o QR Code.");
+      }
     } catch (err: any) {
       toastError("Erro ao ativar WhatsApp", err instanceof Error ? err : new Error(String(err?.message || err)), { module: "WhatsAppIntegrationCard" });
     } finally {
@@ -100,21 +160,17 @@ export function WhatsAppIntegrationCard() {
       const result = await connectInstance();
       if (result?.qr_code) {
         setQrCode(result.qr_code);
-        startPolling();
+        startStatusPolling();
         return;
       }
-
       const statusResult = await checkStatus().catch(() => null);
       if (statusResult?.qr_code) {
         setQrCode(statusResult.qr_code);
-        startPolling();
+        startStatusPolling();
         return;
       }
-
-      toastError("Não foi possível obter o QR Code agora. Tente novamente em alguns segundos.", undefined, { module: "WhatsAppIntegrationCard" });
-    } catch {
-      // O toast detalhado já é exibido no hook
-    }
+      toastError("Não foi possível obter o QR Code agora.", undefined, { module: "WhatsAppIntegrationCard" });
+    } catch { /* toast shown by hook */ }
   };
 
   const handleCheckStatus = async () => {
@@ -122,23 +178,28 @@ export function WhatsAppIntegrationCard() {
       const result = await checkStatus();
       if (result?.status === "connected") {
         setQrCode(null);
-        stopPolling();
+        stopRefresh();
+        stopStatusPolling();
+        activationCtxRef.current = null;
         return;
       }
-
       if (result?.qr_code) {
         setQrCode(result.qr_code);
-        startPolling();
+        startStatusPolling();
         return;
       }
-
-      toast.info("Ainda sem QR Code disponível. Aguarde alguns segundos e tente novamente.");
-    } catch {
-      // O toast detalhado já é exibido no hook
-    }
+      toast.info("Ainda sem QR Code disponível. Aguarde.");
+    } catch { /* toast shown by hook */ }
   };
 
-  const displayedQrCode = useMemo(() => normalizeQrCodeSrc(qrCode || instance?.qr_code || null), [qrCode, instance?.qr_code]);
+  const normalizeQrSrc = (value?: string | null) => {
+    if (!value) return null;
+    const t = value.trim();
+    if (t.startsWith("data:image") || t.startsWith("http://") || t.startsWith("https://")) return t;
+    return `data:image/png;base64,${t}`;
+  };
+
+  const displayedQr = normalizeQrSrc(qrCode || instance?.qr_code || null);
 
   const statusBadge = () => {
     if (!instance) return null;
@@ -161,9 +222,7 @@ export function WhatsAppIntegrationCard() {
           </div>
           <div className="flex-1">
             <CardTitle className="text-base">WhatsApp</CardTitle>
-            <CardDescription>
-              Integração via Uazapi — envie mensagens automáticas pelo CRM
-            </CardDescription>
+            <CardDescription>Integração via Uazapi — envie mensagens automáticas pelo CRM</CardDescription>
           </div>
           {statusBadge()}
         </div>
@@ -173,13 +232,13 @@ export function WhatsAppIntegrationCard() {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Carregando...
           </div>
-        ) : !instance ? (
+        ) : !instance && !qrCode ? (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
               Ative o WhatsApp para enviar mensagens automáticas diretamente do CRM.
               Este é um add-on cobrado separadamente.
             </p>
-            <Button onClick={handleCreate} disabled={isActivating}>
+            <Button onClick={handleActivate} disabled={isActivating}>
               {isActivating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Smartphone className="h-4 w-4 mr-2" />}
               Ativar WhatsApp
             </Button>
@@ -187,24 +246,27 @@ export function WhatsAppIntegrationCard() {
         ) : (
           <div className="space-y-4">
             {/* Instance info */}
-            <div className="grid gap-2 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Instância:</span>
-                <span className="font-medium">{instance.instance_name}</span>
-              </div>
-              {instance.phone_number && (
+            {instance && (
+              <div className="grid gap-2 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Número:</span>
-                  <span className="font-medium">{instance.phone_number}</span>
+                  <span className="text-muted-foreground">Instância:</span>
+                  <span className="font-medium">{instance.instance_name}</span>
                 </div>
-              )}
-            </div>
+                {instance.phone_number && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Número:</span>
+                    <span className="font-medium">{instance.phone_number}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* QR Code */}
-            {displayedQrCode && instance.status !== "connected" && (
+            {displayedQr && instance?.status !== "connected" && (
               <div className="flex flex-col items-center gap-3 p-4 border rounded-lg bg-background">
                 <p className="text-sm font-medium">Escaneie o QR Code no WhatsApp</p>
-                <img src={displayedQrCode} alt="QR Code WhatsApp" className="w-48 h-48" />
+                <img src={displayedQr} alt="QR Code WhatsApp" className="w-48 h-48" />
+                <p className="text-xs text-muted-foreground">O QR Code é atualizado automaticamente a cada 45s</p>
                 <Button variant="outline" size="sm" onClick={handleCheckStatus} disabled={isCheckingStatus}>
                   {isCheckingStatus ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                   Verificar conexão
@@ -212,49 +274,62 @@ export function WhatsAppIntegrationCard() {
               </div>
             )}
 
+            {/* QR Code shown before instance exists (activation flow) */}
+            {displayedQr && !instance && (
+              <div className="flex flex-col items-center gap-3 p-4 border rounded-lg bg-background">
+                <p className="text-sm font-medium">Escaneie o QR Code no WhatsApp</p>
+                <img src={displayedQr} alt="QR Code WhatsApp" className="w-48 h-48" />
+                <p className="text-xs text-muted-foreground">O QR Code é atualizado automaticamente a cada 45s</p>
+              </div>
+            )}
+
             {/* Actions */}
             <div className="flex flex-wrap gap-2">
-              {instance.status !== "connected" && (
+              {instance && instance.status !== "connected" && (
                 <Button variant="outline" size="sm" onClick={handleConnect} disabled={isConnecting}>
                   {isConnecting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <QrCode className="h-4 w-4 mr-2" />}
                   {qrCode ? "Novo QR Code" : "Conectar"}
                 </Button>
               )}
 
-              {instance.status === "connected" && (
+              {instance?.status === "connected" && (
                 <Button variant="outline" size="sm" onClick={() => disconnectInstance()} disabled={isDisconnecting}>
                   {isDisconnecting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
                   Desconectar
                 </Button>
               )}
 
-              <Button variant="outline" size="sm" onClick={handleCheckStatus} disabled={isCheckingStatus}>
-                {isCheckingStatus ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-                Verificar status
-              </Button>
-
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" size="sm">
-                    <Trash2 className="h-4 w-4 mr-2" /> Remover
+              {instance && (
+                <>
+                  <Button variant="outline" size="sm" onClick={handleCheckStatus} disabled={isCheckingStatus}>
+                    {isCheckingStatus ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                    Verificar status
                   </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Remover instância WhatsApp?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Esta ação irá desconectar e remover permanentemente a instância WhatsApp desta organização. Você poderá criar uma nova depois.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => { deleteInstance(); setQrCode(null); }} disabled={isDeleting}>
-                      {isDeleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                      Remover
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm">
+                        <Trash2 className="h-4 w-4 mr-2" /> Remover
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Remover instância WhatsApp?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Esta ação irá desconectar e remover permanentemente a instância WhatsApp desta organização.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => { deleteInstance(); setQrCode(null); stopRefresh(); stopStatusPolling(); activationCtxRef.current = null; }} disabled={isDeleting}>
+                          {isDeleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                          Remover
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
+              )}
             </div>
           </div>
         )}
