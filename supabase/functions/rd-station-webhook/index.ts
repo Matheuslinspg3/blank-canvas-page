@@ -137,6 +137,12 @@ Deno.serve(async (req) => {
           // the unique index will reject it and we treat it as duplicate
           const propertyId = await matchProperty(supabase, orgId, leadData);
 
+          // Extract conversion identifier and traffic source
+          const conversionId = extractConversionIdentifier(leadData);
+          const trafficSource = leadData.traffic_source || 
+            leadData.first_conversion?.content?.source || 
+            leadData.first_conversion?.source || null;
+
           const { data: newLead, error: insertError } = await supabase
             .from("leads")
             .insert({
@@ -151,6 +157,8 @@ Deno.serve(async (req) => {
               external_source: "rdstation",
               notes: buildNotes(leadData),
               property_id: propertyId,
+              conversion_identifier: conversionId,
+              traffic_source: trafficSource,
             })
             .select("id")
             .single();
@@ -231,6 +239,22 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+function extractConversionIdentifier(data: Record<string, any>): string | null {
+  // Try last_conversion first (most recent), then first_conversion
+  if (data.last_conversion) {
+    const content = data.last_conversion.content || data.last_conversion;
+    const id = content.identifier || content.conversion_identifier;
+    if (id) return id;
+  }
+  if (data.first_conversion) {
+    const content = data.first_conversion.content || data.first_conversion;
+    const id = content.identifier || content.conversion_identifier;
+    if (id) return id;
+  }
+  if (data.conversion_identifier) return data.conversion_identifier;
+  return null;
+}
 
 async function matchProperty(
   supabase: any,

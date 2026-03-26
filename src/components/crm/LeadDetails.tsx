@@ -34,6 +34,8 @@ import {
   Thermometer,
   FolderOpen,
   CalendarPlus,
+  Megaphone,
+  Globe,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -213,6 +215,18 @@ export function LeadDetails({
                 <div className="flex items-center gap-3">
                   <MapPin className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm">Origem: {sourceLabel}</span>
+                </div>
+              )}
+              {leadAny.conversion_identifier && (
+                <div className="flex items-center gap-3">
+                  <Megaphone className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">Anúncio/Conversão: {leadAny.conversion_identifier}</span>
+                </div>
+              )}
+              {leadAny.traffic_source && (
+                <div className="flex items-center gap-3">
+                  <Globe className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">Tráfego: {leadAny.traffic_source}</span>
                 </div>
               )}
               {lead.interested_property_type && (

@@ -159,8 +159,12 @@ function LeadCardComponent({ lead, onClick, onChangeTemperature }: LeadCardProps
             via {lead.source === 'anuncio' ? 'Meta Ads' : lead.source}
           </span>
         )}
+        {(lead as any).conversion_identifier && (
+          <span className="inline-block text-[10px] px-1.5 py-0.5 rounded font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 truncate max-w-full">
+            📢 {(lead as any).conversion_identifier}
+          </span>
+        )}
 
-        {/* Quick Actions row */}
         <div className="flex items-center justify-between">
           <span className="text-xs text-muted-foreground truncate max-w-[120px]">
             {lead.phone || lead.email || ''}
