@@ -257,7 +257,55 @@ export default function Settings() {
   const isBrokerOrAssistant = !isAdminOrAbove;
   const canEditCompany = isAdminOrAbove;
 
-  const handleSaveCompany = async () => {
+  const handleSearchCnpj = async () => {
+    const cnpjClean = companyCnpj.replace(/\D/g, "");
+    if (cnpjClean.length !== 14) {
+      toastError("CNPJ deve conter 14 dígitos", undefined, { module: "Settings" });
+      return;
+    }
+    setSearchingCnpj(true);
+    try {
+      const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpjClean}`);
+      if (!res.ok) throw new Error("CNPJ não encontrado");
+      const data = await res.json();
+      if (data.razao_social) setCompanyName(data.razao_social);
+      if (data.ddd_telefone_1) setCompanyPhone(data.ddd_telefone_1);
+      if (data.email) setCompanyEmail(data.email);
+      if (data.cep) setCompanyZipcode(data.cep.replace(/(\d{5})(\d{3})/, "$1-$2"));
+      if (data.uf) setCompanyState(data.uf);
+      if (data.municipio) setCompanyCity(data.municipio);
+      if (data.bairro) setCompanyNeighborhood(data.bairro);
+      if (data.logradouro) setCompanyStreet(data.logradouro);
+      if (data.numero) setCompanyNumber(data.numero);
+      if (data.complemento) setCompanyComplement(data.complemento);
+      toast.success("Dados preenchidos automaticamente via CNPJ!");
+    } catch (err: any) {
+      toastError("Erro ao buscar CNPJ", err, { module: "Settings" });
+    } finally {
+      setSearchingCnpj(false);
+    }
+  };
+
+  const handleSearchCompanyCep = async () => {
+    const cepClean = companyZipcode.replace(/\D/g, "");
+    if (cepClean.length !== 8) return;
+    setSearchingCompanyCep(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${cepClean}/json/`);
+      const data = await res.json();
+      if (data.erro) throw new Error("CEP não encontrado");
+      if (data.logradouro) setCompanyStreet(data.logradouro);
+      if (data.bairro) setCompanyNeighborhood(data.bairro);
+      if (data.localidade) setCompanyCity(data.localidade);
+      if (data.uf) setCompanyState(data.uf);
+      toast.success("Endereço preenchido via CEP!");
+    } catch {
+      toastError("CEP não encontrado", undefined, { module: "Settings" });
+    } finally {
+      setSearchingCompanyCep(false);
+    }
+  };
+
     if (!profile?.organization_id || !canEditCompany) return;
     setSavingCompany(true);
     const { error } = await supabase
