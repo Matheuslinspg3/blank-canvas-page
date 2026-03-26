@@ -23,6 +23,9 @@ export function TeamInviteSection() {
   const canInvite = hasRole('admin') || hasRole('sub_admin') || hasRole('leader') || hasRole('developer');
   const isAdmin = hasRole('admin') || hasRole('developer');
   const isSubAdmin = hasRole('sub_admin');
+  const { currentPlan } = useSubscription();
+  const maxUsers = currentPlan?.max_users;
+  const isSubAdmin = hasRole('sub_admin');
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteName, setInviteName] = useState("");
   const [inviteRole, setInviteRole] = useState<string>("corretor");
