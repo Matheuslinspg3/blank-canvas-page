@@ -68,7 +68,6 @@ export function WhatsAppIntegrationCard() {
   // Cleanup on unmount
   useEffect(() => () => { stopRefresh(); stopStatusPolling(); }, [stopRefresh, stopStatusPolling]);
 
-  // Auto-poll via n8n webhook for connection status when QR is shown
   const startStatusPolling = useCallback(() => {
     stopStatusPolling();
     statusPollingRef.current = setInterval(async () => {
@@ -83,7 +82,27 @@ export function WhatsAppIntegrationCard() {
             companyId: ctx.companyId,
           },
         });
-        if (data?.connected) {
+
+        const normalizedRaw = String(
+          typeof data === "string"
+            ? data
+            : data?.raw ?? data?.connectionStatus ?? data?.status ?? "",
+        )
+          .trim()
+          .toLowerCase();
+
+        const normalizedStatus = String(data?.connectionStatus ?? data?.status ?? "")
+          .trim()
+          .toLowerCase();
+
+        const isConnected =
+          data?.connected === true ||
+          normalizedStatus === "open" ||
+          normalizedRaw === "open" ||
+          normalizedRaw.includes('"connectionstatus":"open"') ||
+          /\bconnected\b|\bopen\b|\bready\b|\bonline\b|\bauthorized\b/.test(normalizedRaw);
+
+        if (isConnected) {
           setQrCode(null);
           stopRefresh();
           stopStatusPolling();
