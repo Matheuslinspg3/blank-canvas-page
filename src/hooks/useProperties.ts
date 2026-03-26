@@ -553,31 +553,9 @@ export function useProperties() {
 
   const deleteProperty = useMutation({
     mutationFn: async (id: string) => {
-      // Deletar todos os registros dependentes antes de excluir o imóvel
-      await Promise.all([
-        supabase.from('property_images').delete().eq('property_id', id),
-        supabase.from('property_media').delete().eq('property_id', id),
-        supabase.from('property_owners').delete().eq('property_id', id),
-        supabase.from('property_visibility').delete().eq('property_id', id),
-        supabase.from('property_partnerships').delete().eq('property_id', id),
-        supabase.from('property_landing_content').delete().eq('property_id', id),
-        supabase.from('import_run_items').delete().eq('property_id', id),
-        supabase.from('marketplace_contact_access').delete().eq('marketplace_property_id', id),
-        supabase.from('marketplace_properties').delete().eq('id', id),
-      ]);
-
-      // Limpar referências em leads, contracts e appointments (setar null ao invés de deletar)
-      await Promise.all([
-        supabase.from('leads').update({ property_id: null }).eq('property_id', id),
-        supabase.from('contracts').update({ property_id: null }).eq('property_id', id),
-        supabase.from('appointments').update({ property_id: null }).eq('property_id', id),
-      ]);
-
-      const { error } = await supabase
-        .from('properties')
-        .delete()
-        .eq('id', id);
-
+      const { error } = await supabase.rpc('delete_property_cascade', {
+        p_property_id: id,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
