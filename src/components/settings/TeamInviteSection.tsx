@@ -57,6 +57,23 @@ export function TeamInviteSection() {
     enabled: !!profile?.organization_id,
   });
 
+  // Count current members for limit check
+  const { data: memberCount = 0 } = useQuery({
+    queryKey: ["org-member-count", profile?.organization_id],
+    queryFn: async () => {
+      if (!profile?.organization_id) return 0;
+      const { count } = await supabase
+        .from("profiles")
+        .select("user_id", { count: "exact", head: true })
+        .eq("organization_id", profile.organization_id);
+      return count || 0;
+    },
+    enabled: !!profile?.organization_id,
+  });
+
+  const pendingInviteCount = invites.filter((i) => i.status === "pending").length;
+  const isAtUserLimit = maxUsers != null && maxUsers > 0 && (memberCount + pendingInviteCount) >= maxUsers;
+
   const { data: orgInfo } = useQuery({
     queryKey: ["org-invite-info", profile?.organization_id],
     queryFn: async () => {
