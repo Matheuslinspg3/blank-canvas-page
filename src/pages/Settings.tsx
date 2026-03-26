@@ -82,6 +82,8 @@ export default function Settings() {
   const [companyZipcode, setCompanyZipcode] = useState("");
   const [companyLogoUrl, setCompanyLogoUrl] = useState("");
   const [savingCompany, setSavingCompany] = useState(false);
+  const [searchingCnpj, setSearchingCnpj] = useState(false);
+  const [searchingCompanyCep, setSearchingCompanyCep] = useState(false);
 
   // Team state
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
