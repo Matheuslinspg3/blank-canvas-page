@@ -88,11 +88,14 @@ export function useProperties() {
           .from('properties')
           .select(`
             id, title, property_code, status, transaction_type,
-            sale_price, rent_price, condominium_fee,
-            bedrooms, bathrooms, parking_spots, area_total, area_useful, suites,
-            address_street, address_number, address_neighborhood, address_city, address_state, address_zipcode,
+            sale_price, sale_price_financed, rent_price, condominium_fee, iptu, iptu_monthly, inspection_fee,
+            commission_type, commission_value,
+            bedrooms, bathrooms, parking_spots, area_total, area_useful, area_built, suites, floor,
+            address_street, address_number, address_complement, address_neighborhood, address_city, address_state, address_zipcode,
+            latitude, longitude,
             description, property_type_id, organization_id, created_by, created_at, updated_at,
-            featured, amenities,
+            featured, amenities, property_condition, launch_stage, development_name,
+            beach_distance_meters, captador_id, payment_options, youtube_url,
             property_type:property_types(id, name),
             images:property_images!left(id, url, is_cover, display_order, r2_key_thumb, cached_thumbnail_url)
           `)

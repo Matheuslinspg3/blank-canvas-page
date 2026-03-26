@@ -2705,6 +2705,9 @@ export type Database = {
           external_source: string | null
           id: string
           imported_at: string | null
+          inactivated_at: string | null
+          inactivated_by: string | null
+          inactivation_reason: string | null
           interested_property_type_id: string | null
           interested_property_type_ids: string[] | null
           is_active: boolean
@@ -2748,6 +2751,9 @@ export type Database = {
           external_source?: string | null
           id?: string
           imported_at?: string | null
+          inactivated_at?: string | null
+          inactivated_by?: string | null
+          inactivation_reason?: string | null
           interested_property_type_id?: string | null
           interested_property_type_ids?: string[] | null
           is_active?: boolean
@@ -2791,6 +2797,9 @@ export type Database = {
           external_source?: string | null
           id?: string
           imported_at?: string | null
+          inactivated_at?: string | null
+          inactivated_by?: string | null
+          inactivation_reason?: string | null
           interested_property_type_id?: string | null
           interested_property_type_ids?: string[] | null
           is_active?: boolean
