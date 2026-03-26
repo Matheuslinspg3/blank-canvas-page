@@ -114,36 +114,42 @@ export function WhatsAppIntegrationCard() {
     }, STATUS_POLL_INTERVAL);
   }, [stopRefresh, stopStatusPolling, checkStatus]);
 
+  const requestQrRefresh = useCallback(async () => {
+    const ctx = activationCtxRef.current;
+    if (!ctx) return false;
+
+    try {
+      const { data, error } = await supabase.functions.invoke("whatsapp-refresh-qrcode", {
+        body: {
+          pairingCode: ctx.pairingCode,
+          code: ctx.code,
+          count: ctx.count,
+          orgName: ctx.orgName,
+          orgId: ctx.orgId,
+          date: ctx.date,
+          companyId: ctx.companyId,
+        },
+      });
+
+      if (error || !data?.qrCode) return false;
+
+      setQrCode(data.qrCode);
+      if (data.code) ctx.code = data.code;
+      if (data.pairingCode) ctx.pairingCode = data.pairingCode;
+      if (Number.isFinite(Number(data.count))) ctx.count = Number(data.count);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
   // Refresh QR code every 45s
   const startQrRefresh = useCallback(() => {
     stopRefresh();
     refreshTimerRef.current = setInterval(async () => {
-      const ctx = activationCtxRef.current;
-      if (!ctx) return;
-
-      try {
-        const { data, error } = await supabase.functions.invoke("whatsapp-refresh-qrcode", {
-          body: {
-            pairingCode: ctx.pairingCode,
-            code: ctx.code,
-            count: ctx.count,
-            orgName: ctx.orgName,
-            orgId: ctx.orgId,
-            date: ctx.date,
-            companyId: ctx.companyId,
-          },
-        });
-        if (!error && data?.qrCode) {
-          setQrCode(data.qrCode);
-          // Update code/pairingCode if returned
-          if (data.code) ctx.code = data.code;
-          if (data.pairingCode) ctx.pairingCode = data.pairingCode;
-        }
-      } catch {
-        console.warn("QR refresh failed");
-      }
+      await requestQrRefresh();
     }, QR_REFRESH_INTERVAL);
-  }, [stopRefresh]);
+  }, [stopRefresh, requestQrRefresh]);
 
   const handleActivate = async () => {
     setIsActivating(true);
@@ -180,7 +186,12 @@ export function WhatsAppIntegrationCard() {
         setQrCode(data.qrCode);
         toast.success("QR Code gerado! Escaneie com o WhatsApp.");
       } else if (activationCtxRef.current) {
-        toast.success("Ativação enviada! Buscando QR Code automaticamente.");
+        const refreshedNow = await requestQrRefresh();
+        if (refreshedNow) {
+          toast.success("QR Code gerado! Escaneie com o WhatsApp.");
+        } else {
+          toast.success("Ativação enviada! Buscando QR Code automaticamente.");
+        }
       } else {
         toast.info("Ativação enviada, mas sem contexto para buscar o QR Code.");
       }
