@@ -1,78 +1,131 @@
 
 
-# Otimização do Porta do Corretor
+# Painel de Configuração do Agente IA (WhatsApp) — Valentina
 
-## Estado Atual
+## Visão Geral
 
-O sistema tem ~89K LOC frontend, 73+ Edge Functions, 311 componentes, e custos fixos de ~R$240/mês. Os audits existentes (`AUDITORIA_VELOCIDADE_ENTREGA.md` e `AUDITORIA_CUSTOS_TOTAIS.md`) já mapeiam os gargalos. Abaixo está um resumo priorizado do que otimizar.
+Transformar a aba "Agente IA (WhatsApp)" de um simples card de conexão WhatsApp em um painel completo de configuração do agente, com múltiplas seções para controlar o comportamento da Valentina e sua integração com o banco de imóveis.
 
----
+## Funcionalidades Propostas
 
-## 1. Performance (Impacto direto no usuário)
+### 1. Conexão WhatsApp (já existe)
+Manter o card atual de ativação/QR Code/status.
 
-| Problema | Solução | Esforço |
-|----------|---------|---------|
-| Leads sem paginação (trava com >300) | Paginar por estágio no Kanban | Alto |
-| Dashboard faz 4 queries separadas | RPC `compute_financial_summary()` — 1 query | Baixo |
-| God Hooks (useProperties 930 linhas) | Quebrar em usePropertyCRUD + Images + Owners | Médio |
-| useLeads 551 linhas | Quebrar em useLeadCRUD + Kanban + BulkOps | Médio |
+### 2. Banco de Imóveis do Agente
+- **Toggle global**: Habilitar/desabilitar acesso da IA ao banco de imóveis
+- **Modo de acesso**: A IA consulta diretamente a tabela `properties` do Supabase via uma Edge Function dedicada, filtrada por `organization_id`
+- **Whitelist de imóveis**: Seletor para marcar imóveis específicos que a IA PODE apresentar
+- **Blacklist de imóveis**: Seletor para marcar imóveis que a IA NÃO DEVE mencionar (ex: vendidos, reservados)
+- **Imóveis em destaque**: Marcar imóveis em anúncio/promoção para a IA priorizar nas recomendações
+- **Filtros automáticos**: Configurar regras como "só mostrar imóveis com status ativo" ou "excluir imóveis acima de X valor"
 
-## 2. Segurança (Risco real)
+### 3. Personalidade e Comportamento
+- **Nome do agente**: Editável (padrão: Valentina)
+- **Tom de voz**: Formal / Informal / Técnico
+- **Prompt de sistema**: Campo de texto para instrução base da IA
+- **Horário de atendimento**: Definir quando o agente responde automaticamente vs. mensagem de ausência
+- **Mensagem de boas-vindas**: Template da primeira mensagem
+- **Mensagem de ausência**: Template fora do horário
 
-| Problema | Solução | Esforço |
-|----------|---------|---------|
-| CORS `*` em 70+ functions | Allowlist de domínios | Médio |
-| Race condition em generateCode() | RPC `generate_contract_code()` com lock | Baixo |
-| Deleção parcial de imóvel | RPC `delete_property_cascade()` | Baixo |
-| Sem plan limits | Trigger que rejeita INSERT acima do limite | Baixo |
+### 4. Qualificação de Leads
+- **Auto-qualificação**: Toggle para a IA perguntar automaticamente nome, e-mail, telefone, interesse
+- **Criação automática de lead**: Toggle para criar lead no CRM ao capturar dados
+- **Atribuição de corretor**: Regra de distribuição (round-robin, por região, manual)
+- **Agendamento de visitas**: Toggle para permitir que a IA agende visitas diretamente na agenda
 
-## 3. Custo de Desenvolvimento (DX)
+### 5. Transferência para Humano
+- **Gatilhos de transferência**: Lista de palavras-chave ou situações que disparam transferência (ex: "falar com corretor", reclamação, financiamento)
+- **Notificação**: Push/WhatsApp para o corretor quando transferido
+- **Fallback**: Após X mensagens sem resolução, transferir automaticamente
 
-| Problema | Solução | Esforço |
-|----------|---------|---------|
-| 73 functions com auth/CORS duplicado | `_shared/auth.ts`, `cors.ts`, `response.ts` | Médio |
-| 5 testes para 89K LOC | Testes para useLeads, useProperties, useContracts | Médio |
-| Arquivos >700 linhas (9 arquivos) | Regra de max 500 linhas, split Settings/GeradorAnuncios | Médio |
-| Sem seed para dev local | `seed-dev-data.sql` | Baixo |
+### 6. Histórico e Analytics
+- **Log de conversas**: Visualizar conversas recentes do agente
+- **Métricas**: Total de atendimentos, leads qualificados, taxa de transferência, tempo médio de resposta
+- **Feedback**: Rating das conversas
 
-## 4. Custo Financeiro
+## Arquitetura Técnica
 
-| Problema | Solução | Economia |
-|----------|---------|----------|
-| 3 storage providers simultâneos | Finalizar migração R2, remover Cloudinary | ~$5/mês + 3 functions a menos |
-| IA sem cache em alguns endpoints | Já parcialmente feito (summarize-lead) | ~80% chamadas |
-| VPS WhatsApp R$90/mês (38% do fixo) | Avaliar UAZAPI Cloud no médio prazo | R$40-60/mês |
-| ai_router_logs sem TTL | Verificar pg_cron ativo para cleanup | Previne billing extra |
-
-## 5. Ordem de Execução Recomendada
+### Banco de Dados (novas tabelas)
 
 ```text
-SEMANA 1 — Quick Wins (~10h)
-├── RPC generate_contract_code() com lock
-├── RPC delete_property_cascade()
-├── Plan limits enforcement (trigger)
-├── _shared/ modules para Edge Functions
-└── Seed script para dev
+whatsapp_agent_config
+├── id (uuid PK)
+├── organization_id (FK → organizations)
+├── agent_name (text, default "Valentina")
+├── tone (enum: formal | informal | tecnico)
+├── system_prompt (text)
+├── is_property_db_enabled (bool)
+├── auto_qualify_leads (bool)
+├── auto_create_leads (bool)
+├── schedule_visits (bool)
+├── working_hours_start (time)
+├── working_hours_end (time)
+├── welcome_message (text)
+├── away_message (text)
+├── transfer_keywords (text[])
+├── max_messages_before_transfer (int)
+└── updated_at (timestamptz)
 
-SEMANA 2 — Modularização (~12h)
-├── Quebrar useProperties → 3 hooks
-├── Quebrar useLeads → 3 hooks
-└── Split Settings.tsx em 5 sub-componentes
-
-SEMANA 3-4 — Escala (~14h)
-├── Paginar leads por estágio
-├── RPC compute_financial_summary()
-├── Split GeradorAnuncios.tsx e PropertyDetails.tsx
-└── CORS allowlist
-
-SEMANA 5-6 — Estrutura (~12h)
-├── Reorganizar src/modules/ por domínio
-├── Feature flags (tabela + hook)
-├── Testes para hooks e Edge Functions críticas
-└── Finalizar migração R2
+whatsapp_property_rules
+├── id (uuid PK)
+├── organization_id (FK → organizations)
+├── property_id (FK → properties)
+├── rule_type (enum: whitelist | blacklist | highlight)
+├── created_at (timestamptz)
+└── UNIQUE(organization_id, property_id, rule_type)
 ```
 
-## Resumo
+### Fluxo N8N — Banco de Imóveis
 
-O custo de infra é saudável (R$240/mês). O maior gasto é **~8h/mês de tempo de dev** perdido em complexidade acidental. As otimizações P0-P1 (~8h de implementação) eliminam ~4h/mês de retrabalho — ROI positivo em 2 meses.
+```text
+[WhatsApp msg] → [N8N Workflow]
+                      │
+                      ├─ Detecta intenção (busca de imóvel)
+                      │
+                      ├─ Chama Edge Function "whatsapp-agent-properties"
+                      │   ├─ Lê whatsapp_agent_config (DB habilitado?)
+                      │   ├─ Lê whatsapp_property_rules (white/black/highlight)
+                      │   ├─ Consulta properties filtrada
+                      │   └─ Retorna JSON com imóveis permitidos
+                      │
+                      ├─ IA monta resposta com imóveis
+                      └─ Envia via WhatsApp
+```
+
+A Edge Function `whatsapp-agent-properties` recebe `organization_id` + filtros do cliente (quartos, bairro, valor) e retorna apenas imóveis que:
+1. Estão na whitelist OU não têm regra (se whitelist vazia = todos)
+2. NÃO estão na blacklist
+3. Imóveis com `highlight` vêm primeiro no ranking
+
+### Fluxo N8N — Configuração
+
+O N8N chama uma Edge Function `whatsapp-agent-config` para buscar a configuração atual (prompt, tom, horário, regras de transferência) antes de cada resposta, garantindo que mudanças no painel refletem imediatamente.
+
+### Frontend
+
+Reorganizar a aba "Agente IA (WhatsApp)" com sub-abas internas:
+
+```text
+Agente IA (WhatsApp)
+├── Conexão          → WhatsAppIntegrationCard (existente)
+├── Comportamento    → Nome, tom, prompt, horários, mensagens
+├── Imóveis          → Toggle DB, whitelist/blacklist/destaque
+├── Qualificação     → Auto-qualify, criar lead, atribuição
+├── Transferência    → Keywords, fallback, notificações
+└── Analytics        → Logs, métricas (futuro)
+```
+
+### Arquivos a criar/editar
+
+1. **Migração SQL** — tabelas `whatsapp_agent_config` e `whatsapp_property_rules` com RLS
+2. **`src/components/integrations/whatsapp-agent/`** — pasta com componentes das sub-abas:
+   - `AgentBehaviorTab.tsx` — config de personalidade
+   - `AgentPropertiesTab.tsx` — whitelist/blacklist/destaque com seletor de imóveis
+   - `AgentQualificationTab.tsx` — regras de qualificação
+   - `AgentTransferTab.tsx` — regras de transferência
+3. **`src/hooks/useWhatsAppAgentConfig.ts`** — CRUD da config
+4. **`src/hooks/useWhatsAppPropertyRules.ts`** — CRUD das regras de imóveis
+5. **Edge Function `whatsapp-agent-properties`** — endpoint para N8N consultar imóveis
+6. **Edge Function `whatsapp-agent-config`** — endpoint para N8N buscar config
+7. **Atualizar `Automations.tsx`** — substituir o card simples pelo painel completo
 
