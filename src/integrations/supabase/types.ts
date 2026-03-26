@@ -3874,6 +3874,44 @@ export type Database = {
           },
         ]
       }
+      property_amenities: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_default: boolean
+          name: string
+          organization_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_default?: boolean
+          name: string
+          organization_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_default?: boolean
+          name?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_amenities_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       property_images: {
         Row: {
           cache_status: string | null
@@ -6278,6 +6316,7 @@ export type Database = {
           title: string
         }[]
       }
+      seed_default_amenities: { Args: { org_id: string }; Returns: undefined }
       seed_org_lead_stages: { Args: { p_org_id: string }; Returns: undefined }
       seed_org_lead_types: { Args: { p_org_id: string }; Returns: undefined }
       session_heartbeat: { Args: { p_session_token: string }; Returns: boolean }

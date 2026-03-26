@@ -139,21 +139,40 @@ export function usePropertyFilters() {
     staleTime: 60000,
   });
 
-  // Fetch available amenities
+  // Fetch available amenities from organization amenities table + any already used in properties
   const { data: availableAmenities = [] } = useQuery({
-    queryKey: ['property-amenities', profile?.organization_id],
+    queryKey: ['property-amenities-filter', profile?.organization_id],
     queryFn: async () => {
       if (!profile?.organization_id) return [];
-      const { data, error } = await supabase
-        .from('properties')
-        .select('amenities')
-        .eq('organization_id', profile.organization_id)
-        .not('amenities', 'is', null);
-      if (error) { console.error('Error fetching amenities:', error); return []; }
+
+      // Fetch from property_amenities table
+      const [amenitiesResult, propertiesResult] = await Promise.all([
+        supabase
+          .from('property_amenities')
+          .select('name')
+          .eq('organization_id', profile.organization_id)
+          .order('name'),
+        supabase
+          .from('properties')
+          .select('amenities')
+          .eq('organization_id', profile.organization_id)
+          .not('amenities', 'is', null),
+      ]);
+
       const allAmenities = new Set<string>();
-      data.forEach(p => {
-        if (p.amenities) p.amenities.forEach((a: string) => allAmenities.add(a));
-      });
+
+      // Add from amenities table
+      if (amenitiesResult.data) {
+        amenitiesResult.data.forEach((a) => allAmenities.add(a.name));
+      }
+
+      // Add any that exist in properties but not in table
+      if (propertiesResult.data) {
+        propertiesResult.data.forEach((p) => {
+          if (p.amenities) p.amenities.forEach((a: string) => allAmenities.add(a));
+        });
+      }
+
       return Array.from(allAmenities).sort();
     },
     enabled: !!profile?.organization_id,

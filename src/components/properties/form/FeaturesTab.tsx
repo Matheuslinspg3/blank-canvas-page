@@ -3,7 +3,8 @@ import {
   FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { AMENITIES_OPTIONS } from "./constants";
+import { Badge } from "@/components/ui/badge";
+import { AmenitiesPickerDialog } from "./AmenitiesPickerDialog";
 
 interface FeaturesTabProps {
   form: UseFormReturn<any>;
@@ -73,22 +74,22 @@ export function FeaturesTab({ form }: FeaturesTabProps) {
       <FormField control={form.control} name="amenities" render={({ field }) => (
         <FormItem>
           <FormLabel>Características</FormLabel>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
-            {AMENITIES_OPTIONS.map((amenity) => (
-              <label key={amenity} className="flex items-center gap-2 cursor-pointer text-sm">
-                <input
-                  type="checkbox"
-                  checked={field.value?.includes(amenity) || false}
-                  onChange={(e) => {
-                    const current = field.value || [];
-                    field.onChange(e.target.checked ? [...current, amenity] : current.filter((a: string) => a !== amenity));
-                  }}
-                  className="rounded border-input"
-                />
-                <span>{amenity}</span>
-              </label>
-            ))}
-          </div>
+          <FormControl>
+            <AmenitiesPickerDialog
+              selected={field.value || []}
+              onChange={field.onChange}
+            />
+          </FormControl>
+          {/* Show selected as badges */}
+          {field.value && field.value.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {field.value.map((name: string) => (
+                <Badge key={name} variant="secondary" className="text-xs">
+                  {name}
+                </Badge>
+              ))}
+            </div>
+          )}
           <FormMessage />
         </FormItem>
       )} />
