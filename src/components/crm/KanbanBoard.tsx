@@ -331,9 +331,9 @@ export function KanbanBoard() {
     }
   }, [selectedLead, deleteLead]);
 
-  const handleInactivateLead = useCallback(() => {
+  const handleInactivateLead = useCallback((reason?: string) => {
     if (selectedLead) {
-      inactivateLead(selectedLead.id);
+      inactivateLead({ id: selectedLead.id, reason });
       setDetailsOpen(false);
       setSelectedLead(null);
     }

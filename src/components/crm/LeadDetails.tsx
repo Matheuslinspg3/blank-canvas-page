@@ -68,7 +68,7 @@ interface LeadDetailsProps {
   leadStages: LeadStage[];
   onEdit: () => void;
   onDelete: () => void;
-  onInactivate?: () => void;
+  onInactivate?: (reason?: string) => void;
   onAssign?: () => void;
   isDeleting?: boolean;
   isInactivating?: boolean;
