@@ -43,17 +43,27 @@ Deno.serve(async (req) => {
       });
 
       const rawText = await res.text().catch(() => "");
+      const normalizedRaw = rawText.trim().toLowerCase();
       console.log("Polling raw response (status " + res.status + "):", rawText.substring(0, 500));
       rawResponse = rawText;
 
       if (res.ok && rawText) {
         let obj: any = null;
+
+        // Fast-path for plain text responses like: open
+        if (normalizedRaw === "open" || normalizedRaw === '"open"') {
+          connected = true;
+        }
+
         try {
           const parsed = JSON.parse(rawText);
           obj = Array.isArray(parsed) ? parsed[0] : parsed;
         } catch {
           // Try to find connectionStatus in raw text
-          if (/connectionStatus.*open/i.test(rawText) || /\"open\"/i.test(rawText)) {
+          if (
+            /connectionstatus\s*[:=]\s*["']?open["']?/i.test(rawText) ||
+            /\bopen\b/i.test(normalizedRaw)
+          ) {
             connected = true;
           }
         }
@@ -61,17 +71,18 @@ Deno.serve(async (req) => {
         if (obj) {
           // Deep search for connectionStatus in any nested structure
           const jsonStr = JSON.stringify(obj).toLowerCase();
-          
+
           const status = (
             obj?.status ?? obj?.data?.status ?? obj?.state ?? obj?.data?.state ?? ""
           ).toString().toLowerCase();
 
           const connStatus = (
-            obj?.connectionStatus ?? obj?.data?.connectionStatus ?? 
+            obj?.connectionStatus ?? obj?.data?.connectionStatus ??
             obj?.instance?.connectionStatus ?? ""
           ).toString().toLowerCase();
 
           connected =
+            connected ||
             obj?.connected === true ||
             obj?.data?.connected === true ||
             connStatus === "open" ||
