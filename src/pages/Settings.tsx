@@ -18,7 +18,7 @@ import { useTheme } from "next-themes";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
-import { Building2, User, Bell, Users, Upload, Palette, Sun, Moon, Monitor, Loader2, Megaphone, Camera, CreditCard, History, ShieldCheck, Mail, Crown, Shield, Bug, MessageSquare, LogOut } from "lucide-react";
+import { Building2, User, Bell, Users, Upload, Palette, Sun, Moon, Monitor, Loader2, Megaphone, Camera, CreditCard, History, ShieldCheck, Mail, Crown, Shield, Bug, MessageSquare, LogOut, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { SupportTicketDialog } from "@/components/settings/SupportTicketDialog";
 import { UserTicketsSection } from "@/components/settings/UserTicketsSection";
@@ -32,6 +32,7 @@ import { BillingTab } from "@/components/settings/BillingTab";
 import { ChangelogSection } from "@/components/settings/ChangelogSection";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useSubscription } from "@/hooks/useSubscription";
 
 const BRAZILIAN_STATES = [
   "AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT",
@@ -51,6 +52,8 @@ export default function Settings() {
   const { theme, setTheme } = useTheme();
   const { uploadImage, isUploading: isUploadingAvatar } = useImageUpload();
   const queryClient = useQueryClient();
+  const { currentPlan } = useSubscription();
+  const isCorrespondentePlan = currentPlan?.slug === "correspondente";
 
   // Profile state
   const [fullName, setFullName] = useState("");
@@ -79,6 +82,8 @@ export default function Settings() {
   const [companyZipcode, setCompanyZipcode] = useState("");
   const [companyLogoUrl, setCompanyLogoUrl] = useState("");
   const [savingCompany, setSavingCompany] = useState(false);
+  const [searchingCnpj, setSearchingCnpj] = useState(false);
+  const [searchingCompanyCep, setSearchingCompanyCep] = useState(false);
 
   // Team state
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -251,6 +256,55 @@ export default function Settings() {
 
   const isBrokerOrAssistant = !isAdminOrAbove;
   const canEditCompany = isAdminOrAbove;
+
+  const handleSearchCnpj = async () => {
+    const cnpjClean = companyCnpj.replace(/\D/g, "");
+    if (cnpjClean.length !== 14) {
+      toastError("CNPJ deve conter 14 dígitos", undefined, { module: "Settings" });
+      return;
+    }
+    setSearchingCnpj(true);
+    try {
+      const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpjClean}`);
+      if (!res.ok) throw new Error("CNPJ não encontrado");
+      const data = await res.json();
+      if (data.razao_social) setCompanyName(data.razao_social);
+      if (data.ddd_telefone_1) setCompanyPhone(data.ddd_telefone_1);
+      if (data.email) setCompanyEmail(data.email);
+      if (data.cep) setCompanyZipcode(data.cep.replace(/(\d{5})(\d{3})/, "$1-$2"));
+      if (data.uf) setCompanyState(data.uf);
+      if (data.municipio) setCompanyCity(data.municipio);
+      if (data.bairro) setCompanyNeighborhood(data.bairro);
+      if (data.logradouro) setCompanyStreet(data.logradouro);
+      if (data.numero) setCompanyNumber(data.numero);
+      if (data.complemento) setCompanyComplement(data.complemento);
+      toast.success("Dados preenchidos automaticamente via CNPJ!");
+    } catch (err: any) {
+      toastError("Erro ao buscar CNPJ", err, { module: "Settings" });
+    } finally {
+      setSearchingCnpj(false);
+    }
+  };
+
+  const handleSearchCompanyCep = async () => {
+    const cepClean = companyZipcode.replace(/\D/g, "");
+    if (cepClean.length !== 8) return;
+    setSearchingCompanyCep(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${cepClean}/json/`);
+      const data = await res.json();
+      if (data.erro) throw new Error("CEP não encontrado");
+      if (data.logradouro) setCompanyStreet(data.logradouro);
+      if (data.bairro) setCompanyNeighborhood(data.bairro);
+      if (data.localidade) setCompanyCity(data.localidade);
+      if (data.uf) setCompanyState(data.uf);
+      toast.success("Endereço preenchido via CEP!");
+    } catch {
+      toastError("CEP não encontrado", undefined, { module: "Settings" });
+    } finally {
+      setSearchingCompanyCep(false);
+    }
+  };
 
   const handleSaveCompany = async () => {
     if (!profile?.organization_id || !canEditCompany) return;
@@ -427,6 +481,7 @@ export default function Settings() {
                       <Label htmlFor="phone">Telefone</Label>
                       <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-9999" />
                     </div>
+                    {!isCorrespondentePlan && (
                     <div className="space-y-2">
                       <Label htmlFor="creci">CRECI</Label>
                       <div className="flex gap-2">
@@ -449,6 +504,7 @@ export default function Settings() {
                         </p>
                       )}
                     </div>
+                    )}
                     </div>
 
                   {organizationType && (
@@ -591,7 +647,15 @@ export default function Settings() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="cnpj">CNPJ</Label>
-                      <Input id="cnpj" value={companyCnpj} onChange={(e) => setCompanyCnpj(e.target.value)} placeholder="00.000.000/0001-00" disabled={!canEditCompany} />
+                      <div className="flex gap-2">
+                        <Input id="cnpj" value={companyCnpj} onChange={(e) => setCompanyCnpj(e.target.value)} placeholder="00.000.000/0001-00" disabled={!canEditCompany} className="flex-1" />
+                        {canEditCompany && (
+                          <Button type="button" variant="outline" size="icon" onClick={handleSearchCnpj} disabled={searchingCnpj}>
+                            {searchingCnpj ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">Digite o CNPJ e clique na lupa para preencher automaticamente</p>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="company-phone">Telefone</Label>
@@ -610,7 +674,14 @@ export default function Settings() {
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
                         <Label htmlFor="company-zipcode">CEP</Label>
-                        <Input id="company-zipcode" value={companyZipcode} onChange={(e) => setCompanyZipcode(e.target.value)} placeholder="00000-000" disabled={!canEditCompany} />
+                        <div className="flex gap-2">
+                          <Input id="company-zipcode" value={companyZipcode} onChange={(e) => setCompanyZipcode(e.target.value)} placeholder="00000-000" disabled={!canEditCompany} className="flex-1" />
+                          {canEditCompany && (
+                            <Button type="button" variant="outline" size="icon" onClick={handleSearchCompanyCep} disabled={searchingCompanyCep}>
+                              {searchingCompanyCep ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="company-state">Estado</Label>

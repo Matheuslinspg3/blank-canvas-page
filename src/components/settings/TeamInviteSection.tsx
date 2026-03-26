@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUserRoles } from "@/hooks/useUserRole";
+import { useSubscription } from "@/hooks/useSubscription";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -22,6 +23,8 @@ export function TeamInviteSection() {
   const canInvite = hasRole('admin') || hasRole('sub_admin') || hasRole('leader') || hasRole('developer');
   const isAdmin = hasRole('admin') || hasRole('developer');
   const isSubAdmin = hasRole('sub_admin');
+  const { currentPlan } = useSubscription();
+  const maxUsers = currentPlan?.max_users;
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteName, setInviteName] = useState("");
   const [inviteRole, setInviteRole] = useState<string>("corretor");
@@ -54,6 +57,23 @@ export function TeamInviteSection() {
     enabled: !!profile?.organization_id,
   });
 
+  // Count current members for limit check
+  const { data: memberCount = 0 } = useQuery({
+    queryKey: ["org-member-count", profile?.organization_id],
+    queryFn: async () => {
+      if (!profile?.organization_id) return 0;
+      const { count } = await supabase
+        .from("profiles")
+        .select("user_id", { count: "exact", head: true })
+        .eq("organization_id", profile.organization_id);
+      return count || 0;
+    },
+    enabled: !!profile?.organization_id,
+  });
+
+  const pendingInviteCount = invites.filter((i) => i.status === "pending").length;
+  const isAtUserLimit = maxUsers != null && maxUsers > 0 && (memberCount + pendingInviteCount) >= maxUsers;
+
   const { data: orgInfo } = useQuery({
     queryKey: ["org-invite-info", profile?.organization_id],
     queryFn: async () => {
@@ -74,6 +94,9 @@ export function TeamInviteSection() {
   const createInvite = useMutation({
     mutationFn: async () => {
       if (!profile?.organization_id || !user) throw new Error("Sem organização");
+      if (isAtUserLimit) {
+        throw new Error(`Limite de ${maxUsers} usuário(s) do seu plano atingido. Faça upgrade para adicionar mais membros.`);
+      }
       const email = inviteEmail.trim().toLowerCase();
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         throw new Error("Informe um email válido");
@@ -247,8 +270,20 @@ export function TeamInviteSection() {
               </Select>
             </div>
           </div>
+          {isAtUserLimit && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+              <ShieldAlert className="h-4 w-4 shrink-0" />
+              <span>Limite de {maxUsers} usuário(s) do plano atingido. Faça upgrade para convidar mais membros.</span>
+            </div>
+          )}
 
-          <Button onClick={() => createInvite.mutate()} disabled={createInvite.isPending || !inviteEmail.trim()}>
+          {maxUsers != null && maxUsers > 0 && !isAtUserLimit && (
+            <p className="text-xs text-muted-foreground">
+              {memberCount + pendingInviteCount} de {maxUsers} vaga(s) utilizadas
+            </p>
+          )}
+
+          <Button onClick={() => createInvite.mutate()} disabled={createInvite.isPending || !inviteEmail.trim() || isAtUserLimit}>
             {createInvite.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
