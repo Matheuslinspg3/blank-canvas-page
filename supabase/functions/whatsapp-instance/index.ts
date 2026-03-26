@@ -302,7 +302,13 @@ serve(async (req) => {
         .eq("organization_id", orgId)
         .single();
 
-      if (!instance?.instance_token) throw new Error("Instância não encontrada");
+      if (!instance) throw new Error("Instância não encontrada");
+
+      if (!instance.instance_token) {
+        // No token, just update DB status
+        await supabaseClient.from("whatsapp_instances").update({ status: "disconnected", qr_code: null }).eq("id", instance.id);
+        return new Response(JSON.stringify({ status: "disconnected" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
 
       // POST /instance/disconnect  — header: token
       const res = await fetch(`${baseUrl}/instance/disconnect`, {
