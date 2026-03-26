@@ -372,32 +372,11 @@ export function LeadDetails({
                 </Button>
               )}
               {onInactivate && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="secondary" className="flex-1">
-                      <XCircle className="h-4 w-4 mr-2" />
-                      Inativar
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent className="mx-4 sm:mx-0">
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Inativar lead?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        O lead "{lead.name}" será movido para a lista de inativos. Você poderá reativá-lo a qualquer momento.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-                      <AlertDialogCancel className="sm:w-auto w-full">Cancelar</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={onInactivate}
-                        disabled={isInactivating}
-                        className="sm:w-auto w-full"
-                      >
-                        {isInactivating ? 'Inativando...' : 'Inativar'}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <InactivateLeadDialog
+                  leadName={lead.name}
+                  onConfirm={onInactivate}
+                  isInactivating={isInactivating}
+                />
               )}
             </div>
             <AlertDialog>
