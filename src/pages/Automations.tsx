@@ -11,7 +11,7 @@ import { AutomationStatsPanel } from "@/components/automations/AutomationStats";
 import { AutomationExecutionLog, type ExecutionLogEntry } from "@/components/automations/AutomationExecutionLog";
 import { AutomationTemplates } from "@/components/automations/AutomationTemplates";
 import { LeadScoreConfig } from "@/components/automations/LeadScoreConfig";
-import { WhatsAppIntegrationCard } from "@/components/integrations/WhatsAppIntegrationCard";
+import { WhatsAppAgentPanel } from "@/components/integrations/whatsapp-agent/WhatsAppAgentPanel";
 import { FeatureFlagGate } from "@/components/FeatureGate";
 import { useAutomations } from "@/hooks/useAutomations";
 import { toast } from "@/hooks/use-toast";
@@ -147,7 +147,7 @@ export default function Automations() {
 
             <TabsContent value="whatsapp-agent">
               <FeatureFlagGate featureKey="has_whatsapp">
-                <WhatsAppIntegrationCard />
+                <WhatsAppAgentPanel />
               </FeatureFlagGate>
             </TabsContent>
           </Tabs>
