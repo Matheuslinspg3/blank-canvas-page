@@ -5537,6 +5537,74 @@ export type Database = {
           },
         ]
       }
+      whatsapp_agent_config: {
+        Row: {
+          agent_name: string
+          auto_create_leads: boolean
+          auto_qualify_leads: boolean
+          away_message: string | null
+          broker_assignment_mode: string
+          id: string
+          is_property_db_enabled: boolean
+          max_messages_before_transfer: number
+          organization_id: string
+          schedule_visits: boolean
+          system_prompt: string | null
+          tone: Database["public"]["Enums"]["agent_tone"]
+          transfer_keywords: string[] | null
+          updated_at: string
+          welcome_message: string | null
+          working_hours_end: string | null
+          working_hours_start: string | null
+        }
+        Insert: {
+          agent_name?: string
+          auto_create_leads?: boolean
+          auto_qualify_leads?: boolean
+          away_message?: string | null
+          broker_assignment_mode?: string
+          id?: string
+          is_property_db_enabled?: boolean
+          max_messages_before_transfer?: number
+          organization_id: string
+          schedule_visits?: boolean
+          system_prompt?: string | null
+          tone?: Database["public"]["Enums"]["agent_tone"]
+          transfer_keywords?: string[] | null
+          updated_at?: string
+          welcome_message?: string | null
+          working_hours_end?: string | null
+          working_hours_start?: string | null
+        }
+        Update: {
+          agent_name?: string
+          auto_create_leads?: boolean
+          auto_qualify_leads?: boolean
+          away_message?: string | null
+          broker_assignment_mode?: string
+          id?: string
+          is_property_db_enabled?: boolean
+          max_messages_before_transfer?: number
+          organization_id?: string
+          schedule_visits?: boolean
+          system_prompt?: string | null
+          tone?: Database["public"]["Enums"]["agent_tone"]
+          transfer_keywords?: string[] | null
+          updated_at?: string
+          welcome_message?: string | null
+          working_hours_end?: string | null
+          working_hours_start?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_agent_config_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_instances: {
         Row: {
           created_at: string
@@ -5580,6 +5648,45 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: true
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_property_rules: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string
+          property_id: string
+          rule_type: Database["public"]["Enums"]["property_rule_type"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id: string
+          property_id: string
+          rule_type: Database["public"]["Enums"]["property_rule_type"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string
+          property_id?: string
+          rule_type?: Database["public"]["Enums"]["property_rule_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_property_rules_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_property_rules_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
             referencedColumns: ["id"]
           },
         ]
@@ -6422,6 +6529,7 @@ export type Database = {
         | "send_failed"
         | "archived"
       ad_provider: "meta" | "google"
+      agent_tone: "formal" | "informal" | "tecnico"
       app_role:
         | "admin"
         | "corretor"
@@ -6458,6 +6566,7 @@ export type Database = {
       partnership_status: "pending" | "active" | "rejected" | "expired"
       property_condition: "novo" | "usado"
       property_image_type: "photo" | "floor_plan" | "floor_plan_secondary"
+      property_rule_type: "whitelist" | "blacklist" | "highlight"
       property_status:
         | "disponivel"
         | "reservado"
@@ -6612,6 +6721,7 @@ export const Constants = {
       ad_entity_type: ["campaign", "adset", "ad"],
       ad_lead_status: ["new", "read", "sent_to_crm", "send_failed", "archived"],
       ad_provider: ["meta", "google"],
+      agent_tone: ["formal", "informal", "tecnico"],
       app_role: [
         "admin",
         "corretor",
@@ -6651,6 +6761,7 @@ export const Constants = {
       partnership_status: ["pending", "active", "rejected", "expired"],
       property_condition: ["novo", "usado"],
       property_image_type: ["photo", "floor_plan", "floor_plan_secondary"],
+      property_rule_type: ["whitelist", "blacklist", "highlight"],
       property_status: [
         "disponivel",
         "reservado",
