@@ -450,11 +450,11 @@ export default function Properties() {
   }, [updateFilter]);
 
   const handleNeighborhoodFilter = useCallback((neighborhood: string) => {
-    updateFilter('neighborhood', neighborhood);
+    updateFilter('neighborhoods', neighborhood ? [neighborhood] : []);
   }, [updateFilter]);
 
   const handleCityFilter = useCallback((city: string) => {
-    updateFilter('city', city);
+    updateFilter('cities', city ? [city] : []);
   }, [updateFilter]);
 
   const handleLoadSavedSearch = useCallback((savedFilters: any) => {

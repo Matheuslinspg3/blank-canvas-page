@@ -233,37 +233,68 @@ export function PropertyFilters({
             <Separator />
 
             {/* Location */}
-            <Collapsible defaultOpen={!!filters.city || !!filters.neighborhood}>
+            <Collapsible defaultOpen={filters.cities.length > 0 || filters.neighborhoods.length > 0}>
               <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium w-full">
                 <MapPin className="h-4 w-4 text-muted-foreground" /> Localização
                 <ChevronDown className="h-4 w-4 ml-auto" />
               </CollapsibleTrigger>
               <CollapsibleContent className="pt-2 space-y-2">
                 {cities.length > 0 && (
-                  <Select value={filters.city || 'all'} onValueChange={(value) => onUpdateFilter('city', value === 'all' ? '' : value)}>
-                    <SelectTrigger><SelectValue placeholder="Cidade" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas as cidades</SelectItem>
-                      {cities.map((c) => (
-                        <SelectItem key={c.city} value={c.city}>
-                          {c.city}{c.state ? ` - ${c.state}` : ''} ({c.count})
-                        </SelectItem>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Cidades</Label>
+                    <div className="flex flex-wrap gap-1 mb-1">
+                      {filters.cities.map(c => (
+                        <Badge key={c} variant="secondary" className="gap-1 text-xs">
+                          {c}
+                          <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter('cities', filters.cities.filter(x => x !== c))} />
+                        </Badge>
                       ))}
-                    </SelectContent>
-                  </Select>
+                    </div>
+                    <Select value="" onValueChange={(value) => {
+                      if (value && !filters.cities.includes(value)) {
+                        onUpdateFilter('cities', [...filters.cities, value]);
+                      }
+                    }}>
+                      <SelectTrigger><SelectValue placeholder="Adicionar cidade..." /></SelectTrigger>
+                      <SelectContent>
+                        {cities.filter(c => !filters.cities.includes(c.city)).map((c) => (
+                          <SelectItem key={c.city} value={c.city}>
+                            {c.city}{c.state ? ` - ${c.state}` : ''} ({c.count})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 )}
                 {neighborhoods.length > 0 && (
-                  <Select value={filters.neighborhood || 'all'} onValueChange={(value) => onUpdateFilter('neighborhood', value === 'all' ? '' : value)}>
-                    <SelectTrigger><SelectValue placeholder="Bairro" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos os bairros</SelectItem>
-                      {neighborhoods.filter(n => !filters.city || n.city === filters.city).map((n) => (
-                        <SelectItem key={n.neighborhood} value={n.neighborhood}>
-                          {n.neighborhood} ({n.count})
-                        </SelectItem>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Bairros</Label>
+                    <div className="flex flex-wrap gap-1 mb-1">
+                      {filters.neighborhoods.map(n => (
+                        <Badge key={n} variant="secondary" className="gap-1 text-xs">
+                          {n}
+                          <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter('neighborhoods', filters.neighborhoods.filter(x => x !== n))} />
+                        </Badge>
                       ))}
-                    </SelectContent>
-                  </Select>
+                    </div>
+                    <Select value="" onValueChange={(value) => {
+                      if (value && !filters.neighborhoods.includes(value)) {
+                        onUpdateFilter('neighborhoods', [...filters.neighborhoods, value]);
+                      }
+                    }}>
+                      <SelectTrigger><SelectValue placeholder="Adicionar bairro..." /></SelectTrigger>
+                      <SelectContent>
+                        {neighborhoods
+                          .filter(n => !filters.neighborhoods.includes(n.neighborhood))
+                          .filter(n => filters.cities.length === 0 || filters.cities.includes(n.city))
+                          .map((n) => (
+                            <SelectItem key={n.neighborhood} value={n.neighborhood}>
+                              {n.neighborhood} ({n.count})
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 )}
               </CollapsibleContent>
             </Collapsible>
@@ -450,18 +481,18 @@ export function PropertyFilters({
               <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter('minParking', null)} />
             </Badge>
           )}
-          {filters.city && (
-            <Badge variant="secondary" className="gap-1">
-              {filters.city}
-              <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter('city', '')} />
+          {filters.cities.map(c => (
+            <Badge key={c} variant="secondary" className="gap-1">
+              {c}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter('cities', filters.cities.filter(x => x !== c))} />
             </Badge>
-          )}
-          {filters.neighborhood && (
-            <Badge variant="secondary" className="gap-1">
-              {filters.neighborhood}
-              <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter('neighborhood', '')} />
+          ))}
+          {filters.neighborhoods.map(n => (
+            <Badge key={n} variant="secondary" className="gap-1">
+              {n}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter('neighborhoods', filters.neighborhoods.filter(x => x !== n))} />
             </Badge>
-          )}
+          ))}
           {(filters.minPrice || filters.maxPrice) && (
             <Badge variant="secondary" className="gap-1">
               {filters.minPrice ? formatCurrency(filters.minPrice) : 'R$ 0'} - {filters.maxPrice ? formatCurrency(filters.maxPrice) : '∞'}
