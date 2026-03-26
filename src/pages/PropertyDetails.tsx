@@ -299,11 +299,21 @@ export default function PropertyDetails() {
         description_generated: false,
       };
 
-      // Resolve full URLs and exclude R2/storage keys to prevent cascading deletions
-      const images = (property.images || []).map((img: any, i: number) => ({
+      // Fetch ALL images with full metadata (list query only has covers)
+      const { data: fullImages } = await supabase
+        .from('property_images')
+        .select('id, url, is_cover, display_order, phash, r2_key_full, r2_key_thumb, storage_provider')
+        .eq('property_id', property.id)
+        .order('display_order');
+
+      const images = (fullImages || []).map((img: any, i: number) => ({
         url: getImageUrl(img, 'full'),
         is_cover: img.is_cover || i === 0,
         display_order: img.display_order ?? i,
+        phash: img.phash || undefined,
+        r2_key_full: img.r2_key_full || undefined,
+        r2_key_thumb: img.r2_key_thumb || undefined,
+        storage_provider: img.storage_provider || undefined,
       }));
 
       const newProperty = await createProperty(duplicateData, images);

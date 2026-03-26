@@ -176,6 +176,24 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
           // ignore – owner fields will remain empty
         }
 
+        // Fetch ALL images (list query only includes covers)
+        let allImages: { id: string; url: string; is_cover: boolean; display_order: number }[] = [];
+        try {
+          const { data: imgRows } = await supabase
+            .from("property_images")
+            .select("id, url, is_cover, display_order, r2_key_thumb, cached_thumbnail_url, r2_key_full, storage_provider")
+            .eq("property_id", property.id)
+            .order("display_order");
+          allImages = (imgRows || []).map((img: any) => ({
+            id: img.id, url: img.url, is_cover: img.is_cover || false, display_order: img.display_order || 0,
+          }));
+        } catch (e) {
+          // Fallback to property.images if fetch fails
+          allImages = (property.images || []).map(img => ({
+            id: img.id, url: img.url, is_cover: img.is_cover || false, display_order: img.display_order || 0,
+          }));
+        }
+
         form.reset({
           title: property.title, property_type_id: property.property_type_id,
           transaction_type: property.transaction_type, status: property.status,
@@ -204,9 +222,7 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
           owner_name: ownerName, owner_phone: ownerPhone, owner_email: ownerEmail,
           owner_document: ownerDocument, owner_notes: ownerNotes,
         });
-        setImages(property.images?.map(img => ({
-          id: img.id, url: img.url, is_cover: img.is_cover || false, display_order: img.display_order || 0,
-        })) || []);
+        setImages(allImages);
       };
       loadPropertyData();
     } else if (prefillData) {
