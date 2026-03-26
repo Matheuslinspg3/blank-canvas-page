@@ -1,6 +1,6 @@
 import { PageHeader } from "@/components/PageHeader";
 import { ImobziIntegrationCard } from "@/components/integrations/ImobziIntegrationCard";
-import { WhatsAppIntegrationCard } from "@/components/integrations/WhatsAppIntegrationCard";
+
 import { SyncHistorySection } from "@/components/integrations/SyncHistorySection";
 import { PortalFeedsSection } from "@/components/integrations/PortalFeedsSection";
 import { Separator } from "@/components/ui/separator";

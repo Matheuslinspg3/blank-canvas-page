@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Zap, BarChart3, History, LayoutTemplate } from "lucide-react";
+import { Plus, Zap, BarChart3, History, LayoutTemplate, MessageSquare } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,6 +11,8 @@ import { AutomationStatsPanel } from "@/components/automations/AutomationStats";
 import { AutomationExecutionLog, type ExecutionLogEntry } from "@/components/automations/AutomationExecutionLog";
 import { AutomationTemplates } from "@/components/automations/AutomationTemplates";
 import { LeadScoreConfig } from "@/components/automations/LeadScoreConfig";
+import { WhatsAppIntegrationCard } from "@/components/integrations/WhatsAppIntegrationCard";
+import { FeatureFlagGate } from "@/components/FeatureGate";
 import { useAutomations } from "@/hooks/useAutomations";
 import { toast } from "@/hooks/use-toast";
 
@@ -102,6 +104,9 @@ export default function Automations() {
               <TabsTrigger value="score" className="gap-1.5">
                 <BarChart3 className="h-3.5 w-3.5" /> Score
               </TabsTrigger>
+              <TabsTrigger value="whatsapp-agent" className="gap-1.5">
+                <MessageSquare className="h-3.5 w-3.5" /> Agente IA (WhatsApp)
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="automations" className="space-y-6">
@@ -138,6 +143,12 @@ export default function Automations() {
 
             <TabsContent value="score">
               <LeadScoreConfig />
+            </TabsContent>
+
+            <TabsContent value="whatsapp-agent">
+              <FeatureFlagGate featureKey="has_whatsapp">
+                <WhatsAppIntegrationCard />
+              </FeatureFlagGate>
             </TabsContent>
           </Tabs>
         )}
