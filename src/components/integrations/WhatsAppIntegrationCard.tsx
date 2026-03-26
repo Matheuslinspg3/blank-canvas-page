@@ -92,7 +92,7 @@ export function WhatsAppIntegrationCard() {
           checkStatus().catch(() => {});
         }
       } catch { /* silent */ }
-    }, 5000);
+    }, STATUS_POLL_INTERVAL);
   }, [stopRefresh, stopStatusPolling, checkStatus]);
 
   // Refresh QR code every 45s
