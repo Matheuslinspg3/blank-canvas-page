@@ -77,29 +77,21 @@ export function WhatsAppIntegrationCard() {
     return `data:image/png;base64,${trimmed}`;
   };
 
+  const [isActivating, setIsActivating] = useState(false);
+
   const handleCreate = async () => {
+    setIsActivating(true);
     try {
-      await createInstance();
-
-      // Auto-connect after creation to show QR code immediately
-      const connectResult = await connectInstance().catch(() => null);
-      if (connectResult?.qr_code) {
-        setQrCode(connectResult.qr_code);
-        startPolling();
-        return;
-      }
-
-      // Fallback: some providers generate QR a few seconds later
-      const statusResult = await checkStatus().catch(() => null);
-      if (statusResult?.qr_code) {
-        setQrCode(statusResult.qr_code);
-        startPolling();
-        return;
-      }
-
-      toastError("Instância criada, mas o QR Code ainda não foi gerado. Clique em 'Conectar' novamente em alguns segundos.", undefined, { module: "WhatsAppIntegrationCard" });
-    } catch {
-      // O toast detalhado já é exibido no hook
+      const { data, error } = await supabase.functions.invoke("whatsapp-activate-webhook", {
+        body: {},
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Ativação do WhatsApp enviada! O agente será configurado em breve.");
+    } catch (err: any) {
+      toastError("Erro ao ativar WhatsApp", err instanceof Error ? err : new Error(String(err?.message || err)), { module: "WhatsAppIntegrationCard" });
+    } finally {
+      setIsActivating(false);
     }
   };
 
