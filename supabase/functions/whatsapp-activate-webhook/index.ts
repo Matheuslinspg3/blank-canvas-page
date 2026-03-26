@@ -103,10 +103,12 @@ Deno.serve(async (req) => {
       webhookStatus = "fetch_error";
     }
 
-    // Extract QR code data from webhook response
-    const qrBase64 = webhookData?.data?.base64 ?? null;
-    const pairingCode = webhookData?.data?.pairingCode ?? null;
-    const code = webhookData?.data?.code ?? null;
+    // Extract QR code data — N8N may return an array or a single object
+    const responseObj = Array.isArray(webhookData) ? webhookData[0] : webhookData;
+    const qrBase64 = responseObj?.data?.base64 ?? null;
+    const pairingCode = responseObj?.data?.pairingCode ?? null;
+    const code = responseObj?.data?.code ?? null;
+    const count = responseObj?.data?.count ?? 1;
 
     return new Response(JSON.stringify({
       success: true,
@@ -115,6 +117,7 @@ Deno.serve(async (req) => {
       qrCode: qrBase64,
       pairingCode,
       code,
+      count,
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
