@@ -306,6 +306,7 @@ export default function Settings() {
     }
   };
 
+  const handleSaveCompany = async () => {
     if (!profile?.organization_id || !canEditCompany) return;
     setSavingCompany(true);
     const { error } = await supabase
