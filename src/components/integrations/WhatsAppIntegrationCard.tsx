@@ -134,23 +134,35 @@ export function WhatsAppIntegrationCard() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      if (data?.qrCode) {
-        setQrCode(data.qrCode);
-        // Store context for refresh
-        activationCtxRef.current = {
-          pairingCode: data.pairingCode ?? null,
-          code: data.code ?? null,
-          count: 1,
-          orgName: data.payload?.orgName ?? "",
-          orgId: data.payload?.orgId ?? "",
-          date: data.payload?.date ?? "",
-          companyId: data.payload?.companyId ?? "",
-        };
+      const payload = data?.payload;
+      const hasActivationContext = Boolean(
+        payload?.orgName && payload?.orgId && payload?.date && payload?.companyId,
+      );
+
+      activationCtxRef.current = hasActivationContext
+        ? {
+            pairingCode: data.pairingCode ?? null,
+            code: data.code ?? null,
+            count: Number.isFinite(Number(data.count)) ? Number(data.count) : 1,
+            orgName: payload.orgName,
+            orgId: payload.orgId,
+            date: payload.date,
+            companyId: payload.companyId,
+          }
+        : null;
+
+      if (activationCtxRef.current) {
         startQrRefresh();
         startStatusPolling();
+      }
+
+      if (data?.qrCode) {
+        setQrCode(data.qrCode);
         toast.success("QR Code gerado! Escaneie com o WhatsApp.");
+      } else if (activationCtxRef.current) {
+        toast.success("Ativação enviada! Buscando QR Code automaticamente.");
       } else {
-        toast.success("Ativação enviada! Aguarde o QR Code.");
+        toast.info("Ativação enviada, mas sem contexto para buscar o QR Code.");
       }
     } catch (err: any) {
       toastError("Erro ao ativar WhatsApp", err instanceof Error ? err : new Error(String(err?.message || err)), { module: "WhatsAppIntegrationCard" });
