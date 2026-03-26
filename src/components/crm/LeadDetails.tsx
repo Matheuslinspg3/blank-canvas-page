@@ -1,4 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
+import { InactivateLeadDialog } from './InactivateLeadDialog';
 import {
   Sheet,
   SheetContent,
