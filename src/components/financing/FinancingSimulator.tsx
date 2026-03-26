@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,7 +11,7 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Calculator, Wifi, WifiOff, ShieldCheck, ShieldAlert,
-  AlertTriangle, CheckCircle2,
+  AlertTriangle, CheckCircle2, Building2, User, Banknote,
 } from "lucide-react";
 import { useTaxaReferencial } from "@/hooks/useTaxaReferencial";
 import { useSelicRate } from "@/hooks/financing/useSelicRate";
@@ -71,44 +71,60 @@ export function FinancingSimulator() {
 
   const handleSelectBank = useCallback((id: string) => setSelectedBankId(id), []);
 
-  // ITBI
   const itbiRate = ITBI_RATES[state] ?? 3;
   const itbiValue = valorImovel * (itbiRate / 100);
 
   return (
     <div className="space-y-6">
-      {/* TR / Selic indicator */}
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        {trLoading ? (
-          <Skeleton className="h-4 w-48" />
-        ) : trError ? (
-          <>
-            <WifiOff className="h-3.5 w-3.5 text-destructive" />
-            <span>TR indisponível — usando fallback 0,1690%</span>
-          </>
-        ) : (
-          <>
-            <Wifi className="h-3.5 w-3.5 text-green-500" />
-            <span>TR mensal: <strong>{trMensal?.toFixed(4)}%</strong></span>
-            {selicRate && <span>| Selic: <strong>{selicRate.toFixed(2)}% a.a.</strong></span>}
-            <Badge variant="outline" className="text-[10px]">BCB em tempo real</Badge>
-          </>
-        )}
+      {/* ── Header with live rates ── */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Calculator className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold">Simulador de Financiamento</h2>
+            <p className="text-xs text-muted-foreground">Compare bancos em tempo real com dados do Banco Central</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          {trLoading ? (
+            <Skeleton className="h-5 w-48" />
+          ) : trError ? (
+            <Badge variant="destructive" className="gap-1 text-[10px]">
+              <WifiOff className="h-3 w-3" /> TR indisponível — fallback 0,1690%
+            </Badge>
+          ) : (
+            <>
+              <Badge variant="outline" className="gap-1 text-[10px] border-green-500/30 text-green-500">
+                <Wifi className="h-3 w-3" /> TR: {trMensal?.toFixed(4)}%
+              </Badge>
+              {selicRate && (
+                <Badge variant="outline" className="gap-1 text-[10px]">
+                  Selic: {selicRate.toFixed(2)}% a.a.
+                </Badge>
+              )}
+              <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">BCB ao vivo</Badge>
+            </>
+          )}
+        </div>
       </div>
 
       {/* ── Input Form ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calculator className="h-5 w-5 text-primary" />
-            Simulador de Financiamento Imobiliário
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Row 1 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Section 1: Imóvel */}
+        <Card className="border-border/50">
+          <CardContent className="pt-5 space-y-5">
+            <div className="flex items-center gap-2 mb-1">
+              <Building2 className="h-4 w-4 text-primary" />
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Imóvel</span>
+            </div>
+
             <div className="space-y-3">
-              <Label>Valor do Imóvel: {fmtBRL(valorImovel)}</Label>
+              <div className="flex justify-between items-baseline">
+                <Label className="text-xs">Valor do Imóvel</Label>
+                <span className="text-sm font-bold text-primary">{fmtBRL(valorImovel)}</span>
+              </div>
               <Slider
                 min={100_000} max={5_000_000} step={10_000}
                 value={[valorImovel]}
@@ -118,8 +134,12 @@ export function FinancingSimulator() {
                 <span>R$ 100 mil</span><span>R$ 5 mi</span>
               </div>
             </div>
+
             <div className="space-y-3">
-              <Label>Entrada: {percEntrada}% ({fmtBRL(valorEntrada)})</Label>
+              <div className="flex justify-between items-baseline">
+                <Label className="text-xs">Entrada</Label>
+                <span className="text-sm font-bold">{percEntrada}% <span className="text-muted-foreground font-normal text-xs">({fmtBRL(valorEntrada)})</span></span>
+              </div>
               <Slider
                 min={10} max={80} step={1}
                 value={[percEntrada]}
@@ -129,59 +149,13 @@ export function FinancingSimulator() {
                 <span>10%</span><span>80%</span>
               </div>
             </div>
-          </div>
 
-          {/* Row 2 */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-3">
-              <Label>Prazo: {prazoAnos} anos ({prazoMeses} meses)</Label>
-              <Slider
-                min={5} max={prazoMaxAnos} step={1}
-                value={[Math.min(prazoAnos, prazoMaxAnos)]}
-                onValueChange={([v]) => setPrazoAnos(v)}
-              />
-              <div className="flex justify-between text-[10px] text-muted-foreground">
-                <span>5 anos</span><span>{prazoMaxAnos} anos (máx. idade)</span>
-              </div>
-            </div>
-            <div className="space-y-3">
-              <Label>Renda Mensal Bruta</Label>
-              <CurrencyInput
-                value={rendaMensal}
-                onChange={setRendaMensal}
-                placeholder="R$ 8.000,00"
-              />
-            </div>
-            <div className="space-y-3">
-              <Label>Idade do Comprador</Label>
-              <Input
-                type="number" min={18} max={75}
-                value={idade}
-                onChange={(e) => setIdade(Math.max(18, Math.min(75, parseInt(e.target.value) || 18)))}
-              />
-            </div>
-          </div>
-
-          {/* Row 3 */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="space-y-3">
-              <Label>Sistema de Amortização</Label>
-              <Tabs value={sistema} onValueChange={(v) => setSistema(v as "SAC" | "PRICE")}>
-                <TabsList className="w-full">
-                  <TabsTrigger value="SAC" className="flex-1">SAC</TabsTrigger>
-                  <TabsTrigger value="PRICE" className="flex-1">PRICE</TabsTrigger>
-                </TabsList>
-              </Tabs>
-              <p className="text-[10px] text-muted-foreground">
-                {sistema === "SAC"
-                  ? "Parcelas decrescentes — amortização constante"
-                  : "Parcelas fixas — amortização crescente"}
-              </p>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Switch checked={usarFgts} onCheckedChange={setUsarFgts} />
-                <Label>Usar FGTS na entrada</Label>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Switch checked={usarFgts} onCheckedChange={setUsarFgts} />
+                  <Label className="text-xs">Usar FGTS</Label>
+                </div>
               </div>
               {usarFgts && (
                 <CurrencyInput
@@ -191,10 +165,11 @@ export function FinancingSimulator() {
                 />
               )}
             </div>
-            <div className="space-y-3">
-              <Label>Estado (para ITBI)</Label>
+
+            <div className="space-y-2">
+              <Label className="text-xs">Estado (ITBI)</Label>
               <Select value={state} onValueChange={setState}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {Object.keys(ITBI_RATES).sort().map((uf) => (
                     <SelectItem key={uf} value={uf}>{uf} ({ITBI_RATES[uf]}%)</SelectItem>
@@ -202,28 +177,98 @@ export function FinancingSimulator() {
                 </SelectContent>
               </Select>
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* Badges */}
-          <Separator />
-          <div className="flex flex-wrap gap-2">
-            <Badge variant={isSFH ? "default" : "destructive"} className="gap-1">
-              {isSFH ? <ShieldCheck className="h-3 w-3" /> : <ShieldAlert className="h-3 w-3" />}
-              {isSFH ? "SFH" : "SFI (acima do teto)"}
-            </Badge>
-            <Badge variant="outline">Financiado: {fmtBRL(valorFinanciado)}</Badge>
-            <Badge variant="outline">Prazo máx. idade: {Math.floor(prazoMaxIdade / 12)} anos</Badge>
-            {rendaMensal && rendaMensal > 0 && resultados[0] && (
-              <Badge variant={resultados[0].aprovado ? "default" : "destructive"} className="gap-1">
-                {resultados[0].aprovado
-                  ? <><CheckCircle2 className="h-3 w-3" /> Renda compatível</>
-                  : <><AlertTriangle className="h-3 w-3" /> Renda insuficiente</>
-                }
-              </Badge>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+        {/* Section 2: Financiamento */}
+        <Card className="border-border/50">
+          <CardContent className="pt-5 space-y-5">
+            <div className="flex items-center gap-2 mb-1">
+              <Banknote className="h-4 w-4 text-primary" />
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Financiamento</span>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex justify-between items-baseline">
+                <Label className="text-xs">Prazo</Label>
+                <span className="text-sm font-bold">{prazoAnos} anos <span className="text-muted-foreground font-normal text-xs">({prazoMeses} meses)</span></span>
+              </div>
+              <Slider
+                min={5} max={prazoMaxAnos} step={1}
+                value={[Math.min(prazoAnos, prazoMaxAnos)]}
+                onValueChange={([v]) => setPrazoAnos(v)}
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>5 anos</span><span>{prazoMaxAnos} anos (máx.)</span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs">Sistema de Amortização</Label>
+              <Tabs value={sistema} onValueChange={(v) => setSistema(v as "SAC" | "PRICE")}>
+                <TabsList className="w-full h-9">
+                  <TabsTrigger value="SAC" className="flex-1 text-xs h-7">SAC</TabsTrigger>
+                  <TabsTrigger value="PRICE" className="flex-1 text-xs h-7">PRICE</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                {sistema === "SAC"
+                  ? "Parcelas decrescentes — paga menos juros no total"
+                  : "Parcelas fixas — mais previsibilidade no orçamento"}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Section 3: Comprador */}
+        <Card className="border-border/50">
+          <CardContent className="pt-5 space-y-5">
+            <div className="flex items-center gap-2 mb-1">
+              <User className="h-4 w-4 text-primary" />
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Comprador</span>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs">Renda Mensal Bruta</Label>
+              <CurrencyInput
+                value={rendaMensal}
+                onChange={setRendaMensal}
+                placeholder="R$ 8.000,00"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs">Idade</Label>
+              <Input
+                type="number" min={18} max={75}
+                value={idade}
+                className="h-9"
+                onChange={(e) => setIdade(Math.max(18, Math.min(75, parseInt(e.target.value) || 18)))}
+              />
+              <p className="text-[10px] text-muted-foreground">Prazo máx. por idade: {Math.floor(prazoMaxIdade / 12)} anos</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Status Badges ── */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant={isSFH ? "default" : "destructive"} className="gap-1 text-xs">
+          {isSFH ? <ShieldCheck className="h-3.5 w-3.5" /> : <ShieldAlert className="h-3.5 w-3.5" />}
+          {isSFH ? "SFH" : "SFI (acima do teto)"}
+        </Badge>
+        <Badge variant="secondary" className="text-xs font-semibold">
+          Financiado: {fmtBRL(valorFinanciado)}
+        </Badge>
+        {rendaMensal && rendaMensal > 0 && resultados[0] && (
+          <Badge variant={resultados[0].aprovado ? "default" : "destructive"} className="gap-1 text-xs">
+            {resultados[0].aprovado
+              ? <><CheckCircle2 className="h-3.5 w-3.5" /> Renda compatível</>
+              : <><AlertTriangle className="h-3.5 w-3.5" /> Renda insuficiente</>
+            }
+          </Badge>
+        )}
+      </div>
 
       {/* ── Bank Comparison ── */}
       {resultados.length > 0 && (
