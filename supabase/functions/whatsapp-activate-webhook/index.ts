@@ -9,6 +9,38 @@ const corsHeaders = {
 const WEBHOOK_URL =
   "https://n8n.costazul.shop/webhook/autouazapiagenteiavalent";
 
+const tryParseJson = (value: string): any | null => {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+};
+
+const parseWebhookResponse = (rawText: string): any | null => {
+  const trimmed = rawText.trim();
+  if (!trimmed) return null;
+
+  let parsed = tryParseJson(trimmed);
+
+  // Alguns webhooks retornam JSON serializado como string (JSON dentro de JSON)
+  if (typeof parsed === "string") {
+    const nested = tryParseJson(parsed.trim());
+    if (nested !== null) parsed = nested;
+  }
+
+  if (parsed !== null) return parsed;
+
+  // Fallback para conteúdo entre aspas sem escape consistente
+  const unquoted = trimmed.replace(/^\s*"|"\s*$/g, "").trim();
+  if (unquoted && unquoted !== trimmed) {
+    parsed = tryParseJson(unquoted);
+    if (parsed !== null) return parsed;
+  }
+
+  return null;
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -87,16 +119,15 @@ Deno.serve(async (req) => {
         body: JSON.stringify(payload),
       });
       webhookStatus = webhookRes.ok ? "ok" : `http_${webhookRes.status}`;
+      const webhookText = await webhookRes.text().catch(() => "");
+
       if (webhookRes.ok) {
-        try {
-          webhookData = await webhookRes.json();
-        } catch {
-          const text = await webhookRes.text().catch(() => "");
-          console.warn("Webhook response not JSON:", text);
+        webhookData = parseWebhookResponse(webhookText);
+        if (!webhookData) {
+          console.warn("Webhook response not JSON:", webhookText);
         }
       } else {
-        const text = await webhookRes.text().catch(() => "");
-        console.warn("Webhook non-ok response:", webhookRes.status, text);
+        console.warn("Webhook non-ok response:", webhookRes.status, webhookText);
       }
     } catch (fetchErr) {
       console.warn("Webhook fetch error (continuing):", fetchErr);
@@ -105,10 +136,16 @@ Deno.serve(async (req) => {
 
     // Extract QR code data — N8N may return an array or a single object
     const responseObj = Array.isArray(webhookData) ? webhookData[0] : webhookData;
-    const qrBase64 = responseObj?.data?.base64 ?? null;
-    const pairingCode = responseObj?.data?.pairingCode ?? null;
-    const code = responseObj?.data?.code ?? null;
-    const count = responseObj?.data?.count ?? 1;
+    const responseData = responseObj?.data ?? responseObj;
+    const qrBase64 = responseData?.base64 ??
+      responseData?.qrCode ??
+      responseData?.qr_code ??
+      responseData?.["QR-CODE(BASE64)"] ??
+      responseObj?.["QR-CODE(BASE64)"] ??
+      null;
+    const pairingCode = responseData?.pairingCode ?? responseData?.pairing_code ?? null;
+    const code = responseData?.code ?? null;
+    const count = Number(responseData?.count ?? 1);
 
     return new Response(JSON.stringify({
       success: true,
