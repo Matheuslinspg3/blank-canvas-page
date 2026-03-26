@@ -67,18 +67,22 @@ export function WhatsAppIntegrationCard() {
   // Cleanup on unmount
   useEffect(() => () => { stopRefresh(); stopStatusPolling(); }, [stopRefresh, stopStatusPolling]);
 
-  // Auto-poll DB for connection status when QR is shown
+  // Auto-poll via n8n webhook for connection status when QR is shown
   const startStatusPolling = useCallback(() => {
     stopStatusPolling();
-    if (!instance?.id) return;
     statusPollingRef.current = setInterval(async () => {
+      const ctx = activationCtxRef.current;
+      if (!ctx) return;
       try {
-        const { data } = await supabase
-          .from("whatsapp_instances" as any)
-          .select("status")
-          .eq("id", instance.id)
-          .maybeSingle();
-        if ((data as any)?.status === "connected") {
+        const { data } = await supabase.functions.invoke("whatsapp-polling-status", {
+          body: {
+            orgName: ctx.orgName,
+            orgId: ctx.orgId,
+            date: ctx.date,
+            companyId: ctx.companyId,
+          },
+        });
+        if (data?.connected) {
           setQrCode(null);
           stopRefresh();
           stopStatusPolling();
@@ -88,7 +92,7 @@ export function WhatsAppIntegrationCard() {
         }
       } catch { /* silent */ }
     }, 5000);
-  }, [instance?.id, stopRefresh, stopStatusPolling, checkStatus]);
+  }, [stopRefresh, stopStatusPolling, checkStatus]);
 
   // Refresh QR code every 45s
   const startQrRefresh = useCallback(() => {
