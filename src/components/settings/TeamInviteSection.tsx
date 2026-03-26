@@ -94,6 +94,9 @@ export function TeamInviteSection() {
   const createInvite = useMutation({
     mutationFn: async () => {
       if (!profile?.organization_id || !user) throw new Error("Sem organização");
+      if (isAtUserLimit) {
+        throw new Error(`Limite de ${maxUsers} usuário(s) do seu plano atingido. Faça upgrade para adicionar mais membros.`);
+      }
       const email = inviteEmail.trim().toLowerCase();
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         throw new Error("Informe um email válido");
