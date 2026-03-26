@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
 
 const QR_REFRESH_INTERVAL = 45_000; // 45 seconds
+const STATUS_POLL_INTERVAL = 10_000; // 10 seconds
 
 export function WhatsAppIntegrationCard() {
   const {
@@ -91,7 +92,7 @@ export function WhatsAppIntegrationCard() {
           checkStatus().catch(() => {});
         }
       } catch { /* silent */ }
-    }, 5000);
+    }, STATUS_POLL_INTERVAL);
   }, [stopRefresh, stopStatusPolling, checkStatus]);
 
   // Refresh QR code every 45s
