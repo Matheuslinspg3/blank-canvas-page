@@ -32,6 +32,7 @@ import { BillingTab } from "@/components/settings/BillingTab";
 import { ChangelogSection } from "@/components/settings/ChangelogSection";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useSubscription } from "@/hooks/useSubscription";
 
 const BRAZILIAN_STATES = [
   "AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT",
@@ -51,6 +52,8 @@ export default function Settings() {
   const { theme, setTheme } = useTheme();
   const { uploadImage, isUploading: isUploadingAvatar } = useImageUpload();
   const queryClient = useQueryClient();
+  const { currentPlan } = useSubscription();
+  const isCorrespondentePlan = currentPlan?.slug === "correspondente";
 
   // Profile state
   const [fullName, setFullName] = useState("");
@@ -427,6 +430,7 @@ export default function Settings() {
                       <Label htmlFor="phone">Telefone</Label>
                       <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-9999" />
                     </div>
+                    {!isCorrespondentePlan && (
                     <div className="space-y-2">
                       <Label htmlFor="creci">CRECI</Label>
                       <div className="flex gap-2">
@@ -449,6 +453,7 @@ export default function Settings() {
                         </p>
                       )}
                     </div>
+                    )}
                     </div>
 
                   {organizationType && (

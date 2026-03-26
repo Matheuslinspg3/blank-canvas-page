@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
+import { useSubscription } from "@/hooks/useSubscription";
 
 interface VerificationResult {
   verified: boolean;
@@ -26,6 +27,8 @@ const BRAZILIAN_STATES = [
 
 export function VerificationSection() {
   const { user, profile, refreshProfile } = useAuth();
+  const { currentPlan } = useSubscription();
+  const isCorrespondentePlan = currentPlan?.slug === "correspondente";
   const [verifyingCreci, setVerifyingCreci] = useState(false);
   const [creciResult, setCreciResult] = useState<VerificationResult | null>(null);
   const [creciState, setCreciState] = useState("SP");
@@ -160,7 +163,9 @@ export function VerificationSection() {
           )}
         </div>
 
-        {/* CRECI Verification */}
+        {/* CRECI Verification - hidden for correspondente bancário */}
+        {!isCorrespondentePlan && (
+        <>
         <div className="flex flex-col gap-3 p-3 border rounded-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -237,6 +242,8 @@ export function VerificationSection() {
               )}
             </AlertDescription>
           </Alert>
+        )}
+        </>
         )}
       </CardContent>
     </Card>
