@@ -34,6 +34,8 @@ import {
   Thermometer,
   FolderOpen,
   CalendarPlus,
+  Megaphone,
+  Globe,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
