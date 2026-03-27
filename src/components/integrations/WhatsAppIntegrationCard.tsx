@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, MessageCircle, CheckCircle2, XCircle, RefreshCw, QrCode, Trash2, Smartphone } from "lucide-react";
 import { useWhatsAppInstance } from "@/hooks/useWhatsAppInstance";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +36,7 @@ export function WhatsAppIntegrationCard() {
     isDisconnecting,
     isDeleting,
   } = useWhatsAppInstance();
+  const queryClient = useQueryClient();
 
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isActivating, setIsActivating] = useState(false);
@@ -108,11 +110,14 @@ export function WhatsAppIntegrationCard() {
           stopStatusPolling();
           activationCtxRef.current = null;
           toast.success("WhatsApp conectado com sucesso!");
+          // Force-refresh the instance from DB
+          queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
+          // Also try edge function status update (fire-and-forget)
           checkStatus().catch(() => {});
         }
       } catch { /* silent */ }
     }, STATUS_POLL_INTERVAL);
-  }, [stopRefresh, stopStatusPolling, checkStatus]);
+  }, [stopRefresh, stopStatusPolling, checkStatus, queryClient]);
 
   const requestQrRefresh = useCallback(async () => {
     const ctx = activationCtxRef.current;
