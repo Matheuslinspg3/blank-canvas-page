@@ -48,46 +48,6 @@ export function useWhatsAppInstance() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
 
-  const createMutation = useMutation({
-    mutationFn: async () => {
-      const orgName = profile?.organization_id
-        ? await supabase.from("organizations").select("name").eq("id", profile.organization_id).single().then((r) => r.data?.name || "org")
-        : "org";
-      const userName = profile?.full_name || "user";
-      const { data, error } = await supabase.functions.invoke("whatsapp-instance", {
-        body: { action: "create", orgName, userName },
-      });
-      if (error) await throwDetailedFunctionError(error);
-      if (data?.error) throw new Error(data.error);
-      return data;
-    },
-    onSuccess: () => {
-      toast.success("Instância WhatsApp criada com sucesso!");
-      invalidate();
-    },
-    onError: (err: Error) => {
-      toastError("Erro ao criar instância WhatsApp", err, { module: "useWhatsAppInstance" });
-    },
-  });
-
-  const connectMutation = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("whatsapp-instance", {
-        body: { action: "connect" },
-      });
-      if (error) await throwDetailedFunctionError(error);
-      if (data?.error) throw new Error(data.error);
-      return data;
-    },
-    onSuccess: () => {
-      toast.info("QR Code gerado. Escaneie com o WhatsApp.");
-      invalidate();
-    },
-    onError: (err: Error) => {
-      toastError("Erro ao conectar WhatsApp", err, { module: "useWhatsAppInstance" });
-    },
-  });
-
   const statusMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("whatsapp-instance", {
@@ -149,13 +109,9 @@ export function useWhatsAppInstance() {
   return {
     instance,
     isLoading,
-    createInstance: () => createMutation.mutateAsync(),
-    connectInstance: () => connectMutation.mutateAsync(),
     checkStatus: () => statusMutation.mutateAsync(),
     disconnectInstance: () => disconnectMutation.mutateAsync(),
     deleteInstance: () => deleteMutation.mutateAsync(),
-    isCreating: createMutation.isPending,
-    isConnecting: connectMutation.isPending,
     isCheckingStatus: statusMutation.isPending,
     isDisconnecting: disconnectMutation.isPending,
     isDeleting: deleteMutation.isPending,
