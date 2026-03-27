@@ -6,6 +6,25 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const auditLog = async (
+  sb: any,
+  orgId: string,
+  action: string,
+  actorId: string | null,
+  details: Record<string, any> = {},
+) => {
+  try {
+    await sb.from("whatsapp_audit_log").insert({
+      organization_id: orgId,
+      action,
+      actor_id: actorId,
+      details,
+    });
+  } catch (e) {
+    console.warn("Failed to write audit log:", e);
+  }
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -36,15 +55,28 @@ serve(async (req) => {
       .single();
     if (!profile?.organization_id) throw new Error("No organization found");
 
+    const orgId = profile.organization_id;
+
     // Get instance token
     const { data: instance } = await supabaseClient
       .from("whatsapp_instances")
       .select("instance_token, status")
-      .eq("organization_id", profile.organization_id)
+      .eq("organization_id", orgId)
       .single();
 
-    if (!instance?.instance_token) throw new Error("WhatsApp não configurado para esta organização");
-    if (instance.status !== "connected") throw new Error("WhatsApp desconectado");
+    if (!instance?.instance_token) {
+      return new Response(
+        JSON.stringify({ error: "WhatsApp não configurado. Ative a integração na área de integrações." }),
+        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (instance.status !== "connected") {
+      return new Response(
+        JSON.stringify({ error: "WhatsApp desconectado. Reconecte na área de integrações antes de enviar mensagens." }),
+        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const body = await req.json();
     const { phone, message, type = "text" } = body;
@@ -58,7 +90,6 @@ serve(async (req) => {
     let payload: Record<string, any>;
 
     if (type === "media") {
-      // POST /send/media — header: token
       endpoint = `${baseUrl}/send/media`;
       payload = {
         number: cleanPhone,
@@ -67,7 +98,6 @@ serve(async (req) => {
         file: body.mediaUrl,
       };
     } else {
-      // POST /send/text — header: token
       endpoint = `${baseUrl}/send/text`;
       payload = {
         number: cleanPhone,
@@ -89,8 +119,27 @@ serve(async (req) => {
     const uazapiData = await uazapiRes.json();
 
     if (!uazapiRes.ok) {
-      throw new Error(`Uazapi send error [${uazapiRes.status}]: ${JSON.stringify(uazapiData)}`);
+      // Check for invalid token specifically
+      const isInvalidToken = uazapiRes.status === 401 || /invalid token/i.test(String(uazapiData?.message ?? ""));
+      if (isInvalidToken) {
+        // Update instance status to disconnected
+        await supabaseClient
+          .from("whatsapp_instances")
+          .update({ status: "disconnected" })
+          .eq("organization_id", orgId);
+
+        await auditLog(supabaseClient, orgId, "send_token_invalid", user.id, { phone: cleanPhone });
+
+        return new Response(
+          JSON.stringify({ error: "Token do WhatsApp expirado ou inválido. Reconecte na área de integrações." }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      throw new Error(`Evolution send error [${uazapiRes.status}]: ${JSON.stringify(uazapiData)}`);
     }
+
+    await auditLog(supabaseClient, orgId, "send", user.id, { phone: cleanPhone, type });
 
     return new Response(JSON.stringify({ success: true, data: uazapiData }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
