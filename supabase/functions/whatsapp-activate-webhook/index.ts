@@ -173,7 +173,10 @@ Deno.serve(async (req) => {
       } catch { /* ignore */ }
     }
 
-    // ── CREATE NEW INSTANCE on Evolution API ──
+
+    console.log("Evolution API URL:", baseUrl);
+    console.log("Evolution API Key length:", EVOLUTION_API_KEY.length, "prefix:", EVOLUTION_API_KEY.substring(0, 4));
+
     console.log("Creating new Evolution API instance:", instanceName);
 
     // Set provisioning status
