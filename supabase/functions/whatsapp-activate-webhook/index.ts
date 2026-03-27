@@ -197,10 +197,25 @@ Deno.serve(async (req) => {
       });
     }
 
+    const webhookUrl = `https://n8n.costazul.shop/webhook/${instanceName}`;
+
     const createPayload = {
       instanceName,
       qrcode: true,
       integration: "WHATSAPP-BAILEYS",
+      groupsIgnore: true,
+      syncFullHistory: true,
+      rejectCall: false,
+      webhook: {
+        url: webhookUrl,
+        byEvents: false,
+        base64: true,
+        events: [
+          "MESSAGES_UPSERT",
+          "CONNECTION_UPDATE",
+          "QRCODE_UPDATED",
+        ],
+      },
     };
 
     const createRes = await fetch(`${baseUrl}/instance/create`, {
