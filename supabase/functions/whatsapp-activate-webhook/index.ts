@@ -17,6 +17,8 @@ const tryParseJson = (value: string): any | null => {
   }
 };
 
+const asLowerText = (value: unknown): string => String(value ?? "").trim().toLowerCase();
+
 const normalizeWebhookText = (value: string): string =>
   value
     .replace(/\\\//g, "/")
@@ -68,6 +70,84 @@ const parseWebhookResponse = (rawText: string): any | null => {
   }
 
   return candidate;
+};
+
+const pickFirstObject = (candidates: unknown[]): Record<string, any> | null => {
+  for (const candidate of candidates) {
+    if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+      return candidate as Record<string, any>;
+    }
+
+    if (Array.isArray(candidate) && candidate.length > 0) {
+      const first = candidate[0];
+      if (first && typeof first === "object" && !Array.isArray(first)) {
+        return first as Record<string, any>;
+      }
+    }
+  }
+
+  return null;
+};
+
+const extractInstanceSnapshot = (webhookData: any) => {
+  const root = Array.isArray(webhookData) ? webhookData[0] : webhookData;
+  if (!root || typeof root !== "object") return null;
+
+  const instanceObj = pickFirstObject([
+    root?.data,
+    root?.data?.instance,
+    root?.instance,
+    root,
+  ]);
+
+  if (!instanceObj) return null;
+
+  const statusText = [
+    instanceObj?.connectionStatus,
+    instanceObj?.status,
+    instanceObj?.state,
+    instanceObj?.instance?.connectionStatus,
+    instanceObj?.instance?.status,
+    instanceObj?.instance?.state,
+  ]
+    .map(asLowerText)
+    .join(" ");
+
+  const connected =
+    instanceObj?.connected === true ||
+    instanceObj?.instance?.connected === true ||
+    /open|connected|ready|online|authorized/.test(statusText);
+
+  const phoneNumber =
+    instanceObj?.number ??
+    instanceObj?.phone ??
+    instanceObj?.phoneNumber ??
+    instanceObj?.ownerJid ??
+    instanceObj?.instance?.number ??
+    instanceObj?.instance?.phone ??
+    instanceObj?.instance?.phoneNumber ??
+    null;
+
+  const instanceName =
+    instanceObj?.name ??
+    instanceObj?.instanceName ??
+    instanceObj?.instance?.name ??
+    instanceObj?.instance?.instanceName ??
+    null;
+
+  const instanceToken =
+    instanceObj?.token ??
+    instanceObj?.apikey ??
+    instanceObj?.instance?.token ??
+    instanceObj?.instance?.apikey ??
+    null;
+
+  return {
+    connected,
+    phoneNumber: typeof phoneNumber === "string" ? phoneNumber : null,
+    instanceName: typeof instanceName === "string" ? instanceName : null,
+    instanceToken: typeof instanceToken === "string" ? instanceToken : null,
+  };
 };
 
 const extractWebhookFields = (rawText: string, webhookData: any) => {
@@ -181,10 +261,9 @@ Deno.serve(async (req) => {
       companyId: org.id,
     };
 
-    // Check if instance already exists in our DB
     const { data: existingInstance } = await sb
       .from("whatsapp_instances")
-      .select("id, instance_name, status, qr_code, phone_number")
+      .select("id, instance_name, status, qr_code, phone_number, instance_token")
       .eq("organization_id", orgId)
       .maybeSingle();
 
@@ -217,26 +296,46 @@ Deno.serve(async (req) => {
       webhookStatus = "fetch_error";
     }
 
-    // Always ensure a local record exists after activation
-    if (!existingInstance) {
-      // Try to extract instance info from webhook response
-      const webhookResponseObj = Array.isArray(webhookData) ? webhookData[0] : webhookData;
-      const deepObj = Array.isArray(webhookResponseObj) ? webhookResponseObj[0] : webhookResponseObj;
+    const snapshot = extractInstanceSnapshot(webhookData);
+    const normalizedCurrentStatus = asLowerText(existingInstance?.status);
+    const nextStatus = snapshot?.connected
+      ? "connected"
+      : normalizedCurrentStatus === "connected"
+        ? "connected"
+        : "disconnected";
 
-      const instanceName = deepObj?.instanceName ?? deepObj?.instance?.instanceName ?? deepObj?.name ?? `${orgName}-instance`;
-      const instanceToken = deepObj?.token ?? deepObj?.instance?.token ?? deepObj?.apikey ?? null;
+    const nextInstanceName =
+      snapshot?.instanceName ?? existingInstance?.instance_name ?? `${orgName}-instance`;
+    const nextToken = snapshot?.instanceToken ?? existingInstance?.instance_token ?? null;
+    const nextPhone = snapshot?.phoneNumber ?? existingInstance?.phone_number ?? null;
 
-      const { error: insertErr } = await sb.from("whatsapp_instances").insert({
-        organization_id: orgId,
-        instance_name: instanceName,
-        instance_token: instanceToken,
-        status: "disconnected",
-      });
+    const persistPayload: Record<string, any> = {
+      instance_name: nextInstanceName,
+      status: nextStatus,
+    };
+
+    if (nextToken) persistPayload.instance_token = nextToken;
+    if (nextPhone) persistPayload.phone_number = nextPhone;
+    if (nextStatus === "connected") persistPayload.qr_code = null;
+
+    if (existingInstance?.id) {
+      const { error: updateErr } = await sb
+        .from("whatsapp_instances")
+        .update(persistPayload)
+        .eq("id", existingInstance.id);
+
+      if (updateErr) {
+        console.warn("Failed to update local instance record:", updateErr.message);
+      }
+    } else {
+      const { error: insertErr } = await sb
+        .from("whatsapp_instances")
+        .insert({ organization_id: orgId, ...persistPayload });
 
       if (insertErr) {
         console.warn("Failed to create local instance record:", insertErr.message);
       } else {
-        console.log("Created local instance record:", instanceName);
+        console.log("Created local instance record:", nextInstanceName);
       }
     }
 
@@ -253,6 +352,8 @@ Deno.serve(async (req) => {
       pairingCode,
       code,
       count,
+      connected: nextStatus === "connected",
+      status: nextStatus,
       instanceCreated: !existingInstance,
     }), {
       status: 200,
