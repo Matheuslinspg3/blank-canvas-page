@@ -1030,26 +1030,74 @@ async function matchProperty(
   }
 }
 
+function extractConversionId(conv: any): string | null {
+  if (!conv) return null;
+  const content = conv.content || conv;
+  return content.identifier || content.identificador || content.conversion_identifier || content.event_identifier || null;
+}
+
+function extractConversionIdentifier(data: Record<string, any>): string | null {
+  // Try last_conversion first (most recent), then first_conversion
+  const lastId = extractConversionId(data.last_conversion);
+  if (lastId) return lastId;
+  const firstId = extractConversionId(data.first_conversion);
+  if (firstId) return firstId;
+  if (data.conversion_identifier) return data.conversion_identifier;
+  return null;
+}
+
+function extractTrafficSource(data: Record<string, any>): string | null {
+  if (data.traffic_source) return data.traffic_source;
+  const lc = data.last_conversion;
+  if (lc) {
+    const content = lc.content || lc;
+    if (lc.source) return lc.source;
+    if (content.source) return content.source;
+    if (content.traffic_source) return content.traffic_source;
+  }
+  const fc = data.first_conversion;
+  if (fc) {
+    const content = fc.content || fc;
+    if (fc.source) return fc.source;
+    if (content.source) return content.source;
+    if (content.traffic_source) return content.traffic_source;
+  }
+  return null;
+}
+
 function buildNotes(data: Record<string, any>): string {
   const ignore = new Set([
     "uuid", "name", "email", "personal_phone", "mobile_phone",
-    "first_name", "last_name",
+    "first_name", "last_name", "traffic_source", "conversion_identifier",
   ]);
   const lines: string[] = [];
+
+  // Top-level conversion identifier (ad/form name)
+  const convId = extractConversionIdentifier(data);
+  if (convId) {
+    lines.push(`Anúncio/Formulário: ${convId}`);
+  }
+
+  // Traffic source
+  const trafficSrc = extractTrafficSource(data);
+  if (trafficSrc) {
+    lines.push(`Origem do tráfego: ${trafficSrc}`);
+  }
 
   // Extract conversion events
   if (data.first_conversion && typeof data.first_conversion === "object") {
     const fc = data.first_conversion;
     const fcContent = fc.content || fc;
-    lines.push(`Primeira conversão: ${fcContent.identifier || fcContent.conversion_identifier || JSON.stringify(fcContent)}`);
+    const fcId = fcContent.identifier || fcContent.identificador || fcContent.conversion_identifier || JSON.stringify(fcContent);
+    lines.push(`Primeira conversão: ${fcId}`);
     if (fc.source || fcContent.source) lines.push(`  Origem: ${fc.source || fcContent.source}`);
     if (fc.created_at || fcContent.created_at) lines.push(`  Data: ${fc.created_at || fcContent.created_at}`);
   }
   if (data.last_conversion && typeof data.last_conversion === "object") {
     const lc = data.last_conversion;
     const lcContent = lc.content || lc;
-    const lcId = lcContent.identifier || lcContent.conversion_identifier || JSON.stringify(lcContent);
-    const fcId = data.first_conversion?.content?.identifier || data.first_conversion?.conversion_identifier;
+    const lcId = lcContent.identifier || lcContent.identificador || lcContent.conversion_identifier || JSON.stringify(lcContent);
+    const fcId = extractConversionId(data.first_conversion);
     if (lcId !== fcId) {
       lines.push(`Última conversão: ${lcId}`);
       if (lc.source || lcContent.source) lines.push(`  Origem: ${lc.source || lcContent.source}`);
@@ -1076,6 +1124,9 @@ function buildNotes(data: Record<string, any>): string {
   if (data.city) lines.push(`Cidade: ${data.city}`);
   if (data.state) lines.push(`Estado: ${data.state}`);
   if (data.tags && Array.isArray(data.tags) && data.tags.length > 0) lines.push(`Tags: ${data.tags.join(", ")}`);
+
+  // RD UUID for reference
+  if (data.uuid) lines.push(`RD UUID: ${data.uuid}`);
 
   // Remaining simple fields
   const handled = new Set([
