@@ -116,3 +116,6 @@ verify_jwt = false
 
 [functions.list-ai-models]
 verify_jwt = false
+
+[functions.fix-leads]
+verify_jwt = false

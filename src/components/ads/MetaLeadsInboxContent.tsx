@@ -4,11 +4,13 @@ import { useAdEntities } from "@/hooks/useAdEntities";
 import { useAdLeadsCount } from "@/hooks/useAdLeads";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Inbox } from "lucide-react";
+import { Search, Inbox, Wrench, Loader2 } from "lucide-react";
 import { AdLeadRow } from "@/components/ads/AdLeadRow";
+import { useFixLeads } from "@/hooks/useFixLeads";
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "all", label: "Todos" },
@@ -25,6 +27,7 @@ export default function MetaLeadsInboxContent() {
   const [adFilter, setAdFilter] = useState("all");
   const { data: totalNew = 0 } = useAdLeadsCount();
   const { data: ads = [] } = useAdEntities();
+  const { fixLeads, isFixing } = useFixLeads();
 
   const { leads, isLoading } = useAdLeads({
     search: search || undefined,
@@ -41,7 +44,7 @@ export default function MetaLeadsInboxContent() {
         <Badge variant="destructive" className="text-sm">{totalNew} novos</Badge>
       )}
 
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Buscar por nome, email ou telefone..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
@@ -59,6 +62,10 @@ export default function MetaLeadsInboxContent() {
             {ads.map(a => <SelectItem key={a.external_id} value={a.external_id}>{a.name}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Button variant="outline" size="sm" onClick={() => fixLeads("meta_ads")} disabled={isFixing || leads.length === 0}>
+          {isFixing ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Wrench className="h-3.5 w-3.5 mr-1.5" />}
+          {isFixing ? "Corrigindo..." : "Corrigir Leads"}
+        </Button>
       </div>
 
       {isLoading ? (

@@ -7,12 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Inbox, Download, Users, Phone, Loader2 } from "lucide-react";
+import { Search, Inbox, Download, Users, Phone, Loader2, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useRDStationSettings } from "@/hooks/useRDStationSettings";
+import { useFixLeads } from "@/hooks/useFixLeads";
 import RDSyncDialog from "./RDSyncDialog";
 
 export default function RDLeadsTab() {
@@ -22,6 +23,7 @@ export default function RDLeadsTab() {
   const [search, setSearch] = useState("");
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const [isBackfilling, setIsBackfilling] = useState(false);
+  const { fixLeads, isFixing } = useFixLeads();
   const queryClient = useQueryClient();
 
   const handleBackfillPhones = async () => {
@@ -106,6 +108,10 @@ export default function RDLeadsTab() {
               {isBackfilling ? "Atualizando..." : "Puxar telefones"}
             </Button>
           )}
+          <Button variant="outline" size="sm" onClick={() => fixLeads("rdstation")} disabled={isFixing || rdLeads.length === 0}>
+            {isFixing ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Wrench className="h-3.5 w-3.5 mr-1.5" />}
+            {isFixing ? "Corrigindo..." : "Corrigir Leads"}
+          </Button>
           <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={rdLeads.length === 0}>
             <Download className="h-3.5 w-3.5 mr-1.5" /> CSV ({rdLeads.length})
           </Button>
