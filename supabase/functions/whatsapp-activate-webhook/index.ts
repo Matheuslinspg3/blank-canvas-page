@@ -202,47 +202,42 @@ Deno.serve(async (req) => {
       webhookStatus = webhookRes.ok ? "ok" : `http_${webhookRes.status}`;
       webhookTextRaw = await webhookRes.text().catch(() => "");
 
+      console.log("Webhook raw response (first 1000):", webhookTextRaw.substring(0, 1000));
+
       if (webhookRes.ok) {
         webhookData = parseWebhookResponse(webhookTextRaw);
         if (!webhookData) {
-          console.warn("Webhook response not JSON:", webhookTextRaw.substring(0, 500));
+          console.warn("Webhook response not parseable as JSON");
         }
       } else {
-        console.warn("Webhook non-ok response:", webhookRes.status, webhookTextRaw.substring(0, 500));
+        console.warn("Webhook non-ok response:", webhookRes.status);
       }
     } catch (fetchErr) {
       console.warn("Webhook fetch error (continuing):", fetchErr);
       webhookStatus = "fetch_error";
     }
 
-    // Detect if N8N returned an existing instance (has Setting, _count, instanceId patterns)
-    const webhookResponseObj = Array.isArray(webhookData) ? webhookData[0] : webhookData;
-    const deepObj = Array.isArray(webhookResponseObj) ? webhookResponseObj[0] : webhookResponseObj;
+    // Always ensure a local record exists after activation
+    if (!existingInstance) {
+      // Try to extract instance info from webhook response
+      const webhookResponseObj = Array.isArray(webhookData) ? webhookData[0] : webhookData;
+      const deepObj = Array.isArray(webhookResponseObj) ? webhookResponseObj[0] : webhookResponseObj;
 
-    const alreadyExists =
-      deepObj?.error?.toLowerCase?.()?.includes?.("já existe") ||
-      deepObj?.error?.toLowerCase?.()?.includes?.("already exists") ||
-      deepObj?.message?.toLowerCase?.()?.includes?.("já existe") ||
-      deepObj?.exists === true ||
-      // N8N returns Setting/instanceId when instance already exists
-      !!deepObj?.Setting?.instanceId ||
-      !!deepObj?.instanceId ||
-      !!deepObj?.instance?.instanceId ||
-      (deepObj?._count && typeof deepObj._count === "object");
-
-    if (alreadyExists && !existingInstance) {
-      const instanceId = deepObj?.Setting?.instanceId ?? deepObj?.instanceId ?? deepObj?.instance?.instanceId ?? null;
       const instanceName = deepObj?.instanceName ?? deepObj?.instance?.instanceName ?? deepObj?.name ?? `${orgName}-instance`;
       const instanceToken = deepObj?.token ?? deepObj?.instance?.token ?? deepObj?.apikey ?? null;
-      await sb.from("whatsapp_instances").insert({
+
+      const { error: insertErr } = await sb.from("whatsapp_instances").insert({
         organization_id: orgId,
         instance_name: instanceName,
         instance_token: instanceToken,
         status: "disconnected",
       });
-      console.log("Created local record for existing N8N instance:", instanceName, "extId:", instanceId);
-    } else if (alreadyExists && existingInstance) {
-      console.log("Instance already exists locally and on N8N, skipping creation");
+
+      if (insertErr) {
+        console.warn("Failed to create local instance record:", insertErr.message);
+      } else {
+        console.log("Created local instance record:", instanceName);
+      }
     }
 
     const { qrBase64, pairingCode, code, count } = extractWebhookFields(
@@ -258,6 +253,7 @@ Deno.serve(async (req) => {
       pairingCode,
       code,
       count,
+      instanceCreated: !existingInstance,
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
