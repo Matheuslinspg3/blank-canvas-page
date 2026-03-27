@@ -151,6 +151,21 @@ function MobileLeadCardComponent({ lead, onClick, isSelected, onToggleSelect, se
           </span>
         </div>
 
+        {/* Conversion tags */}
+        {lead.conversion_identifier && (
+          <div className="flex flex-wrap gap-1">
+            {lead.conversion_identifier.split(",").map((ci: string, idx: number) => {
+              const trimmed = ci.trim();
+              if (!trimmed) return null;
+              return (
+                <span key={idx} className="inline-block text-[10px] px-1.5 py-0.5 rounded font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 truncate max-w-[160px]">
+                  📢 {trimmed}
+                </span>
+              );
+            })}
+          </div>
+        )}
+
         {/* Row 3: Inline quick actions */}
         {!selectionMode && lead.phone && (
           <div className="flex items-center gap-1.5 pt-1 border-t border-border/30">

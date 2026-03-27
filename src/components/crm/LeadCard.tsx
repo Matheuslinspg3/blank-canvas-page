@@ -159,9 +159,9 @@ function LeadCardComponent({ lead, onClick, onChangeTemperature }: LeadCardProps
             via {lead.source === 'anuncio' ? 'Meta Ads' : lead.source}
           </span>
         )}
-        {(lead as any).conversion_identifier && (
+        {lead.conversion_identifier && (
           <div className="flex flex-wrap gap-1">
-            {(lead as any).conversion_identifier.split(",").map((ci: string, idx: number) => {
+            {lead.conversion_identifier.split(",").map((ci: string, idx: number) => {
               const trimmed = ci.trim();
               if (!trimmed) return null;
               return (
