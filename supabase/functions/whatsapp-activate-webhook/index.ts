@@ -181,7 +181,14 @@ Deno.serve(async (req) => {
       companyId: org.id,
     };
 
-    console.log("Sending webhook:", JSON.stringify(payload));
+    // Check if instance already exists in our DB
+    const { data: existingInstance } = await sb
+      .from("whatsapp_instances")
+      .select("id, instance_name, status, qr_code, phone_number")
+      .eq("organization_id", orgId)
+      .maybeSingle();
+
+    console.log("Sending webhook:", JSON.stringify(payload), "existing:", existingInstance?.id ?? "none");
 
     let webhookData: any = null;
     let webhookStatus = "sent";
@@ -206,6 +213,26 @@ Deno.serve(async (req) => {
     } catch (fetchErr) {
       console.warn("Webhook fetch error (continuing):", fetchErr);
       webhookStatus = "fetch_error";
+    }
+
+    // If N8N says instance already exists, ensure we have a local record
+    const webhookResponseObj = Array.isArray(webhookData) ? webhookData[0] : webhookData;
+    const alreadyExists = webhookResponseObj?.error?.toLowerCase?.()?.includes?.("já existe") ||
+      webhookResponseObj?.error?.toLowerCase?.()?.includes?.("already exists") ||
+      webhookResponseObj?.message?.toLowerCase?.()?.includes?.("já existe") ||
+      webhookResponseObj?.exists === true;
+
+    if (alreadyExists && !existingInstance) {
+      // Instance exists on N8N side but not locally — create a placeholder record
+      const instanceName = webhookResponseObj?.instanceName ?? webhookResponseObj?.instance_name ?? `${orgName}-instance`;
+      const instanceToken = webhookResponseObj?.token ?? webhookResponseObj?.instance?.token ?? null;
+      await sb.from("whatsapp_instances").insert({
+        organization_id: orgId,
+        instance_name: instanceName,
+        instance_token: instanceToken,
+        status: "disconnected",
+      });
+      console.log("Created local record for existing N8N instance:", instanceName);
     }
 
     const { qrBase64, pairingCode, code, count } = extractWebhookFields(
