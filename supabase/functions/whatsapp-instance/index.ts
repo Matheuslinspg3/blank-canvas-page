@@ -163,7 +163,27 @@ serve(async (req) => {
         .eq("organization_id", orgId)
         .single();
 
-      if (!instance?.instance_token) throw new Error("Instância não encontrada");
+      if (!instance) {
+        return new Response(JSON.stringify({
+          error: "Instância ainda não criada. Ative o WhatsApp e tente novamente em alguns segundos.",
+          status: "disconnected",
+          qr_code: null,
+        }), {
+          status: 409,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (!instance.instance_token) {
+        return new Response(JSON.stringify({
+          error: "Instância em provisionamento. Aguarde alguns segundos e tente novamente.",
+          status: instance.status || "connecting",
+          qr_code: instance.qr_code || null,
+        }), {
+          status: 409,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       // POST /instance/connect  — header: token
       const uazapiRes = await fetch(`${baseUrl}/instance/connect`, {
@@ -343,7 +363,11 @@ serve(async (req) => {
         .eq("organization_id", orgId)
         .single();
 
-      if (!instance) throw new Error("Instância não encontrada");
+      if (!instance) {
+        return new Response(JSON.stringify({ deleted: true, skipped: "instance_not_found" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       // DELETE /instance  — header: token
       if (instance.instance_token) {
