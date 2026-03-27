@@ -25,9 +25,9 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { orgName, orgId, date, companyId } = body;
+    const { orgName, orgId, companyId } = body;
 
-    const payload = { orgName, orgId, date, companyId };
+    const payload = { orgName, orgId, companyId };
 
     console.log("Polling WhatsApp status:", JSON.stringify(payload));
 

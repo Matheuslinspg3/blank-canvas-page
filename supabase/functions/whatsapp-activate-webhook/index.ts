@@ -175,16 +175,9 @@ Deno.serve(async (req) => {
       .lte("created_at", org.created_at);
     const orgSequential = String(orgCount ?? 1).padStart(3, "0");
 
-    const now = new Date();
-    const dd = String(now.getDate()).padStart(2, "0");
-    const mm = String(now.getMonth() + 1).padStart(2, "0");
-    const yyyy = String(now.getFullYear());
-    const dateStr = `${dd}${mm}${yyyy}`;
-
     const payload = {
       orgName,
       orgId: orgSequential,
-      date: dateStr,
       companyId: org.id,
     };
 

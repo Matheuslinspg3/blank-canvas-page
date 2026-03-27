@@ -47,7 +47,6 @@ export function WhatsAppIntegrationCard() {
     count: number;
     orgName: string;
     orgId: string;
-    date: string;
     companyId: string;
   } | null>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -80,7 +79,6 @@ export function WhatsAppIntegrationCard() {
           body: {
             orgName: ctx.orgName,
             orgId: ctx.orgId,
-            date: ctx.date,
             companyId: ctx.companyId,
           },
         });
@@ -131,7 +129,6 @@ export function WhatsAppIntegrationCard() {
           count: ctx.count,
           orgName: ctx.orgName,
           orgId: ctx.orgId,
-          date: ctx.date,
           companyId: ctx.companyId,
         },
       });
@@ -167,7 +164,7 @@ export function WhatsAppIntegrationCard() {
 
       const payload = data?.payload;
       const hasActivationContext = Boolean(
-        payload?.orgName && payload?.orgId && payload?.date && payload?.companyId,
+        payload?.orgName && payload?.orgId && payload?.companyId,
       );
 
       activationCtxRef.current = hasActivationContext
@@ -177,7 +174,6 @@ export function WhatsAppIntegrationCard() {
             count: Number.isFinite(Number(data.count)) ? Number(data.count) : 1,
             orgName: payload.orgName,
             orgId: payload.orgId,
-            date: payload.date,
             companyId: payload.companyId,
           }
         : null;
