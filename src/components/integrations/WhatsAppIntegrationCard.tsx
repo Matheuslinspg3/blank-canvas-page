@@ -117,7 +117,7 @@ export function WhatsAppIntegrationCard() {
         }
       } catch { /* silent */ }
     }, STATUS_POLL_INTERVAL);
-  }, [stopRefresh, stopStatusPolling, checkStatus]);
+  }, [stopRefresh, stopStatusPolling, checkStatus, queryClient]);
 
   const requestQrRefresh = useCallback(async () => {
     const ctx = activationCtxRef.current;
