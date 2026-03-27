@@ -46,7 +46,7 @@ export default function RDLeadsTab() {
       if (!orgId) return [];
       const { data, error } = await supabase
         .from("leads")
-        .select("id, name, email, phone, source, temperature, created_at, notes")
+        .select("id, name, email, phone, source, temperature, created_at, notes, conversion_identifier, traffic_source")
         .eq("organization_id", orgId)
         .eq("external_source", "rdstation")
         .eq("is_active", true)
@@ -66,10 +66,11 @@ export default function RDLeadsTab() {
 
   const handleExportCSV = () => {
     if (rdLeads.length === 0) { toastError("Nenhum lead para exportar.", undefined, { module: "RDLeadsTab" }); return; }
-    const headers = ["Nome", "E-mail", "Telefone", "Origem", "Temperatura", "Data", "Notas"];
+    const headers = ["Nome", "E-mail", "Telefone", "Origem", "Temperatura", "Formulário/Anúncio", "Origem Tráfego", "Data", "Notas"];
     const rows = rdLeads.map((l: any) => [
       l.name || "", l.email || "", l.phone || "", l.source || "",
-      l.temperature || "", l.created_at ? format(new Date(l.created_at), "dd/MM/yyyy HH:mm") : "",
+      l.temperature || "", l.conversion_identifier || "", l.traffic_source || "",
+      l.created_at ? format(new Date(l.created_at), "dd/MM/yyyy HH:mm") : "",
       (l.notes || "").replace(/\n/g, " "),
     ]);
     const csv = [headers.join(","), ...rows.map((r: string[]) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))].join("\n");
@@ -160,6 +161,20 @@ export default function RDLeadsTab() {
                   )}
                   {!lead.phone && !lead.email && <span className="italic">Sem contato</span>}
                 </div>
+                {(lead.conversion_identifier || lead.traffic_source) && (
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    {lead.conversion_identifier && (
+                      <Badge variant="secondary" className="text-[10px] font-normal">
+                        📋 {lead.conversion_identifier}
+                      </Badge>
+                    )}
+                    {lead.traffic_source && (
+                      <Badge variant="secondary" className="text-[10px] font-normal">
+                        🔗 {lead.traffic_source}
+                      </Badge>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {lead.temperature && (
