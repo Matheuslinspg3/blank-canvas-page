@@ -9,6 +9,7 @@ const corsHeaders = {
 const N8N_BASE = "https://n8n.costazul.shop/webhook";
 const N8N_CRIAR = `${N8N_BASE}/autouazapiagenteiavalent`;
 const N8N_QR_CODE = `${N8N_BASE}/autouazapiagenteiavalentQR-CODE`;
+const N8N_UNIFIED_WEBHOOK = `${N8N_BASE}/whatsapp-unified`;
 
 const auditLog = async (
   sb: any,
