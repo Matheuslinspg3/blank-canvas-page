@@ -6,6 +6,10 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const N8N_BASE = "https://n8n.costazul.shop/webhook";
+const N8N_CRIAR = `${N8N_BASE}/autouazapiagenteiavalent`;
+const N8N_QR_CODE = `${N8N_BASE}/autouazapiagenteiavalentQR-CODE`;
+
 const auditLog = async (
   sb: any,
   orgId: string,
@@ -31,19 +35,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
-    const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
-    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
-      throw new Error("EVOLUTION_API_URL ou EVOLUTION_API_GLOBAL_KEY não configurados");
-    }
-
-    console.log("Evolution config:", {
-      url: EVOLUTION_API_URL,
-      keyLength: EVOLUTION_API_KEY.length,
-      keyPrefix: EVOLUTION_API_KEY.substring(0, 6),
-      keySuffix: EVOLUTION_API_KEY.substring(EVOLUTION_API_KEY.length - 4),
-    });
-
     const { user, error: authError } = await getAuthenticatedUser(req);
     if (authError || !user) {
       return new Response(JSON.stringify({ error: authError ?? "Não autenticado" }), {
@@ -84,8 +75,10 @@ Deno.serve(async (req) => {
       org.name
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-zA-Z0-9]/g, "")
-        .toLowerCase();
+        .replace(/[^a-zA-Z0-9]/g, "-")
+        .toLowerCase()
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
 
     // Check existing instance
     const { data: existingInstance } = await sb
@@ -109,82 +102,64 @@ Deno.serve(async (req) => {
       });
     }
 
-    const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
-    const instanceName = `${orgSlug}-wa`;
-
-    // If instance exists but disconnected, try to reconnect (get new QR)
-    if (existingInstance?.instance_token) {
-      console.log("Reconnecting existing instance:", instanceName);
+    // If instance exists but disconnected, try to reconnect via N8N QR-CODE webhook
+    if (existingInstance?.instance_name) {
+      console.log("Reconnecting existing instance via N8N:", existingInstance.instance_name);
 
       await sb.from("whatsapp_instances").update({ status: "connecting" }).eq("id", existingInstance.id);
 
-      // Try to connect existing instance to get QR
       try {
-        const connectRes = await fetch(`${baseUrl}/instance/connect/${instanceName}`, {
-          method: "GET",
-          headers: { apikey: EVOLUTION_API_KEY },
+        const qrRes = await fetch(N8N_QR_CODE, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ instanceName: existingInstance.instance_name }),
         });
 
-        const connectData = await connectRes.json().catch(() => ({}));
-        console.log("Connect response:", JSON.stringify(connectData).substring(0, 500));
+        const qrData = await qrRes.text();
+        console.log("N8N QR-CODE response:", qrRes.status, qrData.substring(0, 500));
 
-        const qrBase64 = connectData?.base64 ?? connectData?.qrcode?.base64 ?? connectData?.code ?? null;
-        const pairingCode = connectData?.pairingCode ?? null;
+        if (qrRes.ok) {
+          let parsed: any = {};
+          try { parsed = JSON.parse(qrData); } catch { /* raw */ }
 
-        if (qrBase64) {
-          await sb.from("whatsapp_instances").update({
-            qr_code: qrBase64,
-            status: "connecting",
-          }).eq("id", existingInstance.id);
+          const qrBase64 = parsed?.["QR-CODE(BASE64)"] ?? parsed?.base64 ?? parsed?.data?.base64 ?? null;
 
-          await auditLog(sb, orgId, "reconnect", user.id, { hasQr: true });
+          if (qrBase64) {
+            await sb.from("whatsapp_instances").update({
+              qr_code: qrBase64,
+              status: "connecting",
+            }).eq("id", existingInstance.id);
 
-          return new Response(JSON.stringify({
-            success: true,
-            qrCode: qrBase64,
-            pairingCode,
-            connected: false,
-            status: "connecting",
-            instanceCreated: false,
-          }), {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
+            await auditLog(sb, orgId, "reconnect_n8n", user.id, { hasQr: true });
 
-        // If connect didn't return QR, check if already connected
-        const state = String(connectData?.state ?? connectData?.instance?.state ?? "").toLowerCase();
-        if (state === "open" || state === "connected") {
-          await sb.from("whatsapp_instances").update({ status: "connected", qr_code: null }).eq("id", existingInstance.id);
-          return new Response(JSON.stringify({
-            success: true,
-            qrCode: null,
-            connected: true,
-            status: "connected",
-            instanceCreated: false,
-          }), {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+            return new Response(JSON.stringify({
+              success: true,
+              qrCode: qrBase64,
+              connected: false,
+              status: "connecting",
+              instanceCreated: false,
+            }), {
+              status: 200,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
         }
       } catch (e) {
-        console.warn("Failed to reconnect, will create new instance:", e);
+        console.warn("Failed to reconnect via N8N, will create new:", e);
       }
-
-      // If reconnect failed, delete old instance on Evolution and create new
-      try {
-        await fetch(`${baseUrl}/instance/delete/${instanceName}`, {
-          method: "DELETE",
-          headers: { apikey: EVOLUTION_API_KEY },
-        });
-      } catch { /* ignore */ }
     }
 
+    // ── Create new instance via N8N CRIAR webhook ──
+    const today = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\//g, "");
 
-    console.log("Evolution API URL:", baseUrl);
-    console.log("Evolution API Key length:", EVOLUTION_API_KEY.length, "prefix:", EVOLUTION_API_KEY.substring(0, 4));
+    const n8nPayload = {
+      orgName: orgSlug,
+      orgId: org.id,
+      date: today,
+      companyId: org.id,
+    };
 
-    console.log("Creating new Evolution API instance:", instanceName);
+    console.log("Calling N8N CRIAR webhook:", JSON.stringify(n8nPayload));
 
     // Set provisioning status
     if (existingInstance?.id) {
@@ -192,90 +167,32 @@ Deno.serve(async (req) => {
     } else {
       await sb.from("whatsapp_instances").insert({
         organization_id: orgId,
-        instance_name: instanceName,
+        instance_name: `${orgSlug}-${today}-${org.id}`,
         status: "provisioning",
       });
     }
 
-    const webhookUrl = `https://n8n.costazul.shop/webhook/${instanceName}`;
-
-    const createPayload = {
-      instanceName,
-      qrcode: true,
-      integration: "WHATSAPP-BAILEYS",
-      groupsIgnore: true,
-      syncFullHistory: true,
-      rejectCall: false,
-      webhook: {
-        url: webhookUrl,
-        byEvents: false,
-        base64: true,
-        events: [
-          "MESSAGES_UPSERT",
-          "CONNECTION_UPDATE",
-          "QRCODE_UPDATED",
-        ],
-      },
-    };
-
-    const createRes = await fetch(`${baseUrl}/instance/create`, {
+    const criarRes = await fetch(N8N_CRIAR, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: EVOLUTION_API_KEY,
-      },
-      body: JSON.stringify(createPayload),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(n8nPayload),
     });
 
-    const createRaw = await createRes.text();
-    console.log("Evolution create response:", createRaw.substring(0, 1000));
+    const criarRaw = await criarRes.text();
+    console.log("N8N CRIAR response:", criarRes.status, criarRaw.substring(0, 1000));
 
-    let createData: any;
-    try {
-      createData = JSON.parse(createRaw);
-    } catch {
-      createData = {};
+    if (!criarRes.ok) {
+      throw new Error(`N8N CRIAR error [${criarRes.status}]: ${criarRaw.substring(0, 500)}`);
     }
 
-    if (!createRes.ok) {
-      // If instance already exists on Evolution, try connect instead
-      const isDuplicate = createRes.status === 403 || createRes.status === 409 ||
-        /already|exists|duplicate/i.test(createRaw);
+    let criarData: any = {};
+    try { criarData = JSON.parse(criarRaw); } catch { /* raw text */ }
 
-      if (isDuplicate) {
-        console.log("Instance already exists on Evolution, fetching QR via connect...");
-        const connectRes = await fetch(`${baseUrl}/instance/connect/${instanceName}`, {
-          method: "GET",
-          headers: { apikey: EVOLUTION_API_KEY },
-        });
-        const connectData = await connectRes.json().catch(() => ({}));
-        createData = connectData;
-      } else {
-        throw new Error(`Evolution API error [${createRes.status}]: ${createRaw.substring(0, 500)}`);
-      }
-    }
+    const whatsappName = criarData?.WhatsappName ?? null;
+    const whatsappId = criarData?.WhatsappId ?? null;
+    const qrBase64 = criarData?.["QR-CODE(BASE64)"] ?? null;
 
-    // Extract QR code and token from response
-    const qrBase64 =
-      createData?.qrcode?.base64 ??
-      createData?.base64 ??
-      createData?.qrCode ??
-      createData?.qr_code ??
-      null;
-
-    const instanceToken =
-      createData?.hash ??
-      createData?.token ??
-      createData?.instance?.token ??
-      createData?.apikey ??
-      null;
-
-    const pairingCode =
-      createData?.qrcode?.pairingCode ??
-      createData?.pairingCode ??
-      null;
-
-    // Update DB with token and QR
+    // Update DB with response from N8N
     const { data: currentInstance } = await sb
       .from("whatsapp_instances")
       .select("id")
@@ -284,29 +201,28 @@ Deno.serve(async (req) => {
 
     if (currentInstance?.id) {
       const updatePayload: Record<string, any> = {
-        instance_name: instanceName,
         status: qrBase64 ? "connecting" : "provisioning",
       };
-      if (instanceToken) updatePayload.instance_token = instanceToken;
+      if (whatsappName) updatePayload.instance_name = whatsappName;
+      if (whatsappId) updatePayload.instance_token = whatsappId;
       if (qrBase64) updatePayload.qr_code = qrBase64;
 
       await sb.from("whatsapp_instances").update(updatePayload).eq("id", currentInstance.id);
     }
 
-    await auditLog(sb, orgId, "activate", user.id, {
-      hasToken: !!instanceToken,
+    await auditLog(sb, orgId, "activate_n8n", user.id, {
       hasQr: !!qrBase64,
+      whatsappName,
+      whatsappId,
       isReconnection: !!existingInstance,
     });
 
     return new Response(JSON.stringify({
       success: true,
       qrCode: qrBase64,
-      pairingCode,
       connected: false,
       status: qrBase64 ? "connecting" : "provisioning",
       instanceCreated: !existingInstance,
-      payload: { orgName: orgSlug, orgId: org.id, companyId: org.id },
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
