@@ -216,7 +216,11 @@ serve(async (req) => {
         .eq("organization_id", orgId)
         .single();
 
-      if (!instance) throw new Error("Instância não encontrada");
+      if (!instance) {
+        return new Response(JSON.stringify({ status: "disconnected", phone: null, qr_code: null }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       // If no token (record created by polling), return DB status directly
       if (!instance.instance_token) {
@@ -302,7 +306,11 @@ serve(async (req) => {
         .eq("organization_id", orgId)
         .single();
 
-      if (!instance) throw new Error("Instância não encontrada");
+      if (!instance) {
+        return new Response(JSON.stringify({ status: "disconnected" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       if (!instance.instance_token) {
         // No token, just update DB status
