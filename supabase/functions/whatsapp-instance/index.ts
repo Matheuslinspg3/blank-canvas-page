@@ -38,8 +38,9 @@ serve(async (req) => {
   }
 
   try {
-    const UAZAPI_BASE_URL = Deno.env.get("UAZAPI_BASE_URL");
-    if (!UAZAPI_BASE_URL) throw new Error("UAZAPI_BASE_URL not configured");
+    const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
+    const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
+    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) throw new Error("EVOLUTION_API_URL or EVOLUTION_API_GLOBAL_KEY not configured");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -66,7 +67,7 @@ serve(async (req) => {
     const body = await req.json();
     const { action } = body;
 
-    const baseUrl = UAZAPI_BASE_URL.replace(/\/$/, "");
+    const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
 
     // ── STATUS ──
     if (action === "status") {
@@ -93,10 +94,10 @@ serve(async (req) => {
         });
       }
 
-      // GET /instance/status — header: token
-      const uazapiRes = await fetch(`${baseUrl}/instance/status`, {
+      // GET /instance/connectionState/{instanceName} — Evolution API v2
+      const uazapiRes = await fetch(`${baseUrl}/instance/connectionState/${instance.instance_name}`, {
         method: "GET",
-        headers: { token: instance.instance_token },
+        headers: { apikey: EVOLUTION_API_KEY },
       });
 
       const rawStatusBody = await uazapiRes.text();
@@ -195,9 +196,9 @@ serve(async (req) => {
 
       if (instance.instance_token) {
         try {
-          const res = await fetch(`${baseUrl}/instance/disconnect`, {
-            method: "POST",
-            headers: { token: instance.instance_token },
+          const res = await fetch(`${baseUrl}/instance/logout/${instance.instance_name}`, {
+            method: "DELETE",
+            headers: { apikey: EVOLUTION_API_KEY },
           });
           await res.text();
         } catch (e) {
@@ -233,9 +234,9 @@ serve(async (req) => {
 
       if (instance.instance_token) {
         try {
-          const res = await fetch(`${baseUrl}/instance`, {
+          const res = await fetch(`${baseUrl}/instance/delete/${instance.instance_name}`, {
             method: "DELETE",
-            headers: { token: instance.instance_token },
+            headers: { apikey: EVOLUTION_API_KEY },
           });
           await res.text();
         } catch (e) {

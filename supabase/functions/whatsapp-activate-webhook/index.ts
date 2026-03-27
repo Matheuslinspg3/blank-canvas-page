@@ -6,187 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const WEBHOOK_URL =
-  "https://n8n.costazul.shop/webhook/autouazapiagenteiavalent";
-
-const tryParseJson = (value: string): any | null => {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-};
-
-const asLowerText = (value: unknown): string => String(value ?? "").trim().toLowerCase();
-
-const normalizeWebhookText = (value: string): string =>
-  value
-    .replace(/\\\//g, "/")
-    .replace(/\\"/g, '"')
-    .replace(/\\n/g, "")
-    .replace(/\\r/g, "")
-    .trim();
-
-const parseWebhookResponse = (rawText: string): any | null => {
-  let candidate: any = rawText;
-
-  for (let i = 0; i < 4; i++) {
-    if (typeof candidate !== "string") break;
-
-    const trimmed = candidate.trim();
-    if (!trimmed) return null;
-
-    const parsed = tryParseJson(trimmed);
-    if (parsed !== null) {
-      candidate = parsed;
-      continue;
-    }
-
-    const unquoted = trimmed.replace(/^\s*"|"\s*$/g, "").trim();
-    if (unquoted && unquoted !== trimmed) {
-      candidate = unquoted;
-      continue;
-    }
-
-    const firstCurly = trimmed.indexOf("{");
-    const lastCurly = trimmed.lastIndexOf("}");
-    if (firstCurly >= 0 && lastCurly > firstCurly) {
-      candidate = trimmed.slice(firstCurly, lastCurly + 1);
-      continue;
-    }
-
-    const firstBracket = trimmed.indexOf("[");
-    const lastBracket = trimmed.lastIndexOf("]");
-    if (firstBracket >= 0 && lastBracket > firstBracket) {
-      candidate = trimmed.slice(firstBracket, lastBracket + 1);
-      continue;
-    }
-
-    break;
-  }
-
-  if (typeof candidate === "string") {
-    return tryParseJson(candidate.trim());
-  }
-
-  return candidate;
-};
-
-const extractInstanceSnapshot = (webhookData: any) => {
-  let root = webhookData;
-  for (let i = 0; i < 3; i++) {
-    if (Array.isArray(root) && root.length > 0) root = root[0];
-    else break;
-  }
-  if (!root || typeof root !== "object") return null;
-
-  let instanceObj: Record<string, any> | null = null;
-
-  const dataField = root?.data;
-  if (Array.isArray(dataField) && dataField.length > 0) {
-    instanceObj = dataField[0];
-  } else if (dataField && typeof dataField === "object" && !Array.isArray(dataField)) {
-    instanceObj = dataField;
-  }
-
-  if (!instanceObj?.connectionStatus && !instanceObj?.token && root?.connectionStatus) {
-    instanceObj = root;
-  }
-
-  if (!instanceObj) return null;
-
-  const statusText = [
-    instanceObj?.connectionStatus,
-    instanceObj?.status,
-    instanceObj?.state,
-  ]
-    .map(asLowerText)
-    .join(" ");
-
-  const connected =
-    instanceObj?.connected === true ||
-    /open|connected|ready|online|authorized/.test(statusText);
-
-  let phoneNumber =
-    instanceObj?.number ??
-    instanceObj?.phone ??
-    instanceObj?.phoneNumber ??
-    null;
-
-  if (!phoneNumber && typeof instanceObj?.ownerJid === "string") {
-    phoneNumber = instanceObj.ownerJid.split("@")[0] || null;
-  }
-
-  const instanceName =
-    instanceObj?.name ??
-    instanceObj?.instanceName ??
-    null;
-
-  const instanceToken =
-    instanceObj?.token ??
-    instanceObj?.apikey ??
-    null;
-
-  return {
-    connected,
-    phoneNumber: typeof phoneNumber === "string" ? phoneNumber : null,
-    instanceName: typeof instanceName === "string" ? instanceName : null,
-    instanceToken: typeof instanceToken === "string" ? instanceToken : null,
-  };
-};
-
-const extractWebhookFields = (rawText: string, webhookData: any) => {
-  const normalizedRaw = normalizeWebhookText(rawText);
-  const responseObj = Array.isArray(webhookData) ? webhookData[0] : webhookData;
-  const responseData = responseObj?.data ?? responseObj;
-
-  let qrBase64 = responseData?.base64 ??
-    responseData?.qrCode ??
-    responseData?.qr_code ??
-    responseData?.["QR-CODE(BASE64)"] ??
-    responseObj?.["QR-CODE(BASE64)"] ??
-    null;
-
-  let pairingCode = responseData?.pairingCode ?? responseData?.pairing_code ?? null;
-  let code = responseData?.code ?? null;
-  let count = Number(responseData?.count ?? 1);
-
-  if (!qrBase64 && normalizedRaw) {
-    const fullDataUriMatch = normalizedRaw.match(/data:image\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]+/i);
-    if (fullDataUriMatch?.[0]) {
-      qrBase64 = fullDataUriMatch[0];
-    } else {
-      const qrMatch = normalizedRaw.match(
-        /"(?:base64|qrCode|qr_code|QR-CODE\(BASE64\))"\s*:\s*"([^"]+)"/i,
-      );
-      if (qrMatch?.[1]) qrBase64 = qrMatch[1];
-    }
-  }
-
-  if (pairingCode == null && normalizedRaw) {
-    const pairingMatch = normalizedRaw.match(/"(?:pairingCode|pairing_code)"\s*:\s*"([^"]+)"/i);
-    if (pairingMatch?.[1]) pairingCode = pairingMatch[1];
-  }
-
-  if (code == null && normalizedRaw) {
-    const codeMatch = normalizedRaw.match(/"code"\s*:\s*"([^"]+)"/i);
-    if (codeMatch?.[1]) code = codeMatch[1];
-  }
-
-  if ((!Number.isFinite(count) || count < 1) && normalizedRaw) {
-    const countMatch = normalizedRaw.match(/"count"\s*:\s*(\d+)/i);
-    if (countMatch?.[1]) count = Number(countMatch[1]);
-  }
-
-  return {
-    qrBase64,
-    pairingCode,
-    code,
-    count: Number.isFinite(count) && count > 0 ? count : 1,
-  };
-};
-
-// Audit helper
 const auditLog = async (
   sb: any,
   orgId: string,
@@ -212,6 +31,12 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
+    const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
+    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
+      throw new Error("EVOLUTION_API_URL ou EVOLUTION_API_GLOBAL_KEY não configurados");
+    }
+
     const { user, error: authError } = await getAuthenticatedUser(req);
     if (authError || !user) {
       return new Response(JSON.stringify({ error: authError ?? "Não autenticado" }), {
@@ -237,7 +62,7 @@ Deno.serve(async (req) => {
 
     const { data: org } = await sb
       .from("organizations")
-      .select("id, name, slug, created_at")
+      .select("id, name, slug")
       .eq("id", orgId)
       .single();
 
@@ -248,41 +73,26 @@ Deno.serve(async (req) => {
       });
     }
 
-    const orgName = org.slug ||
+    const orgSlug = org.slug ||
       org.name
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-zA-Z0-9]/g, "");
+        .replace(/[^a-zA-Z0-9]/g, "")
+        .toLowerCase();
 
-    const { count: orgCount } = await sb
-      .from("organizations")
-      .select("id", { count: "exact", head: true })
-      .lte("created_at", org.created_at);
-    const orgSequential = String(orgCount ?? 1).padStart(3, "0");
-
-    const payload = {
-      orgName,
-      orgId: orgSequential,
-      companyId: org.id,
-    };
-
+    // Check existing instance
     const { data: existingInstance } = await sb
       .from("whatsapp_instances")
       .select("id, instance_name, status, qr_code, phone_number, instance_token")
       .eq("organization_id", orgId)
       .maybeSingle();
 
-    // Idempotency: if already connected, return current state without calling N8N
+    // Idempotency: already connected
     if (existingInstance?.status === "connected" && existingInstance?.instance_token) {
       await auditLog(sb, orgId, "activate_idempotent", user.id, { reason: "already_connected" });
       return new Response(JSON.stringify({
         success: true,
-        webhookStatus: "skipped",
-        payload,
         qrCode: null,
-        pairingCode: null,
-        code: null,
-        count: 0,
         connected: true,
         status: "connected",
         instanceCreated: false,
@@ -292,73 +102,155 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log("Sending webhook:", JSON.stringify(payload), "existing:", existingInstance?.id ?? "none");
+    const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
+    const instanceName = `${orgSlug}-wa`;
 
-    // Set status to provisioning immediately
+    // If instance exists but disconnected, try to reconnect (get new QR)
+    if (existingInstance?.instance_token) {
+      console.log("Reconnecting existing instance:", instanceName);
+
+      await sb.from("whatsapp_instances").update({ status: "connecting" }).eq("id", existingInstance.id);
+
+      // Try to connect existing instance to get QR
+      try {
+        const connectRes = await fetch(`${baseUrl}/instance/connect/${instanceName}`, {
+          method: "GET",
+          headers: { apikey: EVOLUTION_API_KEY },
+        });
+
+        const connectData = await connectRes.json().catch(() => ({}));
+        console.log("Connect response:", JSON.stringify(connectData).substring(0, 500));
+
+        const qrBase64 = connectData?.base64 ?? connectData?.qrcode?.base64 ?? connectData?.code ?? null;
+        const pairingCode = connectData?.pairingCode ?? null;
+
+        if (qrBase64) {
+          await sb.from("whatsapp_instances").update({
+            qr_code: qrBase64,
+            status: "connecting",
+          }).eq("id", existingInstance.id);
+
+          await auditLog(sb, orgId, "reconnect", user.id, { hasQr: true });
+
+          return new Response(JSON.stringify({
+            success: true,
+            qrCode: qrBase64,
+            pairingCode,
+            connected: false,
+            status: "connecting",
+            instanceCreated: false,
+          }), {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // If connect didn't return QR, check if already connected
+        const state = String(connectData?.state ?? connectData?.instance?.state ?? "").toLowerCase();
+        if (state === "open" || state === "connected") {
+          await sb.from("whatsapp_instances").update({ status: "connected", qr_code: null }).eq("id", existingInstance.id);
+          return new Response(JSON.stringify({
+            success: true,
+            qrCode: null,
+            connected: true,
+            status: "connected",
+            instanceCreated: false,
+          }), {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      } catch (e) {
+        console.warn("Failed to reconnect, will create new instance:", e);
+      }
+
+      // If reconnect failed, delete old instance on Evolution and create new
+      try {
+        await fetch(`${baseUrl}/instance/delete/${instanceName}`, {
+          method: "DELETE",
+          headers: { apikey: EVOLUTION_API_KEY },
+        });
+      } catch { /* ignore */ }
+    }
+
+    // ── CREATE NEW INSTANCE on Evolution API ──
+    console.log("Creating new Evolution API instance:", instanceName);
+
+    // Set provisioning status
     if (existingInstance?.id) {
       await sb.from("whatsapp_instances").update({ status: "provisioning" }).eq("id", existingInstance.id);
     } else {
       await sb.from("whatsapp_instances").insert({
         organization_id: orgId,
-        instance_name: `${orgName}-instance`,
+        instance_name: instanceName,
         status: "provisioning",
       });
     }
 
-    let webhookData: any = null;
-    let webhookStatus = "sent";
-    let webhookTextRaw = "";
-    try {
-      const webhookRes = await fetch(WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      webhookStatus = webhookRes.ok ? "ok" : `http_${webhookRes.status}`;
-      webhookTextRaw = await webhookRes.text().catch(() => "");
-
-      console.log("Webhook raw response (first 1000):", webhookTextRaw.substring(0, 1000));
-
-      if (webhookRes.ok) {
-        webhookData = parseWebhookResponse(webhookTextRaw);
-        if (!webhookData) {
-          console.warn("Webhook response not parseable as JSON");
-        }
-      } else {
-        console.warn("Webhook non-ok response:", webhookRes.status);
-      }
-    } catch (fetchErr) {
-      console.warn("Webhook fetch error (continuing):", fetchErr);
-      webhookStatus = "fetch_error";
-    }
-
-    const snapshot = extractInstanceSnapshot(webhookData);
-
-    // Machine state: provisioning → connecting (got QR/token) or connected (already open)
-    let nextStatus: string;
-    if (snapshot?.connected) {
-      nextStatus = "connected";
-    } else if (snapshot?.instanceToken || webhookData) {
-      nextStatus = "connecting";
-    } else {
-      nextStatus = "provisioning"; // N8N didn't respond yet
-    }
-
-    const nextInstanceName =
-      snapshot?.instanceName ?? existingInstance?.instance_name ?? `${orgName}-instance`;
-    const nextToken = snapshot?.instanceToken ?? existingInstance?.instance_token ?? null;
-    const nextPhone = snapshot?.phoneNumber ?? existingInstance?.phone_number ?? null;
-
-    const persistPayload: Record<string, any> = {
-      instance_name: nextInstanceName,
-      status: nextStatus,
+    const createPayload = {
+      instanceName,
+      qrcode: true,
+      integration: "WHATSAPP-BAILEYS",
     };
 
-    if (nextToken) persistPayload.instance_token = nextToken;
-    if (nextPhone) persistPayload.phone_number = nextPhone;
-    if (nextStatus === "connected") persistPayload.qr_code = null;
+    const createRes = await fetch(`${baseUrl}/instance/create`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: EVOLUTION_API_KEY,
+      },
+      body: JSON.stringify(createPayload),
+    });
 
-    // Re-fetch to get the ID (may have been just created)
+    const createRaw = await createRes.text();
+    console.log("Evolution create response:", createRaw.substring(0, 1000));
+
+    let createData: any;
+    try {
+      createData = JSON.parse(createRaw);
+    } catch {
+      createData = {};
+    }
+
+    if (!createRes.ok) {
+      // If instance already exists on Evolution, try connect instead
+      const isDuplicate = createRes.status === 403 || createRes.status === 409 ||
+        /already|exists|duplicate/i.test(createRaw);
+
+      if (isDuplicate) {
+        console.log("Instance already exists on Evolution, fetching QR via connect...");
+        const connectRes = await fetch(`${baseUrl}/instance/connect/${instanceName}`, {
+          method: "GET",
+          headers: { apikey: EVOLUTION_API_KEY },
+        });
+        const connectData = await connectRes.json().catch(() => ({}));
+        createData = connectData;
+      } else {
+        throw new Error(`Evolution API error [${createRes.status}]: ${createRaw.substring(0, 500)}`);
+      }
+    }
+
+    // Extract QR code and token from response
+    const qrBase64 =
+      createData?.qrcode?.base64 ??
+      createData?.base64 ??
+      createData?.qrCode ??
+      createData?.qr_code ??
+      null;
+
+    const instanceToken =
+      createData?.hash ??
+      createData?.token ??
+      createData?.instance?.token ??
+      createData?.apikey ??
+      null;
+
+    const pairingCode =
+      createData?.qrcode?.pairingCode ??
+      createData?.pairingCode ??
+      null;
+
+    // Update DB with token and QR
     const { data: currentInstance } = await sb
       .from("whatsapp_instances")
       .select("id")
@@ -366,39 +258,30 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (currentInstance?.id) {
-      await sb.from("whatsapp_instances").update(persistPayload).eq("id", currentInstance.id);
+      const updatePayload: Record<string, any> = {
+        instance_name: instanceName,
+        status: qrBase64 ? "connecting" : "provisioning",
+      };
+      if (instanceToken) updatePayload.instance_token = instanceToken;
+      if (qrBase64) updatePayload.qr_code = qrBase64;
+
+      await sb.from("whatsapp_instances").update(updatePayload).eq("id", currentInstance.id);
     }
 
-    const { qrBase64, pairingCode, code, count } = extractWebhookFields(
-      webhookTextRaw,
-      webhookData,
-    );
-
-    // Save QR to DB if available
-    if (qrBase64 && currentInstance?.id) {
-      await sb.from("whatsapp_instances").update({ qr_code: qrBase64 }).eq("id", currentInstance.id);
-    }
-
-    // Audit log
     await auditLog(sb, orgId, "activate", user.id, {
-      webhookStatus,
-      nextStatus,
-      hasToken: !!nextToken,
+      hasToken: !!instanceToken,
       hasQr: !!qrBase64,
       isReconnection: !!existingInstance,
     });
 
     return new Response(JSON.stringify({
       success: true,
-      webhookStatus,
-      payload,
       qrCode: qrBase64,
       pairingCode,
-      code,
-      count,
-      connected: nextStatus === "connected",
-      status: nextStatus,
+      connected: false,
+      status: qrBase64 ? "connecting" : "provisioning",
       instanceCreated: !existingInstance,
+      payload: { orgName: orgSlug, orgId: org.id, companyId: org.id },
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -407,7 +290,7 @@ Deno.serve(async (req) => {
     console.error("Unexpected error:", err);
     return new Response(
       JSON.stringify({ error: err instanceof Error ? err.message : "Erro interno" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });
