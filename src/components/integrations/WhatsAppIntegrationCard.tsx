@@ -38,14 +38,7 @@ export function WhatsAppIntegrationCard() {
 
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isActivating, setIsActivating] = useState(false);
-  const activationCtxRef = useRef<{
-    pairingCode: string | null;
-    code: string | null;
-    count: number;
-    orgName: string;
-    orgId: string;
-    companyId: string;
-  } | null>(null);
+  const isActiveRef = useRef(false);
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const statusPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -81,11 +74,10 @@ export function WhatsAppIntegrationCard() {
     checkStatus()
       .then((result) => {
         if (result?.status === "connected") {
-          setQrCode(null);
-          stopRefresh();
-          stopStatusPolling();
-          activationCtxRef.current = null;
-          queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
+      setQrCode(null);
+      stopRefresh();
+      stopStatusPolling();
+      isActiveRef.current = false;
         } else if (result?.qr_code) {
           setQrCode(result.qr_code);
         }
