@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     // Expect: { pairingCode, code, count, orgName, orgId, date, companyId }
     // Forward everything except base64 to the refresh webhook
-    const { pairingCode, code, count, orgName, orgId, date, companyId } = body;
+    const { pairingCode, code, count, orgName, orgId, companyId } = body;
 
     const payload = {
       success: true,
@@ -149,7 +149,6 @@ Deno.serve(async (req) => {
       },
       orgName,
       orgId,
-      date,
       companyId,
     };
 
