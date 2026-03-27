@@ -56,6 +56,11 @@ Deno.serve(async (req) => {
 
     // RD Station Marketing webhook payload structure
     // https://developers.rdstation.com/reference/webhooks
+    // The conversion identifier / event name lives at the ROOT of the payload,
+    // not inside each lead object.
+    const topLevelEventId = payload.event_identifier || payload.conversion_identifier || null;
+    const topLevelEventType = payload.event_type || null;
+
     const leads = payload.leads || [payload];
 
     const results: any[] = [];
