@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, MessageCircle, CheckCircle2, XCircle, RefreshCw, QrCode, Trash2, Smartphone } from "lucide-react";
+import { Loader2, MessageCircle, CheckCircle2, XCircle, RefreshCw, Trash2, Smartphone } from "lucide-react";
 import { useWhatsAppInstance } from "@/hooks/useWhatsAppInstance";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -20,18 +20,16 @@ import {
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
 
-const QR_REFRESH_INTERVAL = 45_000; // 45 seconds
-const STATUS_POLL_INTERVAL = 10_000; // 10 seconds
+const QR_REFRESH_INTERVAL = 45_000;
+const STATUS_POLL_INTERVAL = 10_000;
 
 export function WhatsAppIntegrationCard() {
   const {
     instance,
     isLoading,
-    connectInstance,
     checkStatus,
     disconnectInstance,
     deleteInstance,
-    isConnecting,
     isCheckingStatus,
     isDisconnecting,
     isDeleting,
@@ -40,7 +38,6 @@ export function WhatsAppIntegrationCard() {
 
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isActivating, setIsActivating] = useState(false);
-  // Store activation context for QR refresh
   const activationCtxRef = useRef<{
     pairingCode: string | null;
     code: string | null;
@@ -66,10 +63,9 @@ export function WhatsAppIntegrationCard() {
     }
   }, []);
 
-  // Cleanup on unmount
   useEffect(() => () => { stopRefresh(); stopStatusPolling(); }, [stopRefresh, stopStatusPolling]);
 
-  // Auto-check status on mount when instance exists but is not connected
+  // Auto-check status on mount
   const hasAutoCheckedRef = useRef(false);
   useEffect(() => {
     if (hasAutoCheckedRef.current) return;
@@ -77,13 +73,11 @@ export function WhatsAppIntegrationCard() {
 
     hasAutoCheckedRef.current = true;
 
-    // If already connected in DB, just make sure UI is synced
     if (instance.status === "connected") {
       setQrCode(null);
       return;
     }
 
-    // Instance exists but not connected — check status once
     checkStatus()
       .then((result) => {
         if (result?.status === "connected") {
@@ -106,24 +100,14 @@ export function WhatsAppIntegrationCard() {
       if (!ctx) return;
       try {
         const { data } = await supabase.functions.invoke("whatsapp-polling-status", {
-          body: {
-            orgName: ctx.orgName,
-            orgId: ctx.orgId,
-            companyId: ctx.companyId,
-          },
+          body: { orgName: ctx.orgName, orgId: ctx.orgId, companyId: ctx.companyId },
         });
 
         const normalizedRaw = String(
-          typeof data === "string"
-            ? data
-            : data?.raw ?? data?.connectionStatus ?? data?.status ?? "",
-        )
-          .trim()
-          .toLowerCase();
+          typeof data === "string" ? data : data?.raw ?? data?.connectionStatus ?? data?.status ?? "",
+        ).trim().toLowerCase();
 
-        const normalizedStatus = String(data?.connectionStatus ?? data?.status ?? "")
-          .trim()
-          .toLowerCase();
+        const normalizedStatus = String(data?.connectionStatus ?? data?.status ?? "").trim().toLowerCase();
 
         const isConnected =
           data?.connected === true ||
@@ -138,9 +122,7 @@ export function WhatsAppIntegrationCard() {
           stopStatusPolling();
           activationCtxRef.current = null;
           toast.success("WhatsApp conectado com sucesso!");
-          // Force-refresh the instance from DB
           queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
-          // Also try edge function status update (fire-and-forget)
           checkStatus().catch(() => {});
         }
       } catch { /* silent */ }
@@ -175,7 +157,6 @@ export function WhatsAppIntegrationCard() {
     }
   }, []);
 
-  // Refresh QR code every 45s
   const startQrRefresh = useCallback(() => {
     stopRefresh();
     refreshTimerRef.current = setInterval(async () => {
@@ -183,6 +164,7 @@ export function WhatsAppIntegrationCard() {
     }, QR_REFRESH_INTERVAL);
   }, [stopRefresh, requestQrRefresh]);
 
+  // Unified activation handler — single entry point for provisioning and reconnection
   const handleActivate = async () => {
     setIsActivating(true);
     try {
@@ -207,9 +189,7 @@ export function WhatsAppIntegrationCard() {
       }
 
       const payload = data?.payload;
-      const hasActivationContext = Boolean(
-        payload?.orgName && payload?.orgId && payload?.companyId,
-      );
+      const hasActivationContext = Boolean(payload?.orgName && payload?.orgId && payload?.companyId);
 
       activationCtxRef.current = hasActivationContext
         ? {
@@ -249,30 +229,6 @@ export function WhatsAppIntegrationCard() {
     }
   };
 
-  const handleConnect = async () => {
-    try {
-      // If instance exists locally but without token, re-run activation sync first
-      if (instance && !instance.instance_token) {
-        await handleActivate();
-        return;
-      }
-
-      const result = await connectInstance();
-      if (result?.qr_code) {
-        setQrCode(result.qr_code);
-        startStatusPolling();
-        return;
-      }
-      const statusResult = await checkStatus().catch(() => null);
-      if (statusResult?.qr_code) {
-        setQrCode(statusResult.qr_code);
-        startStatusPolling();
-        return;
-      }
-      toastError("Não foi possível obter o QR Code agora.", undefined, { module: "WhatsAppIntegrationCard" });
-    } catch { /* toast shown by hook */ }
-  };
-
   const handleCheckStatus = async () => {
     try {
       const result = await checkStatus();
@@ -307,11 +263,14 @@ export function WhatsAppIntegrationCard() {
       case "connected":
         return <Badge variant="default" className="gap-1"><CheckCircle2 className="h-3 w-3" /> Conectado</Badge>;
       case "connecting":
+      case "provisioning":
         return <Badge variant="secondary" className="gap-1"><RefreshCw className="h-3 w-3 animate-spin" /> Conectando</Badge>;
       default:
         return <Badge variant="outline" className="gap-1"><XCircle className="h-3 w-3" /> Desconectado</Badge>;
     }
   };
+
+  const isDisconnected = instance && instance.status !== "connected" && instance.status !== "connecting" && instance.status !== "provisioning";
 
   return (
     <Card>
@@ -322,7 +281,7 @@ export function WhatsAppIntegrationCard() {
           </div>
           <div className="flex-1">
             <CardTitle className="text-base">WhatsApp</CardTitle>
-            <CardDescription>Integração via Uazapi — envie mensagens automáticas pelo CRM</CardDescription>
+            <CardDescription>Integração via Evolution API — envie mensagens automáticas pelo CRM</CardDescription>
           </div>
           {statusBadge()}
         </div>
@@ -345,7 +304,6 @@ export function WhatsAppIntegrationCard() {
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Instance info */}
             {instance && (
               <div className="grid gap-2 text-sm">
                 <div className="flex items-center justify-between">
@@ -361,7 +319,7 @@ export function WhatsAppIntegrationCard() {
               </div>
             )}
 
-            {/* QR Code */}
+            {/* QR Code display */}
             {displayedQr && instance?.status !== "connected" && (
               <div className="flex flex-col items-center gap-3 p-4 border rounded-lg bg-background">
                 <p className="text-sm font-medium">Escaneie o QR Code no WhatsApp</p>
@@ -374,7 +332,6 @@ export function WhatsAppIntegrationCard() {
               </div>
             )}
 
-            {/* QR Code shown before instance exists (activation flow) */}
             {displayedQr && !instance && (
               <div className="flex flex-col items-center gap-3 p-4 border rounded-lg bg-background">
                 <p className="text-sm font-medium">Escaneie o QR Code no WhatsApp</p>
@@ -385,10 +342,11 @@ export function WhatsAppIntegrationCard() {
 
             {/* Actions */}
             <div className="flex flex-wrap gap-2">
-              {instance && instance.status !== "connected" && (
-                <Button variant="outline" size="sm" onClick={handleConnect} disabled={isConnecting}>
-                  {isConnecting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <QrCode className="h-4 w-4 mr-2" />}
-                  {qrCode ? "Novo QR Code" : "Conectar"}
+              {/* Reconnect button — shown when disconnected */}
+              {isDisconnected && (
+                <Button variant="outline" size="sm" onClick={handleActivate} disabled={isActivating}>
+                  {isActivating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Smartphone className="h-4 w-4 mr-2" />}
+                  Reconectar
                 </Button>
               )}
 

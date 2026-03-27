@@ -1,13 +1,23 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { createServiceClient } from "../_shared/auth.ts";
+
+const WEBHOOK_SECRET = Deno.env.get("WHATSAPP_AGENT_SECRET");
 
 serve(async (req) => {
   const cors = handleCors(req);
   if (cors) return cors;
 
   try {
+    // Validate X-Webhook-Secret header
+    const requestSecret = req.headers.get("X-Webhook-Secret");
+    if (!WEBHOOK_SECRET || requestSecret !== WEBHOOK_SECRET) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const body = await req.json();
     const { organization_id } = body;
 
@@ -20,6 +30,20 @@ serve(async (req) => {
 
     const sb = createServiceClient();
 
+    // Validate organization exists
+    const { data: org } = await sb
+      .from("organizations")
+      .select("id")
+      .eq("id", organization_id)
+      .maybeSingle();
+
+    if (!org) {
+      return new Response(JSON.stringify({ error: "Organização não encontrada" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { data: config, error } = await sb
       .from("whatsapp_agent_config")
       .select("*")
@@ -29,7 +53,6 @@ serve(async (req) => {
     if (error) throw error;
 
     if (!config) {
-      // Return defaults
       return new Response(
         JSON.stringify({
           agent_name: "Valentina",

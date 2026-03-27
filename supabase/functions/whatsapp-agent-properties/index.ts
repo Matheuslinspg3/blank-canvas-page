@@ -1,13 +1,23 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { createServiceClient } from "../_shared/auth.ts";
+
+const WEBHOOK_SECRET = Deno.env.get("WHATSAPP_AGENT_SECRET");
 
 serve(async (req) => {
   const cors = handleCors(req);
   if (cors) return cors;
 
   try {
+    // Validate X-Webhook-Secret header
+    const requestSecret = req.headers.get("X-Webhook-Secret");
+    if (!WEBHOOK_SECRET || requestSecret !== WEBHOOK_SECRET) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const body = await req.json();
     const { organization_id, filters } = body;
 
@@ -19,6 +29,20 @@ serve(async (req) => {
     }
 
     const sb = createServiceClient();
+
+    // Validate organization exists
+    const { data: org } = await sb
+      .from("organizations")
+      .select("id")
+      .eq("id", organization_id)
+      .maybeSingle();
+
+    if (!org) {
+      return new Response(JSON.stringify({ error: "Organização não encontrada" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Check if property DB is enabled
     const { data: config } = await sb
@@ -50,7 +74,6 @@ serve(async (req) => {
       .eq("organization_id", organization_id)
       .eq("status", "disponivel");
 
-    // Apply client filters
     if (filters?.bedrooms) query = query.gte("bedrooms", filters.bedrooms);
     if (filters?.max_price) {
       query = query.or(`sale_price.lte.${filters.max_price},rent_price.lte.${filters.max_price}`);
@@ -81,7 +104,6 @@ serve(async (req) => {
       return aH - bH;
     });
 
-    // Add highlight flag
     const result = filtered.map((p) => ({
       ...p,
       is_highlighted: highlightIds.has(p.id),
