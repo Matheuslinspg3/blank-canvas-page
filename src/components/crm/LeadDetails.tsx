@@ -219,9 +219,19 @@ export function LeadDetails({
                 </div>
               )}
               {leadAny.conversion_identifier && (
-                <div className="flex items-center gap-3">
-                  <Megaphone className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">Anúncio/Conversão: {leadAny.conversion_identifier}</span>
+                <div className="flex items-start gap-3">
+                  <Megaphone className="h-4 w-4 text-muted-foreground mt-0.5" />
+                  <div className="flex flex-wrap gap-1.5">
+                    {leadAny.conversion_identifier.split(",").map((ci: string, idx: number) => {
+                      const trimmed = ci.trim();
+                      if (!trimmed) return null;
+                      return (
+                        <span key={idx} className="inline-block text-xs px-2 py-0.5 rounded-full font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300">
+                          📢 {trimmed}
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
               {leadAny.traffic_source && (

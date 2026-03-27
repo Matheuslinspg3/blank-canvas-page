@@ -104,8 +104,7 @@ Deno.serve(async (req) => {
     if (rdAccessToken) {
       const rdLeads = leads.filter(l =>
         l.external_source === "rdstation" &&
-        l.external_id &&
-        (!l.conversion_identifier || !l.traffic_source || !l.phone)
+        l.external_id
       );
 
       console.log(`[fix-leads] Enriching ${rdLeads.length} RD Station leads via API...`);
@@ -120,19 +119,29 @@ Deno.serve(async (req) => {
 
           const updateData: Record<string, any> = {};
 
-          // Fill conversion_identifier — prefer events endpoint (has the real data)
-          if (!lead.conversion_identifier) {
-            let convId: string | null = null;
+          // Fill conversion_identifier — collect ALL conversion events
+          {
+            const existingIds = (lead.conversion_identifier || "").split(",").map((s: string) => s.trim()).filter(Boolean);
+            const allIds = new Set(existingIds);
+
+            // From events endpoint (primary source)
             if (events.length > 0) {
-              const conversionEvent = events.find((e: any) => (e.event_type || e.type) === "CONVERSION");
-              if (conversionEvent) {
-                convId = conversionEvent.event_identifier || conversionEvent.conversion_identifier || null;
+              const conversionEvents = events.filter((e: any) => (e.event_type || e.type) === "CONVERSION");
+              for (const evt of conversionEvents) {
+                const id = evt.event_identifier || evt.conversion_identifier;
+                if (id) allIds.add(id);
               }
             }
-            if (!convId && contact) {
-              convId = extractConversionIdentifier(contact);
+            // Fallback from contact data
+            if (allIds.size === 0 && contact) {
+              const convId = extractConversionIdentifier(contact);
+              if (convId) allIds.add(convId);
             }
-            if (convId) updateData.conversion_identifier = convId;
+
+            const newValue = Array.from(allIds).join(", ");
+            if (newValue && newValue !== (lead.conversion_identifier || "")) {
+              updateData.conversion_identifier = newValue;
+            }
           }
 
           // Fill traffic_source — prefer events endpoint

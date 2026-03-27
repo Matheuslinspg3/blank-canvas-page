@@ -160,9 +160,17 @@ function LeadCardComponent({ lead, onClick, onChangeTemperature }: LeadCardProps
           </span>
         )}
         {(lead as any).conversion_identifier && (
-          <span className="inline-block text-[10px] px-1.5 py-0.5 rounded font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 truncate max-w-full">
-            📢 {(lead as any).conversion_identifier}
-          </span>
+          <div className="flex flex-wrap gap-1">
+            {(lead as any).conversion_identifier.split(",").map((ci: string, idx: number) => {
+              const trimmed = ci.trim();
+              if (!trimmed) return null;
+              return (
+                <span key={idx} className="inline-block text-[10px] px-1.5 py-0.5 rounded font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 truncate max-w-[180px]">
+                  📢 {trimmed}
+                </span>
+              );
+            })}
+          </div>
         )}
 
         <div className="flex items-center justify-between">
