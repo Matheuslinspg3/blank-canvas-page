@@ -18,6 +18,7 @@ export function useFixLeads() {
       if (data?.error) throw new Error(data.error);
 
       const parts: string[] = [];
+      if (data.enriched > 0) parts.push(`${data.enriched} enriquecidos via API`);
       if (data.fixed > 0) parts.push(`${data.fixed} campos preenchidos`);
       if (data.merged > 0) parts.push(`${data.merged} duplicatas mescladas`);
       if (data.source_updated > 0) parts.push(`${data.source_updated} origens corrigidas`);
