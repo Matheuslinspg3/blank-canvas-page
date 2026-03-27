@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
     const { data: leads, error: leadsError } = await query;
     if (leadsError) throw leadsError;
     if (!leads || leads.length === 0) {
-      return new Response(JSON.stringify({ success: true, message: "Nenhum lead encontrado.", fixed: 0, merged: 0, source_updated: 0 }), {
+      return new Response(JSON.stringify({ success: true, message: "Nenhum lead encontrado.", enriched: 0, fixed: 0, merged: 0, source_updated: 0 }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -77,9 +77,101 @@ Deno.serve(async (req) => {
     let fixed = 0;
     let merged = 0;
     let sourceUpdated = 0;
+    let enriched = 0;
 
-    // 2. Fix source/external_source for leads missing it
-    // Leads with "RD Station" in source but no external_source
+    // ── STEP 1: Enrich RD Station leads via API ──
+    // Get RD Station OAuth token for this org
+    let rdAccessToken: string | null = null;
+    if (source === "rdstation" || source === "all" || !source) {
+      const { data: rdSettings } = await supabase
+        .from("rd_station_settings")
+        .select("oauth_access_token, oauth_refresh_token, oauth_token_expires_at, organization_id")
+        .eq("organization_id", orgId)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (rdSettings?.oauth_access_token) {
+        rdAccessToken = rdSettings.oauth_access_token;
+
+        // Refresh if expired
+        if (rdSettings.oauth_token_expires_at && new Date(rdSettings.oauth_token_expires_at) < new Date()) {
+          const refreshed = await refreshRDToken(supabase, rdSettings, orgId);
+          if (refreshed) rdAccessToken = refreshed;
+          else rdAccessToken = null;
+        }
+      }
+    }
+
+    // Enrich RD Station leads that have a UUID but missing data
+    if (rdAccessToken) {
+      const rdLeads = leads.filter(l =>
+        l.external_source === "rdstation" &&
+        l.external_id &&
+        (!l.conversion_identifier || !l.traffic_source || !l.phone)
+      );
+
+      console.log(`[fix-leads] Enriching ${rdLeads.length} RD Station leads via API...`);
+
+      for (const lead of rdLeads) {
+        try {
+          const contact = await fetchRDContact(lead.external_id!, rdAccessToken);
+          if (!contact) continue;
+
+          const updateData: Record<string, any> = {};
+
+          // Fill conversion_identifier
+          if (!lead.conversion_identifier) {
+            const convId = extractConversionIdentifier(contact);
+            if (convId) updateData.conversion_identifier = convId;
+          }
+
+          // Fill traffic_source
+          if (!lead.traffic_source) {
+            const tSrc = extractTrafficSource(contact);
+            if (tSrc) updateData.traffic_source = tSrc;
+          }
+
+          // Fill phone
+          if (!lead.phone) {
+            const phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact);
+            if (phone) updateData.phone = phone;
+          }
+
+          // Fill name if generic
+          if (lead.name === "Lead RD Station" || !lead.name) {
+            const name = contact.name || `${contact.first_name || ""} ${contact.last_name || ""}`.trim();
+            if (name && name !== "Lead RD Station") updateData.name = name;
+          }
+
+          // Fill email
+          if (!lead.email && contact.email) {
+            updateData.email = contact.email;
+          }
+
+          // Rebuild notes with full data
+          const newNotes = buildNotes(contact);
+          if (newNotes && newNotes.length > (lead.notes || "").length) {
+            updateData.notes = newNotes;
+          }
+
+          if (Object.keys(updateData).length > 0) {
+            const { error } = await supabase.from("leads").update(updateData).eq("id", lead.id);
+            if (!error) {
+              enriched++;
+              // Update in-memory lead for subsequent merge logic
+              Object.assign(lead, updateData);
+            }
+          }
+
+          // Rate limit: 200ms between API calls
+          await sleep(200);
+        } catch (err: any) {
+          console.error(`[fix-leads] Error enriching lead ${lead.id}:`, err.message);
+        }
+      }
+    }
+
+    // ── STEP 2: Fix source/external_source and extract from notes ──
     for (const lead of leads) {
       const updateData: Record<string, any> = {};
 
@@ -92,7 +184,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Fix source text for RD Station leads
+      // Fix source text
       if (lead.external_source === "rdstation" && !lead.source) {
         updateData.source = "RD Station";
       }
@@ -100,25 +192,20 @@ Deno.serve(async (req) => {
         updateData.source = "Meta Ads";
       }
 
-      // Extract conversion_identifier from notes if missing
+      // Extract conversion_identifier from notes if still missing
       if (!lead.conversion_identifier && lead.notes) {
         const match = lead.notes.match(/Anúncio\/Formulário:\s*(.+)/);
-        if (match) {
-          updateData.conversion_identifier = match[1].trim();
-        }
+        if (match) updateData.conversion_identifier = match[1].trim();
       }
 
-      // Extract traffic_source from notes if missing
+      // Extract traffic_source from notes if still missing
       if (!lead.traffic_source && lead.notes) {
         const match = lead.notes.match(/Origem do tráfego:\s*(.+)/);
         if (match) {
           updateData.traffic_source = match[1].trim();
-        }
-        if (!updateData.traffic_source) {
+        } else {
           const match2 = lead.notes.match(/Origem:\s*(.+)/);
-          if (match2) {
-            updateData.traffic_source = match2[1].trim();
-          }
+          if (match2) updateData.traffic_source = match2[1].trim();
         }
       }
 
@@ -127,12 +214,12 @@ Deno.serve(async (req) => {
         if (!error) {
           if (updateData.external_source) sourceUpdated++;
           if (updateData.conversion_identifier || updateData.traffic_source) fixed++;
+          Object.assign(lead, updateData);
         }
       }
     }
 
-    // 3. Merge duplicates (by email and phone)
-    // Group by email
+    // ── STEP 3: Merge duplicates ──
     const byEmail: Record<string, typeof leads> = {};
     const byPhone: Record<string, typeof leads> = {};
 
@@ -145,7 +232,6 @@ Deno.serve(async (req) => {
       if (lead.phone) {
         const digits = lead.phone.replace(/\D/g, "");
         if (digits.length >= 8) {
-          // Use last 8 digits as key
           const key = digits.slice(-8);
           if (!byPhone[key]) byPhone[key] = [];
           byPhone[key].push(lead);
@@ -158,13 +244,11 @@ Deno.serve(async (req) => {
     // Merge email duplicates
     for (const [_, group] of Object.entries(byEmail)) {
       if (group.length <= 1) continue;
-      // Keep the first one (oldest by array order which is desc, so last is oldest)
       const keeper = group[group.length - 1];
       for (let i = 0; i < group.length - 1; i++) {
         const dup = group[i];
         if (mergedIds.has(dup.id) || dup.id === keeper.id) continue;
 
-        // Merge missing fields into keeper
         const updateData: Record<string, any> = {};
         if (!keeper.phone && dup.phone) updateData.phone = dup.phone;
         if (!keeper.conversion_identifier && dup.conversion_identifier) updateData.conversion_identifier = dup.conversion_identifier;
@@ -174,14 +258,10 @@ Deno.serve(async (req) => {
 
         if (Object.keys(updateData).length > 0) {
           await supabase.from("leads").update(updateData).eq("id", keeper.id);
-          // Update keeper in memory
           Object.assign(keeper, updateData);
         }
 
-        // Deactivate duplicate
         await supabase.from("leads").update({ is_active: false, notes: `${dup.notes || ""}\n[Mesclado com lead ${keeper.id}]`.trim() }).eq("id", dup.id);
-
-        // Move interactions to keeper
         await supabase.from("lead_interactions").update({ lead_id: keeper.id }).eq("lead_id", dup.id);
 
         mergedIds.add(dup.id);
@@ -189,9 +269,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Merge phone duplicates (only if not already merged)
+    // Merge phone duplicates
     for (const [_, group] of Object.entries(byPhone)) {
-      // Filter out already merged leads
       const active = group.filter(l => !mergedIds.has(l.id));
       if (active.length <= 1) continue;
 
@@ -199,7 +278,6 @@ Deno.serve(async (req) => {
       for (let i = 0; i < active.length - 1; i++) {
         const dup = active[i];
         if (mergedIds.has(dup.id) || dup.id === keeper.id) continue;
-        // Only merge if they share the same email or one has no email
         if (keeper.email && dup.email && keeper.email.toLowerCase() !== dup.email.toLowerCase()) continue;
 
         const updateData: Record<string, any> = {};
@@ -223,7 +301,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, fixed, merged, source_updated: sourceUpdated, total_analyzed: leads.length }),
+      JSON.stringify({ success: true, enriched, fixed, merged, source_updated: sourceUpdated, total_analyzed: leads.length }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err: any) {
@@ -234,3 +312,144 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+// ── RD Station API helpers ──
+
+async function fetchRDContact(uuid: string, accessToken: string): Promise<Record<string, any> | null> {
+  try {
+    const res = await fetch(`https://api.rd.services/platform/contacts/${uuid}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) {
+      console.log(`[fix-leads] RD API ${res.status} for ${uuid}`);
+      return null;
+    }
+    return await res.json();
+  } catch (err: any) {
+    console.log(`[fix-leads] RD fetch error for ${uuid}: ${err.message}`);
+    return null;
+  }
+}
+
+async function refreshRDToken(supabase: any, settings: any, orgId: string): Promise<string | null> {
+  try {
+    const clientId = Deno.env.get("RD_STATION_CLIENT_ID");
+    const clientSecret = Deno.env.get("RD_STATION_CLIENT_SECRET");
+    if (!clientId || !clientSecret || !settings.oauth_refresh_token) return null;
+
+    const res = await fetch("https://api.rd.services/auth/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: settings.oauth_refresh_token,
+      }),
+    });
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const expiresAt = new Date(Date.now() + (data.expires_in || 86400) * 1000).toISOString();
+
+    await supabase.from("rd_station_settings").update({
+      oauth_access_token: data.access_token,
+      oauth_refresh_token: data.refresh_token || settings.oauth_refresh_token,
+      oauth_token_expires_at: expiresAt,
+    }).eq("organization_id", orgId);
+
+    return data.access_token;
+  } catch (err: any) {
+    console.error("RD token refresh error:", err);
+    return null;
+  }
+}
+
+function extractConversionIdentifier(data: Record<string, any>): string | null {
+  const extractId = (conv: any): string | null => {
+    if (!conv) return null;
+    const content = conv.content || conv;
+    return content.identifier || content.identificador || content.conversion_identifier || content.event_identifier || null;
+  };
+  return extractId(data.last_conversion) || extractId(data.first_conversion) || data.conversion_identifier || null;
+}
+
+function extractTrafficSource(data: Record<string, any>): string | null {
+  if (data.traffic_source) return data.traffic_source;
+  for (const conv of [data.last_conversion, data.first_conversion]) {
+    if (!conv) continue;
+    const content = conv.content || conv;
+    if (conv.source) return conv.source;
+    if (content.source) return content.source;
+    if (content.traffic_source) return content.traffic_source;
+  }
+  return null;
+}
+
+function extractPhoneFromCustomFields(contact: any): string | null {
+  if (contact.custom_fields && typeof contact.custom_fields === "object") {
+    for (const [key, value] of Object.entries(contact.custom_fields)) {
+      if (value && typeof value === "string" && /phone|telefone|celular|whatsapp|fone/i.test(key)) {
+        const digits = value.replace(/\D/g, "");
+        if (digits.length >= 8) return value;
+      }
+    }
+  }
+  return null;
+}
+
+function buildNotes(data: Record<string, any>): string {
+  const lines: string[] = [];
+
+  const convId = extractConversionIdentifier(data);
+  if (convId) lines.push(`Anúncio/Formulário: ${convId}`);
+
+  const trafficSrc = extractTrafficSource(data);
+  if (trafficSrc) lines.push(`Origem do tráfego: ${trafficSrc}`);
+
+  if (data.first_conversion && typeof data.first_conversion === "object") {
+    const fc = data.first_conversion;
+    const fcContent = fc.content || fc;
+    const fcId = fcContent.identifier || fcContent.identificador || fcContent.conversion_identifier || JSON.stringify(fcContent);
+    lines.push(`Primeira conversão: ${fcId}`);
+    if (fc.source || fcContent.source) lines.push(`  Origem: ${fc.source || fcContent.source}`);
+    if (fc.created_at || fcContent.created_at) lines.push(`  Data: ${fc.created_at || fcContent.created_at}`);
+  }
+  if (data.last_conversion && typeof data.last_conversion === "object") {
+    const lc = data.last_conversion;
+    const lcContent = lc.content || lc;
+    const lcId = lcContent.identifier || lcContent.identificador || lcContent.conversion_identifier || JSON.stringify(lcContent);
+    const fcId = extractConversionIdentifier({ first_conversion: data.first_conversion });
+    if (lcId !== fcId) {
+      lines.push(`Última conversão: ${lcId}`);
+      if (lc.source || lcContent.source) lines.push(`  Origem: ${lc.source || lcContent.source}`);
+      if (lc.created_at || lcContent.created_at) lines.push(`  Data: ${lc.created_at || lcContent.created_at}`);
+    }
+  }
+
+  if (data.custom_fields && typeof data.custom_fields === "object") {
+    for (const [key, value] of Object.entries(data.custom_fields)) {
+      if (value != null && value !== "") {
+        lines.push(`${key}: ${typeof value === "object" ? JSON.stringify(value) : value}`);
+      }
+    }
+  }
+
+  if (data.lead_stage) lines.push(`Estágio no funil: ${data.lead_stage}`);
+  if (data.company) lines.push(`Empresa: ${data.company}`);
+  if (data.job_title) lines.push(`Cargo: ${data.job_title}`);
+  if (data.city) lines.push(`Cidade: ${data.city}`);
+  if (data.state) lines.push(`Estado: ${data.state}`);
+  if (data.tags && Array.isArray(data.tags) && data.tags.length > 0) lines.push(`Tags: ${data.tags.join(", ")}`);
+  if (data.uuid) lines.push(`RD UUID: ${data.uuid}`);
+
+  return lines.length > 0 ? `[RD Station]\n${lines.join("\n")}` : "[RD Station] Lead corrigido";
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
