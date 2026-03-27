@@ -89,6 +89,11 @@ interface PropertyImage {
   path?: string;
   is_cover?: boolean;
   display_order?: number;
+  phash?: string;
+  r2_key_full?: string;
+  r2_key_thumb?: string;
+  storage_provider?: string;
+  cached_thumbnail_url?: string;
 }
 
 interface OwnerData {
@@ -181,11 +186,16 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
         try {
           const { data: imgRows } = await supabase
             .from("property_images")
-            .select("id, url, is_cover, display_order, r2_key_thumb, cached_thumbnail_url, r2_key_full, storage_provider")
+            .select("id, url, is_cover, display_order, r2_key_thumb, cached_thumbnail_url, r2_key_full, storage_provider, phash")
             .eq("property_id", property.id)
             .order("display_order");
           allImages = (imgRows || []).map((img: any) => ({
             id: img.id, url: img.url, is_cover: img.is_cover || false, display_order: img.display_order || 0,
+            phash: img.phash || undefined,
+            r2_key_full: img.r2_key_full || undefined,
+            r2_key_thumb: img.r2_key_thumb || undefined,
+            storage_provider: img.storage_provider || undefined,
+            cached_thumbnail_url: img.cached_thumbnail_url || undefined,
           }));
         } catch (e) {
           // Fallback to property.images if fetch fails
