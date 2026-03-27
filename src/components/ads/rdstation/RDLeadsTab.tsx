@@ -66,10 +66,11 @@ export default function RDLeadsTab() {
 
   const handleExportCSV = () => {
     if (rdLeads.length === 0) { toastError("Nenhum lead para exportar.", undefined, { module: "RDLeadsTab" }); return; }
-    const headers = ["Nome", "E-mail", "Telefone", "Origem", "Temperatura", "Data", "Notas"];
+    const headers = ["Nome", "E-mail", "Telefone", "Origem", "Temperatura", "Formulário/Anúncio", "Origem Tráfego", "Data", "Notas"];
     const rows = rdLeads.map((l: any) => [
       l.name || "", l.email || "", l.phone || "", l.source || "",
-      l.temperature || "", l.created_at ? format(new Date(l.created_at), "dd/MM/yyyy HH:mm") : "",
+      l.temperature || "", l.conversion_identifier || "", l.traffic_source || "",
+      l.created_at ? format(new Date(l.created_at), "dd/MM/yyyy HH:mm") : "",
       (l.notes || "").replace(/\n/g, " "),
     ]);
     const csv = [headers.join(","), ...rows.map((r: string[]) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))].join("\n");
