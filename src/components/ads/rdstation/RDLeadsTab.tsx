@@ -160,6 +160,20 @@ export default function RDLeadsTab() {
                   )}
                   {!lead.phone && !lead.email && <span className="italic">Sem contato</span>}
                 </div>
+                {(lead.conversion_identifier || lead.traffic_source) && (
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    {lead.conversion_identifier && (
+                      <Badge variant="secondary" className="text-[10px] font-normal">
+                        📋 {lead.conversion_identifier}
+                      </Badge>
+                    )}
+                    {lead.traffic_source && (
+                      <Badge variant="secondary" className="text-[10px] font-normal">
+                        🔗 {lead.traffic_source}
+                      </Badge>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {lead.temperature && (
