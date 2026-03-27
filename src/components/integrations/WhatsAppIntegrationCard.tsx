@@ -110,9 +110,11 @@ export function WhatsAppIntegrationCard() {
           stopStatusPolling();
           activationCtxRef.current = null;
           toast.success("WhatsApp conectado com sucesso!");
+          // Force-refresh the instance from DB
+          queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
+          // Also try edge function status update (fire-and-forget)
           checkStatus().catch(() => {});
         }
-      } catch { /* silent */ }
     }, STATUS_POLL_INTERVAL);
   }, [stopRefresh, stopStatusPolling, checkStatus]);
 
