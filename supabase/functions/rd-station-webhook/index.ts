@@ -417,6 +417,3 @@ function buildNotes(data: Record<string, any>, topLevelEventId?: string | null, 
     ? `[RD Station]\n${lines.join("\n")}`
     : "[RD Station] Lead recebido via webhook";
 }
-    ? `[RD Station]\n${lines.join("\n")}`
-    : "[Importado via RD Station]";
-}
