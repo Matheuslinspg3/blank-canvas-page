@@ -31,8 +31,9 @@ serve(async (req) => {
   }
 
   try {
-    const UAZAPI_BASE_URL = Deno.env.get("UAZAPI_BASE_URL");
-    if (!UAZAPI_BASE_URL) throw new Error("UAZAPI_BASE_URL not configured");
+    const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
+    const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
+    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) throw new Error("EVOLUTION_API_URL or EVOLUTION_API_GLOBAL_KEY not configured");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -57,14 +58,14 @@ serve(async (req) => {
 
     const orgId = profile.organization_id;
 
-    // Get instance token
+    // Get instance
     const { data: instance } = await supabaseClient
       .from("whatsapp_instances")
-      .select("instance_token, status")
+      .select("instance_name, instance_token, status")
       .eq("organization_id", orgId)
       .single();
 
-    if (!instance?.instance_token) {
+    if (!instance?.instance_name) {
       return new Response(
         JSON.stringify({ error: "WhatsApp não configurado. Ative a integração na área de integrações." }),
         { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -84,45 +85,42 @@ serve(async (req) => {
     if (!phone || !message) throw new Error("phone and message are required");
 
     const cleanPhone = phone.replace(/\D/g, "");
-    const baseUrl = UAZAPI_BASE_URL.replace(/\/$/, "");
+    const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
 
+    // Evolution API v2 send endpoints
     let endpoint: string;
     let payload: Record<string, any>;
 
     if (type === "media") {
-      endpoint = `${baseUrl}/send/media`;
+      endpoint = `${baseUrl}/message/sendMedia/${instance.instance_name}`;
       payload = {
         number: cleanPhone,
-        text: message,
-        type: body.mediaType || "image",
-        file: body.mediaUrl,
+        mediatype: body.mediaType || "image",
+        media: body.mediaUrl,
+        caption: message,
       };
     } else {
-      endpoint = `${baseUrl}/send/text`;
+      endpoint = `${baseUrl}/message/sendText/${instance.instance_name}`;
       payload = {
         number: cleanPhone,
         text: message,
-        linkPreview: false,
-        delay: 0,
       };
     }
 
-    const uazapiRes = await fetch(endpoint, {
+    const evoRes = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        token: instance.instance_token,
+        apikey: EVOLUTION_API_KEY,
       },
       body: JSON.stringify(payload),
     });
 
-    const uazapiData = await uazapiRes.json();
+    const evoData = await evoRes.json();
 
-    if (!uazapiRes.ok) {
-      // Check for invalid token specifically
-      const isInvalidToken = uazapiRes.status === 401 || /invalid token/i.test(String(uazapiData?.message ?? ""));
+    if (!evoRes.ok) {
+      const isInvalidToken = evoRes.status === 401 || evoRes.status === 403;
       if (isInvalidToken) {
-        // Update instance status to disconnected
         await supabaseClient
           .from("whatsapp_instances")
           .update({ status: "disconnected" })
@@ -131,17 +129,17 @@ serve(async (req) => {
         await auditLog(supabaseClient, orgId, "send_token_invalid", user.id, { phone: cleanPhone });
 
         return new Response(
-          JSON.stringify({ error: "Token do WhatsApp expirado ou inválido. Reconecte na área de integrações." }),
+          JSON.stringify({ error: "Sessão do WhatsApp expirada. Reconecte na área de integrações." }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      throw new Error(`Evolution send error [${uazapiRes.status}]: ${JSON.stringify(uazapiData)}`);
+      throw new Error(`Evolution send error [${evoRes.status}]: ${JSON.stringify(evoData)}`);
     }
 
     await auditLog(supabaseClient, orgId, "send", user.id, { phone: cleanPhone, type });
 
-    return new Response(JSON.stringify({ success: true, data: uazapiData }), {
+    return new Response(JSON.stringify({ success: true, data: evoData }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
