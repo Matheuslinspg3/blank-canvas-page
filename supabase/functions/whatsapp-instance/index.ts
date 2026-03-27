@@ -363,7 +363,11 @@ serve(async (req) => {
         .eq("organization_id", orgId)
         .single();
 
-      if (!instance) throw new Error("Instância não encontrada");
+      if (!instance) {
+        return new Response(JSON.stringify({ deleted: true, skipped: "instance_not_found" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       // DELETE /instance  — header: token
       if (instance.instance_token) {
