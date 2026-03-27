@@ -7,12 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Inbox, Download, Users, Phone, Loader2 } from "lucide-react";
+import { Search, Inbox, Download, Users, Phone, Loader2, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useRDStationSettings } from "@/hooks/useRDStationSettings";
+import { useFixLeads } from "@/hooks/useFixLeads";
 import RDSyncDialog from "./RDSyncDialog";
 
 export default function RDLeadsTab() {

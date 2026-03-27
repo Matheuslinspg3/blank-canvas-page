@@ -4,11 +4,13 @@ import { useAdEntities } from "@/hooks/useAdEntities";
 import { useAdLeadsCount } from "@/hooks/useAdLeads";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Inbox } from "lucide-react";
+import { Search, Inbox, Wrench, Loader2 } from "lucide-react";
 import { AdLeadRow } from "@/components/ads/AdLeadRow";
+import { useFixLeads } from "@/hooks/useFixLeads";
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "all", label: "Todos" },
