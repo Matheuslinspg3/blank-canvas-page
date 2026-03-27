@@ -46,7 +46,7 @@ export default function RDLeadsTab() {
       if (!orgId) return [];
       const { data, error } = await supabase
         .from("leads")
-        .select("id, name, email, phone, source, temperature, created_at, notes")
+        .select("id, name, email, phone, source, temperature, created_at, notes, conversion_identifier, traffic_source")
         .eq("organization_id", orgId)
         .eq("external_source", "rdstation")
         .eq("is_active", true)
