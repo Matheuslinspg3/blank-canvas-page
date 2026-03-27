@@ -162,6 +162,20 @@ export function WhatsAppIntegrationCard() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
+      const isConnectedNow =
+        data?.connected === true ||
+        String(data?.status ?? "").trim().toLowerCase() === "connected";
+
+      if (isConnectedNow) {
+        setQrCode(null);
+        stopRefresh();
+        stopStatusPolling();
+        activationCtxRef.current = null;
+        await queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
+        toast.success("WhatsApp já está conectado!");
+        return;
+      }
+
       const payload = data?.payload;
       const hasActivationContext = Boolean(
         payload?.orgName && payload?.orgId && payload?.companyId,
@@ -182,6 +196,8 @@ export function WhatsAppIntegrationCard() {
         startQrRefresh();
         startStatusPolling();
       }
+
+      await queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
 
       if (data?.qrCode) {
         setQrCode(data.qrCode);
