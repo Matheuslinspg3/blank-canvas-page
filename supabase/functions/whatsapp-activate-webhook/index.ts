@@ -156,8 +156,11 @@ Deno.serve(async (req) => {
     const n8nPayload = {
       orgName: orgSlug,
       orgId: org.id,
-      date: today,
       companyId: org.id,
+      // Instance configuration for Evolution API
+      webhookUrl: N8N_UNIFIED_WEBHOOK,
+      groupsIgnore: true,
+      syncFullHistory: true,
     };
 
     console.log("Calling N8N CRIAR webhook:", JSON.stringify(n8nPayload));
