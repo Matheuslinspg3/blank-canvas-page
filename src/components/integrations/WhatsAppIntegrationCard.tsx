@@ -96,25 +96,12 @@ export function WhatsAppIntegrationCard() {
   const startStatusPolling = useCallback(() => {
     stopStatusPolling();
     statusPollingRef.current = setInterval(async () => {
-      const ctx = activationCtxRef.current;
-      if (!ctx) return;
       try {
         const { data } = await supabase.functions.invoke("whatsapp-polling-status", {
-          body: { orgName: ctx.orgName, orgId: ctx.orgId, companyId: ctx.companyId },
+          body: {},
         });
 
-        const normalizedRaw = String(
-          typeof data === "string" ? data : data?.raw ?? data?.connectionStatus ?? data?.status ?? "",
-        ).trim().toLowerCase();
-
-        const normalizedStatus = String(data?.connectionStatus ?? data?.status ?? "").trim().toLowerCase();
-
-        const isConnected =
-          data?.connected === true ||
-          normalizedStatus === "open" ||
-          normalizedRaw === "open" ||
-          normalizedRaw.includes('"connectionstatus":"open"') ||
-          /\bconnected\b|\bopen\b|\bready\b|\bonline\b|\bauthorized\b/.test(normalizedRaw);
+        const isConnected = data?.connected === true;
 
         if (isConnected) {
           setQrCode(null);
