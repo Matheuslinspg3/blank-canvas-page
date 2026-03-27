@@ -99,7 +99,7 @@ export function WhatsAppIntegrationCard() {
           setQrCode(null);
           stopRefresh();
           stopStatusPolling();
-          activationCtxRef.current = null;
+          isActiveRef.current = false;
           toast.success("WhatsApp conectado com sucesso!");
           queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
           checkStatus().catch(() => {});
@@ -109,32 +109,30 @@ export function WhatsAppIntegrationCard() {
   }, [stopRefresh, stopStatusPolling, checkStatus, queryClient]);
 
   const requestQrRefresh = useCallback(async () => {
-    const ctx = activationCtxRef.current;
-    if (!ctx) return false;
+    if (!isActiveRef.current) return false;
 
     try {
       const { data, error } = await supabase.functions.invoke("whatsapp-refresh-qrcode", {
-        body: {
-          pairingCode: ctx.pairingCode,
-          code: ctx.code,
-          count: ctx.count,
-          orgName: ctx.orgName,
-          orgId: ctx.orgId,
-          companyId: ctx.companyId,
-        },
+        body: {},
       });
 
       if (error || !data?.qrCode) return false;
 
+      if (data.connected) {
+        setQrCode(null);
+        stopRefresh();
+        stopStatusPolling();
+        isActiveRef.current = false;
+        queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
+        return false;
+      }
+
       setQrCode(data.qrCode);
-      if (data.code) ctx.code = data.code;
-      if (data.pairingCode) ctx.pairingCode = data.pairingCode;
-      if (Number.isFinite(Number(data.count))) ctx.count = Number(data.count);
       return true;
     } catch {
       return false;
     }
-  }, []);
+  }, [stopRefresh, stopStatusPolling, queryClient]);
 
   const startQrRefresh = useCallback(() => {
     stopRefresh();
@@ -161,45 +159,28 @@ export function WhatsAppIntegrationCard() {
         setQrCode(null);
         stopRefresh();
         stopStatusPolling();
-        activationCtxRef.current = null;
+        isActiveRef.current = false;
         await queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
         toast.success("WhatsApp já está conectado!");
         return;
       }
 
-      const payload = data?.payload;
-      const hasActivationContext = Boolean(payload?.orgName && payload?.orgId && payload?.companyId);
-
-      activationCtxRef.current = hasActivationContext
-        ? {
-            pairingCode: data.pairingCode ?? null,
-            code: data.code ?? null,
-            count: Number.isFinite(Number(data.count)) ? Number(data.count) : 1,
-            orgName: payload.orgName,
-            orgId: payload.orgId,
-            companyId: payload.companyId,
-          }
-        : null;
-
-      if (activationCtxRef.current) {
-        startQrRefresh();
-        startStatusPolling();
-      }
+      isActiveRef.current = true;
+      startQrRefresh();
+      startStatusPolling();
 
       await queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
 
       if (data?.qrCode) {
         setQrCode(data.qrCode);
         toast.success("QR Code gerado! Escaneie com o WhatsApp.");
-      } else if (activationCtxRef.current) {
+      } else {
         const refreshedNow = await requestQrRefresh();
         if (refreshedNow) {
           toast.success("QR Code gerado! Escaneie com o WhatsApp.");
         } else {
           toast.success("Ativação enviada! Buscando QR Code automaticamente.");
         }
-      } else {
-        toast.info("Ativação enviada, mas sem contexto para buscar o QR Code.");
       }
     } catch (err: any) {
       toastError("Erro ao ativar WhatsApp", err instanceof Error ? err : new Error(String(err?.message || err)), { module: "WhatsAppIntegrationCard" });
@@ -215,7 +196,7 @@ export function WhatsAppIntegrationCard() {
         setQrCode(null);
         stopRefresh();
         stopStatusPolling();
-        activationCtxRef.current = null;
+        isActiveRef.current = false;
         return;
       }
       if (result?.qr_code) {
@@ -358,7 +339,7 @@ export function WhatsAppIntegrationCard() {
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => { deleteInstance(); setQrCode(null); stopRefresh(); stopStatusPolling(); activationCtxRef.current = null; }} disabled={isDeleting}>
+                        <AlertDialogAction onClick={() => { deleteInstance(); setQrCode(null); stopRefresh(); stopStatusPolling(); isActiveRef.current = false; }} disabled={isDeleting}>
                           {isDeleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                           Remover
                         </AlertDialogAction>
