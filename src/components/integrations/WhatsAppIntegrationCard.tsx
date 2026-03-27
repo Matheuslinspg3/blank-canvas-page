@@ -69,6 +69,36 @@ export function WhatsAppIntegrationCard() {
   // Cleanup on unmount
   useEffect(() => () => { stopRefresh(); stopStatusPolling(); }, [stopRefresh, stopStatusPolling]);
 
+  // Auto-check status on mount when instance exists but is not connected
+  const hasAutoCheckedRef = useRef(false);
+  useEffect(() => {
+    if (hasAutoCheckedRef.current) return;
+    if (isLoading || !instance) return;
+
+    hasAutoCheckedRef.current = true;
+
+    // If already connected in DB, just make sure UI is synced
+    if (instance.status === "connected") {
+      setQrCode(null);
+      return;
+    }
+
+    // Instance exists but not connected — check status once
+    checkStatus()
+      .then((result) => {
+        if (result?.status === "connected") {
+          setQrCode(null);
+          stopRefresh();
+          stopStatusPolling();
+          activationCtxRef.current = null;
+          queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
+        } else if (result?.qr_code) {
+          setQrCode(result.qr_code);
+        }
+      })
+      .catch(() => {});
+  }, [isLoading, instance, checkStatus, stopRefresh, stopStatusPolling, queryClient]);
+
   const startStatusPolling = useCallback(() => {
     stopStatusPolling();
     statusPollingRef.current = setInterval(async () => {
