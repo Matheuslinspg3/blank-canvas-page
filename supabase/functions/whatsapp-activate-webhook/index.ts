@@ -37,6 +37,13 @@ Deno.serve(async (req) => {
       throw new Error("EVOLUTION_API_URL ou EVOLUTION_API_GLOBAL_KEY não configurados");
     }
 
+    console.log("Evolution config:", {
+      url: EVOLUTION_API_URL,
+      keyLength: EVOLUTION_API_KEY.length,
+      keyPrefix: EVOLUTION_API_KEY.substring(0, 6),
+      keySuffix: EVOLUTION_API_KEY.substring(EVOLUTION_API_KEY.length - 4),
+    });
+
     const { user, error: authError } = await getAuthenticatedUser(req);
     if (authError || !user) {
       return new Response(JSON.stringify({ error: authError ?? "Não autenticado" }), {
