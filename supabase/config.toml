@@ -119,3 +119,6 @@ verify_jwt = false
 
 [functions.fix-leads]
 verify_jwt = false
+
+[functions.whatsapp-webhook-config]
+verify_jwt = false
