@@ -36,6 +36,7 @@ export function WhatsAppIntegrationCard() {
     isDisconnecting,
     isDeleting,
   } = useWhatsAppInstance();
+  const queryClient = useQueryClient();
 
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isActivating, setIsActivating] = useState(false);
