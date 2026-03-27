@@ -90,15 +90,30 @@ const pickFirstObject = (candidates: unknown[]): Record<string, any> | null => {
 };
 
 const extractInstanceSnapshot = (webhookData: any) => {
-  const root = Array.isArray(webhookData) ? webhookData[0] : webhookData;
+  // Unwrap arrays at every level: [[{success,data:[{...}]}]]
+  let root = webhookData;
+  for (let i = 0; i < 3; i++) {
+    if (Array.isArray(root) && root.length > 0) root = root[0];
+    else break;
+  }
   if (!root || typeof root !== "object") return null;
 
-  const instanceObj = pickFirstObject([
-    root?.data,
-    root?.data?.instance,
-    root?.instance,
-    root,
-  ]);
+  // root = {success:true, data:[{...instanceObj}]}
+  // or root = {...instanceObj} directly
+  let instanceObj: Record<string, any> | null = null;
+
+  // Try root.data (may be array or object)
+  const dataField = root?.data;
+  if (Array.isArray(dataField) && dataField.length > 0) {
+    instanceObj = dataField[0];
+  } else if (dataField && typeof dataField === "object" && !Array.isArray(dataField)) {
+    instanceObj = dataField;
+  }
+
+  // Fallback: root itself might be the instance
+  if (!instanceObj?.connectionStatus && !instanceObj?.token && root?.connectionStatus) {
+    instanceObj = root;
+  }
 
   if (!instanceObj) return null;
 
@@ -106,40 +121,33 @@ const extractInstanceSnapshot = (webhookData: any) => {
     instanceObj?.connectionStatus,
     instanceObj?.status,
     instanceObj?.state,
-    instanceObj?.instance?.connectionStatus,
-    instanceObj?.instance?.status,
-    instanceObj?.instance?.state,
   ]
     .map(asLowerText)
     .join(" ");
 
   const connected =
     instanceObj?.connected === true ||
-    instanceObj?.instance?.connected === true ||
     /open|connected|ready|online|authorized/.test(statusText);
 
-  const phoneNumber =
+  // Extract phone from ownerJid like "556284459171@s.whatsapp.net"
+  let phoneNumber =
     instanceObj?.number ??
     instanceObj?.phone ??
     instanceObj?.phoneNumber ??
-    instanceObj?.ownerJid ??
-    instanceObj?.instance?.number ??
-    instanceObj?.instance?.phone ??
-    instanceObj?.instance?.phoneNumber ??
     null;
+
+  if (!phoneNumber && typeof instanceObj?.ownerJid === "string") {
+    phoneNumber = instanceObj.ownerJid.split("@")[0] || null;
+  }
 
   const instanceName =
     instanceObj?.name ??
     instanceObj?.instanceName ??
-    instanceObj?.instance?.name ??
-    instanceObj?.instance?.instanceName ??
     null;
 
   const instanceToken =
     instanceObj?.token ??
     instanceObj?.apikey ??
-    instanceObj?.instance?.token ??
-    instanceObj?.instance?.apikey ??
     null;
 
   return {
