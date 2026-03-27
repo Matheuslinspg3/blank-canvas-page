@@ -259,9 +259,35 @@ serve(async (req) => {
         headers: { token: instance.instance_token },
       });
 
-      const uazapiData = await uazapiRes.json();
+      const rawStatusBody = await uazapiRes.text();
+      let uazapiData: any = null;
+      try {
+        uazapiData = rawStatusBody ? JSON.parse(rawStatusBody) : {};
+      } catch {
+        uazapiData = { raw: rawStatusBody };
+      }
+
       if (!uazapiRes.ok) {
-        throw new Error(`Uazapi status error [${uazapiRes.status}]: ${JSON.stringify(uazapiData)}`);
+        const isInvalidToken = uazapiRes.status === 401 || /invalid token/i.test(String(uazapiData?.message ?? rawStatusBody));
+
+        if (isInvalidToken) {
+          console.warn("whatsapp-instance status invalid token, using DB fallback", {
+            instance_id: instance.id,
+            instance_name: instance.instance_name,
+            token_last4: String(instance.instance_token || "").slice(-4),
+          });
+
+          return new Response(JSON.stringify({
+            status: instance.status || "disconnected",
+            phone: instance.phone_number || null,
+            qr_code: instance.qr_code || null,
+            warning: "UAZAPI_TOKEN_INVALID",
+          }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        throw new Error(`Uazapi status error [${uazapiRes.status}]: ${safeJsonForError(uazapiData)}`);
       }
 
       const rawQr = extractQrCode(uazapiData);
