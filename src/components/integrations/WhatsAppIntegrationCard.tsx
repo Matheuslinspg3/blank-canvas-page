@@ -221,6 +221,12 @@ export function WhatsAppIntegrationCard() {
 
   const handleConnect = async () => {
     try {
+      // If instance exists locally but without token, re-run activation sync first
+      if (instance && !instance.instance_token) {
+        await handleActivate();
+        return;
+      }
+
       const result = await connectInstance();
       if (result?.qr_code) {
         setQrCode(result.qr_code);
