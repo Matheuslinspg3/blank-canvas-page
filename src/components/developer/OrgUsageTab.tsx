@@ -43,9 +43,13 @@ export function OrgUsageTab() {
     queryKey: ["dev-org-usage"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("admin_get_org_usage");
-      if (error) throw error;
+      if (error) {
+        console.warn("[OrgUsageTab] admin_get_org_usage failed:", error.message);
+        return [];
+      }
       return (data as unknown as OrgUsage[]) || [];
     },
+    retry: false,
   });
 
   const totalStorageBytes = orgUsage.reduce((sum, o) => sum + (o.storage_bytes || 0), 0);
