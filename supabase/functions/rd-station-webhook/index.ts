@@ -56,6 +56,11 @@ Deno.serve(async (req) => {
 
     // RD Station Marketing webhook payload structure
     // https://developers.rdstation.com/reference/webhooks
+    // The conversion identifier / event name lives at the ROOT of the payload,
+    // not inside each lead object.
+    const topLevelEventId = payload.event_identifier || payload.conversion_identifier || null;
+    const topLevelEventType = payload.event_type || null;
+
     const leads = payload.leads || [payload];
 
     const results: any[] = [];
@@ -138,7 +143,8 @@ Deno.serve(async (req) => {
           const propertyId = await matchProperty(supabase, orgId, leadData);
 
           // Extract conversion identifier and traffic source
-          const conversionId = extractConversionIdentifier(leadData);
+          // Prefer lead-level data, fall back to top-level event identifier
+          const conversionId = extractConversionIdentifier(leadData) || topLevelEventId;
           const trafficSource = leadData.traffic_source || 
             leadData.first_conversion?.content?.source || 
             leadData.first_conversion?.source || null;
@@ -153,9 +159,9 @@ Deno.serve(async (req) => {
               source,
               lead_stage_id: settings.default_stage_id,
               created_by: adminProfile.user_id,
-              external_id: leadData.id?.toString() || null,
+              external_id: leadData.id?.toString() || leadData.rd_uuid || null,
               external_source: "rdstation",
-              notes: buildNotes(leadData),
+              notes: buildNotes(leadData, topLevelEventId, topLevelEventType),
               property_id: propertyId,
               conversion_identifier: conversionId,
               traffic_source: trafficSource,
@@ -216,11 +222,11 @@ Deno.serve(async (req) => {
         results.push({ status: "error", error: errorMessage });
       }
 
-      // Log webhook
+      // Log webhook — store FULL payload so we can debug conversion data
       await supabase.from("rd_station_webhook_logs").insert({
         organization_id: orgId,
-        event_type: payload.event_type || "conversion",
-        payload: leadData,
+        event_type: topLevelEventType || payload.event_type || "conversion",
+        payload: payload,
         lead_id: leadId,
         status,
         error_message: errorMessage,
@@ -336,7 +342,7 @@ async function matchProperty(
   }
 }
 
-function buildNotes(data: Record<string, any>): string {
+function buildNotes(data: Record<string, any>, topLevelEventId?: string | null, topLevelEventType?: string | null): string {
   const ignore = new Set([
     "id", "name", "nome", "email", "phone", "telefone",
     "personal_phone", "mobile_phone", "personal_email",
@@ -345,7 +351,15 @@ function buildNotes(data: Record<string, any>): string {
   ]);
   const lines: string[] = [];
 
-  // Extract conversion events
+  // Top-level event identifier (the form/landing page name from the webhook root)
+  if (topLevelEventId) {
+    lines.push(`Anúncio/Formulário: ${topLevelEventId}`);
+  }
+  if (topLevelEventType && topLevelEventType !== "CONVERSION") {
+    lines.push(`Tipo de evento: ${topLevelEventType}`);
+  }
+
+  // Extract conversion events from lead-level data
   if (data.first_conversion && typeof data.first_conversion === "object") {
     const fc = data.first_conversion;
     const fcContent = fc.content || fc;
@@ -357,7 +371,6 @@ function buildNotes(data: Record<string, any>): string {
     const lc = data.last_conversion;
     const lcContent = lc.content || lc;
     const lcId = lcContent.identifier || lcContent.conversion_identifier || JSON.stringify(lcContent);
-    // Avoid duplicating if same as first
     const fcId = data.first_conversion?.content?.identifier || data.first_conversion?.conversion_identifier;
     if (lcId !== fcId) {
       lines.push(`Última conversão: ${lcId}`);
@@ -386,10 +399,13 @@ function buildNotes(data: Record<string, any>): string {
   if (data.state) lines.push(`Estado: ${data.state}`);
   if (data.tags && Array.isArray(data.tags) && data.tags.length > 0) lines.push(`Tags: ${data.tags.join(", ")}`);
 
+  // RD UUID for reference
+  if (data.rd_uuid) lines.push(`RD UUID: ${data.rd_uuid}`);
+
   // Remaining simple fields
   const handled = new Set([
     ...ignore, "first_conversion", "last_conversion", "custom_fields", "lead_stage",
-    "number_conversions", "public_url", "uuid", "opportunity", "company",
+    "number_conversions", "public_url", "uuid", "rd_uuid", "opportunity", "company",
     "job_title", "city", "state", "tags", "created_at",
   ]);
   for (const [key, value] of Object.entries(data)) {
@@ -399,5 +415,5 @@ function buildNotes(data: Record<string, any>): string {
 
   return lines.length > 0
     ? `[RD Station]\n${lines.join("\n")}`
-    : "[Importado via RD Station]";
+    : "[RD Station] Lead recebido via webhook";
 }
