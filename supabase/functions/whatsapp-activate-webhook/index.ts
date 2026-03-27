@@ -171,7 +171,7 @@ Deno.serve(async (req) => {
     } else {
       await sb.from("whatsapp_instances").insert({
         organization_id: orgId,
-        instance_name: `${orgSlug}-${today}-${org.id}`,
+        instance_name: `${orgSlug}-${org.id}`,
         status: "provisioning",
       });
     }
