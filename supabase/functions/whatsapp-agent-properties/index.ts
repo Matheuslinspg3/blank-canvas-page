@@ -19,10 +19,10 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { organization_id, filters } = body;
+    const { organization_id, instance_name, filters } = body;
 
-    if (!organization_id) {
-      return new Response(JSON.stringify({ error: "organization_id obrigatório" }), {
+    if (!organization_id && !instance_name) {
+      return new Response(JSON.stringify({ error: "organization_id ou instance_name obrigatório" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -30,11 +30,28 @@ serve(async (req) => {
 
     const sb = createServiceClient();
 
+    // Resolve org ID from instance_name if needed
+    let resolvedOrgId = organization_id;
+    if (!resolvedOrgId && instance_name) {
+      const { data: inst } = await sb
+        .from("whatsapp_instances")
+        .select("organization_id")
+        .eq("instance_name", instance_name)
+        .maybeSingle();
+      if (!inst) {
+        return new Response(JSON.stringify({ error: "Instância não encontrada" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      resolvedOrgId = inst.organization_id;
+    }
+
     // Validate organization exists
     const { data: org } = await sb
       .from("organizations")
       .select("id")
-      .eq("id", organization_id)
+      .eq("id", resolvedOrgId)
       .maybeSingle();
 
     if (!org) {
@@ -44,11 +61,13 @@ serve(async (req) => {
       });
     }
 
+    const organization_id_resolved = resolvedOrgId;
+
     // Check if property DB is enabled
     const { data: config } = await sb
       .from("whatsapp_agent_config")
       .select("is_property_db_enabled")
-      .eq("organization_id", organization_id)
+      .eq("organization_id", organization_id_resolved)
       .maybeSingle();
 
     if (!config?.is_property_db_enabled) {
@@ -61,7 +80,7 @@ serve(async (req) => {
     const { data: rules = [] } = await sb
       .from("whatsapp_property_rules")
       .select("property_id, rule_type")
-      .eq("organization_id", organization_id);
+      .eq("organization_id", organization_id_resolved);
 
     const blacklistIds = new Set(rules.filter((r: any) => r.rule_type === "blacklist").map((r: any) => r.property_id));
     const whitelistIds = new Set(rules.filter((r: any) => r.rule_type === "whitelist").map((r: any) => r.property_id));
@@ -71,7 +90,7 @@ serve(async (req) => {
     let query = sb
       .from("properties")
       .select("id, title, property_code, status, transaction_type, sale_price, rent_price, bedrooms, bathrooms, area_total, address_city, address_neighborhood, address_state, property_type_id")
-      .eq("organization_id", organization_id)
+      .eq("organization_id", organization_id_resolved)
       .eq("status", "disponivel");
 
     if (filters?.bedrooms) query = query.gte("bedrooms", filters.bedrooms);

@@ -19,10 +19,10 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { organization_id } = body;
+    const { organization_id, instance_name } = body;
 
-    if (!organization_id) {
-      return new Response(JSON.stringify({ error: "organization_id obrigatório" }), {
+    if (!organization_id && !instance_name) {
+      return new Response(JSON.stringify({ error: "organization_id ou instance_name obrigatório" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -30,11 +30,28 @@ serve(async (req) => {
 
     const sb = createServiceClient();
 
+    // Resolve org ID from instance_name if needed
+    let resolvedOrgId = organization_id;
+    if (!resolvedOrgId && instance_name) {
+      const { data: inst } = await sb
+        .from("whatsapp_instances")
+        .select("organization_id")
+        .eq("instance_name", instance_name)
+        .maybeSingle();
+      if (!inst) {
+        return new Response(JSON.stringify({ error: "Instância não encontrada" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      resolvedOrgId = inst.organization_id;
+    }
+
     // Validate organization exists
     const { data: org } = await sb
       .from("organizations")
       .select("id")
-      .eq("id", organization_id)
+      .eq("id", resolvedOrgId)
       .maybeSingle();
 
     if (!org) {
@@ -44,10 +61,12 @@ serve(async (req) => {
       });
     }
 
+    const organization_id_resolved = resolvedOrgId;
+
     const { data: config, error } = await sb
       .from("whatsapp_agent_config")
       .select("*")
-      .eq("organization_id", organization_id)
+      .eq("organization_id", organization_id_resolved)
       .maybeSingle();
 
     if (error) throw error;

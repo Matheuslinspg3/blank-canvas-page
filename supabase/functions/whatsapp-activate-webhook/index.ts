@@ -9,6 +9,7 @@ const corsHeaders = {
 const N8N_BASE = "https://n8n.costazul.shop/webhook";
 const N8N_CRIAR = `${N8N_BASE}/autouazapiagenteiavalent`;
 const N8N_QR_CODE = `${N8N_BASE}/autouazapiagenteiavalentQR-CODE`;
+const N8N_UNIFIED_WEBHOOK = `${N8N_BASE}/whatsapp-unified`;
 
 const auditLog = async (
   sb: any,
@@ -155,8 +156,11 @@ Deno.serve(async (req) => {
     const n8nPayload = {
       orgName: orgSlug,
       orgId: org.id,
-      date: today,
       companyId: org.id,
+      // Instance configuration for Evolution API
+      webhookUrl: N8N_UNIFIED_WEBHOOK,
+      groupsIgnore: true,
+      syncFullHistory: true,
     };
 
     console.log("Calling N8N CRIAR webhook:", JSON.stringify(n8nPayload));
@@ -167,7 +171,7 @@ Deno.serve(async (req) => {
     } else {
       await sb.from("whatsapp_instances").insert({
         organization_id: orgId,
-        instance_name: `${orgSlug}-${today}-${org.id}`,
+        instance_name: `${orgSlug}-${org.id}`,
         status: "provisioning",
       });
     }
