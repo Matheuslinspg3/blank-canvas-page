@@ -72,25 +72,7 @@ const parseWebhookResponse = (rawText: string): any | null => {
   return candidate;
 };
 
-const pickFirstObject = (candidates: unknown[]): Record<string, any> | null => {
-  for (const candidate of candidates) {
-    if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
-      return candidate as Record<string, any>;
-    }
-
-    if (Array.isArray(candidate) && candidate.length > 0) {
-      const first = candidate[0];
-      if (first && typeof first === "object" && !Array.isArray(first)) {
-        return first as Record<string, any>;
-      }
-    }
-  }
-
-  return null;
-};
-
 const extractInstanceSnapshot = (webhookData: any) => {
-  // Unwrap arrays at every level: [[{success,data:[{...}]}]]
   let root = webhookData;
   for (let i = 0; i < 3; i++) {
     if (Array.isArray(root) && root.length > 0) root = root[0];
@@ -98,11 +80,8 @@ const extractInstanceSnapshot = (webhookData: any) => {
   }
   if (!root || typeof root !== "object") return null;
 
-  // root = {success:true, data:[{...instanceObj}]}
-  // or root = {...instanceObj} directly
   let instanceObj: Record<string, any> | null = null;
 
-  // Try root.data (may be array or object)
   const dataField = root?.data;
   if (Array.isArray(dataField) && dataField.length > 0) {
     instanceObj = dataField[0];
@@ -110,7 +89,6 @@ const extractInstanceSnapshot = (webhookData: any) => {
     instanceObj = dataField;
   }
 
-  // Fallback: root itself might be the instance
   if (!instanceObj?.connectionStatus && !instanceObj?.token && root?.connectionStatus) {
     instanceObj = root;
   }
@@ -129,7 +107,6 @@ const extractInstanceSnapshot = (webhookData: any) => {
     instanceObj?.connected === true ||
     /open|connected|ready|online|authorized/.test(statusText);
 
-  // Extract phone from ownerJid like "556284459171@s.whatsapp.net"
   let phoneNumber =
     instanceObj?.number ??
     instanceObj?.phone ??
@@ -209,6 +186,26 @@ const extractWebhookFields = (rawText: string, webhookData: any) => {
   };
 };
 
+// Audit helper
+const auditLog = async (
+  sb: any,
+  orgId: string,
+  action: string,
+  actorId: string | null,
+  details: Record<string, any> = {},
+) => {
+  try {
+    await sb.from("whatsapp_audit_log").insert({
+      organization_id: orgId,
+      action,
+      actor_id: actorId,
+      details,
+    });
+  } catch (e) {
+    console.warn("Failed to write audit log:", e);
+  }
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -275,7 +272,38 @@ Deno.serve(async (req) => {
       .eq("organization_id", orgId)
       .maybeSingle();
 
+    // Idempotency: if already connected, return current state without calling N8N
+    if (existingInstance?.status === "connected" && existingInstance?.instance_token) {
+      await auditLog(sb, orgId, "activate_idempotent", user.id, { reason: "already_connected" });
+      return new Response(JSON.stringify({
+        success: true,
+        webhookStatus: "skipped",
+        payload,
+        qrCode: null,
+        pairingCode: null,
+        code: null,
+        count: 0,
+        connected: true,
+        status: "connected",
+        instanceCreated: false,
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     console.log("Sending webhook:", JSON.stringify(payload), "existing:", existingInstance?.id ?? "none");
+
+    // Set status to provisioning immediately
+    if (existingInstance?.id) {
+      await sb.from("whatsapp_instances").update({ status: "provisioning" }).eq("id", existingInstance.id);
+    } else {
+      await sb.from("whatsapp_instances").insert({
+        organization_id: orgId,
+        instance_name: `${orgName}-instance`,
+        status: "provisioning",
+      });
+    }
 
     let webhookData: any = null;
     let webhookStatus = "sent";
@@ -305,12 +333,16 @@ Deno.serve(async (req) => {
     }
 
     const snapshot = extractInstanceSnapshot(webhookData);
-    const normalizedCurrentStatus = asLowerText(existingInstance?.status);
-    const nextStatus = snapshot?.connected
-      ? "connected"
-      : normalizedCurrentStatus === "connected"
-        ? "connected"
-        : "disconnected";
+
+    // Machine state: provisioning → connecting (got QR/token) or connected (already open)
+    let nextStatus: string;
+    if (snapshot?.connected) {
+      nextStatus = "connected";
+    } else if (snapshot?.instanceToken || webhookData) {
+      nextStatus = "connecting";
+    } else {
+      nextStatus = "provisioning"; // N8N didn't respond yet
+    }
 
     const nextInstanceName =
       snapshot?.instanceName ?? existingInstance?.instance_name ?? `${orgName}-instance`;
@@ -326,31 +358,35 @@ Deno.serve(async (req) => {
     if (nextPhone) persistPayload.phone_number = nextPhone;
     if (nextStatus === "connected") persistPayload.qr_code = null;
 
-    if (existingInstance?.id) {
-      const { error: updateErr } = await sb
-        .from("whatsapp_instances")
-        .update(persistPayload)
-        .eq("id", existingInstance.id);
+    // Re-fetch to get the ID (may have been just created)
+    const { data: currentInstance } = await sb
+      .from("whatsapp_instances")
+      .select("id")
+      .eq("organization_id", orgId)
+      .maybeSingle();
 
-      if (updateErr) {
-        console.warn("Failed to update local instance record:", updateErr.message);
-      }
-    } else {
-      const { error: insertErr } = await sb
-        .from("whatsapp_instances")
-        .insert({ organization_id: orgId, ...persistPayload });
-
-      if (insertErr) {
-        console.warn("Failed to create local instance record:", insertErr.message);
-      } else {
-        console.log("Created local instance record:", nextInstanceName);
-      }
+    if (currentInstance?.id) {
+      await sb.from("whatsapp_instances").update(persistPayload).eq("id", currentInstance.id);
     }
 
     const { qrBase64, pairingCode, code, count } = extractWebhookFields(
       webhookTextRaw,
       webhookData,
     );
+
+    // Save QR to DB if available
+    if (qrBase64 && currentInstance?.id) {
+      await sb.from("whatsapp_instances").update({ qr_code: qrBase64 }).eq("id", currentInstance.id);
+    }
+
+    // Audit log
+    await auditLog(sb, orgId, "activate", user.id, {
+      webhookStatus,
+      nextStatus,
+      hasToken: !!nextToken,
+      hasQr: !!qrBase64,
+      isReconnection: !!existingInstance,
+    });
 
     return new Response(JSON.stringify({
       success: true,

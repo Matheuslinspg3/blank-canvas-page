@@ -13,6 +13,25 @@ const safeJsonForError = (payload: unknown, max = 1500) => {
   return raw.length > max ? `${raw.slice(0, max)}...` : raw;
 };
 
+const auditLog = async (
+  sb: any,
+  orgId: string,
+  action: string,
+  actorId: string | null,
+  details: Record<string, any> = {},
+) => {
+  try {
+    await sb.from("whatsapp_audit_log").insert({
+      organization_id: orgId,
+      action,
+      actor_id: actorId,
+      details,
+    });
+  } catch (e) {
+    console.warn("Failed to write audit log:", e);
+  }
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -149,6 +168,8 @@ serve(async (req) => {
         .update(updatePayload)
         .eq("id", instance.id);
 
+      await auditLog(supabaseClient, orgId, "status_check", user.id, { newStatus });
+
       return new Response(JSON.stringify({
         status: newStatus,
         phone: updatePayload.phone_number || instance.phone_number,
@@ -189,6 +210,8 @@ serve(async (req) => {
         .update({ status: "disconnected", qr_code: null })
         .eq("id", instance.id);
 
+      await auditLog(supabaseClient, orgId, "disconnect", user.id);
+
       return new Response(JSON.stringify({ status: "disconnected" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -224,6 +247,8 @@ serve(async (req) => {
         .from("whatsapp_instances")
         .delete()
         .eq("id", instance.id);
+
+      await auditLog(supabaseClient, orgId, "delete", user.id, { instanceName: instance.instance_name });
 
       return new Response(JSON.stringify({ deleted: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
