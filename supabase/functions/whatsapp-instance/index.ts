@@ -69,6 +69,8 @@ serve(async (req) => {
 
     const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
 
+    const N8N_VERIFICA = "https://n8n.costazul.shop/webhook/autouazapiagenteiavalentpolling";
+
     // ── STATUS ──
     if (action === "status") {
       const { data: instance } = await supabaseClient
@@ -83,8 +85,8 @@ serve(async (req) => {
         });
       }
 
-      // If no token, return DB status directly
-      if (!instance.instance_token) {
+      // If no instance_name, return DB status
+      if (!instance.instance_name) {
         return new Response(JSON.stringify({
           status: instance.status || "disconnected",
           phone: instance.phone_number || null,
@@ -94,74 +96,50 @@ serve(async (req) => {
         });
       }
 
-      // GET /instance/connectionState/{instanceName} — Evolution API v2
-      const uazapiRes = await fetch(`${baseUrl}/instance/connectionState/${instance.instance_name}`, {
-        method: "GET",
-        headers: { apikey: EVOLUTION_API_KEY },
-      });
+      // Try N8N VERIFICA webhook first, fallback to Evolution API
+      let newStatus = "disconnected";
+      let phone = instance.phone_number || null;
 
-      const rawStatusBody = await uazapiRes.text();
-      let uazapiData: any = null;
       try {
-        uazapiData = rawStatusBody ? JSON.parse(rawStatusBody) : {};
-      } catch {
-        uazapiData = { raw: rawStatusBody };
-      }
+        const verificaRes = await fetch(N8N_VERIFICA, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ instanceName: instance.instance_name }),
+        });
 
-      if (!uazapiRes.ok) {
-        const isInvalidToken = uazapiRes.status === 401 || /invalid token/i.test(String(uazapiData?.message ?? rawStatusBody));
+        const verificaRaw = await verificaRes.text();
+        console.log("N8N VERIFICA response:", verificaRes.status, verificaRaw.substring(0, 300));
 
-        if (isInvalidToken) {
-          console.warn("whatsapp-instance status: invalid token, returning DB fallback", {
-            instance_id: instance.id,
-            token_last4: String(instance.instance_token || "").slice(-4),
-          });
-
-          return new Response(JSON.stringify({
-            status: instance.status || "disconnected",
-            phone: instance.phone_number || null,
-            qr_code: instance.qr_code || null,
-            warning: "EVOLUTION_TOKEN_INVALID",
-          }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+        if (verificaRes.ok) {
+          const statusText = asLowerText(verificaRaw);
+          if (/open|connected|online|ready/.test(statusText) && !/disconnected|closed/.test(statusText)) {
+            newStatus = "connected";
+          }
         }
+      } catch (e) {
+        console.warn("N8N VERIFICA failed, trying Evolution API:", e);
 
-        throw new Error(`Evolution status error [${uazapiRes.status}]: ${safeJsonForError(uazapiData)}`);
+        // Fallback: direct Evolution API
+        if (instance.instance_token) {
+          try {
+            const evoRes = await fetch(`${baseUrl}/instance/connectionState/${instance.instance_name}`, {
+              method: "GET",
+              headers: { apikey: EVOLUTION_API_KEY },
+            });
+            const evoData = await evoRes.json().catch(() => ({}));
+            const evoStatus = asLowerText(evoData?.state ?? evoData?.instance?.state ?? "");
+            if (/open|connected/.test(evoStatus)) {
+              newStatus = "connected";
+            }
+            phone = evoData?.phone || evoData?.data?.phone || phone;
+          } catch { /* ignore */ }
+        }
       }
-
-      const statusText = [
-        uazapiData?.status,
-        uazapiData?.state,
-        uazapiData?.connectionStatus,
-        uazapiData?.session?.status,
-        uazapiData?.instance?.status,
-        uazapiData?.instance?.state,
-        uazapiData?.data?.status,
-        uazapiData?.data?.state,
-      ]
-        .map(asLowerText)
-        .join(" ");
-
-      const hasConnectedFlag = [
-        uazapiData?.connected,
-        uazapiData?.isConnected,
-        uazapiData?.instance?.connected,
-        uazapiData?.data?.connected,
-      ].some((value) => value === true || asLowerText(value) === "true");
-
-      const isConnectedByStatus =
-        /connected|authorized|open|online|ready|working/.test(statusText) &&
-        !/disconnected|disconnect|notauthorized|offline|closed/.test(statusText);
-
-      const newStatus = hasConnectedFlag || isConnectedByStatus
-        ? "connected"
-        : "disconnected";
 
       const updatePayload: Record<string, any> = { status: newStatus };
       if (newStatus === "connected") {
         updatePayload.qr_code = null;
-        updatePayload.phone_number = uazapiData.phone || uazapiData.phoneNumber || uazapiData.data?.phone || instance.phone_number;
+        if (phone) updatePayload.phone_number = phone;
       }
 
       await supabaseClient
@@ -173,7 +151,7 @@ serve(async (req) => {
 
       return new Response(JSON.stringify({
         status: newStatus,
-        phone: updatePayload.phone_number || instance.phone_number,
+        phone: phone,
         qr_code: newStatus === "connected" ? null : instance.qr_code ?? null,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
