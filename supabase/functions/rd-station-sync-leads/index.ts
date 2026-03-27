@@ -900,11 +900,20 @@ async function importContactEvents(
   apiHeaders: Record<string, string>
 ): Promise<void> {
   try {
-    const res = await fetchWithTimeout(
-      `https://api.rd.services/platform/contacts/${uuid}/events`,
+    // Try with page params to avoid 400 errors
+    let res = await fetchWithTimeout(
+      `https://api.rd.services/platform/contacts/${uuid}/events?page=1&page_size=50`,
       apiHeaders,
       10000
     );
+    // Fallback without query params if 400
+    if (res.status === 400) {
+      res = await fetchWithTimeout(
+        `https://api.rd.services/platform/contacts/${uuid}/events`,
+        apiHeaders,
+        10000
+      );
+    }
     if (!res.ok) {
       console.log(`[events] Failed for ${uuid}: ${res.status}`);
       return;
@@ -913,6 +922,30 @@ async function importContactEvents(
     const events = Array.isArray(data?.events) ? data.events : (Array.isArray(data) ? data : []);
 
     if (events.length === 0) return;
+
+    // ── Update lead's conversion_identifier and traffic_source from events ──
+    const conversionEvent = events.find((e: any) => (e.event_type || e.type) === "CONVERSION");
+    if (conversionEvent) {
+      const updateData: Record<string, any> = {};
+      const convId = conversionEvent.event_identifier || conversionEvent.conversion_identifier;
+      const tSrc = conversionEvent.event_source;
+      
+      // Only update if the lead is missing these fields
+      const { data: currentLead } = await supabase
+        .from("leads")
+        .select("conversion_identifier, traffic_source")
+        .eq("id", leadId)
+        .single();
+      
+      if (currentLead) {
+        if (!currentLead.conversion_identifier && convId) updateData.conversion_identifier = convId;
+        if (!currentLead.traffic_source && tSrc) updateData.traffic_source = tSrc;
+        if (Object.keys(updateData).length > 0) {
+          await supabase.from("leads").update(updateData).eq("id", leadId);
+          console.log(`[events] Updated lead ${leadId} with conversion data: ${JSON.stringify(updateData)}`);
+        }
+      }
+    }
 
     const interactionTypeMap: Record<string, string> = {
       "CONVERSION": "nota",
