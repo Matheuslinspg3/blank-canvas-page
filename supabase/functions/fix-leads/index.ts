@@ -80,7 +80,6 @@ Deno.serve(async (req) => {
     let enriched = 0;
 
     // ── STEP 1: Enrich RD Station leads via API ──
-    // Get RD Station OAuth token for this org
     let rdAccessToken: string | null = null;
     if (source === "rdstation" || source === "all" || !source) {
       const { data: rdSettings } = await supabase
@@ -93,7 +92,6 @@ Deno.serve(async (req) => {
       if (rdSettings?.oauth_access_token) {
         rdAccessToken = rdSettings.oauth_access_token;
 
-        // Refresh if expired
         if (rdSettings.oauth_token_expires_at && new Date(rdSettings.oauth_token_expires_at) < new Date()) {
           const refreshed = await refreshRDToken(supabase, rdSettings, orgId);
           if (refreshed) rdAccessToken = refreshed;
@@ -114,57 +112,75 @@ Deno.serve(async (req) => {
 
       for (const lead of rdLeads) {
         try {
+          // Fetch basic contact data
           const contact = await fetchRDContact(lead.external_id!, rdAccessToken);
-          if (!contact) continue;
+
+          // Fetch conversion events (the key data source for conversion_identifier)
+          const events = await fetchRDContactEvents(lead.external_id!, rdAccessToken);
 
           const updateData: Record<string, any> = {};
 
-          // Fill conversion_identifier
+          // Fill conversion_identifier — prefer events endpoint (has the real data)
           if (!lead.conversion_identifier) {
-            const convId = extractConversionIdentifier(contact);
+            let convId: string | null = null;
+            if (events.length > 0) {
+              const conversionEvent = events.find((e: any) => (e.event_type || e.type) === "CONVERSION");
+              if (conversionEvent) {
+                convId = conversionEvent.event_identifier || conversionEvent.conversion_identifier || null;
+              }
+            }
+            if (!convId && contact) {
+              convId = extractConversionIdentifier(contact);
+            }
             if (convId) updateData.conversion_identifier = convId;
           }
 
-          // Fill traffic_source
+          // Fill traffic_source — prefer events endpoint
           if (!lead.traffic_source) {
-            const tSrc = extractTrafficSource(contact);
+            let tSrc: string | null = null;
+            if (events.length > 0) {
+              const conversionEvent = events.find((e: any) => (e.event_type || e.type) === "CONVERSION");
+              if (conversionEvent?.event_source) {
+                tSrc = conversionEvent.event_source;
+              }
+            }
+            if (!tSrc && contact) {
+              tSrc = extractTrafficSource(contact);
+            }
             if (tSrc) updateData.traffic_source = tSrc;
           }
 
-          // Fill phone
-          if (!lead.phone) {
-            const phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact);
-            if (phone) updateData.phone = phone;
-          }
+          if (contact) {
+            if (!lead.phone) {
+              const phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact);
+              if (phone) updateData.phone = phone;
+            }
 
-          // Fill name if generic
-          if (lead.name === "Lead RD Station" || !lead.name) {
-            const name = contact.name || `${contact.first_name || ""} ${contact.last_name || ""}`.trim();
-            if (name && name !== "Lead RD Station") updateData.name = name;
-          }
+            if (lead.name === "Lead RD Station" || !lead.name) {
+              const name = contact.name || `${contact.first_name || ""} ${contact.last_name || ""}`.trim();
+              if (name && name !== "Lead RD Station") updateData.name = name;
+            }
 
-          // Fill email
-          if (!lead.email && contact.email) {
-            updateData.email = contact.email;
-          }
+            if (!lead.email && contact.email) {
+              updateData.email = contact.email;
+            }
 
-          // Rebuild notes with full data
-          const newNotes = buildNotes(contact);
-          if (newNotes && newNotes.length > (lead.notes || "").length) {
-            updateData.notes = newNotes;
+            const newNotes = buildNotesWithEvents(contact, events);
+            if (newNotes && newNotes.length > (lead.notes || "").length) {
+              updateData.notes = newNotes;
+            }
           }
 
           if (Object.keys(updateData).length > 0) {
             const { error } = await supabase.from("leads").update(updateData).eq("id", lead.id);
             if (!error) {
               enriched++;
-              // Update in-memory lead for subsequent merge logic
               Object.assign(lead, updateData);
             }
+            console.log(`[fix-leads] Enriched lead ${lead.id}: ${JSON.stringify(Object.keys(updateData))}`);
           }
 
-          // Rate limit: 200ms between API calls
-          await sleep(200);
+          await sleep(300);
         } catch (err: any) {
           console.error(`[fix-leads] Error enriching lead ${lead.id}:`, err.message);
         }
@@ -175,7 +191,6 @@ Deno.serve(async (req) => {
     for (const lead of leads) {
       const updateData: Record<string, any> = {};
 
-      // Fix external_source based on source text
       if (!lead.external_source) {
         if (lead.source && /rd\s*station/i.test(lead.source)) {
           updateData.external_source = "rdstation";
@@ -184,7 +199,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Fix source text
       if (lead.external_source === "rdstation" && !lead.source) {
         updateData.source = "RD Station";
       }
@@ -192,13 +206,11 @@ Deno.serve(async (req) => {
         updateData.source = "Meta Ads";
       }
 
-      // Extract conversion_identifier from notes if still missing
       if (!lead.conversion_identifier && lead.notes) {
         const match = lead.notes.match(/Anúncio\/Formulário:\s*(.+)/);
         if (match) updateData.conversion_identifier = match[1].trim();
       }
 
-      // Extract traffic_source from notes if still missing
       if (!lead.traffic_source && lead.notes) {
         const match = lead.notes.match(/Origem do tráfego:\s*(.+)/);
         if (match) {
@@ -241,7 +253,6 @@ Deno.serve(async (req) => {
 
     const mergedIds = new Set<string>();
 
-    // Merge email duplicates
     for (const [_, group] of Object.entries(byEmail)) {
       if (group.length <= 1) continue;
       const keeper = group[group.length - 1];
@@ -269,7 +280,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Merge phone duplicates
     for (const [_, group] of Object.entries(byPhone)) {
       const active = group.filter(l => !mergedIds.has(l.id));
       if (active.length <= 1) continue;
@@ -318,20 +328,46 @@ Deno.serve(async (req) => {
 async function fetchRDContact(uuid: string, accessToken: string): Promise<Record<string, any> | null> {
   try {
     const res = await fetch(`https://api.rd.services/platform/contacts/${uuid}`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: "application/json",
-      },
+      headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) {
-      console.log(`[fix-leads] RD API ${res.status} for ${uuid}`);
+      console.log(`[fix-leads] RD contacts API ${res.status} for ${uuid}`);
       return null;
     }
     return await res.json();
   } catch (err: any) {
-    console.log(`[fix-leads] RD fetch error for ${uuid}: ${err.message}`);
+    console.log(`[fix-leads] RD contacts fetch error for ${uuid}: ${err.message}`);
     return null;
+  }
+}
+
+async function fetchRDContactEvents(uuid: string, accessToken: string): Promise<any[]> {
+  try {
+    const headers = { Authorization: `Bearer ${accessToken}`, Accept: "application/json" };
+    // Try with event_type filter first
+    let res = await fetch(
+      `https://api.rd.services/platform/contacts/${uuid}/events?event_type=CONVERSION&page=1&page_size=10`,
+      { headers, signal: AbortSignal.timeout(10000) }
+    );
+    // Fallback without event_type if 400 (some API versions don't support it)
+    if (res.status === 400) {
+      res = await fetch(
+        `https://api.rd.services/platform/contacts/${uuid}/events?page=1&page_size=10`,
+        { headers, signal: AbortSignal.timeout(10000) }
+      );
+    }
+    if (!res.ok) {
+      console.log(`[fix-leads] RD events API ${res.status} for ${uuid}`);
+      return [];
+    }
+    const data = await res.json();
+    const events = Array.isArray(data?.events) ? data.events : (Array.isArray(data) ? data : []);
+    console.log(`[fix-leads] Got ${events.length} events for ${uuid}`);
+    return events.slice(0, 10);
+  } catch (err: any) {
+    console.log(`[fix-leads] RD events fetch error for ${uuid}: ${err.message}`);
+    return [];
   }
 }
 
@@ -448,6 +484,27 @@ function buildNotes(data: Record<string, any>): string {
   if (data.uuid) lines.push(`RD UUID: ${data.uuid}`);
 
   return lines.length > 0 ? `[RD Station]\n${lines.join("\n")}` : "[RD Station] Lead corrigido";
+}
+
+function buildNotesWithEvents(data: Record<string, any>, events: any[]): string {
+  let notes = buildNotes(data);
+
+  const conversionEvents = events.filter((e: any) => (e.event_type || e.type) === "CONVERSION");
+  if (conversionEvents.length > 0) {
+    const eventLines: string[] = [];
+    for (const evt of conversionEvents.slice(0, 5)) {
+      const id = evt.event_identifier || evt.conversion_identifier || "desconhecido";
+      const source = evt.event_source || "";
+      const date = evt.event_timestamp || evt.created_at || "";
+      let line = `  • ${id}`;
+      if (source) line += ` (origem: ${source})`;
+      if (date) line += ` — ${date}`;
+      eventLines.push(line);
+    }
+    notes += `\n\nConversões (eventos):\n${eventLines.join("\n")}`;
+  }
+
+  return notes;
 }
 
 async function sleep(ms: number): Promise<void> {
