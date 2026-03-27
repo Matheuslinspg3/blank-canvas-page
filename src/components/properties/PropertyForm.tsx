@@ -291,7 +291,7 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90dvh] overflow-y-auto p-4 sm:p-6">
+      <DialogContent className="max-w-4xl max-h-[90dvh] flex flex-col p-4 sm:p-6 overflow-hidden">
         <DialogHeader>
           <DialogTitle>{property ? "Editar Imóvel" : "Novo Imóvel"}</DialogTitle>
           <DialogDescription>
@@ -300,8 +300,8 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit, handleInvalidSubmit)} className="space-y-6">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <form onSubmit={form.handleSubmit(handleSubmit, handleInvalidSubmit)} className="flex flex-col flex-1 min-h-0 space-y-6">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-1 min-h-0">
               <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 min-h-[44px]">
                 {[
                   { key: "basic", label: "Básico" },
@@ -318,12 +318,12 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
                 ))}
               </TabsList>
 
-              <TabsContent value="basic"><BasicTab form={form} /></TabsContent>
-              <TabsContent value="values"><ValuesTab form={form} /></TabsContent>
-              <TabsContent value="features"><FeaturesTab form={form} /></TabsContent>
-              <TabsContent value="location"><LocationTab form={form} /></TabsContent>
-              <TabsContent value="photos"><PhotosTab form={form} images={images} onImagesChange={setImages} /></TabsContent>
-              <TabsContent value="description"><DescriptionTab form={form} /></TabsContent>
+              <TabsContent value="basic" className="flex-1 overflow-y-auto"><BasicTab form={form} /></TabsContent>
+              <TabsContent value="values" className="flex-1 overflow-y-auto"><ValuesTab form={form} /></TabsContent>
+              <TabsContent value="features" className="flex-1 overflow-y-auto"><FeaturesTab form={form} /></TabsContent>
+              <TabsContent value="location" className="flex-1 overflow-y-auto"><LocationTab form={form} /></TabsContent>
+              <TabsContent value="photos" className="flex-1 overflow-y-auto"><PhotosTab form={form} images={images} onImagesChange={setImages} /></TabsContent>
+              <TabsContent value="description" className="flex-1 overflow-y-auto"><DescriptionTab form={form} /></TabsContent>
             </Tabs>
 
             <OwnerSection form={form} isEditing={!!property} />
