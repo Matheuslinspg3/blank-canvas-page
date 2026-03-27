@@ -668,10 +668,30 @@ async function processContacts(
       let phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
 
       // ALWAYS fetch full contact details — the segmentation endpoint returns very limited data
+      // Preserve conversion data from segmentation before merging
+      const segConversionData = {
+        first_conversion: rawContact.first_conversion,
+        last_conversion: rawContact.last_conversion,
+        conversion_identifier: rawContact.conversion_identifier,
+        traffic_source: rawContact.traffic_source,
+      };
       if (contact.uuid && apiHeaders) {
         const fullContact = await fetchFullContactDetails(contact.uuid, apiHeaders);
         if (fullContact) {
           contact = { ...contact, ...fullContact };
+          // Restore conversion data from segmentation if fullContact didn't provide it
+          if (!contact.first_conversion && segConversionData.first_conversion) {
+            contact.first_conversion = segConversionData.first_conversion;
+          }
+          if (!contact.last_conversion && segConversionData.last_conversion) {
+            contact.last_conversion = segConversionData.last_conversion;
+          }
+          if (!contact.conversion_identifier && segConversionData.conversion_identifier) {
+            contact.conversion_identifier = segConversionData.conversion_identifier;
+          }
+          if (!contact.traffic_source && segConversionData.traffic_source) {
+            contact.traffic_source = segConversionData.traffic_source;
+          }
           phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
         }
         await sleep(200);
@@ -694,7 +714,7 @@ async function processContacts(
           .maybeSingle();
 
         if (existingByEmail) {
-          // Update existing lead with missing data (phone, external_id, notes)
+          // Update existing lead with missing data (phone, external_id, notes, conversion)
           const updateData: Record<string, any> = {};
           if (phone) updateData.phone = phone;
           if (contact.uuid) {
@@ -703,6 +723,10 @@ async function processContacts(
           }
           const notes = buildNotes(contact);
           if (notes && notes !== "[Sincronizado via RD Station API]") updateData.notes = notes;
+          const convId = extractConversionIdentifier(contact);
+          if (convId) updateData.conversion_identifier = convId;
+          const tSrc = extractTrafficSource(contact);
+          if (tSrc) updateData.traffic_source = tSrc;
           if (Object.keys(updateData).length > 0) {
             await supabase.from("leads").update(updateData).eq("id", existingByEmail.id);
           }
@@ -745,6 +769,10 @@ async function processContacts(
             }
             const notes = buildNotes(contact);
             if (notes && notes !== "[Sincronizado via RD Station API]") updateData.notes = notes;
+            const convId = extractConversionIdentifier(contact);
+            if (convId) updateData.conversion_identifier = convId;
+            const tSrc = extractTrafficSource(contact);
+            if (tSrc) updateData.traffic_source = tSrc;
             if (Object.keys(updateData).length > 0) {
               await supabase.from("leads").update(updateData).eq("id", phoneMatch.id);
             }
