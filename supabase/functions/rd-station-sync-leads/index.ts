@@ -694,7 +694,7 @@ async function processContacts(
           .maybeSingle();
 
         if (existingByEmail) {
-          // Update existing lead with missing data (phone, external_id, notes)
+          // Update existing lead with missing data (phone, external_id, notes, conversion)
           const updateData: Record<string, any> = {};
           if (phone) updateData.phone = phone;
           if (contact.uuid) {
@@ -703,6 +703,10 @@ async function processContacts(
           }
           const notes = buildNotes(contact);
           if (notes && notes !== "[Sincronizado via RD Station API]") updateData.notes = notes;
+          const convId = extractConversionIdentifier(contact);
+          if (convId) updateData.conversion_identifier = convId;
+          const tSrc = extractTrafficSource(contact);
+          if (tSrc) updateData.traffic_source = tSrc;
           if (Object.keys(updateData).length > 0) {
             await supabase.from("leads").update(updateData).eq("id", existingByEmail.id);
           }
@@ -745,6 +749,10 @@ async function processContacts(
             }
             const notes = buildNotes(contact);
             if (notes && notes !== "[Sincronizado via RD Station API]") updateData.notes = notes;
+            const convId = extractConversionIdentifier(contact);
+            if (convId) updateData.conversion_identifier = convId;
+            const tSrc = extractTrafficSource(contact);
+            if (tSrc) updateData.traffic_source = tSrc;
             if (Object.keys(updateData).length > 0) {
               await supabase.from("leads").update(updateData).eq("id", phoneMatch.id);
             }
