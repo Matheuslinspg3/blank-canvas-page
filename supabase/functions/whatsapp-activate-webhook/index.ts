@@ -215,24 +215,34 @@ Deno.serve(async (req) => {
       webhookStatus = "fetch_error";
     }
 
-    // If N8N says instance already exists, ensure we have a local record
+    // Detect if N8N returned an existing instance (has Setting, _count, instanceId patterns)
     const webhookResponseObj = Array.isArray(webhookData) ? webhookData[0] : webhookData;
-    const alreadyExists = webhookResponseObj?.error?.toLowerCase?.()?.includes?.("já existe") ||
-      webhookResponseObj?.error?.toLowerCase?.()?.includes?.("already exists") ||
-      webhookResponseObj?.message?.toLowerCase?.()?.includes?.("já existe") ||
-      webhookResponseObj?.exists === true;
+    const deepObj = Array.isArray(webhookResponseObj) ? webhookResponseObj[0] : webhookResponseObj;
+
+    const alreadyExists =
+      deepObj?.error?.toLowerCase?.()?.includes?.("já existe") ||
+      deepObj?.error?.toLowerCase?.()?.includes?.("already exists") ||
+      deepObj?.message?.toLowerCase?.()?.includes?.("já existe") ||
+      deepObj?.exists === true ||
+      // N8N returns Setting/instanceId when instance already exists
+      !!deepObj?.Setting?.instanceId ||
+      !!deepObj?.instanceId ||
+      !!deepObj?.instance?.instanceId ||
+      (deepObj?._count && typeof deepObj._count === "object");
 
     if (alreadyExists && !existingInstance) {
-      // Instance exists on N8N side but not locally — create a placeholder record
-      const instanceName = webhookResponseObj?.instanceName ?? webhookResponseObj?.instance_name ?? `${orgName}-instance`;
-      const instanceToken = webhookResponseObj?.token ?? webhookResponseObj?.instance?.token ?? null;
+      const instanceId = deepObj?.Setting?.instanceId ?? deepObj?.instanceId ?? deepObj?.instance?.instanceId ?? null;
+      const instanceName = deepObj?.instanceName ?? deepObj?.instance?.instanceName ?? deepObj?.name ?? `${orgName}-instance`;
+      const instanceToken = deepObj?.token ?? deepObj?.instance?.token ?? deepObj?.apikey ?? null;
       await sb.from("whatsapp_instances").insert({
         organization_id: orgId,
         instance_name: instanceName,
         instance_token: instanceToken,
         status: "disconnected",
       });
-      console.log("Created local record for existing N8N instance:", instanceName);
+      console.log("Created local record for existing N8N instance:", instanceName, "extId:", instanceId);
+    } else if (alreadyExists && existingInstance) {
+      console.log("Instance already exists locally and on N8N, skipping creation");
     }
 
     const { qrBase64, pairingCode, code, count } = extractWebhookFields(
