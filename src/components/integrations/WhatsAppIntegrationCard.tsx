@@ -115,6 +115,7 @@ export function WhatsAppIntegrationCard() {
           // Also try edge function status update (fire-and-forget)
           checkStatus().catch(() => {});
         }
+      } catch { /* silent */ }
     }, STATUS_POLL_INTERVAL);
   }, [stopRefresh, stopStatusPolling, checkStatus]);
 
