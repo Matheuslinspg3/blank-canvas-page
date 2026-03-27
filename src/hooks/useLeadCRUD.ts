@@ -60,6 +60,7 @@ export function useLeadCRUD(opts: { leadStages: LeadStage[]; isBrokerOnly: boole
           lead_stage_id, stage, position, property_id, broker_id,
           lead_type_id, interested_property_type_id, transaction_interest,
           notes, is_active, organization_id, created_by, created_at, updated_at,
+          conversion_identifier, traffic_source,
           lead_type:lead_types(id, name),
           interested_property_type:property_types(id, name)
         `)
@@ -114,6 +115,7 @@ export function useLeadCRUD(opts: { leadStages: LeadStage[]; isBrokerOnly: boole
           lead_stage_id, stage, position, property_id, broker_id,
           lead_type_id, interested_property_type_id, transaction_interest,
           notes, is_active, organization_id, created_by, created_at, updated_at,
+          conversion_identifier, traffic_source,
           lead_type:lead_types(id, name),
           interested_property_type:property_types(id, name)
         `)
