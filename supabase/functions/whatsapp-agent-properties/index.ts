@@ -67,7 +67,7 @@ serve(async (req) => {
     const { data: config } = await sb
       .from("whatsapp_agent_config")
       .select("is_property_db_enabled")
-      .eq("organization_id", organization_id)
+      .eq("organization_id", organization_id_resolved)
       .maybeSingle();
 
     if (!config?.is_property_db_enabled) {
@@ -80,7 +80,7 @@ serve(async (req) => {
     const { data: rules = [] } = await sb
       .from("whatsapp_property_rules")
       .select("property_id, rule_type")
-      .eq("organization_id", organization_id);
+      .eq("organization_id", organization_id_resolved);
 
     const blacklistIds = new Set(rules.filter((r: any) => r.rule_type === "blacklist").map((r: any) => r.property_id));
     const whitelistIds = new Set(rules.filter((r: any) => r.rule_type === "whitelist").map((r: any) => r.property_id));
@@ -90,7 +90,7 @@ serve(async (req) => {
     let query = sb
       .from("properties")
       .select("id, title, property_code, status, transaction_type, sale_price, rent_price, bedrooms, bathrooms, area_total, address_city, address_neighborhood, address_state, property_type_id")
-      .eq("organization_id", organization_id)
+      .eq("organization_id", organization_id_resolved)
       .eq("status", "disponivel");
 
     if (filters?.bedrooms) query = query.gte("bedrooms", filters.bedrooms);
