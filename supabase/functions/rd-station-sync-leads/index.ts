@@ -763,6 +763,8 @@ async function processContacts(
         const source = settings.default_source || "RD Station";
         const notes = buildNotes(contact);
         const propertyId = await matchProperty(supabase, orgId, contact);
+        const conversionId = extractConversionIdentifier(contact);
+        const trafficSource = extractTrafficSource(contact);
 
         const { data: newLead, error: insertError } = await supabase
           .from("leads")
@@ -778,6 +780,8 @@ async function processContacts(
             external_source: "rdstation",
             notes,
             property_id: propertyId,
+            conversion_identifier: conversionId,
+            traffic_source: trafficSource,
           })
           .select("id")
           .single();
