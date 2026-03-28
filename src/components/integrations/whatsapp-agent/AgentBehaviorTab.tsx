@@ -21,28 +21,28 @@ function buildComposedPrompt(form: Partial<AgentConfig>): string {
     parts.push(form.system_prompt.trim());
   }
 
-  const rules: string[] = [];
+  parts.push("\n--- Instruções ---");
 
-  if (form.auto_qualify_leads) {
-    rules.push("Ao iniciar uma conversa, colete nome completo, telefone, e-mail e interesse do cliente de forma natural.");
-  }
-  if (form.auto_create_leads) {
-    rules.push("Após coletar os dados do cliente, registre automaticamente como lead no CRM.");
-  }
+  parts.push(form.auto_qualify_leads
+    ? "• Ao iniciar uma conversa, colete nome completo, telefone, e-mail e interesse do cliente de forma natural."
+    : "• Não é necessário a coleta de dados como nome completo, telefone, e-mail e interesse do cliente.");
+
+  parts.push(form.auto_create_leads
+    ? "• Após coletar os dados do cliente, registre automaticamente como lead no CRM."
+    : "• Não registre leads automaticamente no CRM. Apenas converse normalmente.");
+
   if (form.schedule_visits) {
     const days = (form.scheduling_days ?? []).map((d) => DAY_LABELS[d] ?? d).join(", ");
     const start = form.scheduling_hour_start ?? "09:00";
     const end = form.scheduling_hour_end ?? "17:00";
-    rules.push(`Você pode agendar visitas. Horários disponíveis: ${days} das ${start} às ${end}. Confirme data e horário com o cliente antes de registrar.`);
-  }
-  if (form.is_property_db_enabled) {
-    rules.push("Você tem acesso ao banco de imóveis da imobiliária. Use-o para recomendar imóveis relevantes com base nas preferências do cliente.");
+    parts.push(`• Você pode agendar visitas. Horários disponíveis: ${days} das ${start} às ${end}. Confirme data e horário com o cliente antes de registrar.`);
+  } else {
+    parts.push("• Não ofereça ou agende visitas a imóveis. Caso o cliente solicite, oriente-o a entrar em contato diretamente com a imobiliária.");
   }
 
-  if (rules.length > 0) {
-    parts.push("\n--- Regras Ativas ---");
-    rules.forEach((r) => parts.push(`• ${r}`));
-  }
+  parts.push(form.is_property_db_enabled
+    ? "• Você tem acesso ao banco de imóveis da imobiliária. Use-o para recomendar imóveis relevantes."
+    : "• Você não tem acesso ao banco de imóveis. Caso o cliente pergunte sobre imóveis específicos, oriente-o a consultar o site ou falar com um corretor.");
 
   return parts.join("\n");
 }
