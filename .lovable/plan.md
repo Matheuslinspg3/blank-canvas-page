@@ -1,54 +1,77 @@
 
+# Plano: Melhorar Agente IA WhatsApp - Prompt Dinâmico e Agendamento
 
-## Diagnóstico
+## Conceito Principal
 
-**Causa raiz identificada**: O endpoint `/platform/contacts/{uuid}` da API do RD Station **não retorna dados de conversão** (`first_conversion`, `last_conversion`, `conversion_identifier`). Ele retorna apenas dados básicos do contato (nome, email, campos customizados, `last_conversion_date` como timestamp).
+Cada toggle de funcionalidade (auto-qualificacao, criar lead, agendamento) gera automaticamente um trecho de prompt que e composto no `system_prompt` final enviado ao N8N. O usuario tambem configura dias e horarios disponiveis para agendamento de visitas.
 
-Os dados de conversão (qual formulário/anúncio o lead veio) estão no endpoint separado: `/platform/contacts/{uuid}/events` — que retorna os eventos do tipo CONVERSION com `event_identifier` (nome do formulário/landing page).
+## 1. Migração de Banco de Dados
 
-Isso explica por que:
-- O `fix-leads` chama a API, recebe o contato, mas `extractConversionIdentifier()` retorna `null` → nenhum campo é atualizado → "nenhuma correção necessária"
-- Os logs de `rd-station-sync-leads` mostram `[events] Failed for ... 400` — o endpoint de eventos está falhando com erro 400 para todos os contatos
+Adicionar colunas na tabela `whatsapp_agent_config`:
 
-## Plano
-
-### 1. Atualizar `fix-leads` para buscar eventos de conversão
-
-**Arquivo**: `supabase/functions/fix-leads/index.ts`
-
-- Adicionar função `fetchRDContactEvents(uuid, accessToken)` que chama `GET /platform/contacts/{uuid}/events`
-- Após buscar o contato básico, buscar também os eventos
-- Extrair `event_identifier` do primeiro evento CONVERSION como `conversion_identifier`
-- Extrair `event_source` como `traffic_source`
-- Incluir detalhes dos eventos nas `notes` reconstruídas
-
-### 2. Corrigir endpoint de eventos (400 error)
-
-**Arquivo**: `supabase/functions/rd-station-sync-leads/index.ts`
-
-- Investigar e corrigir o endpoint `/platform/contacts/{uuid}/events` — a API do RD Station Marketing usa `/platform/contacts/{identifier}/events` com query params opcionais (`event_type`, `page`, `page_size`)
-- Possivelmente o 400 vem de headers ou parâmetros incorretos; ajustar a chamada
-
-### 3. Atualizar sync para preencher `conversion_identifier` via eventos
-
-**Arquivo**: `supabase/functions/rd-station-sync-leads/index.ts`
-
-- Na função `processContacts`, após importar eventos, usar o primeiro evento CONVERSION para preencher `conversion_identifier` e `traffic_source` no lead se ainda vazios
-
-### Detalhes Técnicos
-
-```text
-Fluxo atual (quebrado):
-  fix-leads → GET /contacts/{uuid} → sem dados de conversão → 0 correções
-
-Fluxo corrigido:
-  fix-leads → GET /contacts/{uuid}        → dados básicos (nome, phone, etc.)
-           → GET /contacts/{uuid}/events  → CONVERSION events
-           → event_identifier = conversion_identifier
-           → event_source = traffic_source
+```sql
+ALTER TABLE whatsapp_agent_config
+  ADD COLUMN IF NOT EXISTS scheduling_days text[] NOT NULL DEFAULT '{seg,ter,qua,qui,sex}',
+  ADD COLUMN IF NOT EXISTS scheduling_hour_start text NOT NULL DEFAULT '09:00',
+  ADD COLUMN IF NOT EXISTS scheduling_hour_end text NOT NULL DEFAULT '17:00';
 ```
 
-- Rate limit: manter 200ms entre chamadas (já existente)
-- Limite: processar no máximo os 5 eventos mais recentes por lead para extrair dados
-- Deploy automático de ambas as edge functions após edição
+- `scheduling_days` -- dias da semana disponiveis (seg, ter, qua, qui, sex, sab, dom)
+- `scheduling_hour_start` / `scheduling_hour_end` -- janela de horario para visitas
 
+## 2. Atualizar AgentConfig Interface e Hook
+
+Adicionar os 3 novos campos ao tipo `AgentConfig` e aos DEFAULTS no hook `useWhatsAppAgentConfig.ts`.
+
+## 3. Refatorar AgentBehaviorTab -- Prompt Composto
+
+- O campo "Prompt de Sistema" continua editavel pelo usuario (instrucao base).
+- Abaixo do textarea, exibir um bloco **read-only** "Preview do Prompt Final" que mostra em tempo real o prompt completo que sera enviado a IA.
+- O prompt final e composto assim:
+
+```text
+[system_prompt do usuario]
+
+--- Regras Ativas ---
+[se auto_qualify_leads ON]:
+"Ao iniciar uma conversa, colete nome completo, telefone, e-mail e interesse do cliente de forma natural."
+
+[se auto_create_leads ON]:
+"Apos coletar os dados do cliente, registre automaticamente como lead no CRM."
+
+[se schedule_visits ON]:
+"Voce pode agendar visitas. Horarios disponiveis: [dias] das [hora_inicio] as [hora_fim]. Confirme data e horario com o cliente antes de registrar."
+
+[se is_property_db_enabled ON]:
+"Voce tem acesso ao banco de imoveis da imobiliaria. Use-o para recomendar imoveis relevantes."
+```
+
+- Este preview e apenas visual; o prompt composto e montado no backend (Edge Function).
+
+## 4. Refatorar AgentQualificationTab -- Agendamento Detalhado
+
+Na secao de Agendamento (quando `schedule_visits` esta ON), expandir para mostrar:
+- **Dias disponiveis**: checkboxes para cada dia da semana (Seg a Dom)
+- **Horario de visitas**: inputs de hora inicio e fim
+- Esses campos so aparecem quando o toggle de agendamento esta ativo
+
+## 5. Atualizar Edge Function `whatsapp-webhook-config`
+
+No endpoint que retorna config para o N8N, montar o `composed_system_prompt` dinamicamente:
+- Pegar o `system_prompt` base
+- Concatenar trechos baseados nos toggles ativos
+- Incluir dados de agendamento no trecho de schedule_visits
+- Retornar o campo `composed_system_prompt` no response junto com `agent_config`
+
+Assim o N8N usa diretamente o `composed_system_prompt` como system message, sem precisar montar logica de prompt la.
+
+## 6. Arquivos Impactados
+
+| Arquivo | Alteracao |
+|---------|-----------|
+| `supabase/migrations/...` | Nova migracao com colunas scheduling |
+| `src/hooks/useWhatsAppAgentConfig.ts` | Novos campos no tipo e defaults |
+| `src/integrations/supabase/types.ts` | Atualizado automaticamente |
+| `src/components/.../AgentBehaviorTab.tsx` | Preview do prompt composto |
+| `src/components/.../AgentQualificationTab.tsx` | UI de dias/horarios de agendamento |
+| `supabase/functions/whatsapp-webhook-config/index.ts` | Montar composed_system_prompt |
