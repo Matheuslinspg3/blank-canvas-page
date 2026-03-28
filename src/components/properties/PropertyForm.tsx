@@ -122,7 +122,7 @@ const DEFAULT_VALUES: FormData = {
   area_useful: 0, area_total: null, area_built: null, floor: null, beach_distance_meters: null,
   address_zipcode: "", address_street: "", address_number: "", address_complement: "",
   address_neighborhood: "", address_city: "", address_state: "",
-  description: "", youtube_url: "", amenities: [], payment_options: [], featured: false,
+  description: "", youtube_url: "", amenities: [], payment_options: [],
   owner_name: "", owner_phone: "", owner_email: "", owner_document: "", owner_notes: "",
 };
 
