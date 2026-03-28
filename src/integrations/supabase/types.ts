@@ -3672,6 +3672,7 @@ export type Database = {
           address_state: string | null
           address_street: string | null
           address_zipcode: string | null
+          ai_blacklist: boolean
           amenities: string[] | null
           area_built: number | null
           area_total: number | null
@@ -3740,6 +3741,7 @@ export type Database = {
           address_state?: string | null
           address_street?: string | null
           address_zipcode?: string | null
+          ai_blacklist?: boolean
           amenities?: string[] | null
           area_built?: number | null
           area_total?: number | null
@@ -3810,6 +3812,7 @@ export type Database = {
           address_state?: string | null
           address_street?: string | null
           address_zipcode?: string | null
+          ai_blacklist?: boolean
           amenities?: string[] | null
           area_built?: number | null
           area_total?: number | null
