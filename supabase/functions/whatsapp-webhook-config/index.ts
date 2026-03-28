@@ -185,7 +185,14 @@ serve(async (req) => {
         status: instance.status,
         phone_number: instance.phone_number,
       },
-      agent_config: config,
+      agent_config: {
+        ...config,
+        // Override booleans with prompt-ready text strings
+        auto_qualify_leads: prompt_qualify,
+        auto_create_leads: prompt_create_lead,
+        schedule_visits: prompt_schedule,
+        is_property_db_enabled: prompt_properties,
+      },
       composed_system_prompt,
       prompt_variables: {
         qualify: prompt_qualify,
