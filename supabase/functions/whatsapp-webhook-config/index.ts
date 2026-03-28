@@ -178,6 +178,7 @@ serve(async (req) => {
         phone_number: instance.phone_number,
       },
       agent_config: config,
+      composed_system_prompt,
       properties: {
         enabled: !!config.is_property_db_enabled,
         items: properties,
