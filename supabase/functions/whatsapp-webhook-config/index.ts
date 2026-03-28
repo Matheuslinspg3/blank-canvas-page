@@ -105,29 +105,37 @@ serve(async (req) => {
       promptParts.push(config.system_prompt.trim());
     }
 
-    const rules: string[] = [];
-    if (config.auto_qualify_leads) {
-      rules.push("Ao iniciar uma conversa, colete nome completo, telefone, e-mail e interesse do cliente de forma natural.");
-    }
-    if (config.auto_create_leads) {
-      rules.push("Após coletar os dados do cliente, registre automaticamente como lead no CRM.");
-    }
-    if (config.schedule_visits) {
-      const days = (config.scheduling_days ?? []).map((d: string) => dayLabels[d] ?? d).join(", ");
-      const hStart = config.scheduling_hour_start ?? "09:00";
-      const hEnd = config.scheduling_hour_end ?? "17:00";
-      rules.push(`Você pode agendar visitas. Horários disponíveis: ${days} das ${hStart} às ${hEnd}. Confirme data e horário com o cliente antes de registrar.`);
-    }
-    if (config.is_property_db_enabled) {
-      rules.push("Você tem acesso ao banco de imóveis da imobiliária. Use-o para recomendar imóveis relevantes com base nas preferências do cliente.");
-    }
+    // Individual prompt variables for N8N
+    const prompt_qualify = config.auto_qualify_leads
+      ? "Ao iniciar uma conversa, colete nome completo, telefone, e-mail e interesse do cliente de forma natural."
+      : "Não é necessário a coleta de dados como nome completo, telefone, e-mail e interesse do cliente.";
 
-    if (rules.length > 0) {
-      promptParts.push("\n--- Regras Ativas ---");
-      rules.forEach((r) => promptParts.push(`• ${r}`));
-    }
+    const prompt_create_lead = config.auto_create_leads
+      ? "Após coletar os dados do cliente, registre automaticamente como lead no CRM."
+      : "Não registre leads automaticamente no CRM. Apenas converse normalmente.";
 
-    const composed_system_prompt = promptParts.join("\n");
+    const prompt_schedule = config.schedule_visits
+      ? (() => {
+          const days = (config.scheduling_days ?? []).map((d: string) => dayLabels[d] ?? d).join(", ");
+          const hStart = config.scheduling_hour_start ?? "09:00";
+          const hEnd = config.scheduling_hour_end ?? "17:00";
+          return `Você pode agendar visitas. Horários disponíveis: ${days} das ${hStart} às ${hEnd}. Confirme data e horário com o cliente antes de registrar.`;
+        })()
+      : "Não ofereça ou agende visitas a imóveis. Caso o cliente solicite, oriente-o a entrar em contato diretamente com a imobiliária.";
+
+    const prompt_properties = config.is_property_db_enabled
+      ? "Você tem acesso ao banco de imóveis da imobiliária. Use-o para recomendar imóveis relevantes com base nas preferências do cliente."
+      : "Você não tem acesso ao banco de imóveis. Caso o cliente pergunte sobre imóveis específicos, oriente-o a consultar o site ou falar com um corretor.";
+
+    // Composed prompt (all combined)
+    const composed_system_prompt = [
+      config.system_prompt?.trim() ?? "",
+      "\n--- Instruções ---",
+      `• ${prompt_qualify}`,
+      `• ${prompt_create_lead}`,
+      `• ${prompt_schedule}`,
+      `• ${prompt_properties}`,
+    ].filter(Boolean).join("\n");
 
     // 4. Fetch properties if enabled
     let properties: any[] = [];
