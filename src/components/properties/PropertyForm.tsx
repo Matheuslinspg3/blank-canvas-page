@@ -229,7 +229,6 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
           address_city: property.address_city || "", address_state: property.address_state || "",
           description: property.description || "", youtube_url: (property as any).youtube_url || "",
           amenities: property.amenities || [], payment_options: (property as any).payment_options || [],
-          featured: property.featured || false,
           owner_name: ownerName, owner_phone: ownerPhone, owner_email: ownerEmail,
           owner_document: ownerDocument, owner_notes: ownerNotes,
         });
