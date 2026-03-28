@@ -1,77 +1,83 @@
 
-# Plano: Melhorar Agente IA WhatsApp - Prompt Dinâmico e Agendamento
 
-## Conceito Principal
+# Plano: Endpoint Unificado para Agente IA - Dados Completos por instance_name
 
-Cada toggle de funcionalidade (auto-qualificacao, criar lead, agendamento) gera automaticamente um trecho de prompt que e composto no `system_prompt` final enviado ao N8N. O usuario tambem configura dias e horarios disponiveis para agendamento de visitas.
+## Problema
 
-## 1. Migração de Banco de Dados
+O N8N consulta a tabela `whatsapp_agent_config` diretamente, recebendo booleanos crus. Alem disso, falta um mapeamento de bairros com seus respectivos IDs de imoveis para a IA navegar o catalogo.
 
-Adicionar colunas na tabela `whatsapp_agent_config`:
+## Solucao
 
-```sql
-ALTER TABLE whatsapp_agent_config
-  ADD COLUMN IF NOT EXISTS scheduling_days text[] NOT NULL DEFAULT '{seg,ter,qua,qui,sex}',
-  ADD COLUMN IF NOT EXISTS scheduling_hour_start text NOT NULL DEFAULT '09:00',
-  ADD COLUMN IF NOT EXISTS scheduling_hour_end text NOT NULL DEFAULT '17:00';
-```
+Atualizar a Edge Function `whatsapp-webhook-config` para retornar **tudo** que o agente precisa em uma unica chamada, incluindo:
 
-- `scheduling_days` -- dias da semana disponiveis (seg, ter, qua, qui, sex, sab, dom)
-- `scheduling_hour_start` / `scheduling_hour_end` -- janela de horario para visitas
+1. **Prompts como texto** (ja existe, mas precisa garantir que o N8N use a Edge Function)
+2. **Mapeamento de bairros** agrupando property IDs por `address_neighborhood`
+3. **Mapeamento de cidades** agrupando por `address_city`
 
-## 2. Atualizar AgentConfig Interface e Hook
-
-Adicionar os 3 novos campos ao tipo `AgentConfig` e aos DEFAULTS no hook `useWhatsAppAgentConfig.ts`.
-
-## 3. Refatorar AgentBehaviorTab -- Prompt Composto
-
-- O campo "Prompt de Sistema" continua editavel pelo usuario (instrucao base).
-- Abaixo do textarea, exibir um bloco **read-only** "Preview do Prompt Final" que mostra em tempo real o prompt completo que sera enviado a IA.
-- O prompt final e composto assim:
+## Resposta Final do Endpoint
 
 ```text
-[system_prompt do usuario]
+POST whatsapp-webhook-config { instance_name: "xxx" }
 
---- Regras Ativas ---
-[se auto_qualify_leads ON]:
-"Ao iniciar uma conversa, colete nome completo, telefone, e-mail e interesse do cliente de forma natural."
-
-[se auto_create_leads ON]:
-"Apos coletar os dados do cliente, registre automaticamente como lead no CRM."
-
-[se schedule_visits ON]:
-"Voce pode agendar visitas. Horarios disponiveis: [dias] das [hora_inicio] as [hora_fim]. Confirme data e horario com o cliente antes de registrar."
-
-[se is_property_db_enabled ON]:
-"Voce tem acesso ao banco de imoveis da imobiliaria. Use-o para recomendar imoveis relevantes."
+Retorna:
+{
+  organization: { id, name, slug },
+  instance: { instance_name, status, phone_number },
+  
+  // Prompt completo pronto para system message
+  composed_system_prompt: "Voce e a Valentina... \n--- Instrucoes ---\n• Ao iniciar...",
+  
+  // Variaveis individuais (para usar como {{ qualify }} no N8N)
+  prompt_variables: {
+    qualify: "Ao iniciar uma conversa, colete nome completo...",
+    create_lead: "Apos coletar os dados...",
+    schedule: "Voce pode agendar visitas. Horarios: ...",
+    properties: "Voce tem acesso ao banco de imoveis...",
+    property_types: "Use o seguinte mapeamento..."
+  },
+  
+  // Configs cruas (para logica condicional no N8N)
+  agent_config: { agent_name, tone, welcome_message, away_message, ... },
+  
+  // Tipos de imovel: ID => Nome
+  property_types: { "uuid-1": "Apartamento", "uuid-2": "Casa" },
+  
+  // NOVO: Bairros com IDs dos imoveis disponiveis
+  neighborhoods: {
+    "Centro": ["prop-id-1", "prop-id-3"],
+    "Jardim Paulista": ["prop-id-2", "prop-id-5"]
+  },
+  
+  // Imoveis disponiveis (com property_type_name e featured)
+  properties: {
+    enabled: true,
+    items: [ { id, title, property_type_name, address_neighborhood, featured, ... } ],
+    total: 15
+  }
+}
 ```
 
-- Este preview e apenas visual; o prompt composto e montado no backend (Edge Function).
+## Alteracoes
 
-## 4. Refatorar AgentQualificationTab -- Agendamento Detalhado
+### 1. Edge Function `whatsapp-webhook-config/index.ts`
 
-Na secao de Agendamento (quando `schedule_visits` esta ON), expandir para mostrar:
-- **Dias disponiveis**: checkboxes para cada dia da semana (Seg a Dom)
-- **Horario de visitas**: inputs de hora inicio e fim
-- Esses campos so aparecem quando o toggle de agendamento esta ativo
+Adicionar apos buscar os imoveis:
+- Agrupar propriedades por `address_neighborhood` gerando um map `{ bairro: [ids] }`
+- Usar coluna `featured` diretamente da tabela `properties` (em vez da tabela de rules)
+- Incluir `neighborhoods` no response JSON
 
-## 5. Atualizar Edge Function `whatsapp-webhook-config`
+### 2. Edge Function `whatsapp-agent-config/index.ts`
 
-No endpoint que retorna config para o N8N, montar o `composed_system_prompt` dinamicamente:
-- Pegar o `system_prompt` base
-- Concatenar trechos baseados nos toggles ativos
-- Incluir dados de agendamento no trecho de schedule_visits
-- Retornar o campo `composed_system_prompt` no response junto com `agent_config`
+Mesma logica de neighborhoods para manter consistencia entre os dois endpoints.
 
-Assim o N8N usa diretamente o `composed_system_prompt` como system message, sem precisar montar logica de prompt la.
+## Detalhes Tecnicos
 
-## 6. Arquivos Impactados
+- Nenhuma migracao necessaria (coluna `featured` ja existe em `properties`)
+- Bairros sao extraidos dos imoveis ja carregados (sem query extra)
+- A coluna `featured` substitui a consulta a `whatsapp_property_rules` para destaques
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `supabase/migrations/...` | Nova migracao com colunas scheduling |
-| `src/hooks/useWhatsAppAgentConfig.ts` | Novos campos no tipo e defaults |
-| `src/integrations/supabase/types.ts` | Atualizado automaticamente |
-| `src/components/.../AgentBehaviorTab.tsx` | Preview do prompt composto |
-| `src/components/.../AgentQualificationTab.tsx` | UI de dias/horarios de agendamento |
-| `supabase/functions/whatsapp-webhook-config/index.ts` | Montar composed_system_prompt |
+| `supabase/functions/whatsapp-webhook-config/index.ts` | Adicionar neighborhoods map, usar featured direto |
+| `supabase/functions/whatsapp-agent-config/index.ts` | Mesmo ajuste de neighborhoods |
+
