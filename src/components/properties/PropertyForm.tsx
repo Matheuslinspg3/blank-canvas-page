@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePropertyTypes } from "@/hooks/usePropertyTypes";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Store, Star } from "lucide-react";
+import { Loader2, Store } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { PropertyWithDetails, PropertyFormData } from "@/hooks/useProperties";
 import { TAB_FIELDS } from "./form/constants";
