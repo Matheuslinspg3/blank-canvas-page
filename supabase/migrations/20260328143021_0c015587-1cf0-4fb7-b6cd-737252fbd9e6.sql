@@ -1,0 +1,1 @@
+ALTER TABLE public.whatsapp_agent_config ADD COLUMN IF NOT EXISTS instance_name text;

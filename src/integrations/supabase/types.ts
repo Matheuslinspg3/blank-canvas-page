@@ -5548,6 +5548,7 @@ export type Database = {
           away_message: string | null
           broker_assignment_mode: string
           id: string
+          instance_name: string | null
           is_property_db_enabled: boolean
           max_messages_before_transfer: number
           organization_id: string
@@ -5570,6 +5571,7 @@ export type Database = {
           away_message?: string | null
           broker_assignment_mode?: string
           id?: string
+          instance_name?: string | null
           is_property_db_enabled?: boolean
           max_messages_before_transfer?: number
           organization_id: string
@@ -5592,6 +5594,7 @@ export type Database = {
           away_message?: string | null
           broker_assignment_mode?: string
           id?: string
+          instance_name?: string | null
           is_property_db_enabled?: boolean
           max_messages_before_transfer?: number
           organization_id?: string
