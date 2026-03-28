@@ -163,6 +163,7 @@ serve(async (req) => {
         schedule: prompt_schedule,
         properties: prompt_properties,
       },
+      property_types: propertyTypeMap,
       properties: {
         enabled: !!config.is_property_db_enabled,
         items: properties,
