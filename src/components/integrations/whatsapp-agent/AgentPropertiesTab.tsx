@@ -28,7 +28,7 @@ function PropertySelector({
 }) {
   const { profile } = useAuth();
   const [search, setSearch] = useState("");
-  const [ruleType, setRuleType] = useState<RuleType>("whitelist");
+  const [ruleType, setRuleType] = useState<RuleType>("blacklist");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkAdding, setIsBulkAdding] = useState(false);
 
@@ -119,7 +119,6 @@ function PropertySelector({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="whitelist">✅ Whitelist</SelectItem>
               <SelectItem value="blacklist">🚫 Blacklist</SelectItem>
               <SelectItem value="highlight">⭐ Destaque</SelectItem>
             </SelectContent>
