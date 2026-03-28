@@ -36,8 +36,8 @@ export function useWhatsAppInstance() {
     queryFn: async () => {
       if (!orgId) return null;
       const { data, error } = await supabase
-        .from("whatsapp_instances" as any)
-        .select("*")
+        .from("whatsapp_agent_config" as any)
+        .select("id, organization_id, instance_name, instance_token, status, phone_number, qr_code, webhook_url")
         .eq("organization_id", orgId)
         .maybeSingle();
       if (error) throw error;
