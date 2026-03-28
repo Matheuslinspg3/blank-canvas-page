@@ -5549,17 +5549,22 @@ export type Database = {
           broker_assignment_mode: string
           id: string
           instance_name: string | null
+          instance_token: string | null
           is_property_db_enabled: boolean
           max_messages_before_transfer: number
           organization_id: string
+          phone_number: string | null
+          qr_code: string | null
           schedule_visits: boolean
           scheduling_days: string[]
           scheduling_hour_end: string
           scheduling_hour_start: string
+          status: string
           system_prompt: string | null
           tone: Database["public"]["Enums"]["agent_tone"]
           transfer_keywords: string[] | null
           updated_at: string
+          webhook_url: string | null
           welcome_message: string | null
           working_hours_end: string | null
           working_hours_start: string | null
@@ -5572,17 +5577,22 @@ export type Database = {
           broker_assignment_mode?: string
           id?: string
           instance_name?: string | null
+          instance_token?: string | null
           is_property_db_enabled?: boolean
           max_messages_before_transfer?: number
           organization_id: string
+          phone_number?: string | null
+          qr_code?: string | null
           schedule_visits?: boolean
           scheduling_days?: string[]
           scheduling_hour_end?: string
           scheduling_hour_start?: string
+          status?: string
           system_prompt?: string | null
           tone?: Database["public"]["Enums"]["agent_tone"]
           transfer_keywords?: string[] | null
           updated_at?: string
+          webhook_url?: string | null
           welcome_message?: string | null
           working_hours_end?: string | null
           working_hours_start?: string | null
@@ -5595,17 +5605,22 @@ export type Database = {
           broker_assignment_mode?: string
           id?: string
           instance_name?: string | null
+          instance_token?: string | null
           is_property_db_enabled?: boolean
           max_messages_before_transfer?: number
           organization_id?: string
+          phone_number?: string | null
+          qr_code?: string | null
           schedule_visits?: boolean
           scheduling_days?: string[]
           scheduling_hour_end?: string
           scheduling_hour_start?: string
+          status?: string
           system_prompt?: string | null
           tone?: Database["public"]["Enums"]["agent_tone"]
           transfer_keywords?: string[] | null
           updated_at?: string
+          webhook_url?: string | null
           welcome_message?: string | null
           working_hours_end?: string | null
           working_hours_start?: string | null
