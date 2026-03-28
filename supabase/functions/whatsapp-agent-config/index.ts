@@ -102,6 +102,22 @@ serve(async (req) => {
       ? "Você tem acesso ao banco de imóveis da imobiliária. Use-o para recomendar imóveis relevantes com base nas preferências do cliente."
       : "Você não tem acesso ao banco de imóveis. Caso o cliente pergunte sobre imóveis específicos, oriente-o a consultar o site ou falar com um corretor.";
 
+    const { data: propertyTypes = [] } = await sb
+      .from("property_types")
+      .select("id, name")
+      .or(`organization_id.eq.${organization_id_resolved},is_default.eq.true`);
+
+    const propertyTypeMap: Record<string, string> = {};
+    (propertyTypes as any[]).forEach((pt: any) => {
+      propertyTypeMap[pt.id] = pt.name;
+    });
+
+    const propertyTypesPrompt = Object.entries(propertyTypeMap).length
+      ? `Use o seguinte mapeamento de tipos de imóvel (ID => Nome):\n${Object.entries(propertyTypeMap)
+          .map(([id, name]) => `- ${id}: ${name}`)
+          .join("\n")}`
+      : "Não há mapeamento de tipos de imóvel disponível para esta organização.";
+
     const composed_system_prompt = [
       baseConfig.system_prompt?.trim() ?? "",
       "\n--- Instruções ---",
@@ -109,6 +125,7 @@ serve(async (req) => {
       `• ${prompt_create_lead}`,
       `• ${prompt_schedule}`,
       `• ${prompt_properties}`,
+      `• ${propertyTypesPrompt}`,
     ].filter(Boolean).join("\n");
 
     const response = {
@@ -117,12 +134,14 @@ serve(async (req) => {
       auto_qualify_leads: prompt_qualify,
       auto_create_leads: prompt_create_lead,
       schedule_visits: prompt_schedule,
+      property_types: propertyTypeMap,
       composed_system_prompt,
       prompt_variables: {
         qualify: prompt_qualify,
         create_lead: prompt_create_lead,
         schedule: prompt_schedule,
         properties: prompt_properties,
+        property_types: propertyTypesPrompt,
       },
     };
 
