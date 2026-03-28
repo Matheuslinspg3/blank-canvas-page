@@ -76,23 +76,22 @@ serve(async (req) => {
       });
     }
 
-    // Fetch rules
+    // Fetch highlight rules (blacklist is now on properties table)
     const { data: rules = [] } = await sb
       .from("whatsapp_property_rules")
       .select("property_id, rule_type")
-      .eq("organization_id", organization_id_resolved);
+      .eq("organization_id", organization_id_resolved)
+      .eq("rule_type", "highlight");
 
-    const blacklistIds = new Set(rules.filter((r: any) => r.rule_type === "blacklist").map((r: any) => r.property_id));
-    const whitelistIds = new Set(rules.filter((r: any) => r.rule_type === "whitelist").map((r: any) => r.property_id));
-    const highlightIds = new Set(rules.filter((r: any) => r.rule_type === "highlight").map((r: any) => r.property_id));
+    const highlightIds = new Set(rules.map((r: any) => r.property_id));
 
-    // Build query
+    // Build query — ai_blacklist = false filters out blocked properties
     let query = sb
       .from("properties")
       .select("id, title, property_code, status, transaction_type, sale_price, rent_price, bedrooms, bathrooms, area_total, address_city, address_neighborhood, address_state, property_type_id")
       .eq("organization_id", organization_id_resolved)
-      .eq("status", "disponivel");
-
+      .eq("status", "disponivel")
+      .eq("ai_blacklist", false);
     if (filters?.bedrooms) query = query.gte("bedrooms", filters.bedrooms);
     if (filters?.max_price) {
       query = query.or(`sale_price.lte.${filters.max_price},rent_price.lte.${filters.max_price}`);

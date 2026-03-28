@@ -5,102 +5,104 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, Plus, Trash2, Star, ShieldOff, ShieldCheck, Search, CheckSquare, Square } from "lucide-react";
+import { Building2, Star, ShieldOff, Search } from "lucide-react";
 import { useWhatsAppAgentConfig } from "@/hooks/useWhatsAppAgentConfig";
 import { useWhatsAppPropertyRules, type RuleType } from "@/hooks/useWhatsAppPropertyRules";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
-function PropertySelector({
-  onAdd,
-  onAddMultiple,
-  isAdding,
-  existingIds,
-}: {
-  onAdd: (id: string, type: RuleType) => void;
-  onAddMultiple: (ids: string[], type: RuleType) => Promise<void>;
-  isAdding: boolean;
-  existingIds: Set<string>;
-}) {
+function BlacklistManager() {
   const { profile } = useAuth();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const [ruleType, setRuleType] = useState<RuleType>("blacklist");
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [isBulkAdding, setIsBulkAdding] = useState(false);
+  const [filter, setFilter] = useState<"all" | "blocked" | "allowed">("all");
 
-  const { data: properties = [] } = useQuery({
-    queryKey: ["properties-selector", profile?.organization_id, search],
+  const { data: properties = [], isLoading } = useQuery({
+    queryKey: ["properties-blacklist", profile?.organization_id, search],
     queryFn: async () => {
       if (!profile?.organization_id) return [];
       let q = supabase
         .from("properties")
-        .select("id, title, property_code, address_neighborhood, address_city")
+        .select("id, title, property_code, address_neighborhood, address_city, ai_blacklist" as any)
         .eq("organization_id", profile.organization_id)
         .eq("status", "disponivel")
-        .limit(100);
+        .order("property_code")
+        .limit(200);
       if (search) {
         q = q.or(`title.ilike.%${search}%,property_code.ilike.%${search}%,address_neighborhood.ilike.%${search}%`);
       }
       const { data } = await q;
-      return data ?? [];
+      return (data ?? []) as any[];
     },
     enabled: !!profile?.organization_id,
   });
 
-  const availableProperties = useMemo(
-    () => properties.filter((p) => !existingIds.has(`${p.id}-${ruleType}`)),
-    [properties, existingIds, ruleType]
-  );
+  const toggleMutation = useMutation({
+    mutationFn: async ({ id, blocked }: { id: string; blocked: boolean }) => {
+      const { error } = await supabase
+        .from("properties")
+        .update({ ai_blacklist: blocked } as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["properties-blacklist"] });
+    },
+    onError: (err: Error) => {
+      toast.error("Erro ao atualizar: " + err.message);
+    },
+  });
 
-  const allSelected = availableProperties.length > 0 && availableProperties.every((p) => selectedIds.has(p.id));
-  const someSelected = selectedIds.size > 0;
+  const bulkMutation = useMutation({
+    mutationFn: async ({ ids, blocked }: { ids: string[]; blocked: boolean }) => {
+      const { error } = await supabase
+        .from("properties")
+        .update({ ai_blacklist: blocked } as any)
+        .in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["properties-blacklist"] });
+      toast.success("Imóveis atualizados com sucesso");
+    },
+    onError: (err: Error) => {
+      toast.error("Erro ao atualizar em lote: " + err.message);
+    },
+  });
 
-  const toggleSelect = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const filtered = useMemo(() => {
+    if (filter === "blocked") return properties.filter((p: any) => p.ai_blacklist);
+    if (filter === "allowed") return properties.filter((p: any) => !p.ai_blacklist);
+    return properties;
+  }, [properties, filter]);
+
+  const blockedCount = properties.filter((p: any) => p.ai_blacklist).length;
+  const allowedCount = properties.length - blockedCount;
+
+  const handleBlockAll = () => {
+    const ids = filtered.filter((p: any) => !p.ai_blacklist).map((p: any) => p.id);
+    if (ids.length) bulkMutation.mutate({ ids, blocked: true });
   };
 
-  const selectAll = () => {
-    setSelectedIds(new Set(availableProperties.map((p) => p.id)));
+  const handleAllowAll = () => {
+    const ids = filtered.filter((p: any) => p.ai_blacklist).map((p: any) => p.id);
+    if (ids.length) bulkMutation.mutate({ ids, blocked: false });
   };
 
-  const selectNone = () => {
-    setSelectedIds(new Set());
-  };
-
-  const handleBulkAdd = async () => {
-    const ids = Array.from(selectedIds).filter((id) => !existingIds.has(`${id}-${ruleType}`));
-    if (!ids.length) return;
-    setIsBulkAdding(true);
-    try {
-      await onAddMultiple(ids, ruleType);
-      setSelectedIds(new Set());
-      toast.success(`${ids.length} imóvel(is) adicionado(s) à ${ruleType}`);
-    } catch {
-      toast.error("Erro ao adicionar imóveis em lote");
-    } finally {
-      setIsBulkAdding(false);
-    }
-  };
-
-  const busy = isAdding || isBulkAdding;
+  const busy = toggleMutation.isPending || bulkMutation.isPending;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base flex items-center gap-2">
-          <Plus className="h-4 w-4" /> Adicionar Regras de Imóveis
+          <ShieldOff className="h-4 w-4" /> Blacklist de Imóveis
         </CardTitle>
         <CardDescription>
-          Selecione imóveis individualmente ou em lote para aplicar regras
+          Imóveis bloqueados não serão apresentados pela IA. 
+          <span className="font-medium ml-1">{allowedCount} liberados</span> · <span className="font-medium">{blockedCount} bloqueados</span>
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -114,64 +116,38 @@ function PropertySelector({
               className="pl-9"
             />
           </div>
-          <Select value={ruleType} onValueChange={(v) => { setRuleType(v as RuleType); setSelectedIds(new Set()); }}>
+          <Select value={filter} onValueChange={(v) => setFilter(v as any)}>
             <SelectTrigger className="w-[150px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="blacklist">🚫 Blacklist</SelectItem>
-              <SelectItem value="highlight">⭐ Destaque</SelectItem>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="allowed">✅ Liberados</SelectItem>
+              <SelectItem value="blocked">🚫 Bloqueados</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        {/* Bulk actions bar */}
         <div className="flex items-center justify-between border rounded-md p-2 bg-muted/30">
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 text-xs"
-              onClick={allSelected ? selectNone : selectAll}
-              disabled={availableProperties.length === 0}
-            >
-              {allSelected ? (
-                <><Square className="h-3.5 w-3.5 mr-1" /> Desmarcar todos</>
-              ) : (
-                <><CheckSquare className="h-3.5 w-3.5 mr-1" /> Selecionar todos</>
-              )}
+          <span className="text-xs text-muted-foreground">
+            {filtered.length} imóvel(is) exibido(s)
+          </span>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" className="h-7 text-xs" disabled={busy} onClick={handleAllowAll}>
+              ✅ Liberar todos
             </Button>
-            {someSelected && (
-              <span className="text-xs text-muted-foreground">
-                {selectedIds.size} selecionado(s)
-              </span>
-            )}
+            <Button size="sm" variant="outline" className="h-7 text-xs text-destructive" disabled={busy} onClick={handleBlockAll}>
+              🚫 Bloquear todos
+            </Button>
           </div>
-          {someSelected && (
-            <Button
-              size="sm"
-              disabled={busy}
-              onClick={handleBulkAdd}
-              className="h-7 text-xs"
-            >
-              <Plus className="h-3 w-3 mr-1" />
-              Adicionar {selectedIds.size} à {ruleType === "whitelist" ? "Whitelist" : ruleType === "blacklist" ? "Blacklist" : "Destaque"}
-            </Button>
-          )}
         </div>
 
-        <div className="max-h-64 overflow-y-auto space-y-1">
-          {availableProperties.map((p) => (
+        <div className="max-h-80 overflow-y-auto space-y-1">
+          {filtered.map((p: any) => (
             <div
               key={p.id}
-              className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 text-sm cursor-pointer"
-              onClick={() => toggleSelect(p.id)}
+              className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50 text-sm"
             >
-              <Checkbox
-                checked={selectedIds.has(p.id)}
-                onCheckedChange={() => toggleSelect(p.id)}
-                disabled={busy}
-              />
               <div className="flex-1 min-w-0">
                 <span className="font-medium">{p.property_code}</span>
                 <span className="text-muted-foreground ml-2 truncate">{p.title}</span>
@@ -179,23 +155,14 @@ function PropertySelector({
                   <span className="text-muted-foreground text-xs ml-1">• {p.address_neighborhood}</span>
                 )}
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 shrink-0"
+              <Switch
+                checked={!p.ai_blacklist}
+                onCheckedChange={(checked) => toggleMutation.mutate({ id: p.id, blocked: !checked })}
                 disabled={busy}
-                onClick={(e) => { e.stopPropagation(); onAdd(p.id, ruleType); }}
-              >
-                <Plus className="h-3 w-3" />
-              </Button>
+              />
             </div>
           ))}
-          {availableProperties.length === 0 && properties.length > 0 && (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Todos os imóveis já possuem esta regra
-            </p>
-          )}
-          {properties.length === 0 && (
+          {filtered.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-4">Nenhum imóvel encontrado</p>
           )}
         </div>
@@ -204,27 +171,18 @@ function PropertySelector({
   );
 }
 
-const RULE_META: Record<RuleType, { label: string; icon: React.ElementType; color: string }> = {
+const RULE_META: Record<string, { label: string; icon: React.ElementType; color: string }> = {
   highlight: { label: "Destaque", icon: Star, color: "text-yellow-500" },
-  whitelist: { label: "Whitelist", icon: ShieldCheck, color: "text-green-500" },
-  blacklist: { label: "Blacklist", icon: ShieldOff, color: "text-destructive" },
 };
 
 export function AgentPropertiesTab() {
   const { config, saveConfig, isSaving } = useWhatsAppAgentConfig();
-  const { rules, whitelist, blacklist, highlights, addRule, removeRule, isAdding, isRemoving } =
+  const { rules, highlights, addRule, removeRule, isAdding, isRemoving } =
     useWhatsAppPropertyRules();
   const { profile } = useAuth();
 
   const existingIds = new Set(rules.map((r) => `${r.property_id}-${r.rule_type}`));
 
-  const handleAddMultiple = async (ids: string[], ruleType: RuleType) => {
-    for (const id of ids) {
-      await addRule(id, ruleType);
-    }
-  };
-
-  // Fetch property titles for display
   const propertyIds = rules.map((r) => r.property_id);
   const { data: propertyMap = {} } = useQuery({
     queryKey: ["property-names", propertyIds],
@@ -243,20 +201,20 @@ export function AgentPropertiesTab() {
     enabled: propertyIds.length > 0,
   });
 
-  const renderRuleList = (items: typeof rules, type: RuleType) => {
-    const meta = RULE_META[type];
+  const renderHighlights = () => {
+    if (!highlights.length) return null;
+    const meta = RULE_META.highlight;
     const Icon = meta.icon;
-    if (!items.length) return null;
     return (
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
-            <Icon className={`h-4 w-4 ${meta.color}`} /> {meta.label} ({items.length})
+            <Icon className={`h-4 w-4 ${meta.color}`} /> {meta.label} ({highlights.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-1">
-            {items.map((rule) => {
+            {highlights.map((rule) => {
               const prop = propertyMap[rule.property_id];
               return (
                 <div key={rule.id} className="flex items-center justify-between p-2 rounded-md bg-muted/30 text-sm">
@@ -271,7 +229,7 @@ export function AgentPropertiesTab() {
                     disabled={isRemoving}
                     onClick={() => removeRule(rule.id)}
                   >
-                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    <ShieldOff className="h-3.5 w-3.5 text-destructive" />
                   </Button>
                 </div>
               );
@@ -312,20 +270,8 @@ export function AgentPropertiesTab() {
 
       {config.is_property_db_enabled && (
         <>
-          <PropertySelector
-            onAdd={(id, type) => addRule(id, type)}
-            onAddMultiple={handleAddMultiple}
-            isAdding={isAdding}
-            existingIds={existingIds}
-          />
-          {renderRuleList(highlights, "highlight")}
-          {renderRuleList(whitelist, "whitelist")}
-          {renderRuleList(blacklist, "blacklist")}
-          {rules.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-6">
-              Sem regras. Todos os imóveis ativos serão acessíveis pela IA.
-            </p>
-          )}
+          <BlacklistManager />
+          {renderHighlights()}
         </>
       )}
     </div>
