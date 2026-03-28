@@ -95,7 +95,18 @@ serve(async (req) => {
       `• ${prompt_properties}`,
     ].filter(Boolean).join("\n");
 
-    // 4. Fetch properties if enabled
+    // 4. Fetch property types for this org
+    const { data: propertyTypes = [] } = await sb
+      .from("property_types")
+      .select("id, name")
+      .or(`organization_id.eq.${orgId},is_default.eq.true`);
+
+    const propertyTypeMap: Record<string, string> = {};
+    (propertyTypes as any[]).forEach((pt: any) => {
+      propertyTypeMap[pt.id] = pt.name;
+    });
+
+    // 5. Fetch properties if enabled
     let properties: any[] = [];
     if (config.is_property_db_enabled) {
       const { data: rules = [] } = await sb
@@ -121,6 +132,7 @@ serve(async (req) => {
 
       properties = (props as any[]).map((p) => ({
         ...p,
+        property_type_name: propertyTypeMap[p.property_type_id] ?? null,
         is_highlighted: highlightIds.has(p.id),
       }));
     }
@@ -151,6 +163,7 @@ serve(async (req) => {
         schedule: prompt_schedule,
         properties: prompt_properties,
       },
+      property_types: propertyTypeMap,
       properties: {
         enabled: !!config.is_property_db_enabled,
         items: properties,
