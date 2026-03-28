@@ -86,15 +86,6 @@ serve(async (req) => {
       ? "Você tem acesso ao banco de imóveis da imobiliária. Use-o para recomendar imóveis relevantes com base nas preferências do cliente."
       : "Você não tem acesso ao banco de imóveis. Caso o cliente pergunte sobre imóveis específicos, oriente-o a consultar o site ou falar com um corretor.";
 
-    const composed_system_prompt = [
-      config.system_prompt?.trim() ?? "",
-      "\n--- Instruções ---",
-      `• ${prompt_qualify}`,
-      `• ${prompt_create_lead}`,
-      `• ${prompt_schedule}`,
-      `• ${prompt_properties}`,
-    ].filter(Boolean).join("\n");
-
     // 4. Fetch property types for this org
     const { data: propertyTypes = [] } = await sb
       .from("property_types")
@@ -105,6 +96,22 @@ serve(async (req) => {
     (propertyTypes as any[]).forEach((pt: any) => {
       propertyTypeMap[pt.id] = pt.name;
     });
+
+    const propertyTypesPrompt = Object.entries(propertyTypeMap).length
+      ? `Use o seguinte mapeamento de tipos de imóvel (ID => Nome):\n${Object.entries(propertyTypeMap)
+          .map(([id, name]) => `- ${id}: ${name}`)
+          .join("\n")}`
+      : "Não há mapeamento de tipos de imóvel disponível para esta organização.";
+
+    const composed_system_prompt = [
+      config.system_prompt?.trim() ?? "",
+      "\n--- Instruções ---",
+      `• ${prompt_qualify}`,
+      `• ${prompt_create_lead}`,
+      `• ${prompt_schedule}`,
+      `• ${prompt_properties}`,
+      `• ${propertyTypesPrompt}`,
+    ].filter(Boolean).join("\n");
 
     // 5. Fetch properties if enabled
     let properties: any[] = [];
@@ -162,6 +169,7 @@ serve(async (req) => {
         create_lead: prompt_create_lead,
         schedule: prompt_schedule,
         properties: prompt_properties,
+        property_types: propertyTypesPrompt,
       },
       property_types: propertyTypeMap,
       properties: {
