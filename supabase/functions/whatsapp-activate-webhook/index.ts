@@ -261,7 +261,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Step 2: Connect instance to get QR code
+    // Step 2: Connect instance to get QR code / current state
     const connectRes = await fetch(`${baseUrl}/instance/connect/${instanceName}`, {
       method: "GET",
       headers: { apikey: EVOLUTION_API_KEY },
@@ -274,6 +274,11 @@ Deno.serve(async (req) => {
     try { connectData = JSON.parse(connectRaw); } catch { /* raw text */ }
 
     const qrBase64 = connectData?.base64 ?? connectData?.data?.base64 ?? null;
+    const evoState = String(connectData?.instance?.state ?? connectData?.state ?? "").toLowerCase();
+    const isConnected = evoState === "open" || evoState === "connected";
+    const instanceStatus = isConnected
+      ? "connected"
+      : (qrBase64 ? "connecting" : "provisioning");
 
     // Update DB with instance details
     const { data: currentInstance } = await sb
@@ -285,7 +290,7 @@ Deno.serve(async (req) => {
     if (currentInstance?.id) {
       const updatePayload: Record<string, any> = {
         instance_name: instanceName,
-        status: qrBase64 ? "connecting" : "provisioning",
+        status: instanceStatus,
       };
       if (instanceToken) updatePayload.instance_token = instanceToken;
       if (qrBase64) updatePayload.qr_code = qrBase64;
@@ -297,15 +302,17 @@ Deno.serve(async (req) => {
       instanceName,
       hasToken: !!instanceToken,
       hasQr: !!qrBase64,
+      state: evoState,
+      isConnected,
       isReconnection: !!existingInstance,
     });
 
     return new Response(JSON.stringify({
       success: true,
       qrCode: qrBase64,
-      connected: false,
-      status: qrBase64 ? "connecting" : "provisioning",
-      instanceCreated: true,
+      connected: isConnected,
+      status: instanceStatus,
+      instanceCreated: !instanceExists,
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
