@@ -64,7 +64,6 @@ const propertySchema = z.object({
   address_state: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
   youtube_url: z.string().url().optional().nullable().or(z.literal("")),
-  featured: z.boolean().optional().nullable(),
   amenities: z.array(z.string()).optional().nullable(),
   payment_options: z.array(z.string()).optional().nullable(),
   owner_name: z.string().optional().nullable().or(z.literal("")),
