@@ -41,13 +41,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: instance } = await sb
-      .from("whatsapp_instances")
+    const { data: config } = await sb
+      .from("whatsapp_agent_config")
       .select("id, instance_name, status")
       .eq("organization_id", orgId)
       .maybeSingle();
 
-    if (!instance?.instance_name) {
+    if (!config?.instance_name) {
       return new Response(JSON.stringify({ success: false, error: "Instância não encontrada" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -56,8 +56,7 @@ Deno.serve(async (req) => {
 
     const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
 
-    // Call Evolution API connect endpoint to get fresh QR
-    const connectRes = await fetch(`${baseUrl}/instance/connect/${instance.instance_name}`, {
+    const connectRes = await fetch(`${baseUrl}/instance/connect/${config.instance_name}`, {
       method: "GET",
       headers: { apikey: EVOLUTION_API_KEY },
     });
@@ -80,10 +79,9 @@ Deno.serve(async (req) => {
 
     const pairingCode = connectData?.pairingCode ?? connectData?.qrcode?.pairingCode ?? null;
 
-    // Check if already connected
     const state = String(connectData?.state ?? connectData?.instance?.state ?? "").toLowerCase();
     if (state === "open" || state === "connected") {
-      await sb.from("whatsapp_instances").update({ status: "connected", qr_code: null }).eq("id", instance.id);
+      await sb.from("whatsapp_agent_config").update({ status: "connected", qr_code: null }).eq("id", config.id);
       return new Response(JSON.stringify({
         success: true,
         qrCode: null,
@@ -95,9 +93,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Save QR to DB
     if (qrBase64) {
-      await sb.from("whatsapp_instances").update({ qr_code: qrBase64, status: "connecting" }).eq("id", instance.id);
+      await sb.from("whatsapp_agent_config").update({ qr_code: qrBase64, status: "connecting" }).eq("id", config.id);
     }
 
     return new Response(JSON.stringify({

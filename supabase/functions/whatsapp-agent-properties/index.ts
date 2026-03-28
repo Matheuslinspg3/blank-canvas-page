@@ -9,7 +9,6 @@ serve(async (req) => {
   if (cors) return cors;
 
   try {
-    // Validate X-Webhook-Secret header
     const requestSecret = req.headers.get("X-Webhook-Secret");
     if (!WEBHOOK_SECRET || requestSecret !== WEBHOOK_SECRET) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -30,68 +29,55 @@ serve(async (req) => {
 
     const sb = createServiceClient();
 
-    // Resolve org ID from instance_name if needed
-    let resolvedOrgId = organization_id;
-    if (!resolvedOrgId && instance_name) {
-      const { data: inst } = await sb
-        .from("whatsapp_instances")
-        .select("organization_id")
+    // Single query to resolve config
+    let config: any = null;
+    if (organization_id) {
+      const { data } = await sb
+        .from("whatsapp_agent_config")
+        .select("organization_id, is_property_db_enabled")
+        .eq("organization_id", organization_id)
+        .maybeSingle();
+      config = data;
+    } else {
+      const { data } = await sb
+        .from("whatsapp_agent_config")
+        .select("organization_id, is_property_db_enabled")
         .eq("instance_name", instance_name)
         .maybeSingle();
-      if (!inst) {
-        return new Response(JSON.stringify({ error: "Instância não encontrada" }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      resolvedOrgId = inst.organization_id;
+      config = data;
     }
 
-    // Validate organization exists
-    const { data: org } = await sb
-      .from("organizations")
-      .select("id")
-      .eq("id", resolvedOrgId)
-      .maybeSingle();
-
-    if (!org) {
-      return new Response(JSON.stringify({ error: "Organização não encontrada" }), {
+    if (!config) {
+      return new Response(JSON.stringify({ error: "Configuração não encontrada" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const organization_id_resolved = resolvedOrgId;
+    const orgId = config.organization_id;
 
-    // Check if property DB is enabled
-    const { data: config } = await sb
-      .from("whatsapp_agent_config")
-      .select("is_property_db_enabled")
-      .eq("organization_id", organization_id_resolved)
-      .maybeSingle();
-
-    if (!config?.is_property_db_enabled) {
+    if (!config.is_property_db_enabled) {
       return new Response(JSON.stringify({ properties: [], message: "Banco de imóveis desabilitado" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Fetch highlight rules (blacklist is now on properties table)
+    // Fetch highlight rules
     const { data: rules = [] } = await sb
       .from("whatsapp_property_rules")
       .select("property_id, rule_type")
-      .eq("organization_id", organization_id_resolved)
+      .eq("organization_id", orgId)
       .eq("rule_type", "highlight");
 
     const highlightIds = new Set(rules.map((r: any) => r.property_id));
 
-    // Build query — ai_blacklist = false filters out blocked properties
     let query = sb
       .from("properties")
       .select("id, title, property_code, status, transaction_type, sale_price, rent_price, bedrooms, bathrooms, area_total, address_city, address_neighborhood, address_state, property_type_id")
-      .eq("organization_id", organization_id_resolved)
+      .eq("organization_id", orgId)
       .eq("status", "disponivel")
       .eq("ai_blacklist", false);
+
     if (filters?.bedrooms) query = query.gte("bedrooms", filters.bedrooms);
     if (filters?.max_price) {
       query = query.or(`sale_price.lte.${filters.max_price},rent_price.lte.${filters.max_price}`);
@@ -109,7 +95,6 @@ serve(async (req) => {
     const { data: properties = [], error } = await query.limit(50);
     if (error) throw error;
 
-    // Sort: highlighted first
     const filtered = (properties as any[]);
     filtered.sort((a, b) => {
       const aH = highlightIds.has(a.id) ? 0 : 1;

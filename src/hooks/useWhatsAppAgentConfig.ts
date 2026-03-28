@@ -24,6 +24,12 @@ export interface AgentConfig {
   scheduling_days: string[];
   scheduling_hour_start: string;
   scheduling_hour_end: string;
+  instance_name: string | null;
+  instance_token: string | null;
+  status: string;
+  phone_number: string | null;
+  qr_code: string | null;
+  webhook_url: string | null;
   updated_at: string;
 }
 
@@ -45,6 +51,7 @@ const DEFAULTS: Partial<AgentConfig> = {
   scheduling_days: ["seg", "ter", "qua", "qui", "sex"],
   scheduling_hour_start: "09:00",
   scheduling_hour_end: "17:00",
+  status: "disconnected",
 };
 
 export function useWhatsAppAgentConfig() {

@@ -85,15 +85,15 @@ Deno.serve(async (req) => {
         .replace(/-+/g, "-")
         .replace(/^-|-$/g, "");
 
-    // Check existing instance
-    const { data: existingInstance } = await sb
-      .from("whatsapp_instances")
+    // Check existing config (unified table)
+    const { data: existing } = await sb
+      .from("whatsapp_agent_config")
       .select("id, instance_name, status, qr_code, phone_number, instance_token")
       .eq("organization_id", orgId)
       .maybeSingle();
 
     // Idempotency: already connected
-    if (existingInstance?.status === "connected" && existingInstance?.instance_token) {
+    if (existing?.status === "connected" && existing?.instance_token) {
       await auditLog(sb, orgId, "activate_idempotent", user.id, { reason: "already_connected" });
       return new Response(JSON.stringify({
         success: true,
@@ -108,12 +108,12 @@ Deno.serve(async (req) => {
     }
 
     // If instance exists in Evo, try to get QR code for reconnection
-    if (existingInstance?.instance_name && existingInstance?.instance_token) {
-      console.log("Attempting reconnect for existing instance:", existingInstance.instance_name);
-      await sb.from("whatsapp_instances").update({ status: "connecting" }).eq("id", existingInstance.id);
+    if (existing?.instance_name && existing?.instance_token) {
+      console.log("Attempting reconnect for existing instance:", existing.instance_name);
+      await sb.from("whatsapp_agent_config").update({ status: "connecting" }).eq("id", existing.id);
 
       try {
-        const connectRes = await fetch(`${baseUrl}/instance/connect/${existingInstance.instance_name}`, {
+        const connectRes = await fetch(`${baseUrl}/instance/connect/${existing.instance_name}`, {
           method: "GET",
           headers: { apikey: EVOLUTION_API_KEY },
         });
@@ -122,10 +122,10 @@ Deno.serve(async (req) => {
 
         const qrBase64 = connectData?.base64 ?? connectData?.data?.base64 ?? null;
         if (qrBase64) {
-          await sb.from("whatsapp_instances").update({
+          await sb.from("whatsapp_agent_config").update({
             qr_code: qrBase64,
             status: "connecting",
-          }).eq("id", existingInstance.id);
+          }).eq("id", existing.id);
 
           await auditLog(sb, orgId, "reconnect_evo", user.id, { hasQr: true });
 
@@ -145,19 +145,19 @@ Deno.serve(async (req) => {
       }
     }
 
-    const instanceName = existingInstance?.instance_name || `${orgSlug}-${org.id}`;
+    const instanceName = existing?.instance_name || `${orgSlug}-${org.id}`;
     console.log("Target instance name:", instanceName);
 
     // Set provisioning status in DB
-    if (existingInstance?.id) {
-      await sb.from("whatsapp_instances").update({
+    if (existing?.id) {
+      await sb.from("whatsapp_agent_config").update({
         status: "provisioning",
         instance_name: instanceName,
         qr_code: null,
-        instance_token: existingInstance.instance_token ?? null,
-      }).eq("id", existingInstance.id);
+        instance_token: existing.instance_token ?? null,
+      }).eq("id", existing.id);
     } else {
-      await sb.from("whatsapp_instances").insert({
+      await sb.from("whatsapp_agent_config").insert({
         organization_id: orgId,
         instance_name: instanceName,
         status: "provisioning",
@@ -165,7 +165,7 @@ Deno.serve(async (req) => {
     }
 
     // Check if instance already exists in Evolution API
-    let instanceToken: string | null = existingInstance?.instance_token ?? null;
+    let instanceToken: string | null = existing?.instance_token ?? null;
     let instanceExists = false;
 
     try {
@@ -280,14 +280,14 @@ Deno.serve(async (req) => {
       ? "connected"
       : (qrBase64 ? "connecting" : "provisioning");
 
-    // Update DB with instance details
-    const { data: currentInstance } = await sb
-      .from("whatsapp_instances")
+    // Update DB
+    const { data: currentConfig } = await sb
+      .from("whatsapp_agent_config")
       .select("id")
       .eq("organization_id", orgId)
       .maybeSingle();
 
-    if (currentInstance?.id) {
+    if (currentConfig?.id) {
       const updatePayload: Record<string, any> = {
         instance_name: instanceName,
         status: instanceStatus,
@@ -295,7 +295,7 @@ Deno.serve(async (req) => {
       if (instanceToken) updatePayload.instance_token = instanceToken;
       if (qrBase64) updatePayload.qr_code = qrBase64;
 
-      await sb.from("whatsapp_instances").update(updatePayload).eq("id", currentInstance.id);
+      await sb.from("whatsapp_agent_config").update(updatePayload).eq("id", currentConfig.id);
     }
 
     await auditLog(sb, orgId, "activate_evo_direct", user.id, {
@@ -304,7 +304,7 @@ Deno.serve(async (req) => {
       hasQr: !!qrBase64,
       state: evoState,
       isConnected,
-      isReconnection: !!existingInstance,
+      isReconnection: !!existing,
     });
 
     return new Response(JSON.stringify({

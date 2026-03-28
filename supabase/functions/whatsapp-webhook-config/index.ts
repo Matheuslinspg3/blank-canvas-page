@@ -2,14 +2,6 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { createServiceClient } from "../_shared/auth.ts";
 
-/**
- * Unified endpoint called by the single N8N webhook.
- * Receives { instance_name } and returns ALL config for that org:
- * - agent config (personality, hours, prompts)
- * - property rules & available properties
- * - org info
- */
-
 const WEBHOOK_SECRET = Deno.env.get("WHATSAPP_AGENT_SECRET");
 
 serve(async (req) => {
@@ -37,21 +29,21 @@ serve(async (req) => {
 
     const sb = createServiceClient();
 
-    // 1. Resolve instance_name → organization_id
-    const { data: instance } = await sb
-      .from("whatsapp_instances")
-      .select("organization_id, instance_name, status, phone_number")
+    // 1. Resolve instance_name → config (single query!)
+    const { data: config } = await sb
+      .from("whatsapp_agent_config")
+      .select("*")
       .eq("instance_name", instance_name)
       .maybeSingle();
 
-    if (!instance) {
+    if (!config) {
       return new Response(JSON.stringify({ error: "Instância não encontrada" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const orgId = instance.organization_id;
+    const orgId = config.organization_id;
 
     // 2. Fetch org info
     const { data: org } = await sb
@@ -67,45 +59,12 @@ serve(async (req) => {
       });
     }
 
-    // 3. Fetch agent config
-    const { data: agentConfig } = await sb
-      .from("whatsapp_agent_config")
-      .select("*")
-      .eq("organization_id", orgId)
-      .maybeSingle();
-
-    const config = agentConfig ?? {
-      agent_name: "Valentina",
-      tone: "informal",
-      system_prompt: "",
-      is_property_db_enabled: false,
-      auto_qualify_leads: false,
-      auto_create_leads: false,
-      schedule_visits: false,
-      working_hours_start: "08:00",
-      working_hours_end: "18:00",
-      welcome_message: "Olá! Sou a Valentina, assistente virtual. Como posso ajudar?",
-      away_message: "No momento estamos fora do horário de atendimento. Retornaremos em breve!",
-      transfer_keywords: ["falar com corretor", "atendente", "humano", "reclamação"],
-      max_messages_before_transfer: 10,
-      broker_assignment_mode: "manual",
-      scheduling_days: ["seg", "ter", "qua", "qui", "sex"],
-      scheduling_hour_start: "09:00",
-      scheduling_hour_end: "17:00",
-    };
-
-    // Build composed system prompt
+    // 3. Build prompt variables from config
     const dayLabels: Record<string, string> = {
       seg: "Segunda", ter: "Terça", qua: "Quarta", qui: "Quinta",
       sex: "Sexta", sab: "Sábado", dom: "Domingo",
     };
 
-    const promptParts: string[] = [];
-    if (config.system_prompt?.trim()) {
-      promptParts.push(config.system_prompt.trim());
-    }
-
-    // Individual prompt variables for N8N
     const prompt_qualify = config.auto_qualify_leads
       ? "Ao iniciar uma conversa, colete nome completo, telefone, e-mail e interesse do cliente de forma natural."
       : "Não é necessário a coleta de dados como nome completo, telefone, e-mail e interesse do cliente.";
@@ -127,7 +86,6 @@ serve(async (req) => {
       ? "Você tem acesso ao banco de imóveis da imobiliária. Use-o para recomendar imóveis relevantes com base nas preferências do cliente."
       : "Você não tem acesso ao banco de imóveis. Caso o cliente pergunte sobre imóveis específicos, oriente-o a consultar o site ou falar com um corretor.";
 
-    // Composed prompt (all combined)
     const composed_system_prompt = [
       config.system_prompt?.trim() ?? "",
       "\n--- Instruções ---",
@@ -145,8 +103,6 @@ serve(async (req) => {
         .select("property_id, rule_type")
         .eq("organization_id", orgId);
 
-      const blacklistIds = new Set(rules.filter((r: any) => r.rule_type === "blacklist").map((r: any) => r.property_id));
-      const whitelistIds = new Set(rules.filter((r: any) => r.rule_type === "whitelist").map((r: any) => r.property_id));
       const highlightIds = new Set(rules.filter((r: any) => r.rule_type === "highlight").map((r: any) => r.property_id));
 
       const { data: props = [] } = await sb
@@ -154,20 +110,16 @@ serve(async (req) => {
         .select("id, title, property_code, status, transaction_type, sale_price, rent_price, bedrooms, bathrooms, area_total, address_city, address_neighborhood, address_state, property_type_id")
         .eq("organization_id", orgId)
         .eq("status", "disponivel")
+        .eq("ai_blacklist", false)
         .limit(50);
 
-      let filtered = (props as any[]).filter((p) => !blacklistIds.has(p.id));
-      if (whitelistIds.size > 0) {
-        filtered = filtered.filter((p) => whitelistIds.has(p.id));
-      }
-
-      filtered.sort((a, b) => {
+      (props as any[]).sort((a, b) => {
         const aH = highlightIds.has(a.id) ? 0 : 1;
         const bH = highlightIds.has(b.id) ? 0 : 1;
         return aH - bH;
       });
 
-      properties = filtered.map((p) => ({
+      properties = (props as any[]).map((p) => ({
         ...p,
         is_highlighted: highlightIds.has(p.id),
       }));
@@ -181,13 +133,12 @@ serve(async (req) => {
         slug: org.slug,
       },
       instance: {
-        instance_name: instance.instance_name,
-        status: instance.status,
-        phone_number: instance.phone_number,
+        instance_name: config.instance_name,
+        status: config.status,
+        phone_number: config.phone_number,
       },
       agent_config: {
         ...config,
-        // Override booleans with prompt-ready text strings
         auto_qualify_leads: prompt_qualify,
         auto_create_leads: prompt_create_lead,
         schedule_visits: prompt_schedule,
