@@ -8,11 +8,6 @@ const corsHeaders = {
 
 const asLowerText = (value: unknown) => String(value ?? "").toLowerCase();
 
-const safeJsonForError = (payload: unknown, max = 1500) => {
-  const raw = JSON.stringify(payload ?? {});
-  return raw.length > max ? `${raw.slice(0, max)}...` : raw;
-};
-
 const auditLog = async (
   sb: any,
   orgId: string,
@@ -68,43 +63,40 @@ serve(async (req) => {
     const { action } = body;
 
     const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
-
     const N8N_VERIFICA = "https://n8n.costazul.shop/webhook/autouazapiagenteiavalentpolling";
 
     // ── STATUS ──
     if (action === "status") {
-      const { data: instance } = await supabaseClient
-        .from("whatsapp_instances")
+      const { data: config } = await supabaseClient
+        .from("whatsapp_agent_config")
         .select("*")
         .eq("organization_id", orgId)
         .single();
 
-      if (!instance) {
+      if (!config) {
         return new Response(JSON.stringify({ status: "disconnected", phone: null, qr_code: null }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // If no instance_name, return DB status
-      if (!instance.instance_name) {
+      if (!config.instance_name) {
         return new Response(JSON.stringify({
-          status: instance.status || "disconnected",
-          phone: instance.phone_number || null,
-          qr_code: instance.qr_code || null,
+          status: config.status || "disconnected",
+          phone: config.phone_number || null,
+          qr_code: config.qr_code || null,
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // Try N8N VERIFICA webhook first, fallback to Evolution API
       let newStatus = "disconnected";
-      let phone = instance.phone_number || null;
+      let phone = config.phone_number || null;
 
       try {
         const verificaRes = await fetch(N8N_VERIFICA, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ instanceName: instance.instance_name }),
+          body: JSON.stringify({ instanceName: config.instance_name }),
         });
 
         const verificaRaw = await verificaRes.text();
@@ -119,10 +111,9 @@ serve(async (req) => {
       } catch (e) {
         console.warn("N8N VERIFICA failed, trying Evolution API:", e);
 
-        // Fallback: direct Evolution API
-        if (instance.instance_token) {
+        if (config.instance_token) {
           try {
-            const evoRes = await fetch(`${baseUrl}/instance/connectionState/${instance.instance_name}`, {
+            const evoRes = await fetch(`${baseUrl}/instance/connectionState/${config.instance_name}`, {
               method: "GET",
               headers: { apikey: EVOLUTION_API_KEY },
             });
@@ -143,16 +134,16 @@ serve(async (req) => {
       }
 
       await supabaseClient
-        .from("whatsapp_instances")
+        .from("whatsapp_agent_config")
         .update(updatePayload)
-        .eq("id", instance.id);
+        .eq("id", config.id);
 
       await auditLog(supabaseClient, orgId, "status_check", user.id, { newStatus });
 
       return new Response(JSON.stringify({
         status: newStatus,
         phone: phone,
-        qr_code: newStatus === "connected" ? null : instance.qr_code ?? null,
+        qr_code: newStatus === "connected" ? null : config.qr_code ?? null,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -160,21 +151,21 @@ serve(async (req) => {
 
     // ── DISCONNECT ──
     if (action === "disconnect") {
-      const { data: instance } = await supabaseClient
-        .from("whatsapp_instances")
+      const { data: config } = await supabaseClient
+        .from("whatsapp_agent_config")
         .select("*")
         .eq("organization_id", orgId)
         .single();
 
-      if (!instance) {
+      if (!config) {
         return new Response(JSON.stringify({ status: "disconnected" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      if (instance.instance_token) {
+      if (config.instance_token) {
         try {
-          const res = await fetch(`${baseUrl}/instance/logout/${instance.instance_name}`, {
+          const res = await fetch(`${baseUrl}/instance/logout/${config.instance_name}`, {
             method: "DELETE",
             headers: { apikey: EVOLUTION_API_KEY },
           });
@@ -185,9 +176,9 @@ serve(async (req) => {
       }
 
       await supabaseClient
-        .from("whatsapp_instances")
+        .from("whatsapp_agent_config")
         .update({ status: "disconnected", qr_code: null })
-        .eq("id", instance.id);
+        .eq("id", config.id);
 
       await auditLog(supabaseClient, orgId, "disconnect", user.id);
 
@@ -198,21 +189,21 @@ serve(async (req) => {
 
     // ── DELETE ──
     if (action === "delete") {
-      const { data: instance } = await supabaseClient
-        .from("whatsapp_instances")
+      const { data: config } = await supabaseClient
+        .from("whatsapp_agent_config")
         .select("*")
         .eq("organization_id", orgId)
         .single();
 
-      if (!instance) {
-        return new Response(JSON.stringify({ deleted: true, skipped: "instance_not_found" }), {
+      if (!config) {
+        return new Response(JSON.stringify({ deleted: true, skipped: "config_not_found" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      if (instance.instance_token) {
+      if (config.instance_token && config.instance_name) {
         try {
-          const res = await fetch(`${baseUrl}/instance/delete/${instance.instance_name}`, {
+          const res = await fetch(`${baseUrl}/instance/delete/${config.instance_name}`, {
             method: "DELETE",
             headers: { apikey: EVOLUTION_API_KEY },
           });
@@ -222,12 +213,20 @@ serve(async (req) => {
         }
       }
 
+      // Clear instance fields but keep the config row
       await supabaseClient
-        .from("whatsapp_instances")
-        .delete()
-        .eq("id", instance.id);
+        .from("whatsapp_agent_config")
+        .update({
+          instance_name: null,
+          instance_token: null,
+          status: "disconnected",
+          phone_number: null,
+          qr_code: null,
+          webhook_url: null,
+        })
+        .eq("id", config.id);
 
-      await auditLog(supabaseClient, orgId, "delete", user.id, { instanceName: instance.instance_name });
+      await auditLog(supabaseClient, orgId, "delete", user.id, { instanceName: config.instance_name });
 
       return new Response(JSON.stringify({ deleted: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

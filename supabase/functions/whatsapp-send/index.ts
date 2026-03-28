@@ -58,21 +58,21 @@ serve(async (req) => {
 
     const orgId = profile.organization_id;
 
-    // Get instance
-    const { data: instance } = await supabaseClient
-      .from("whatsapp_instances")
+    // Get config (unified table)
+    const { data: config } = await supabaseClient
+      .from("whatsapp_agent_config")
       .select("instance_name, instance_token, status")
       .eq("organization_id", orgId)
       .single();
 
-    if (!instance?.instance_name) {
+    if (!config?.instance_name) {
       return new Response(
         JSON.stringify({ error: "WhatsApp não configurado. Ative a integração na área de integrações." }),
         { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    if (instance.status !== "connected") {
+    if (config.status !== "connected") {
       return new Response(
         JSON.stringify({ error: "WhatsApp desconectado. Reconecte na área de integrações antes de enviar mensagens." }),
         { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -87,12 +87,11 @@ serve(async (req) => {
     const cleanPhone = phone.replace(/\D/g, "");
     const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
 
-    // Evolution API v2 send endpoints
     let endpoint: string;
     let payload: Record<string, any>;
 
     if (type === "media") {
-      endpoint = `${baseUrl}/message/sendMedia/${instance.instance_name}`;
+      endpoint = `${baseUrl}/message/sendMedia/${config.instance_name}`;
       payload = {
         number: cleanPhone,
         mediatype: body.mediaType || "image",
@@ -100,7 +99,7 @@ serve(async (req) => {
         caption: message,
       };
     } else {
-      endpoint = `${baseUrl}/message/sendText/${instance.instance_name}`;
+      endpoint = `${baseUrl}/message/sendText/${config.instance_name}`;
       payload = {
         number: cleanPhone,
         text: message,
@@ -122,7 +121,7 @@ serve(async (req) => {
       const isInvalidToken = evoRes.status === 401 || evoRes.status === 403;
       if (isInvalidToken) {
         await supabaseClient
-          .from("whatsapp_instances")
+          .from("whatsapp_agent_config")
           .update({ status: "disconnected" })
           .eq("organization_id", orgId);
 

@@ -41,13 +41,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: instance } = await sb
-      .from("whatsapp_instances")
+    const { data: config } = await sb
+      .from("whatsapp_agent_config")
       .select("id, instance_name, status")
       .eq("organization_id", orgId)
       .maybeSingle();
 
-    if (!instance?.instance_name) {
+    if (!config?.instance_name) {
       return new Response(JSON.stringify({ connected: false }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -56,8 +56,7 @@ Deno.serve(async (req) => {
 
     const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
 
-    // Check connection state via Evolution API
-    const stateRes = await fetch(`${baseUrl}/instance/connectionState/${instance.instance_name}`, {
+    const stateRes = await fetch(`${baseUrl}/instance/connectionState/${config.instance_name}`, {
       method: "GET",
       headers: { apikey: EVOLUTION_API_KEY },
     });
@@ -80,12 +79,12 @@ Deno.serve(async (req) => {
     const phoneNumber = stateData?.instance?.phoneNumber ?? stateData?.phoneNumber ?? null;
 
     if (connected) {
-      await sb.from("whatsapp_instances").update({
+      await sb.from("whatsapp_agent_config").update({
         status: "connected",
         qr_code: null,
         ...(phoneNumber ? { phone_number: phoneNumber } : {}),
         updated_at: new Date().toISOString(),
-      }).eq("id", instance.id);
+      }).eq("id", config.id);
     }
 
     return new Response(

@@ -9,7 +9,6 @@ serve(async (req) => {
   if (cors) return cors;
 
   try {
-    // Validate X-Webhook-Secret header
     const requestSecret = req.headers.get("X-Webhook-Secret");
     if (!WEBHOOK_SECRET || requestSecret !== WEBHOOK_SECRET) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -30,46 +29,32 @@ serve(async (req) => {
 
     const sb = createServiceClient();
 
-    // Resolve org ID from instance_name if needed
-    let resolvedOrgId = organization_id;
-    if (!resolvedOrgId && instance_name) {
-      const { data: inst } = await sb
-        .from("whatsapp_instances")
-        .select("organization_id")
+    // Single query - resolve by org_id or instance_name
+    let config: any = null;
+    if (organization_id) {
+      const { data } = await sb
+        .from("whatsapp_agent_config")
+        .select("*")
+        .eq("organization_id", organization_id)
+        .maybeSingle();
+      config = data;
+    } else {
+      const { data } = await sb
+        .from("whatsapp_agent_config")
+        .select("*")
         .eq("instance_name", instance_name)
         .maybeSingle();
-      if (!inst) {
-        return new Response(JSON.stringify({ error: "Instância não encontrada" }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      resolvedOrgId = inst.organization_id;
+      config = data;
     }
 
-    // Validate organization exists
-    const { data: org } = await sb
-      .from("organizations")
-      .select("id")
-      .eq("id", resolvedOrgId)
-      .maybeSingle();
+    const organization_id_resolved = config?.organization_id;
 
-    if (!org) {
-      return new Response(JSON.stringify({ error: "Organização não encontrada" }), {
+    if (!organization_id_resolved) {
+      return new Response(JSON.stringify({ error: "Configuração não encontrada" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const organization_id_resolved = resolvedOrgId;
-
-    const { data: config, error } = await sb
-      .from("whatsapp_agent_config")
-      .select("*")
-      .eq("organization_id", organization_id_resolved)
-      .maybeSingle();
-
-    if (error) throw error;
 
     const baseConfig = config ?? {
       agent_name: "Valentina",
