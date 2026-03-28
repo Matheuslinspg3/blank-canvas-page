@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
         status: "provisioning",
         instance_name: instanceName,
         qr_code: null,
-        instance_token: null,
+        instance_token: existingInstance.instance_token ?? null,
       }).eq("id", existingInstance.id);
     } else {
       await sb.from("whatsapp_instances").insert({
@@ -165,23 +165,40 @@ Deno.serve(async (req) => {
     }
 
     // Check if instance already exists in Evolution API
-    let instanceToken: string | null = null;
+    let instanceToken: string | null = existingInstance?.instance_token ?? null;
     let instanceExists = false;
 
     try {
-      const fetchRes = await fetch(`${baseUrl}/instance/fetchInstances?instanceName=${instanceName}`, {
+      const fetchRes = await fetch(`${baseUrl}/instance/fetchInstances`, {
         method: "GET",
         headers: { apikey: EVOLUTION_API_KEY },
       });
       if (fetchRes.ok) {
         const fetchData = await fetchRes.json();
-        const found = Array.isArray(fetchData) ? fetchData[0] : fetchData;
-        if (found?.instance?.instanceName === instanceName) {
+        const list = Array.isArray(fetchData)
+          ? fetchData
+          : Array.isArray(fetchData?.instances)
+            ? fetchData.instances
+            : fetchData?.instance
+              ? [fetchData.instance]
+              : [];
+
+        const found = list.find((item: any) => {
+          const name = item?.instanceName ?? item?.instance?.instanceName ?? item?.name;
+          return name === instanceName;
+        });
+
+        if (found) {
           instanceExists = true;
-          instanceToken = found?.instance?.apikey ?? null;
+          instanceToken =
+            found?.apikey ??
+            found?.token ??
+            found?.instance?.apikey ??
+            found?.instance?.token ??
+            instanceToken;
+
           console.log("Instance already exists in Evo, reusing:", instanceName);
 
-          // Update webhook config on existing instance
           await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
             method: "POST",
             headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
@@ -230,12 +247,18 @@ Deno.serve(async (req) => {
       console.log("Evolution create response:", createRes.status, createRaw.substring(0, 1000));
 
       if (!createRes.ok) {
-        throw new Error(`Evolution API create error [${createRes.status}]: ${createRaw.substring(0, 500)}`);
+        const duplicateName = createRes.status === 403 && /already in use|already exists|em uso|já existe/i.test(createRaw);
+        if (duplicateName) {
+          console.warn("Instance name already exists in Evolution API, reusing existing instance:", instanceName);
+          instanceExists = true;
+        } else {
+          throw new Error(`Evolution API create error [${createRes.status}]: ${createRaw.substring(0, 500)}`);
+        }
+      } else {
+        let createData: any = {};
+        try { createData = JSON.parse(createRaw); } catch { /* raw text */ }
+        instanceToken = createData?.hash?.apikey ?? createData?.token ?? createData?.apikey ?? instanceToken;
       }
-
-      let createData: any = {};
-      try { createData = JSON.parse(createRaw); } catch { /* raw text */ }
-      instanceToken = createData?.hash?.apikey ?? createData?.token ?? createData?.apikey ?? null;
     }
 
     // Step 2: Connect instance to get QR code
