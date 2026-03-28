@@ -78,6 +78,10 @@ export function AgentBehaviorTab() {
         scheduling_days: config.scheduling_days,
         scheduling_hour_start: config.scheduling_hour_start,
         scheduling_hour_end: config.scheduling_hour_end,
+        prompt_qualify_leads: config.prompt_qualify_leads,
+        prompt_create_leads: config.prompt_create_leads,
+        prompt_schedule_visits: config.prompt_schedule_visits,
+        prompt_property_db: config.prompt_property_db,
       });
     }
   }, [config]);
