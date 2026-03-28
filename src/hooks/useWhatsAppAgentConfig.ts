@@ -21,6 +21,9 @@ export interface AgentConfig {
   transfer_keywords: string[];
   max_messages_before_transfer: number;
   broker_assignment_mode: string;
+  scheduling_days: string[];
+  scheduling_hour_start: string;
+  scheduling_hour_end: string;
   updated_at: string;
 }
 
@@ -39,6 +42,9 @@ const DEFAULTS: Partial<AgentConfig> = {
   transfer_keywords: ["falar com corretor", "atendente", "humano", "reclamação"],
   max_messages_before_transfer: 10,
   broker_assignment_mode: "manual",
+  scheduling_days: ["seg", "ter", "qua", "qui", "sex"],
+  scheduling_hour_start: "09:00",
+  scheduling_hour_end: "17:00",
 };
 
 export function useWhatsAppAgentConfig() {

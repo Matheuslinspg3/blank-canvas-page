@@ -3,10 +3,22 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Save, UserCheck, CalendarCheck } from "lucide-react";
 import { useWhatsAppAgentConfig } from "@/hooks/useWhatsAppAgentConfig";
+
+const DAYS = [
+  { value: "seg", label: "Seg" },
+  { value: "ter", label: "Ter" },
+  { value: "qua", label: "Qua" },
+  { value: "qui", label: "Qui" },
+  { value: "sex", label: "Sex" },
+  { value: "sab", label: "Sáb" },
+  { value: "dom", label: "Dom" },
+];
 
 export function AgentQualificationTab() {
   const { config, saveConfig, isSaving, isLoading } = useWhatsAppAgentConfig();
@@ -15,6 +27,9 @@ export function AgentQualificationTab() {
     auto_create_leads: false,
     schedule_visits: false,
     broker_assignment_mode: "manual",
+    scheduling_days: ["seg", "ter", "qua", "qui", "sex"] as string[],
+    scheduling_hour_start: "09:00",
+    scheduling_hour_end: "17:00",
   });
 
   useEffect(() => {
@@ -24,9 +39,21 @@ export function AgentQualificationTab() {
         auto_create_leads: config.auto_create_leads,
         schedule_visits: config.schedule_visits,
         broker_assignment_mode: config.broker_assignment_mode ?? "manual",
+        scheduling_days: config.scheduling_days ?? ["seg", "ter", "qua", "qui", "sex"],
+        scheduling_hour_start: config.scheduling_hour_start ?? "09:00",
+        scheduling_hour_end: config.scheduling_hour_end ?? "17:00",
       });
     }
   }, [config]);
+
+  const toggleDay = (day: string) => {
+    setForm((f) => ({
+      ...f,
+      scheduling_days: f.scheduling_days.includes(day)
+        ? f.scheduling_days.filter((d) => d !== day)
+        : [...f.scheduling_days, day],
+    }));
+  };
 
   if (isLoading) return <div className="text-muted-foreground text-sm p-4">Carregando...</div>;
 
@@ -90,10 +117,10 @@ export function AgentQualificationTab() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <CalendarCheck className="h-4 w-4" /> Agendamento
+            <CalendarCheck className="h-4 w-4" /> Agendamento de Visitas
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <Label>Permitir agendamento de visitas</Label>
@@ -106,6 +133,47 @@ export function AgentQualificationTab() {
               onCheckedChange={(v) => setForm((f) => ({ ...f, schedule_visits: v }))}
             />
           </div>
+
+          {form.schedule_visits && (
+            <div className="space-y-4 pt-2 border-t border-border">
+              <div className="space-y-2">
+                <Label className="text-sm">Dias disponíveis</Label>
+                <div className="flex flex-wrap gap-3">
+                  {DAYS.map((day) => (
+                    <label
+                      key={day.value}
+                      className="flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Checkbox
+                        checked={form.scheduling_days.includes(day.value)}
+                        onCheckedChange={() => toggleDay(day.value)}
+                      />
+                      <span className="text-sm">{day.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm">Horário início</Label>
+                  <Input
+                    type="time"
+                    value={form.scheduling_hour_start}
+                    onChange={(e) => setForm((f) => ({ ...f, scheduling_hour_start: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm">Horário fim</Label>
+                  <Input
+                    type="time"
+                    value={form.scheduling_hour_end}
+                    onChange={(e) => setForm((f) => ({ ...f, scheduling_hour_end: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
