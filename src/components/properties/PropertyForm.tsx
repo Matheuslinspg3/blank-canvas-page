@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePropertyTypes } from "@/hooks/usePropertyTypes";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Store } from "lucide-react";
+import { Loader2, Store, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { PropertyWithDetails, PropertyFormData } from "@/hooks/useProperties";
 import { TAB_FIELDS } from "./form/constants";
@@ -64,6 +64,7 @@ const propertySchema = z.object({
   address_state: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
   youtube_url: z.string().url().optional().nullable().or(z.literal("")),
+  featured: z.boolean().optional().nullable(),
   amenities: z.array(z.string()).optional().nullable(),
   payment_options: z.array(z.string()).optional().nullable(),
   owner_name: z.string().optional().nullable().or(z.literal("")),
@@ -122,7 +123,7 @@ const DEFAULT_VALUES: FormData = {
   area_useful: 0, area_total: null, area_built: null, floor: null, beach_distance_meters: null,
   address_zipcode: "", address_street: "", address_number: "", address_complement: "",
   address_neighborhood: "", address_city: "", address_state: "",
-  description: "", youtube_url: "", amenities: [], payment_options: [],
+  description: "", youtube_url: "", amenities: [], payment_options: [], featured: false,
   owner_name: "", owner_phone: "", owner_email: "", owner_document: "", owner_notes: "",
 };
 
@@ -229,6 +230,7 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
           address_city: property.address_city || "", address_state: property.address_state || "",
           description: property.description || "", youtube_url: (property as any).youtube_url || "",
           amenities: property.amenities || [], payment_options: (property as any).payment_options || [],
+          featured: property.featured || false,
           owner_name: ownerName, owner_phone: ownerPhone, owner_email: ownerEmail,
           owner_document: ownerDocument, owner_notes: ownerNotes,
         });
@@ -329,12 +331,20 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
             <OwnerSection form={form} isEditing={!!property} />
 
             <DialogFooter className="flex-col sm:flex-row gap-3 sticky bottom-0 bg-background pt-4 pb-1">
-              <div className="flex items-center gap-3 mr-auto">
-                <Switch id="publish-marketplace" checked={publishToMarketplace} onCheckedChange={setPublishToMarketplace} />
-                <Label htmlFor="publish-marketplace" className="flex items-center gap-2 cursor-pointer text-sm font-medium">
-                  <Store className="h-4 w-4" />
-                  <span className="hidden sm:inline">Publicar no</span> Marketplace
-                </Label>
+              <div className="flex items-center gap-4 mr-auto">
+                <div className="flex items-center gap-2">
+                  <Switch id="featured-toggle" checked={form.watch("featured") || false} onCheckedChange={(v) => form.setValue("featured", v)} />
+                  <Label htmlFor="featured-toggle" className="flex items-center gap-1 cursor-pointer text-sm font-medium">
+                    <Star className="h-4 w-4 text-yellow-500" /> Destaque
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch id="publish-marketplace" checked={publishToMarketplace} onCheckedChange={setPublishToMarketplace} />
+                  <Label htmlFor="publish-marketplace" className="flex items-center gap-2 cursor-pointer text-sm font-medium">
+                    <Store className="h-4 w-4" />
+                    <span className="hidden sm:inline">Publicar no</span> Marketplace
+                  </Label>
+                </div>
               </div>
               <div className="flex gap-2 w-full sm:w-auto">
                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-initial min-h-[44px]">Cancelar</Button>
