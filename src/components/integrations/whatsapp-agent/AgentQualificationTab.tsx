@@ -89,6 +89,19 @@ export function AgentQualificationTab() {
             />
           </div>
 
+          {form.auto_qualify_leads && (
+            <div className="pl-4 border-l-2 border-primary/30">
+              <Label className="text-sm">Prompt de qualificação</Label>
+              <Textarea
+                className="mt-1 min-h-[80px]"
+                value={form.prompt_qualify_leads}
+                onChange={(e) => setForm((f) => ({ ...f, prompt_qualify_leads: e.target.value }))}
+                placeholder="Instrução para a IA qualificar leads..."
+              />
+            </div>
+          )
+          </div>
+
           <div className="flex items-center justify-between">
             <div>
               <Label>Criar lead no CRM</Label>
