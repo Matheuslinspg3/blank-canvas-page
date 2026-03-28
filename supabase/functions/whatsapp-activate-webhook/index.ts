@@ -6,10 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const N8N_BASE = "https://n8n.costazul.shop/webhook";
-const N8N_CRIAR = `${N8N_BASE}/autouazapiagenteiavalent`;
-const N8N_QR_CODE = `${N8N_BASE}/autouazapiagenteiavalentQR-CODE`;
-const N8N_UNIFIED_WEBHOOK = `${N8N_BASE}/whatsapp-unified`;
+const WEBHOOK_URL = "https://n8n.costazul.shop/webhook/WEBHOOK-WA-AGENT-PORT";
 
 const auditLog = async (
   sb: any,
@@ -36,6 +33,13 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
+    const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
+    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
+      throw new Error("EVOLUTION_API_URL or EVOLUTION_API_GLOBAL_KEY not configured");
+    }
+    const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
+
     const { user, error: authError } = await getAuthenticatedUser(req);
     if (authError || !user) {
       return new Response(JSON.stringify({ error: authError ?? "Não autenticado" }), {
@@ -103,100 +107,138 @@ Deno.serve(async (req) => {
       });
     }
 
-    // If instance exists but disconnected, try to reconnect via N8N QR-CODE webhook
-    if (existingInstance?.instance_name) {
-      console.log("Reconnecting existing instance via N8N:", existingInstance.instance_name);
-
+    // If instance exists in Evo, try to get QR code for reconnection
+    if (existingInstance?.instance_name && existingInstance?.instance_token) {
+      console.log("Attempting reconnect for existing instance:", existingInstance.instance_name);
       await sb.from("whatsapp_instances").update({ status: "connecting" }).eq("id", existingInstance.id);
 
       try {
-        const qrRes = await fetch(N8N_QR_CODE, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ instanceName: existingInstance.instance_name }),
+        const connectRes = await fetch(`${baseUrl}/instance/connect/${existingInstance.instance_name}`, {
+          method: "GET",
+          headers: { apikey: EVOLUTION_API_KEY },
         });
+        const connectData = await connectRes.json().catch(() => ({}));
+        console.log("Reconnect response:", connectRes.status, JSON.stringify(connectData).substring(0, 500));
 
-        const qrData = await qrRes.text();
-        console.log("N8N QR-CODE response:", qrRes.status, qrData.substring(0, 500));
+        const qrBase64 = connectData?.base64 ?? connectData?.data?.base64 ?? null;
+        if (qrBase64) {
+          await sb.from("whatsapp_instances").update({
+            qr_code: qrBase64,
+            status: "connecting",
+          }).eq("id", existingInstance.id);
 
-        if (qrRes.ok) {
-          let parsed: any = {};
-          try { parsed = JSON.parse(qrData); } catch { /* raw */ }
+          await auditLog(sb, orgId, "reconnect_evo", user.id, { hasQr: true });
 
-          const qrBase64 = parsed?.["QR-CODE(BASE64)"] ?? parsed?.base64 ?? parsed?.data?.base64 ?? null;
-
-          if (qrBase64) {
-            await sb.from("whatsapp_instances").update({
-              qr_code: qrBase64,
-              status: "connecting",
-            }).eq("id", existingInstance.id);
-
-            await auditLog(sb, orgId, "reconnect_n8n", user.id, { hasQr: true });
-
-            return new Response(JSON.stringify({
-              success: true,
-              qrCode: qrBase64,
-              connected: false,
-              status: "connecting",
-              instanceCreated: false,
-            }), {
-              status: 200,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-          }
+          return new Response(JSON.stringify({
+            success: true,
+            qrCode: qrBase64,
+            connected: false,
+            status: "connecting",
+            instanceCreated: false,
+          }), {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
         }
       } catch (e) {
-        console.warn("Failed to reconnect via N8N, will create new:", e);
+        console.warn("Reconnect failed, will create new instance:", e);
       }
     }
 
-    // ── Create new instance via N8N CRIAR webhook ──
-    const today = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\//g, "");
+    // ── Delete old instance in Evo if exists (clean slate) ──
+    if (existingInstance?.instance_name) {
+      try {
+        await fetch(`${baseUrl}/instance/delete/${existingInstance.instance_name}`, {
+          method: "DELETE",
+          headers: { apikey: EVOLUTION_API_KEY },
+        });
+        console.log("Deleted old Evo instance:", existingInstance.instance_name);
+      } catch (e) {
+        console.warn("Failed to delete old instance (may not exist):", e);
+      }
+    }
 
-    const n8nPayload = {
-      orgName: orgSlug,
-      orgId: org.id,
-      companyId: org.id,
-      // Instance configuration for Evolution API
-      webhookUrl: N8N_UNIFIED_WEBHOOK,
-      groupsIgnore: true,
-      syncFullHistory: true,
-    };
+    // ── Create new instance directly on Evolution API ──
+    const instanceName = `${orgSlug}-${org.id}`;
+    console.log("Creating instance on Evolution API:", instanceName);
 
-    console.log("Calling N8N CRIAR webhook:", JSON.stringify(n8nPayload));
-
-    // Set provisioning status
+    // Set provisioning status in DB
     if (existingInstance?.id) {
-      await sb.from("whatsapp_instances").update({ status: "provisioning" }).eq("id", existingInstance.id);
+      await sb.from("whatsapp_instances").update({
+        status: "provisioning",
+        instance_name: instanceName,
+        qr_code: null,
+        instance_token: null,
+      }).eq("id", existingInstance.id);
     } else {
       await sb.from("whatsapp_instances").insert({
         organization_id: orgId,
-        instance_name: `${orgSlug}-${org.id}`,
+        instance_name: instanceName,
         status: "provisioning",
       });
     }
 
-    const criarRes = await fetch(N8N_CRIAR, {
+    // Step 1: Create instance on Evolution API
+    const createPayload = {
+      instanceName,
+      integration: "WHATSAPP-BAILEYS",
+      qrcode: true,
+      rejectCall: true,
+      groupsIgnore: true,
+      alwaysOnline: false,
+      readMessages: false,
+      readStatus: false,
+      syncFullHistory: true,
+      webhook: {
+        url: WEBHOOK_URL,
+        byEvents: false,
+        base64: true,
+        headers: {},
+        events: [
+          "MESSAGES_UPSERT",
+        ],
+      },
+    };
+
+    console.log("Evolution create payload:", JSON.stringify(createPayload));
+
+    const createRes = await fetch(`${baseUrl}/instance/create`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(n8nPayload),
+      headers: {
+        "Content-Type": "application/json",
+        apikey: EVOLUTION_API_KEY,
+      },
+      body: JSON.stringify(createPayload),
     });
 
-    const criarRaw = await criarRes.text();
-    console.log("N8N CRIAR response:", criarRes.status, criarRaw.substring(0, 1000));
+    const createRaw = await createRes.text();
+    console.log("Evolution create response:", createRes.status, createRaw.substring(0, 1000));
 
-    if (!criarRes.ok) {
-      throw new Error(`N8N CRIAR error [${criarRes.status}]: ${criarRaw.substring(0, 500)}`);
+    if (!createRes.ok) {
+      throw new Error(`Evolution API create error [${createRes.status}]: ${createRaw.substring(0, 500)}`);
     }
 
-    let criarData: any = {};
-    try { criarData = JSON.parse(criarRaw); } catch { /* raw text */ }
+    let createData: any = {};
+    try { createData = JSON.parse(createRaw); } catch { /* raw text */ }
 
-    const whatsappName = criarData?.WhatsappName ?? null;
-    const whatsappId = criarData?.WhatsappId ?? null;
-    const qrBase64 = criarData?.["QR-CODE(BASE64)"] ?? null;
+    // Extract token/hash from response
+    const instanceToken = createData?.hash?.apikey ?? createData?.token ?? createData?.apikey ?? null;
 
-    // Update DB with response from N8N
+    // Step 2: Connect instance to get QR code
+    const connectRes = await fetch(`${baseUrl}/instance/connect/${instanceName}`, {
+      method: "GET",
+      headers: { apikey: EVOLUTION_API_KEY },
+    });
+
+    const connectRaw = await connectRes.text();
+    console.log("Evolution connect response:", connectRes.status, connectRaw.substring(0, 500));
+
+    let connectData: any = {};
+    try { connectData = JSON.parse(connectRaw); } catch { /* raw text */ }
+
+    const qrBase64 = connectData?.base64 ?? connectData?.data?.base64 ?? null;
+
+    // Update DB with instance details
     const { data: currentInstance } = await sb
       .from("whatsapp_instances")
       .select("id")
@@ -205,19 +247,19 @@ Deno.serve(async (req) => {
 
     if (currentInstance?.id) {
       const updatePayload: Record<string, any> = {
+        instance_name: instanceName,
         status: qrBase64 ? "connecting" : "provisioning",
       };
-      if (whatsappName) updatePayload.instance_name = whatsappName;
-      if (whatsappId) updatePayload.instance_token = whatsappId;
+      if (instanceToken) updatePayload.instance_token = instanceToken;
       if (qrBase64) updatePayload.qr_code = qrBase64;
 
       await sb.from("whatsapp_instances").update(updatePayload).eq("id", currentInstance.id);
     }
 
-    await auditLog(sb, orgId, "activate_n8n", user.id, {
+    await auditLog(sb, orgId, "activate_evo_direct", user.id, {
+      instanceName,
+      hasToken: !!instanceToken,
       hasQr: !!qrBase64,
-      whatsappName,
-      whatsappId,
       isReconnection: !!existingInstance,
     });
 
@@ -226,7 +268,7 @@ Deno.serve(async (req) => {
       qrCode: qrBase64,
       connected: false,
       status: qrBase64 ? "connecting" : "provisioning",
-      instanceCreated: !existingInstance,
+      instanceCreated: true,
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
