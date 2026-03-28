@@ -132,6 +132,7 @@ serve(async (req) => {
 
       properties = (props as any[]).map((p) => ({
         ...p,
+        property_type_name: propertyTypeMap[p.property_type_id] ?? null,
         is_highlighted: highlightIds.has(p.id),
       }));
     }
