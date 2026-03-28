@@ -46,6 +46,9 @@ export function AgentQualificationTab() {
         scheduling_days: config.scheduling_days ?? ["seg", "ter", "qua", "qui", "sex"],
         scheduling_hour_start: config.scheduling_hour_start ?? "09:00",
         scheduling_hour_end: config.scheduling_hour_end ?? "17:00",
+        prompt_qualify_leads: config.prompt_qualify_leads ?? "",
+        prompt_create_leads: config.prompt_create_leads ?? "",
+        prompt_schedule_visits: config.prompt_schedule_visits ?? "",
       });
     }
   }, [config]);
