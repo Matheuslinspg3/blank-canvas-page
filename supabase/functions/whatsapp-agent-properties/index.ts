@@ -62,6 +62,17 @@ serve(async (req) => {
       });
     }
 
+    // Fetch property types
+    const { data: propertyTypes = [] } = await sb
+      .from("property_types")
+      .select("id, name")
+      .or(`organization_id.eq.${orgId},is_default.eq.true`);
+
+    const propertyTypeMap: Record<string, string> = {};
+    (propertyTypes as any[]).forEach((pt: any) => {
+      propertyTypeMap[pt.id] = pt.name;
+    });
+
     // Fetch highlight rules
     const { data: rules = [] } = await sb
       .from("whatsapp_property_rules")
@@ -104,10 +115,11 @@ serve(async (req) => {
 
     const result = filtered.map((p) => ({
       ...p,
+      property_type_name: propertyTypeMap[p.property_type_id] ?? null,
       is_highlighted: highlightIds.has(p.id),
     }));
 
-    return new Response(JSON.stringify({ properties: result, total: result.length }), {
+    return new Response(JSON.stringify({ properties: result, total: result.length, property_types: propertyTypeMap }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
