@@ -23,26 +23,35 @@ function buildComposedPrompt(form: Partial<AgentConfig>): string {
 
   parts.push("\n--- Instruções ---");
 
-  parts.push(form.auto_qualify_leads
-    ? "• Ao iniciar uma conversa, colete nome completo, telefone, e-mail e interesse do cliente de forma natural."
-    : "• Não é necessário a coleta de dados como nome completo, telefone, e-mail e interesse do cliente.");
+  if (form.auto_qualify_leads) {
+    parts.push(`• ${form.prompt_qualify_leads || "Ao iniciar uma conversa, colete nome completo, telefone, e-mail e interesse do cliente de forma natural."}`);
+  } else {
+    parts.push("• Não é necessário a coleta de dados como nome completo, telefone, e-mail e interesse do cliente.");
+  }
 
-  parts.push(form.auto_create_leads
-    ? "• Após coletar os dados do cliente, registre automaticamente como lead no CRM."
-    : "• Não registre leads automaticamente no CRM. Apenas converse normalmente.");
+  if (form.auto_create_leads) {
+    parts.push(`• ${form.prompt_create_leads || "Após coletar os dados do cliente, registre automaticamente como lead no CRM."}`);
+  } else {
+    parts.push("• Não registre leads automaticamente no CRM. Apenas converse normalmente.");
+  }
 
   if (form.schedule_visits) {
     const days = (form.scheduling_days ?? []).map((d) => DAY_LABELS[d] ?? d).join(", ");
     const start = form.scheduling_hour_start ?? "09:00";
     const end = form.scheduling_hour_end ?? "17:00";
-    parts.push(`• Você pode agendar visitas. Horários disponíveis: ${days} das ${start} às ${end}. Confirme data e horário com o cliente antes de registrar.`);
+    const custom = form.prompt_schedule_visits?.trim();
+    parts.push(custom
+      ? `• ${custom} Horários: ${days} das ${start} às ${end}.`
+      : `• Você pode agendar visitas. Horários disponíveis: ${days} das ${start} às ${end}. Confirme data e horário com o cliente antes de registrar.`);
   } else {
     parts.push("• Não ofereça ou agende visitas a imóveis. Caso o cliente solicite, oriente-o a entrar em contato diretamente com a imobiliária.");
   }
 
-  parts.push(form.is_property_db_enabled
-    ? "• Você tem acesso ao banco de imóveis da imobiliária. Use-o para recomendar imóveis relevantes."
-    : "• Você não tem acesso ao banco de imóveis. Caso o cliente pergunte sobre imóveis específicos, oriente-o a consultar o site ou falar com um corretor.");
+  if (form.is_property_db_enabled) {
+    parts.push(`• ${form.prompt_property_db || "Você tem acesso ao banco de imóveis da imobiliária. Use-o para recomendar imóveis relevantes."}`);
+  } else {
+    parts.push("• Você não tem acesso ao banco de imóveis. Caso o cliente pergunte sobre imóveis específicos, oriente-o a consultar o site ou falar com um corretor.");
+  }
 
   return parts.join("\n");
 }
