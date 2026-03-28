@@ -31,6 +31,9 @@ export function AgentQualificationTab() {
     scheduling_days: ["seg", "ter", "qua", "qui", "sex"] as string[],
     scheduling_hour_start: "09:00",
     scheduling_hour_end: "17:00",
+    prompt_qualify_leads: "",
+    prompt_create_leads: "",
+    prompt_schedule_visits: "",
   });
 
   useEffect(() => {
