@@ -89,7 +89,45 @@ serve(async (req) => {
       transfer_keywords: ["falar com corretor", "atendente", "humano", "reclamação"],
       max_messages_before_transfer: 10,
       broker_assignment_mode: "manual",
+      scheduling_days: ["seg", "ter", "qua", "qui", "sex"],
+      scheduling_hour_start: "09:00",
+      scheduling_hour_end: "17:00",
     };
+
+    // Build composed system prompt
+    const dayLabels: Record<string, string> = {
+      seg: "Segunda", ter: "Terça", qua: "Quarta", qui: "Quinta",
+      sex: "Sexta", sab: "Sábado", dom: "Domingo",
+    };
+
+    const promptParts: string[] = [];
+    if (config.system_prompt?.trim()) {
+      promptParts.push(config.system_prompt.trim());
+    }
+
+    const rules: string[] = [];
+    if (config.auto_qualify_leads) {
+      rules.push("Ao iniciar uma conversa, colete nome completo, telefone, e-mail e interesse do cliente de forma natural.");
+    }
+    if (config.auto_create_leads) {
+      rules.push("Após coletar os dados do cliente, registre automaticamente como lead no CRM.");
+    }
+    if (config.schedule_visits) {
+      const days = (config.scheduling_days ?? []).map((d: string) => dayLabels[d] ?? d).join(", ");
+      const hStart = config.scheduling_hour_start ?? "09:00";
+      const hEnd = config.scheduling_hour_end ?? "17:00";
+      rules.push(`Você pode agendar visitas. Horários disponíveis: ${days} das ${hStart} às ${hEnd}. Confirme data e horário com o cliente antes de registrar.`);
+    }
+    if (config.is_property_db_enabled) {
+      rules.push("Você tem acesso ao banco de imóveis da imobiliária. Use-o para recomendar imóveis relevantes com base nas preferências do cliente.");
+    }
+
+    if (rules.length > 0) {
+      promptParts.push("\n--- Regras Ativas ---");
+      rules.forEach((r) => promptParts.push(`• ${r}`));
+    }
+
+    const composed_system_prompt = promptParts.join("\n");
 
     // 4. Fetch properties if enabled
     let properties: any[] = [];
