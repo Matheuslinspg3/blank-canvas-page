@@ -29,7 +29,6 @@ serve(async (req) => {
 
     const sb = createServiceClient();
 
-    // 1. Resolve instance_name → config (single query!)
     const { data: config } = await sb
       .from("whatsapp_agent_config")
       .select("*")
@@ -45,7 +44,6 @@ serve(async (req) => {
 
     const orgId = config.organization_id;
 
-    // 2. Fetch org info
     const { data: org } = await sb
       .from("organizations")
       .select("id, name, slug")
@@ -59,7 +57,7 @@ serve(async (req) => {
       });
     }
 
-    // 3. Build prompt variables from config
+    // Build prompt variables
     const dayLabels: Record<string, string> = {
       seg: "Segunda", ter: "Terça", qua: "Quarta", qui: "Quinta",
       sex: "Sexta", sab: "Sábado", dom: "Domingo",
@@ -86,7 +84,7 @@ serve(async (req) => {
       ? "Você tem acesso ao banco de imóveis da imobiliária. Use-o para recomendar imóveis relevantes com base nas preferências do cliente."
       : "Você não tem acesso ao banco de imóveis. Caso o cliente pergunte sobre imóveis específicos, oriente-o a consultar o site ou falar com um corretor.";
 
-    // 4. Fetch property types for this org
+    // Fetch property types
     const { data: propertyTypes = [] } = await sb
       .from("property_types")
       .select("id, name")
@@ -113,55 +111,59 @@ serve(async (req) => {
       `• ${propertyTypesPrompt}`,
     ].filter(Boolean).join("\n");
 
-    // 5. Fetch properties if enabled
+    // Fetch properties if enabled
     let properties: any[] = [];
+    const neighborhoods: Record<string, string[]> = {};
+
     if (config.is_property_db_enabled) {
-      const { data: rules = [] } = await sb
-        .from("whatsapp_property_rules")
-        .select("property_id, rule_type")
-        .eq("organization_id", orgId);
-
-      const highlightIds = new Set(rules.filter((r: any) => r.rule_type === "highlight").map((r: any) => r.property_id));
-
       const { data: props = [] } = await sb
         .from("properties")
-        .select("id, title, property_code, status, transaction_type, sale_price, rent_price, bedrooms, bathrooms, area_total, address_city, address_neighborhood, address_state, property_type_id")
+        .select("id, title, property_code, status, transaction_type, sale_price, rent_price, bedrooms, bathrooms, area_total, address_city, address_neighborhood, address_state, property_type_id, featured")
         .eq("organization_id", orgId)
         .eq("status", "disponivel")
         .eq("ai_blacklist", false)
         .limit(50);
 
+      // Sort: featured first
       (props as any[]).sort((a, b) => {
-        const aH = highlightIds.has(a.id) ? 0 : 1;
-        const bH = highlightIds.has(b.id) ? 0 : 1;
-        return aH - bH;
+        const aF = a.featured ? 0 : 1;
+        const bF = b.featured ? 0 : 1;
+        return aF - bF;
       });
 
       properties = (props as any[]).map((p) => ({
         ...p,
         property_type_name: propertyTypeMap[p.property_type_id] ?? null,
-        is_highlighted: highlightIds.has(p.id),
       }));
+
+      // Build neighborhoods map
+      for (const p of properties) {
+        if (p.address_neighborhood) {
+          if (!neighborhoods[p.address_neighborhood]) {
+            neighborhoods[p.address_neighborhood] = [];
+          }
+          neighborhoods[p.address_neighborhood].push(p.id);
+        }
+      }
     }
 
-    // 5. Return unified response
     return new Response(JSON.stringify({
-      organization: {
-        id: org.id,
-        name: org.name,
-        slug: org.slug,
-      },
+      organization: { id: org.id, name: org.name, slug: org.slug },
       instance: {
         instance_name: config.instance_name,
         status: config.status,
         phone_number: config.phone_number,
       },
       agent_config: {
-        ...config,
-        auto_qualify_leads: prompt_qualify,
-        auto_create_leads: prompt_create_lead,
-        schedule_visits: prompt_schedule,
-        is_property_db_enabled: prompt_properties,
+        agent_name: config.agent_name,
+        tone: config.tone,
+        welcome_message: config.welcome_message,
+        away_message: config.away_message,
+        working_hours_start: config.working_hours_start,
+        working_hours_end: config.working_hours_end,
+        transfer_keywords: config.transfer_keywords,
+        max_messages_before_transfer: config.max_messages_before_transfer,
+        broker_assignment_mode: config.broker_assignment_mode,
       },
       composed_system_prompt,
       prompt_variables: {
@@ -172,6 +174,7 @@ serve(async (req) => {
         property_types: propertyTypesPrompt,
       },
       property_types: propertyTypeMap,
+      neighborhoods,
       properties: {
         enabled: !!config.is_property_db_enabled,
         items: properties,
