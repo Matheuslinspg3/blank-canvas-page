@@ -1,31 +1,36 @@
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, Plus, Trash2, Star, ShieldOff, ShieldCheck, Search, Save } from "lucide-react";
+import { Building2, Plus, Trash2, Star, ShieldOff, ShieldCheck, Search, CheckSquare, Square } from "lucide-react";
 import { useWhatsAppAgentConfig } from "@/hooks/useWhatsAppAgentConfig";
 import { useWhatsAppPropertyRules, type RuleType } from "@/hooks/useWhatsAppPropertyRules";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 function PropertySelector({
   onAdd,
+  onAddMultiple,
   isAdding,
   existingIds,
 }: {
   onAdd: (id: string, type: RuleType) => void;
+  onAddMultiple: (ids: string[], type: RuleType) => Promise<void>;
   isAdding: boolean;
   existingIds: Set<string>;
 }) {
   const { profile } = useAuth();
   const [search, setSearch] = useState("");
-  const [ruleType, setRuleType] = useState<RuleType>("highlight");
+  const [ruleType, setRuleType] = useState<RuleType>("whitelist");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkAdding, setIsBulkAdding] = useState(false);
 
   const { data: properties = [] } = useQuery({
     queryKey: ["properties-selector", profile?.organization_id, search],
@@ -36,7 +41,7 @@ function PropertySelector({
         .select("id, title, property_code, address_neighborhood, address_city")
         .eq("organization_id", profile.organization_id)
         .eq("status", "disponivel")
-        .limit(20);
+        .limit(100);
       if (search) {
         q = q.or(`title.ilike.%${search}%,property_code.ilike.%${search}%,address_neighborhood.ilike.%${search}%`);
       }
@@ -46,12 +51,57 @@ function PropertySelector({
     enabled: !!profile?.organization_id,
   });
 
+  const availableProperties = useMemo(
+    () => properties.filter((p) => !existingIds.has(`${p.id}-${ruleType}`)),
+    [properties, existingIds, ruleType]
+  );
+
+  const allSelected = availableProperties.length > 0 && availableProperties.every((p) => selectedIds.has(p.id));
+  const someSelected = selectedIds.size > 0;
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectedIds(new Set(availableProperties.map((p) => p.id)));
+  };
+
+  const selectNone = () => {
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkAdd = async () => {
+    const ids = Array.from(selectedIds).filter((id) => !existingIds.has(`${id}-${ruleType}`));
+    if (!ids.length) return;
+    setIsBulkAdding(true);
+    try {
+      await onAddMultiple(ids, ruleType);
+      setSelectedIds(new Set());
+      toast.success(`${ids.length} imóvel(is) adicionado(s) à ${ruleType}`);
+    } catch {
+      toast.error("Erro ao adicionar imóveis em lote");
+    } finally {
+      setIsBulkAdding(false);
+    }
+  };
+
+  const busy = isAdding || isBulkAdding;
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base flex items-center gap-2">
-          <Plus className="h-4 w-4" /> Adicionar Regra
+          <Plus className="h-4 w-4" /> Adicionar Regras de Imóveis
         </CardTitle>
+        <CardDescription>
+          Selecione imóveis individualmente ou em lote para aplicar regras
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex gap-2">
@@ -64,26 +114,68 @@ function PropertySelector({
               className="pl-9"
             />
           </div>
-          <Select value={ruleType} onValueChange={(v) => setRuleType(v as RuleType)}>
-            <SelectTrigger className="w-[140px]">
+          <Select value={ruleType} onValueChange={(v) => { setRuleType(v as RuleType); setSelectedIds(new Set()); }}>
+            <SelectTrigger className="w-[150px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="highlight">⭐ Destaque</SelectItem>
               <SelectItem value="whitelist">✅ Whitelist</SelectItem>
               <SelectItem value="blacklist">🚫 Blacklist</SelectItem>
+              <SelectItem value="highlight">⭐ Destaque</SelectItem>
             </SelectContent>
           </Select>
         </div>
-        <div className="max-h-48 overflow-y-auto space-y-1">
-          {properties.map((p) => (
+
+        {/* Bulk actions bar */}
+        <div className="flex items-center justify-between border rounded-md p-2 bg-muted/30">
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs"
+              onClick={allSelected ? selectNone : selectAll}
+              disabled={availableProperties.length === 0}
+            >
+              {allSelected ? (
+                <><Square className="h-3.5 w-3.5 mr-1" /> Desmarcar todos</>
+              ) : (
+                <><CheckSquare className="h-3.5 w-3.5 mr-1" /> Selecionar todos</>
+              )}
+            </Button>
+            {someSelected && (
+              <span className="text-xs text-muted-foreground">
+                {selectedIds.size} selecionado(s)
+              </span>
+            )}
+          </div>
+          {someSelected && (
+            <Button
+              size="sm"
+              disabled={busy}
+              onClick={handleBulkAdd}
+              className="h-7 text-xs"
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              Adicionar {selectedIds.size} à {ruleType === "whitelist" ? "Whitelist" : ruleType === "blacklist" ? "Blacklist" : "Destaque"}
+            </Button>
+          )}
+        </div>
+
+        <div className="max-h-64 overflow-y-auto space-y-1">
+          {availableProperties.map((p) => (
             <div
               key={p.id}
-              className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50 text-sm"
+              className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 text-sm cursor-pointer"
+              onClick={() => toggleSelect(p.id)}
             >
-              <div>
+              <Checkbox
+                checked={selectedIds.has(p.id)}
+                onCheckedChange={() => toggleSelect(p.id)}
+                disabled={busy}
+              />
+              <div className="flex-1 min-w-0">
                 <span className="font-medium">{p.property_code}</span>
-                <span className="text-muted-foreground ml-2">{p.title}</span>
+                <span className="text-muted-foreground ml-2 truncate">{p.title}</span>
                 {p.address_neighborhood && (
                   <span className="text-muted-foreground text-xs ml-1">• {p.address_neighborhood}</span>
                 )}
@@ -91,13 +183,19 @@ function PropertySelector({
               <Button
                 size="sm"
                 variant="outline"
-                disabled={isAdding || existingIds.has(`${p.id}-${ruleType}`)}
-                onClick={() => onAdd(p.id, ruleType)}
+                className="h-7 shrink-0"
+                disabled={busy}
+                onClick={(e) => { e.stopPropagation(); onAdd(p.id, ruleType); }}
               >
                 <Plus className="h-3 w-3" />
               </Button>
             </div>
           ))}
+          {availableProperties.length === 0 && properties.length > 0 && (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Todos os imóveis já possuem esta regra
+            </p>
+          )}
           {properties.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-4">Nenhum imóvel encontrado</p>
           )}
@@ -120,6 +218,12 @@ export function AgentPropertiesTab() {
   const { profile } = useAuth();
 
   const existingIds = new Set(rules.map((r) => `${r.property_id}-${r.rule_type}`));
+
+  const handleAddMultiple = async (ids: string[], ruleType: RuleType) => {
+    for (const id of ids) {
+      await addRule(id, ruleType);
+    }
+  };
 
   // Fetch property titles for display
   const propertyIds = rules.map((r) => r.property_id);
@@ -211,6 +315,7 @@ export function AgentPropertiesTab() {
         <>
           <PropertySelector
             onAdd={(id, type) => addRule(id, type)}
+            onAddMultiple={handleAddMultiple}
             isAdding={isAdding}
             existingIds={existingIds}
           />
