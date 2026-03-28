@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,9 @@ export function AgentQualificationTab() {
     scheduling_days: ["seg", "ter", "qua", "qui", "sex"] as string[],
     scheduling_hour_start: "09:00",
     scheduling_hour_end: "17:00",
+    prompt_qualify_leads: "",
+    prompt_create_leads: "",
+    prompt_schedule_visits: "",
   });
 
   useEffect(() => {
@@ -42,6 +46,9 @@ export function AgentQualificationTab() {
         scheduling_days: config.scheduling_days ?? ["seg", "ter", "qua", "qui", "sex"],
         scheduling_hour_start: config.scheduling_hour_start ?? "09:00",
         scheduling_hour_end: config.scheduling_hour_end ?? "17:00",
+        prompt_qualify_leads: config.prompt_qualify_leads ?? "",
+        prompt_create_leads: config.prompt_create_leads ?? "",
+        prompt_schedule_visits: config.prompt_schedule_visits ?? "",
       });
     }
   }, [config]);
@@ -69,30 +76,56 @@ export function AgentQualificationTab() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Auto-qualificação</Label>
-              <p className="text-xs text-muted-foreground">
-                A IA pergunta nome, telefone, e-mail e interesse automaticamente.
-              </p>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Auto-qualificação</Label>
+                <p className="text-xs text-muted-foreground">
+                  A IA pergunta nome, telefone, e-mail e interesse automaticamente.
+                </p>
+              </div>
+              <Switch
+                checked={form.auto_qualify_leads}
+                onCheckedChange={(v) => setForm((f) => ({ ...f, auto_qualify_leads: v }))}
+              />
             </div>
-            <Switch
-              checked={form.auto_qualify_leads}
-              onCheckedChange={(v) => setForm((f) => ({ ...f, auto_qualify_leads: v }))}
-            />
+            {form.auto_qualify_leads && (
+              <div className="pl-4 border-l-2 border-primary/30">
+                <Label className="text-sm">Prompt de qualificação</Label>
+                <Textarea
+                  className="mt-1 min-h-[80px]"
+                  value={form.prompt_qualify_leads}
+                  onChange={(e) => setForm((f) => ({ ...f, prompt_qualify_leads: e.target.value }))}
+                  placeholder="Instrução para a IA qualificar leads..."
+                />
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Criar lead no CRM</Label>
-              <p className="text-xs text-muted-foreground">
-                Ao capturar dados, criar lead automaticamente no CRM.
-              </p>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Criar lead no CRM</Label>
+                <p className="text-xs text-muted-foreground">
+                  Ao capturar dados, criar lead automaticamente no CRM.
+                </p>
+              </div>
+              <Switch
+                checked={form.auto_create_leads}
+                onCheckedChange={(v) => setForm((f) => ({ ...f, auto_create_leads: v }))}
+              />
             </div>
-            <Switch
-              checked={form.auto_create_leads}
-              onCheckedChange={(v) => setForm((f) => ({ ...f, auto_create_leads: v }))}
-            />
+            {form.auto_create_leads && (
+              <div className="pl-4 border-l-2 border-primary/30">
+                <Label className="text-sm">Prompt de criação de lead</Label>
+                <Textarea
+                  className="mt-1 min-h-[80px]"
+                  value={form.prompt_create_leads}
+                  onChange={(e) => setForm((f) => ({ ...f, prompt_create_leads: e.target.value }))}
+                  placeholder="Instrução para a IA criar leads no CRM..."
+                />
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -121,17 +154,30 @@ export function AgentQualificationTab() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Permitir agendamento de visitas</Label>
-              <p className="text-xs text-muted-foreground">
-                A IA poderá agendar visitas diretamente na agenda do corretor.
-              </p>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Permitir agendamento de visitas</Label>
+                <p className="text-xs text-muted-foreground">
+                  A IA poderá agendar visitas diretamente na agenda do corretor.
+                </p>
+              </div>
+              <Switch
+                checked={form.schedule_visits}
+                onCheckedChange={(v) => setForm((f) => ({ ...f, schedule_visits: v }))}
+              />
             </div>
-            <Switch
-              checked={form.schedule_visits}
-              onCheckedChange={(v) => setForm((f) => ({ ...f, schedule_visits: v }))}
-            />
+            {form.schedule_visits && (
+              <div className="pl-4 border-l-2 border-primary/30">
+                <Label className="text-sm">Prompt de agendamento</Label>
+                <Textarea
+                  className="mt-1 min-h-[80px]"
+                  value={form.prompt_schedule_visits}
+                  onChange={(e) => setForm((f) => ({ ...f, prompt_schedule_visits: e.target.value }))}
+                  placeholder="Instrução para a IA agendar visitas..."
+                />
+              </div>
+            )}
           </div>
 
           {form.schedule_visits && (
@@ -140,10 +186,7 @@ export function AgentQualificationTab() {
                 <Label className="text-sm">Dias disponíveis</Label>
                 <div className="flex flex-wrap gap-3">
                   {DAYS.map((day) => (
-                    <label
-                      key={day.value}
-                      className="flex items-center gap-1.5 cursor-pointer"
-                    >
+                    <label key={day.value} className="flex items-center gap-1.5 cursor-pointer">
                       <Checkbox
                         checked={form.scheduling_days.includes(day.value)}
                         onCheckedChange={() => toggleDay(day.value)}
@@ -153,7 +196,6 @@ export function AgentQualificationTab() {
                   ))}
                 </div>
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-sm">Horário início</Label>

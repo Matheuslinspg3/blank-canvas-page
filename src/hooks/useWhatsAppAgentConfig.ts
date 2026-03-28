@@ -24,6 +24,10 @@ export interface AgentConfig {
   scheduling_days: string[];
   scheduling_hour_start: string;
   scheduling_hour_end: string;
+  prompt_qualify_leads: string | null;
+  prompt_create_leads: string | null;
+  prompt_schedule_visits: string | null;
+  prompt_property_db: string | null;
   instance_name: string | null;
   instance_token: string | null;
   status: string;
@@ -51,6 +55,10 @@ const DEFAULTS: Partial<AgentConfig> = {
   scheduling_days: ["seg", "ter", "qua", "qui", "sex"],
   scheduling_hour_start: "09:00",
   scheduling_hour_end: "17:00",
+  prompt_qualify_leads: "",
+  prompt_create_leads: "",
+  prompt_schedule_visits: "",
+  prompt_property_db: "",
   status: "disconnected",
 };
 

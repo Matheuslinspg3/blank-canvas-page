@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Building2, Star, ShieldOff, Search } from "lucide-react";
 import { useWhatsAppAgentConfig } from "@/hooks/useWhatsAppAgentConfig";
@@ -293,6 +294,17 @@ export function AgentPropertiesTab() {
               disabled={isSaving}
             />
           </div>
+          {config.is_property_db_enabled && (
+            <div className="mt-3 pl-4 border-l-2 border-primary/30">
+              <Label className="text-sm">Prompt do banco de imóveis</Label>
+              <Textarea
+                className="mt-1 min-h-[80px]"
+                defaultValue={config.prompt_property_db ?? ""}
+                onBlur={(e) => saveConfig({ prompt_property_db: e.target.value })}
+                placeholder="Instrução para a IA usar o banco de imóveis..."
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 

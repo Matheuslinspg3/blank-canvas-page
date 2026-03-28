@@ -5557,6 +5557,10 @@ export type Database = {
           max_messages_before_transfer: number
           organization_id: string
           phone_number: string | null
+          prompt_create_leads: string | null
+          prompt_property_db: string | null
+          prompt_qualify_leads: string | null
+          prompt_schedule_visits: string | null
           qr_code: string | null
           schedule_visits: boolean
           scheduling_days: string[]
@@ -5588,6 +5592,10 @@ export type Database = {
           max_messages_before_transfer?: number
           organization_id: string
           phone_number?: string | null
+          prompt_create_leads?: string | null
+          prompt_property_db?: string | null
+          prompt_qualify_leads?: string | null
+          prompt_schedule_visits?: string | null
           qr_code?: string | null
           schedule_visits?: boolean
           scheduling_days?: string[]
@@ -5619,6 +5627,10 @@ export type Database = {
           max_messages_before_transfer?: number
           organization_id?: string
           phone_number?: string | null
+          prompt_create_leads?: string | null
+          prompt_property_db?: string | null
+          prompt_qualify_leads?: string | null
+          prompt_schedule_visits?: string | null
           qr_code?: string | null
           schedule_visits?: boolean
           scheduling_days?: string[]
