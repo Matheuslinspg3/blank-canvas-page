@@ -109,13 +109,8 @@ serve(async (req) => {
     const { data: properties = [], error } = await query.limit(50);
     if (error) throw error;
 
-    // Filter by whitelist/blacklist
-    let filtered = (properties as any[]).filter((p) => !blacklistIds.has(p.id));
-    if (whitelistIds.size > 0) {
-      filtered = filtered.filter((p) => whitelistIds.has(p.id));
-    }
-
     // Sort: highlighted first
+    const filtered = (properties as any[]);
     filtered.sort((a, b) => {
       const aH = highlightIds.has(a.id) ? 0 : 1;
       const bH = highlightIds.has(b.id) ? 0 : 1;
