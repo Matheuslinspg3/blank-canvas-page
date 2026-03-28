@@ -5552,6 +5552,9 @@ export type Database = {
           max_messages_before_transfer: number
           organization_id: string
           schedule_visits: boolean
+          scheduling_days: string[]
+          scheduling_hour_end: string
+          scheduling_hour_start: string
           system_prompt: string | null
           tone: Database["public"]["Enums"]["agent_tone"]
           transfer_keywords: string[] | null
@@ -5571,6 +5574,9 @@ export type Database = {
           max_messages_before_transfer?: number
           organization_id: string
           schedule_visits?: boolean
+          scheduling_days?: string[]
+          scheduling_hour_end?: string
+          scheduling_hour_start?: string
           system_prompt?: string | null
           tone?: Database["public"]["Enums"]["agent_tone"]
           transfer_keywords?: string[] | null
@@ -5590,6 +5596,9 @@ export type Database = {
           max_messages_before_transfer?: number
           organization_id?: string
           schedule_visits?: boolean
+          scheduling_days?: string[]
+          scheduling_hour_end?: string
+          scheduling_hour_start?: string
           system_prompt?: string | null
           tone?: Database["public"]["Enums"]["agent_tone"]
           transfer_keywords?: string[] | null
