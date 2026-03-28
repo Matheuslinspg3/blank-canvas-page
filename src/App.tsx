@@ -23,55 +23,56 @@ import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import { ClarityProvider } from "@/components/ClarityProvider";
 import { MaintenanceGuard } from "@/components/MaintenanceGuard";
 import { Loader2 } from "lucide-react";
+import { lazyRetry } from "@/utils/lazyRetry";
 
-// Lazy-loaded pages
-const Auth = lazy(() => import("./pages/Auth"));
-const AcceptInvite = lazy(() => import("./pages/AcceptInvite"));
-const Demo = lazy(() => import("./pages/Demo"));
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const Properties = lazy(() => import("./pages/Properties"));
-const PropertyDetails = lazy(() => import("./pages/PropertyDetails"));
-const PropertyByCode = lazy(() => import("./pages/PropertyByCode"));
-const PropertyLandingPage = lazy(() => import("./pages/PropertyLandingPage"));
-const Marketplace = lazy(() => import("./pages/Marketplace"));
-const MarketplacePropertyDetails = lazy(() => import("./pages/MarketplacePropertyDetails"));
-const CRM = lazy(() => import("./pages/CRM"));
-const _Contracts = lazy(() => import("./pages/Contracts")); // kept for reference, now embedded in Financial
-const Financial = lazy(() => import("./pages/Financial"));
-const Schedule = lazy(() => import("./pages/Schedule"));
-const Settings = lazy(() => import("./pages/Settings"));
-const AdminAudit = lazy(() => import("./pages/admin/AdminAudit"));
-const DeveloperDashboard = lazy(() => import("./pages/developer/DeveloperDashboard"));
-const ImportPendencies = lazy(() => import("./pages/ImportPendencies"));
-const Integrations = lazy(() => import("./pages/Integrations"));
-const LandingPage = lazy(() => import("./pages/LandingPage"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const AccessDenied = lazy(() => import("./pages/AccessDenied"));
-const PlatformSignup = lazy(() => import("./pages/PlatformSignup"));
-const OnboardingWizard = lazy(() => import("./pages/OnboardingWizard"));
-const Install = lazy(() => import("./pages/Install"));
-const Automations = lazy(() => import("./pages/Automations"));
-const _Activities = lazy(() => import("./pages/Activities")); // embedded in Administration
-const Administration = lazy(() => import("./pages/Administration"));
-const Anuncios = lazy(() => import("./pages/Anuncios"));
-const _RDStation = lazy(() => import("./pages/RDStation")); // embedded in Anuncios
-const MetaAdDetail = lazy(() => import("./pages/ads/MetaAdDetail"));
-const Owners = lazy(() => import("./pages/Owners"));
-const _GeradorAnuncios = lazy(() => import("./pages/GeradorAnuncios")); // embedded in Anuncios
-const PublicPropertyBySlug = lazy(() => import("./pages/PublicPropertyBySlug"));
-const Storefront = lazy(() => import("./pages/Storefront"));
-const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
-const Maintenance = lazy(() => import("./pages/Maintenance"));
-const EmailTemplates = lazy(() => import("./pages/EmailTemplates"));
-const Plans = lazy(() => import("./pages/Plans"));
-const MyPlan = lazy(() => import("./pages/MyPlan"));
-const Onboarding = lazy(() => import("./pages/app/Onboarding"));
-const AppAuth = lazy(() => import("./pages/app/AppAuth"));
-const AppHome = lazy(() => import("./pages/app/Home"));
-const AppSearch = lazy(() => import("./pages/app/Search"));
-const AppFavorites = lazy(() => import("./pages/app/Favorites"));
-const AppProfile = lazy(() => import("./pages/app/Profile"));
-const AppPropertyDetail = lazy(() => import("./pages/app/PropertyDetail"));
+// Lazy-loaded pages with retry for stale chunk recovery
+const Auth = lazy(() => lazyRetry(() => import("./pages/Auth")));
+const AcceptInvite = lazy(() => lazyRetry(() => import("./pages/AcceptInvite")));
+const Demo = lazy(() => lazyRetry(() => import("./pages/Demo")));
+const Dashboard = lazy(() => lazyRetry(() => import("./pages/Dashboard")));
+const Properties = lazy(() => lazyRetry(() => import("./pages/Properties")));
+const PropertyDetails = lazy(() => lazyRetry(() => import("./pages/PropertyDetails")));
+const PropertyByCode = lazy(() => lazyRetry(() => import("./pages/PropertyByCode")));
+const PropertyLandingPage = lazy(() => lazyRetry(() => import("./pages/PropertyLandingPage")));
+const Marketplace = lazy(() => lazyRetry(() => import("./pages/Marketplace")));
+const MarketplacePropertyDetails = lazy(() => lazyRetry(() => import("./pages/MarketplacePropertyDetails")));
+const CRM = lazy(() => lazyRetry(() => import("./pages/CRM")));
+const _Contracts = lazy(() => lazyRetry(() => import("./pages/Contracts")));
+const Financial = lazy(() => lazyRetry(() => import("./pages/Financial")));
+const Schedule = lazy(() => lazyRetry(() => import("./pages/Schedule")));
+const Settings = lazy(() => lazyRetry(() => import("./pages/Settings")));
+const AdminAudit = lazy(() => lazyRetry(() => import("./pages/admin/AdminAudit")));
+const DeveloperDashboard = lazy(() => lazyRetry(() => import("./pages/developer/DeveloperDashboard")));
+const ImportPendencies = lazy(() => lazyRetry(() => import("./pages/ImportPendencies")));
+const Integrations = lazy(() => lazyRetry(() => import("./pages/Integrations")));
+const LandingPage = lazy(() => lazyRetry(() => import("./pages/LandingPage")));
+const NotFound = lazy(() => lazyRetry(() => import("./pages/NotFound")));
+const AccessDenied = lazy(() => lazyRetry(() => import("./pages/AccessDenied")));
+const PlatformSignup = lazy(() => lazyRetry(() => import("./pages/PlatformSignup")));
+const OnboardingWizard = lazy(() => lazyRetry(() => import("./pages/OnboardingWizard")));
+const Install = lazy(() => lazyRetry(() => import("./pages/Install")));
+const Automations = lazy(() => lazyRetry(() => import("./pages/Automations")));
+const _Activities = lazy(() => lazyRetry(() => import("./pages/Activities")));
+const Administration = lazy(() => lazyRetry(() => import("./pages/Administration")));
+const Anuncios = lazy(() => lazyRetry(() => import("./pages/Anuncios")));
+const _RDStation = lazy(() => lazyRetry(() => import("./pages/RDStation")));
+const MetaAdDetail = lazy(() => lazyRetry(() => import("./pages/ads/MetaAdDetail")));
+const Owners = lazy(() => lazyRetry(() => import("./pages/Owners")));
+const _GeradorAnuncios = lazy(() => lazyRetry(() => import("./pages/GeradorAnuncios")));
+const PublicPropertyBySlug = lazy(() => lazyRetry(() => import("./pages/PublicPropertyBySlug")));
+const Storefront = lazy(() => lazyRetry(() => import("./pages/Storefront")));
+const PrivacyPolicy = lazy(() => lazyRetry(() => import("./pages/PrivacyPolicy")));
+const Maintenance = lazy(() => lazyRetry(() => import("./pages/Maintenance")));
+const EmailTemplates = lazy(() => lazyRetry(() => import("./pages/EmailTemplates")));
+const Plans = lazy(() => lazyRetry(() => import("./pages/Plans")));
+const MyPlan = lazy(() => lazyRetry(() => import("./pages/MyPlan")));
+const Onboarding = lazy(() => lazyRetry(() => import("./pages/app/Onboarding")));
+const AppAuth = lazy(() => lazyRetry(() => import("./pages/app/AppAuth")));
+const AppHome = lazy(() => lazyRetry(() => import("./pages/app/Home")));
+const AppSearch = lazy(() => lazyRetry(() => import("./pages/app/Search")));
+const AppFavorites = lazy(() => lazyRetry(() => import("./pages/app/Favorites")));
+const AppProfile = lazy(() => lazyRetry(() => import("./pages/app/Profile")));
+const AppPropertyDetail = lazy(() => lazyRetry(() => import("./pages/app/PropertyDetail")));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen">
