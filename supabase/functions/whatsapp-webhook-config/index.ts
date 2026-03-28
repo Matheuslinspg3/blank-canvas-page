@@ -187,6 +187,12 @@ serve(async (req) => {
       },
       agent_config: config,
       composed_system_prompt,
+      prompt_variables: {
+        qualify: prompt_qualify,
+        create_lead: prompt_create_lead,
+        schedule: prompt_schedule,
+        properties: prompt_properties,
+      },
       properties: {
         enabled: !!config.is_property_db_enabled,
         items: properties,
