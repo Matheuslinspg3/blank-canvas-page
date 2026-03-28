@@ -145,22 +145,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Delete old instance in Evo if exists (clean slate) ──
-    if (existingInstance?.instance_name) {
-      try {
-        await fetch(`${baseUrl}/instance/delete/${existingInstance.instance_name}`, {
-          method: "DELETE",
-          headers: { apikey: EVOLUTION_API_KEY },
-        });
-        console.log("Deleted old Evo instance:", existingInstance.instance_name);
-      } catch (e) {
-        console.warn("Failed to delete old instance (may not exist):", e);
-      }
-    }
-
-    // ── Create new instance directly on Evolution API ──
-    const instanceName = `${orgSlug}-${org.id}`;
-    console.log("Creating instance on Evolution API:", instanceName);
+    const instanceName = existingInstance?.instance_name || `${orgSlug}-${org.id}`;
+    console.log("Target instance name:", instanceName);
 
     // Set provisioning status in DB
     if (existingInstance?.id) {
@@ -178,51 +164,79 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Step 1: Create instance on Evolution API
-    const createPayload = {
-      instanceName,
-      integration: "WHATSAPP-BAILEYS",
-      qrcode: true,
-      rejectCall: true,
-      groupsIgnore: true,
-      alwaysOnline: false,
-      readMessages: false,
-      readStatus: false,
-      syncFullHistory: true,
-      webhook: {
-        url: WEBHOOK_URL,
-        byEvents: false,
-        base64: true,
-        headers: {},
-        events: [
-          "MESSAGES_UPSERT",
-        ],
-      },
-    };
+    // Check if instance already exists in Evolution API
+    let instanceToken: string | null = null;
+    let instanceExists = false;
 
-    console.log("Evolution create payload:", JSON.stringify(createPayload));
+    try {
+      const fetchRes = await fetch(`${baseUrl}/instance/fetchInstances?instanceName=${instanceName}`, {
+        method: "GET",
+        headers: { apikey: EVOLUTION_API_KEY },
+      });
+      if (fetchRes.ok) {
+        const fetchData = await fetchRes.json();
+        const found = Array.isArray(fetchData) ? fetchData[0] : fetchData;
+        if (found?.instance?.instanceName === instanceName) {
+          instanceExists = true;
+          instanceToken = found?.instance?.apikey ?? null;
+          console.log("Instance already exists in Evo, reusing:", instanceName);
 
-    const createRes = await fetch(`${baseUrl}/instance/create`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: EVOLUTION_API_KEY,
-      },
-      body: JSON.stringify(createPayload),
-    });
-
-    const createRaw = await createRes.text();
-    console.log("Evolution create response:", createRes.status, createRaw.substring(0, 1000));
-
-    if (!createRes.ok) {
-      throw new Error(`Evolution API create error [${createRes.status}]: ${createRaw.substring(0, 500)}`);
+          // Update webhook config on existing instance
+          await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
+            body: JSON.stringify({
+              url: WEBHOOK_URL,
+              byEvents: false,
+              base64: true,
+              events: ["MESSAGES_UPSERT"],
+            }),
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("fetchInstances check failed, will try create:", e);
     }
 
-    let createData: any = {};
-    try { createData = JSON.parse(createRaw); } catch { /* raw text */ }
+    // Create only if it doesn't exist
+    if (!instanceExists) {
+      const createPayload = {
+        instanceName,
+        integration: "WHATSAPP-BAILEYS",
+        qrcode: true,
+        rejectCall: true,
+        groupsIgnore: true,
+        alwaysOnline: false,
+        readMessages: false,
+        readStatus: false,
+        syncFullHistory: true,
+        webhook: {
+          url: WEBHOOK_URL,
+          byEvents: false,
+          base64: true,
+          headers: {},
+          events: ["MESSAGES_UPSERT"],
+        },
+      };
 
-    // Extract token/hash from response
-    const instanceToken = createData?.hash?.apikey ?? createData?.token ?? createData?.apikey ?? null;
+      console.log("Creating new instance:", JSON.stringify(createPayload));
+      const createRes = await fetch(`${baseUrl}/instance/create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
+        body: JSON.stringify(createPayload),
+      });
+
+      const createRaw = await createRes.text();
+      console.log("Evolution create response:", createRes.status, createRaw.substring(0, 1000));
+
+      if (!createRes.ok) {
+        throw new Error(`Evolution API create error [${createRes.status}]: ${createRaw.substring(0, 500)}`);
+      }
+
+      let createData: any = {};
+      try { createData = JSON.parse(createRaw); } catch { /* raw text */ }
+      instanceToken = createData?.hash?.apikey ?? createData?.token ?? createData?.apikey ?? null;
+    }
 
     // Step 2: Connect instance to get QR code
     const connectRes = await fetch(`${baseUrl}/instance/connect/${instanceName}`, {
