@@ -5547,6 +5547,9 @@ export type Database = {
           auto_qualify_leads: boolean
           away_message: string | null
           broker_assignment_mode: string
+          cache_updated_at: string | null
+          cached_bairros: Json | null
+          cached_property_types: Json | null
           id: string
           instance_name: string | null
           instance_token: string | null
@@ -5575,6 +5578,9 @@ export type Database = {
           auto_qualify_leads?: boolean
           away_message?: string | null
           broker_assignment_mode?: string
+          cache_updated_at?: string | null
+          cached_bairros?: Json | null
+          cached_property_types?: Json | null
           id?: string
           instance_name?: string | null
           instance_token?: string | null
@@ -5603,6 +5609,9 @@ export type Database = {
           auto_qualify_leads?: boolean
           away_message?: string | null
           broker_assignment_mode?: string
+          cache_updated_at?: string | null
+          cached_bairros?: Json | null
+          cached_property_types?: Json | null
           id?: string
           instance_name?: string | null
           instance_token?: string | null
@@ -6359,6 +6368,10 @@ export type Database = {
         Returns: boolean
       }
       rebuild_provider_chains: { Args: never; Returns: undefined }
+      refresh_agent_config_cache: {
+        Args: { org_id: string }
+        Returns: undefined
+      }
       register_session: {
         Args: {
           p_device_info?: string
