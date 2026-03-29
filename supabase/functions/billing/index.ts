@@ -295,7 +295,7 @@ serve(async (req) => {
         body: JSON.stringify({
           customer: customerId,
           billingType: billingTypeMap[paymentMethod] || "BOLETO",
-          value: Number(price),
+          value: priceReais,
           cycle,
           description: `Habitae ${plan.name} - ${billingCycle === "yearly" ? "Anual" : "Mensal"}`,
           externalReference: orgId,
