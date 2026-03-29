@@ -135,7 +135,8 @@ serve(async (req) => {
         .from("subscription_plans").select("*").eq("id", planId).single();
       if (!plan) throw new Error("Plan not found");
 
-      const price = billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly;
+      const priceCents = billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly;
+      const priceReais = Number(priceCents) / 100; // Asaas expects value in BRL (reais)
       const now = new Date();
       const periodEnd = billingCycle === "yearly"
         ? new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000)
