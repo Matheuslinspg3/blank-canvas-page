@@ -3,6 +3,38 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { createLogger } from "../_shared/logger.ts";
 
+// --- Document validation (CPF/CNPJ) ---
+function isValidCPF(cpf: string): boolean {
+  const d = cpf.replace(/\D/g, "");
+  if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false;
+  for (let t = 9; t < 11; t++) {
+    let s = 0;
+    for (let i = 0; i < t; i++) s += Number(d[i]) * (t + 1 - i);
+    const r = (s * 10) % 11;
+    if (Number(d[t]) !== (r === 10 ? 0 : r)) return false;
+  }
+  return true;
+}
+function isValidCNPJ(cnpj: string): boolean {
+  const d = cnpj.replace(/\D/g, "");
+  if (d.length !== 14 || /^(\d)\1{13}$/.test(d)) return false;
+  const w1 = [5,4,3,2,9,8,7,6,5,4,3,2];
+  const w2 = [6,5,4,3,2,9,8,7,6,5,4,3,2];
+  for (const [idx, w] of [[12, w1], [13, w2]] as const) {
+    let s = 0;
+    for (let i = 0; i < w.length; i++) s += Number(d[i]) * w[i];
+    const r = s % 11;
+    if (Number(d[idx]) !== (r < 2 ? 0 : 11 - r)) return false;
+  }
+  return true;
+}
+function isValidDocument(doc: string): boolean {
+  const d = doc.replace(/\D/g, "");
+  if (d.length === 11) return isValidCPF(d);
+  if (d.length === 14) return isValidCNPJ(d);
+  return false;
+}
+
 // A14: CORS allowlist — fail-closed when not configured
 const ALLOWED_ORIGINS = (Deno.env.get("APP_ALLOWED_ORIGINS") || "").split(",").map(s => s.trim()).filter(Boolean);
 
@@ -108,6 +140,13 @@ serve(async (req) => {
 
       if (!customerCpf) {
         throw new Error("CPF ou CNPJ é obrigatório para criar a cobrança.");
+      }
+
+      if (!isValidDocument(customerCpf)) {
+        return new Response(JSON.stringify({ error: "Documento inválido (CPF/CNPJ)" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       const customer = await asaasFetch("/customers", {
