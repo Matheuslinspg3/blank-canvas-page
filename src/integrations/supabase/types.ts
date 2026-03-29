@@ -966,6 +966,13 @@ export type Database = {
             foreignKeyName: "anuncios_gerados_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "ai_properties_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "anuncios_gerados_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
@@ -1073,6 +1080,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "ai_properties_view"
             referencedColumns: ["id"]
           },
           {
@@ -1670,6 +1684,13 @@ export type Database = {
             foreignKeyName: "contracts_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "ai_properties_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
@@ -1908,6 +1929,13 @@ export type Database = {
             foreignKeyName: "generated_arts_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "ai_properties_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_arts_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
@@ -1992,6 +2020,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_videos_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "ai_properties_view"
             referencedColumns: ["id"]
           },
           {
@@ -2153,6 +2188,13 @@ export type Database = {
           warnings?: Json | null
         }
         Relationships: [
+          {
+            foreignKeyName: "import_run_items_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "ai_properties_view"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "import_run_items_property_id_fkey"
             columns: ["property_id"]
@@ -2856,6 +2898,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "ai_properties_view"
             referencedColumns: ["id"]
           },
           {
@@ -3990,6 +4039,13 @@ export type Database = {
             foreignKeyName: "property_images_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "ai_properties_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_images_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
@@ -4045,6 +4101,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "property_landing_content_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "ai_properties_view"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "property_landing_content_property_id_fkey"
             columns: ["property_id"]
@@ -4112,6 +4175,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_landing_overrides_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "ai_properties_view"
             referencedColumns: ["id"]
           },
           {
@@ -4202,6 +4272,13 @@ export type Database = {
             foreignKeyName: "property_media_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "ai_properties_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_media_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
@@ -4269,6 +4346,13 @@ export type Database = {
             foreignKeyName: "property_owners_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "ai_properties_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_owners_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
@@ -4330,6 +4414,13 @@ export type Database = {
             foreignKeyName: "property_partnerships_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "ai_properties_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_partnerships_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
@@ -4367,6 +4458,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "property_share_links_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "ai_properties_view"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "property_share_links_property_id_fkey"
             columns: ["property_id"]
@@ -4413,6 +4511,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_status_history_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "ai_properties_view"
             referencedColumns: ["id"]
           },
           {
@@ -4521,6 +4626,13 @@ export type Database = {
             foreignKeyName: "property_visibility_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: true
+            referencedRelation: "ai_properties_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_visibility_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
@@ -4605,6 +4717,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_visits_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "ai_properties_view"
             referencedColumns: ["id"]
           },
           {
@@ -4934,6 +5053,13 @@ export type Database = {
           valor_imovel?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "simulacoes_financiamento_imovel_id_fkey"
+            columns: ["imovel_id"]
+            isOneToOne: false
+            referencedRelation: "ai_properties_view"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "simulacoes_financiamento_imovel_id_fkey"
             columns: ["imovel_id"]
@@ -5772,6 +5898,13 @@ export type Database = {
             foreignKeyName: "whatsapp_property_rules_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "ai_properties_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_property_rules_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
@@ -5824,6 +5957,54 @@ export type Database = {
       }
     }
     Views: {
+      ai_properties_view: {
+        Row: {
+          ai_blacklist: boolean | null
+          area_total: number | null
+          area_util: number | null
+          bairro: string | null
+          banheiros: number | null
+          cidade: string | null
+          codigo: string | null
+          comodidades: string[] | null
+          complemento: string | null
+          condicao: Database["public"]["Enums"]["property_condition"] | null
+          condominio: number | null
+          descricao: string | null
+          destaque: boolean | null
+          disponibilidade: string | null
+          distancia_praia_metros: number | null
+          empreendimento: string | null
+          estado: string | null
+          fase_lancamento: Database["public"]["Enums"]["launch_stage"] | null
+          id: string | null
+          iptu_mensal: number | null
+          numero: string | null
+          opcoes_pagamento: string[] | null
+          organization_id: string | null
+          preco_aluguel: number | null
+          preco_venda: number | null
+          quartos: number | null
+          rua: string | null
+          status: Database["public"]["Enums"]["property_status"] | null
+          suites: number | null
+          tipo_imovel: string | null
+          tipo_transacao: Database["public"]["Enums"]["transaction_type"] | null
+          titulo: string | null
+          updated_at: string | null
+          vagas: number | null
+          video_url: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "properties_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_router_providers_safe: {
         Row: {
           api_base_url: string | null
@@ -5977,6 +6158,30 @@ export type Database = {
       admin_get_system_health: { Args: never; Returns: Json }
       admin_get_table_counts: { Args: never; Returns: Json }
       admin_get_table_sizes: { Args: never; Returns: Json }
+      ai_buscar_imoveis: {
+        Args: {
+          area_min?: number
+          bairro?: string
+          limite?: number
+          org_id: string
+          preco_max?: number
+          preco_min?: number
+          quartos_min?: number
+          tipo_imovel?: string
+          transacao?: string
+          vagas_min?: number
+        }
+        Returns: Json
+      }
+      ai_buscar_por_codigo: {
+        Args: { codigo: string; org_id: string }
+        Returns: Json
+      }
+      ai_detalhes_imovel: {
+        Args: { imovel_id: string; org_id: string }
+        Returns: Json
+      }
+      ai_listar_opcoes: { Args: { org_id: string }; Returns: Json }
       assert_import_run_access: {
         Args: { p_run_id: string; p_user_id: string }
         Returns: boolean
