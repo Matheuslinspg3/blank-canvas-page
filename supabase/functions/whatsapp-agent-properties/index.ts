@@ -102,6 +102,21 @@ serve(async (req) => {
     if (filters?.transaction_type) {
       query = query.eq("transaction_type", filters.transaction_type);
     }
+    // Resolve property_type by name (text) → UUID
+    if (filters?.property_type) {
+      const searchName = filters.property_type.toLowerCase().trim();
+      const matchedId = Object.entries(propertyTypeMap).find(
+        ([, name]) => name.toLowerCase().trim() === searchName
+      )?.[0];
+      if (matchedId) {
+        query = query.eq("property_type_id", matchedId);
+      } else {
+        // No match found — return empty to avoid wrong results
+        return new Response(JSON.stringify({ properties: [], total: 0, property_types: propertyTypeMap, message: `Tipo "${filters.property_type}" não encontrado` }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
 
     const { data: properties = [], error } = await query.limit(50);
     if (error) throw error;
