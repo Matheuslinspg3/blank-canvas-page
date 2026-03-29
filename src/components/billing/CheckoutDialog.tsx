@@ -209,7 +209,8 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
                 Plano {plan.name} — {billingCycle === "yearly" ? "Anual" : "Mensal"}
               </p>
               <p className="text-xs text-muted-foreground">
-                ⏱️ Após o pagamento, sua assinatura será ativada automaticamente
+                ⏱️ Após o pagamento, sua assinatura será ativada automaticamente.
+                Seu plano atual permanece ativo até a confirmação.
               </p>
             </div>
           </div>
