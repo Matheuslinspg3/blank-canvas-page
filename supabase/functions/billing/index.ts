@@ -135,7 +135,8 @@ serve(async (req) => {
         .from("subscription_plans").select("*").eq("id", planId).single();
       if (!plan) throw new Error("Plan not found");
 
-      const price = billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly;
+      const priceCents = billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly;
+      const priceReais = Number(priceCents) / 100; // Asaas expects value in BRL (reais)
       const now = new Date();
       const periodEnd = billingCycle === "yearly"
         ? new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000)
@@ -151,7 +152,7 @@ serve(async (req) => {
           body: JSON.stringify({
             customer: customerId,
             billingType: "PIX",
-            value: Number(price),
+            value: priceReais,
             dueDate,
             description: `Habitae ${plan.name} - ${billingCycle === "yearly" ? "Anual" : "Mensal"}`,
             externalReference: orgId,
@@ -194,7 +195,7 @@ serve(async (req) => {
           subscription_id: newSub.id,
           provider: "asaas",
           provider_payment_id: payment.id,
-          amount_cents: Math.round(Number(price) * 100),
+          amount_cents: Number(priceCents),
           method: "pix",
           status: "pending",
           pix_qr_code: pixInfo.encodedImage,
@@ -222,7 +223,7 @@ serve(async (req) => {
           body: JSON.stringify({
             customer: customerId,
             billingType: "CREDIT_CARD",
-            value: Number(price),
+            value: priceReais,
             cycle,
             description: `Habitae ${plan.name} - ${billingCycle === "yearly" ? "Anual" : "Mensal"}`,
             externalReference: orgId,
@@ -268,7 +269,7 @@ serve(async (req) => {
             subscription_id: newSub.id,
             provider: "asaas",
             provider_payment_id: firstPayment.id,
-            amount_cents: Math.round(Number(price) * 100),
+            amount_cents: Number(priceCents),
             method: "credit_card",
             status: "pending",
             invoice_url: invoiceUrl,
@@ -294,7 +295,7 @@ serve(async (req) => {
         body: JSON.stringify({
           customer: customerId,
           billingType: billingTypeMap[paymentMethod] || "BOLETO",
-          value: Number(price),
+          value: priceReais,
           cycle,
           description: `Habitae ${plan.name} - ${billingCycle === "yearly" ? "Anual" : "Mensal"}`,
           externalReference: orgId,
