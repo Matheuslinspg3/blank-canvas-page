@@ -223,7 +223,7 @@ serve(async (req) => {
           body: JSON.stringify({
             customer: customerId,
             billingType: "CREDIT_CARD",
-            value: Number(price),
+            value: priceReais,
             cycle,
             description: `Habitae ${plan.name} - ${billingCycle === "yearly" ? "Anual" : "Mensal"}`,
             externalReference: orgId,
@@ -269,7 +269,7 @@ serve(async (req) => {
             subscription_id: newSub.id,
             provider: "asaas",
             provider_payment_id: firstPayment.id,
-            amount_cents: Math.round(Number(price) * 100),
+            amount_cents: Number(priceCents),
             method: "credit_card",
             status: "pending",
             invoice_url: invoiceUrl,

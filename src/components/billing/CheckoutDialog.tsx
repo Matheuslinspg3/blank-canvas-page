@@ -132,7 +132,7 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
               <p className="text-sm text-muted-foreground">
                 Você será redirecionado para um ambiente seguro de pagamento onde poderá inserir os dados do seu cartão de crédito ou débito.
               </p>
-              <p className="text-sm font-medium">R$ {Number(price).toFixed(2)}</p>
+              <p className="text-sm font-medium">R$ {(Number(price) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
               <p className="text-xs text-muted-foreground">
                 Plano {plan.name} — {billingCycle === "yearly" ? "Anual" : "Mensal"}
               </p>
