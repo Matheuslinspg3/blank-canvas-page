@@ -181,14 +181,7 @@ serve(async (req) => {
           .single();
         if (subErr) throw subErr;
 
-        // Cancel old subscriptions
-        await supabase
-          .from("subscriptions")
-          .update({ status: "cancelled", cancelled_at: now.toISOString() })
-          .eq("organization_id", orgId)
-          .in("status", ["active", "trial"])
-          .neq("id", newSub.id);
-
+        // NOTE: Old subscriptions will be cancelled by webhook on PAYMENT_CONFIRMED
         // Save payment record
         await supabase.from("billing_payments").insert({
           organization_id: orgId,
@@ -254,14 +247,7 @@ serve(async (req) => {
           .single();
         if (subErr) throw subErr;
 
-        // Cancel old subscriptions
-        await supabase
-          .from("subscriptions")
-          .update({ status: "cancelled", cancelled_at: now.toISOString() })
-          .eq("organization_id", orgId)
-          .in("status", ["active", "trial"])
-          .neq("id", newSub.id);
-
+        // NOTE: Old subscriptions will be cancelled by webhook on PAYMENT_CONFIRMED
         // Save payment record if we have a first payment
         if (firstPayment) {
           await supabase.from("billing_payments").insert({
