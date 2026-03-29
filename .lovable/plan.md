@@ -1,83 +1,36 @@
 
 
-# Plano: Endpoint Unificado para Agente IA - Dados Completos por instance_name
+## Reajuste de Preços — Planos Porta do Corretor
 
-## Problema
+### Tabela Final Completa
 
-O N8N consulta a tabela `whatsapp_agent_config` diretamente, recebendo booleanos crus. Alem disso, falta um mapeamento de bairros com seus respectivos IDs de imoveis para a IA navegar o catalogo.
+| Plano | Preço Atual | Novo Preço | Anual (×10) |
+|-------|------------|------------|-------------|
+| Gratuito | R$ 0 | R$ 0 | R$ 0 |
+| Starter | R$ 59,90 | **R$ 99,90** | R$ 999,00 |
+| Correspondente | R$ 79,90 | **R$ 119,90** | R$ 1.199,00 |
+| Essencial | R$ 129,90 | **R$ 179,90** | R$ 1.799,00 |
+| Profissional | R$ 299,90 | **R$ 299,90** (mantém) | R$ 2.999,00 |
+| Business | R$ 499,90 | **R$ 599,90** | R$ 5.999,00 |
+| Enterprise | R$ 499,90 | **R$ 679,90** | R$ 6.799,00 |
 
-## Solucao
+### Implementação
 
-Atualizar a Edge Function `whatsapp-webhook-config` para retornar **tudo** que o agente precisa em uma unica chamada, incluindo:
+Uma única operação UPDATE na tabela `subscription_plans` usando a ferramenta de insert (não é migração, é atualização de dados):
 
-1. **Prompts como texto** (ja existe, mas precisa garantir que o N8N use a Edge Function)
-2. **Mapeamento de bairros** agrupando property IDs por `address_neighborhood`
-3. **Mapeamento de cidades** agrupando por `address_city`
-
-## Resposta Final do Endpoint
-
-```text
-POST whatsapp-webhook-config { instance_name: "xxx" }
-
-Retorna:
-{
-  organization: { id, name, slug },
-  instance: { instance_name, status, phone_number },
-  
-  // Prompt completo pronto para system message
-  composed_system_prompt: "Voce e a Valentina... \n--- Instrucoes ---\n• Ao iniciar...",
-  
-  // Variaveis individuais (para usar como {{ qualify }} no N8N)
-  prompt_variables: {
-    qualify: "Ao iniciar uma conversa, colete nome completo...",
-    create_lead: "Apos coletar os dados...",
-    schedule: "Voce pode agendar visitas. Horarios: ...",
-    properties: "Voce tem acesso ao banco de imoveis...",
-    property_types: "Use o seguinte mapeamento..."
-  },
-  
-  // Configs cruas (para logica condicional no N8N)
-  agent_config: { agent_name, tone, welcome_message, away_message, ... },
-  
-  // Tipos de imovel: ID => Nome
-  property_types: { "uuid-1": "Apartamento", "uuid-2": "Casa" },
-  
-  // NOVO: Bairros com IDs dos imoveis disponiveis
-  neighborhoods: {
-    "Centro": ["prop-id-1", "prop-id-3"],
-    "Jardim Paulista": ["prop-id-2", "prop-id-5"]
-  },
-  
-  // Imoveis disponiveis (com property_type_name e featured)
-  properties: {
-    enabled: true,
-    items: [ { id, title, property_type_name, address_neighborhood, featured, ... } ],
-    total: 15
-  }
-}
+```sql
+UPDATE subscription_plans SET price_monthly = 9990, price_yearly = 99900 WHERE slug = 'starter';
+UPDATE subscription_plans SET price_monthly = 11990, price_yearly = 119900 WHERE slug = 'correspondente';
+UPDATE subscription_plans SET price_monthly = 17990, price_yearly = 179900 WHERE slug = 'essencial';
+UPDATE subscription_plans SET price_monthly = 29990, price_yearly = 299900 WHERE slug = 'profissional';
+UPDATE subscription_plans SET price_monthly = 59990, price_yearly = 599900 WHERE slug = 'business';
+UPDATE subscription_plans SET price_monthly = 67990, price_yearly = 679900 WHERE slug = 'enterprise';
 ```
 
-## Alteracoes
+Valores em centavos conforme convenção do banco. Nenhuma alteração de código necessária — frontend já lê preços dinamicamente.
 
-### 1. Edge Function `whatsapp-webhook-config/index.ts`
-
-Adicionar apos buscar os imoveis:
-- Agrupar propriedades por `address_neighborhood` gerando um map `{ bairro: [ids] }`
-- Usar coluna `featured` diretamente da tabela `properties` (em vez da tabela de rules)
-- Incluir `neighborhoods` no response JSON
-
-### 2. Edge Function `whatsapp-agent-config/index.ts`
-
-Mesma logica de neighborhoods para manter consistencia entre os dois endpoints.
-
-## Detalhes Tecnicos
-
-- Nenhuma migracao necessaria (coluna `featured` ja existe em `properties`)
-- Bairros sao extraidos dos imoveis ja carregados (sem query extra)
-- A coluna `featured` substitui a consulta a `whatsapp_property_rules` para destaques
-
-| Arquivo | Alteracao |
-|---------|-----------|
-| `supabase/functions/whatsapp-webhook-config/index.ts` | Adicionar neighborhoods map, usar featured direto |
-| `supabase/functions/whatsapp-agent-config/index.ts` | Mesmo ajuste de neighborhoods |
+### Impacto
+- Assinaturas existentes: afetadas apenas na renovação/upgrade
+- Novos usuários: veem preços novos imediatamente
+- Enterprise agora tem preço diferenciado do Business (antes eram iguais)
 
