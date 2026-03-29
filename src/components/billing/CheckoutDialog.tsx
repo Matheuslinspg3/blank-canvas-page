@@ -18,6 +18,7 @@ import { QrCode, Copy, Check, Loader2, CreditCard, ExternalLink } from "lucide-r
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
 import { cn } from "@/lib/utils";
+import { isValidDocument } from "@/utils/document-validation";
 
 export interface CheckoutDialogProps {
   open: boolean;
@@ -37,6 +38,7 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
   const [pixData, setPixData] = useState<{ qrCode: string; copyPaste: string } | null>(null);
   const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [cpfError, setCpfError] = useState<string | null>(null);
 
   if (!plan) return null;
 
@@ -59,9 +61,26 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
       .replace(/(\d{4})(\d{1,2})$/, "$1-$2");
   };
 
+  const validateDocument = (value: string) => {
+    const digits = value.replace(/\D/g, "");
+    if (digits.length === 11 || digits.length === 14) {
+      if (!isValidDocument(digits)) {
+        setCpfError(digits.length === 11 ? "CPF inválido" : "CNPJ inválido");
+        return false;
+      }
+    }
+    setCpfError(null);
+    return true;
+  };
+
   const handleSubmit = async () => {
-    if (!customerCpf.replace(/\D/g, "")) {
+    const digits = customerCpf.replace(/\D/g, "");
+    if (!digits) {
       toastError("Informe seu CPF ou CNPJ", undefined, { module: "CheckoutDialog" });
+      return;
+    }
+    if (!isValidDocument(digits)) {
+      setCpfError(digits.length <= 11 ? "CPF inválido" : "CNPJ inválido");
       return;
     }
     if (!customerName.trim()) {
@@ -290,13 +309,22 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
               <Input
                 id="cpf"
                 value={customerCpf}
-                onChange={(e) => setCustomerCpf(formatCpf(e.target.value))}
+                onChange={(e) => {
+                  setCustomerCpf(formatCpf(e.target.value));
+                  if (cpfError) setCpfError(null);
+                }}
+                onBlur={() => validateDocument(customerCpf)}
                 placeholder="000.000.000-00"
                 maxLength={18}
+                className={cpfError ? "border-destructive" : ""}
               />
-              <p className="text-xs text-muted-foreground">
-                O CPF/CNPJ será validado automaticamente ao processar o pagamento
-              </p>
+              {cpfError ? (
+                <p className="text-sm text-destructive">{cpfError}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  O CPF/CNPJ será validado automaticamente ao processar o pagamento
+                </p>
+              )}
             </div>
           </div>
 
