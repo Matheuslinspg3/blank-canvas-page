@@ -1,40 +1,30 @@
 
+## Validação de CPF/CNPJ — Billing/Checkout
 
-## Resultado da Verificação do Fluxo de Pagamentos
+### 1. Criar `src/utils/document-validation.ts`
 
-Revisei o pipeline completo: `billing/index.ts`, `billing-webhook/index.ts`, `CheckoutDialog.tsx` e `useSubscription.ts`.
+Duas funções puras com algoritmo módulo 11:
+- `isValidCPF(cpf: string): boolean` — aceita com/sem máscara, rejeita sequências repetidas e dígitos inválidos
+- `isValidCNPJ(cnpj: string): boolean` — mesma lógica com pesos CNPJ
+- `isValidDocument(doc: string): boolean` — wrapper que detecta CPF (11 dígitos) ou CNPJ (14 dígitos)
 
-### Status: Fluxo correto — sem bugs de código
+### 2. Validação no `CheckoutDialog.tsx`
 
-O fluxo ponta a ponta está implementado corretamente:
+- Adicionar estado `cpfError: string | null`
+- No `onBlur` do campo CPF/CNPJ: se o documento estiver completo (11 ou 14 dígitos) mas inválido, setar `cpfError` com "CPF inválido" ou "CNPJ inválido"
+- Limpar erro quando o usuário volta a digitar
+- Exibir mensagem em vermelho abaixo do campo (classe `text-sm text-destructive`)
+- Bloquear `handleSubmit` se documento inválido
 
-1. **Auth**: usa `getUser()` (estável)
-2. **Criação de cliente Asaas**: valida CPF/CNPJ, reutiliza customer existente
-3. **PIX**: cria payment avulso, retorna QR Code e copia-e-cola ao frontend
-4. **Cartão**: cria subscription recorrente, retorna `invoiceUrl` para pagamento seguro
-5. **Boleto**: cria subscription, busca `invoiceUrl`/`bankSlipUrl`
-6. **Continuidade**: plano antigo NÃO é cancelado no checkout — só no webhook após `PAYMENT_CONFIRMED`
-7. **Webhook**: ativa assinatura, cancela anteriores com `.neq("id", sub.id)`, atualiza período
-8. **Frontend**: exibe QR Code PIX ou link de pagamento cartão/boleto, divide preços por 100 para exibição
-9. **Realtime**: `useSubscription` escuta mudanças em `subscriptions` e `billing_payments` via channel
+### 3. Validação na Edge Function `billing/index.ts`
 
-### Riscos operacionais (não são bugs de código)
+- Adicionar as mesmas funções `isValidCPF`/`isValidCNPJ` inline no topo da Edge Function (Deno não importa de `src/`)
+- No fluxo `create-customer` (linha ~109), após verificar que `customerCpf` existe, validar com `isValidDocument`
+- Se inválido, retornar `400 { error: "Documento inválido (CPF/CNPJ)" }` sem chamar o Asaas
 
-Estes itens dependem de configuração externa:
-
-| Item | Como verificar |
-|------|---------------|
-| `ASAAS_API_KEY` configurada no Supabase | Dashboard > Edge Functions > Secrets |
-| `ASAAS_WEBHOOK_TOKEN` configurada | Mesmo local |
-| Webhook URL configurada no painel Asaas | Asaas > Integrações > Webhooks apontando para `https://zpajuxxsxrwuqregdzjm.supabase.co/functions/v1/billing-webhook` |
-| `APP_ALLOWED_ORIGINS` com domínios corretos | Secrets — incluir domínio de produção e preview |
-
-### Recomendação
-
-O código está funcional. Para validar de verdade, recomendo fazer um **teste real com PIX** (valor mínimo R$ 1,00 em sandbox ou produção) e verificar:
-1. QR Code aparece no checkout
-2. Após pagamento, webhook chega e ativa a assinatura
-3. Plano anterior é cancelado automaticamente
-
-Se quiser, posso testar o fluxo no preview (precisa estar logado).
-
+### Arquivos modificados
+| Arquivo | Mudança |
+|---------|---------|
+| `src/utils/document-validation.ts` | Novo — funções `isValidCPF`, `isValidCNPJ`, `isValidDocument` |
+| `src/components/billing/CheckoutDialog.tsx` | Validação onBlur + bloqueio de submit |
+| `supabase/functions/billing/index.ts` | Validação server-side antes de chamar Asaas |
