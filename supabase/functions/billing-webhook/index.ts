@@ -126,6 +126,7 @@ serve(async (req) => {
           periodEnd.setMonth(periodEnd.getMonth() + 1);
         }
 
+        // Activate the new subscription
         await supabase.from("subscriptions")
           .update({
             status: "active",
@@ -133,6 +134,15 @@ serve(async (req) => {
             current_period_end: periodEnd.toISOString(),
           })
           .eq("id", sub.id);
+
+        // Cancel old subscriptions from the same org (safe: only after payment confirmed)
+        await supabase.from("subscriptions")
+          .update({ status: "cancelled", cancelled_at: now.toISOString() })
+          .eq("organization_id", sub.organization_id)
+          .in("status", ["active", "trial", "pending"])
+          .neq("id", sub.id);
+
+        log.info("Old subscriptions cancelled", { org_id: sub.organization_id, new_sub_id: sub.id });
       }
       await supabase.from("billing_payments")
         .update({ status: "confirmed", paid_at: new Date().toISOString() })
