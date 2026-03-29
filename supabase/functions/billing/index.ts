@@ -67,9 +67,9 @@ serve(async (req) => {
     
     const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
     const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) throw new Error("Invalid token");
-    const user = { id: claimsData.claims.sub as string, email: claimsData.claims.email as string };
+    const { data: { user: authUser }, error: authError } = await anonClient.auth.getUser(token);
+    if (authError || !authUser) throw new Error("Invalid token");
+    const user = { id: authUser.id, email: authUser.email || "" };
 
     // Get user's org
     const { data: profile } = await supabase
@@ -320,15 +320,27 @@ serve(async (req) => {
         .single();
       if (subErr) throw subErr;
 
-      // Cancel old subscriptions
-      await supabase
-        .from("subscriptions")
-        .update({ status: "cancelled", cancelled_at: now.toISOString() })
-        .eq("organization_id", orgId)
-        .in("status", ["active", "trial", "pending"])
-        .neq("id", newSub.id);
+      // NOTE: Old subscriptions will be cancelled by webhook on PAYMENT_CONFIRMED
 
-      return new Response(JSON.stringify({ subscription: newSub }), {
+      // Fetch boleto payment URL
+      const boletoPayments = await asaasFetch(`/subscriptions/${asaasSub.id}/payments?limit=1`);
+      const boletoFirstPayment = boletoPayments.data?.[0];
+      const boletoInvoiceUrl = boletoFirstPayment?.invoiceUrl || boletoFirstPayment?.bankSlipUrl || null;
+
+      if (boletoFirstPayment) {
+        await supabase.from("billing_payments").insert({
+          organization_id: orgId,
+          subscription_id: newSub.id,
+          provider: "asaas",
+          provider_payment_id: boletoFirstPayment.id,
+          amount_cents: Number(priceCents),
+          method: paymentMethod,
+          status: "pending",
+          invoice_url: boletoInvoiceUrl,
+        });
+      }
+
+      return new Response(JSON.stringify({ subscription: newSub, invoiceUrl: boletoInvoiceUrl }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -422,13 +434,9 @@ serve(async (req) => {
           .single();
         if (subErr) throw subErr;
 
-        await supabase.from("subscriptions")
-          .update({ status: "cancelled", cancelled_at: now.toISOString() })
-          .eq("organization_id", orgId)
-          .in("status", ["active", "trial"])
-          .neq("id", newSub.id);
+      // NOTE: Old subscriptions will be cancelled by webhook on PAYMENT_CONFIRMED
 
-        await supabase.from("billing_payments").insert({
+      await supabase.from("billing_payments").insert({
           organization_id: orgId,
           subscription_id: newSub.id,
           provider: "asaas",
@@ -483,11 +491,7 @@ serve(async (req) => {
         .single();
       if (subErr) throw subErr;
 
-      await supabase.from("subscriptions")
-        .update({ status: "cancelled", cancelled_at: now.toISOString() })
-        .eq("organization_id", orgId)
-        .in("status", ["active", "trial"])
-        .neq("id", newSub.id);
+      // NOTE: Old subscriptions will be cancelled by webhook on PAYMENT_CONFIRMED
 
       if (firstPayment) {
         await supabase.from("billing_payments").insert({
