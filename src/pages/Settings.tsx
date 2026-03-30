@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,7 +8,18 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserRoles } from "@/hooks/useUserRole";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
-import { Building2, User, Bell, Users, Palette, Sun, Moon, Monitor, Megaphone, CreditCard, History, MessageSquare, Bug } from "lucide-react";
+import { Building2, User, Bell, Users, Palette, Sun, Moon, Monitor, Megaphone, CreditCard, History, MessageSquare, Bug, Loader2 } from "lucide-react";
+import { SupportTicketDialog } from "@/components/settings/SupportTicketDialog";
+import { UserTicketsSection } from "@/components/settings/UserTicketsSection";
+import { PlatformInviteSection } from "@/components/settings/PlatformInviteSection";
+import { BillingTab } from "@/components/settings/BillingTab";
+import { ChangelogSection } from "@/components/settings/ChangelogSection";
+import { SettingsProfileTab } from "@/components/settings/SettingsProfileTab";
+import { SettingsCompanyTab } from "@/components/settings/SettingsCompanyTab";
+import { SettingsTeamTab } from "@/components/settings/SettingsTeamTab";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
+
+const WhiteLabelSettings = lazy(() => import("@/components/settings/WhiteLabelSettings"));
 import { SupportTicketDialog } from "@/components/settings/SupportTicketDialog";
 import { UserTicketsSection } from "@/components/settings/UserTicketsSection";
 import { PlatformInviteSection } from "@/components/settings/PlatformInviteSection";
