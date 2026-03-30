@@ -49,8 +49,8 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
 
   if (!property) return null;
 
-  const name = contactData?.owner_name || contactData?.org_name;
-  const phone = contactData?.owner_phone || contactData?.org_phone;
+  const name = contactData?.org_name;
+  const phone = contactData?.org_phone;
   const email = contactData?.org_email;
 
   return (
