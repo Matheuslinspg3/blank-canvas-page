@@ -14,11 +14,15 @@ export function AgentTransferTab() {
   const [keywords, setKeywords] = useState<string[]>([]);
   const [newKeyword, setNewKeyword] = useState("");
   const [maxMessages, setMaxMessages] = useState(10);
+  const [transferPhone, setTransferPhone] = useState("");
+  const [transferMessage, setTransferMessage] = useState("");
 
   useEffect(() => {
     if (config) {
       setKeywords(config.transfer_keywords ?? []);
       setMaxMessages(config.max_messages_before_transfer ?? 10);
+      setTransferPhone(config.transfer_phone ?? "");
+      setTransferMessage(config.transfer_message ?? "Olá! Um cliente precisa de atendimento humano. Segue o contexto da conversa:");
     }
   }, [config]);
 
