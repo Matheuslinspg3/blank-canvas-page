@@ -49,14 +49,14 @@ export function CashFlowChart({ data }: CashFlowChartProps) {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px] flex flex-col items-center justify-center text-center">
-            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+           <div className="h-[180px] sm:h-[300px] flex flex-col items-center justify-center text-center">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-muted flex items-center justify-center mb-2 sm:mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             </div>
-            <h3 className="font-medium text-muted-foreground">Nenhum dado para exibir</h3>
-            <p className="text-sm text-muted-foreground mt-1">
+            <h3 className="font-medium text-muted-foreground text-sm sm:text-base">Nenhum dado para exibir</h3>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               Os gráficos aparecerão quando houver transações registradas
             </p>
           </div>

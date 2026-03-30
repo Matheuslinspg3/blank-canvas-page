@@ -184,14 +184,14 @@ function FinancialContent() {
 
       <div className="relative flex-1 p-4 sm:p-6 space-y-6">
         {/* Summary Cards */}
-        <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-4">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 min-[380px]:grid-cols-2 md:grid-cols-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Saldo Atual</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between p-3 sm:p-4 pb-1 sm:pb-2">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Saldo Atual</CardTitle>
               <Wallet className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${stats.balance >= 0 ? 'text-success' : 'text-destructive'}`}>
+            <CardContent className="p-3 sm:p-4 pt-0">
+              <div className={`text-xl sm:text-2xl font-bold ${stats.balance >= 0 ? 'text-success' : 'text-destructive'}`}>
                 {formatCurrency(stats.balance)}
               </div>
               <p className="text-xs text-muted-foreground">{paidCount} transações pagas</p>
@@ -199,34 +199,34 @@ function FinancialContent() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Receitas do Mês</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between p-3 sm:p-4 pb-1 sm:pb-2">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Receitas do Mês</CardTitle>
               <TrendingUp className="h-4 w-4 text-success" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-success">{formatCurrency(stats.monthlyRevenue)}</div>
+            <CardContent className="p-3 sm:p-4 pt-0">
+              <div className="text-xl sm:text-2xl font-bold text-success">{formatCurrency(stats.monthlyRevenue)}</div>
               <p className="text-xs text-muted-foreground">{receitaCount} receitas</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Despesas do Mês</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between p-3 sm:p-4 pb-1 sm:pb-2">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Despesas do Mês</CardTitle>
               <TrendingDown className="h-4 w-4 text-destructive" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-destructive">{formatCurrency(stats.monthlyExpenses)}</div>
+            <CardContent className="p-3 sm:p-4 pt-0">
+              <div className="text-xl sm:text-2xl font-bold text-destructive">{formatCurrency(stats.monthlyExpenses)}</div>
               <p className="text-xs text-muted-foreground">{despesaCount} despesas</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Contratos Ativos</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between p-3 sm:p-4 pb-1 sm:pb-2">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Contratos Ativos</CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{contractStats.ativo}</div>
+            <CardContent className="p-3 sm:p-4 pt-0">
+              <div className="text-xl sm:text-2xl font-bold">{contractStats.ativo}</div>
               <p className="text-xs text-muted-foreground">{formatContractCurrency(contractStats.valorTotal)} em valor</p>
             </CardContent>
           </Card>
@@ -235,6 +235,7 @@ function FinancialContent() {
         {finTab === "transactions" && <CashFlowChart data={chartData} />}
 
         <Tabs value={finTab} onValueChange={setFinTab}>
+          <div className="relative">
           <TabsList className="w-full sm:w-auto overflow-x-auto scrollbar-hide flex-nowrap justify-start">
             <TabsTrigger value="transactions" className="shrink-0 min-h-[44px]">Transações</TabsTrigger>
             <TabsTrigger value="invoices" className="shrink-0 min-h-[44px]">
@@ -259,6 +260,8 @@ function FinancialContent() {
               Financiamentos
             </TabsTrigger>
           </TabsList>
+          <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none sm:hidden" />
+          </div>
 
           <TabsContent value="transactions" className="mt-4">
             {txError ? (
