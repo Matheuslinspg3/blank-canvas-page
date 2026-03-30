@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, Plus, Tags, Loader2 } from "lucide-react";
 import { usePropertyAmenities, useCreateAmenity } from "@/hooks/usePropertyAmenities";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -107,13 +106,13 @@ export function AmenitiesPickerDialog({ selected, onChange }: AmenitiesPickerDia
         )}
 
         {/* Grouped list */}
-        <ScrollArea className="flex-1 min-h-[260px] h-[400px] max-h-[50vh] rounded-md border pr-2" type="always">
+        <div className="flex-1 min-h-[260px] h-[400px] max-h-[50vh] overflow-y-scroll overflow-x-hidden rounded-md border p-3 pr-2 [scrollbar-gutter:stable]">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="space-y-4 p-3 pr-4">
+            <div className="space-y-4 pr-1">
               {Object.entries(grouped).map(([category, items]) => (
                 <div key={category}>
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
@@ -142,7 +141,7 @@ export function AmenitiesPickerDialog({ selected, onChange }: AmenitiesPickerDia
               )}
             </div>
           )}
-        </ScrollArea>
+        </div>
 
         <Separator />
 
