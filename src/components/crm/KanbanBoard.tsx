@@ -229,6 +229,20 @@ export function KanbanBoard() {
     return Object.values(filteredLeadsByStage).flat();
   }, [filteredLeadsByStage]);
 
+  const conversionOptions = useMemo(() => {
+    const set = new Set<string>();
+    leads.forEach((lead) => {
+      const ci = (lead as any).conversion_identifier as string | null;
+      if (ci) {
+        ci.split(',').forEach((s: string) => {
+          const trimmed = s.trim();
+          if (trimmed) set.add(trimmed);
+        });
+      }
+    });
+    return [...set].sort();
+  }, [leads]);
+
   const activeLead = activeId ? leads.find((l) => l.id === activeId) : null;
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
