@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
-import { useMarketplace, useMarketplaceFilterData, type MarketplaceProperty } from "@/hooks/useMarketplace";
+import { useMarketplace, useMarketplaceFilterData, useMarketplaceOrganizations, type MarketplaceProperty, type MarketplaceOrgInfo } from "@/hooks/useMarketplace";
 import { MarketplaceFilters, type MarketplaceFiltersState, defaultMarketplaceFilters } from "@/components/marketplace/MarketplaceFilters";
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Building, Loader2 } from "lucide-react";
-import { MarketplacePropertyCard } from "@/components/marketplace/MarketplacePropertyCard";
+import { MarketplaceOrgSection } from "@/components/marketplace/MarketplaceOrgSection";
 import { ContactDialog } from "@/components/marketplace/ContactDialog";
 
 export default function Marketplace() {
@@ -17,6 +17,37 @@ export default function Marketplace() {
 
   const { properties, isLoading, isFetching, totalCount, hasMore, loadMore, resetPage, logContactAccess } = useMarketplace(filters);
   const { cities, neighborhoods, propertyTypes, availableAmenities } = useMarketplaceFilterData(filters.city || undefined);
+
+  // Get distinct org IDs from loaded properties
+  const orgIds = useMemo(() => {
+    const ids = new Set(properties.map((p) => p.organization_id).filter(Boolean) as string[]);
+    return Array.from(ids);
+  }, [properties]);
+
+  const { data: orgs } = useMarketplaceOrganizations(orgIds);
+
+  // Group properties by organization, sorted by count desc
+  const groupedByOrg = useMemo(() => {
+    const orgMap = new Map<string, MarketplaceProperty[]>();
+    for (const p of properties) {
+      const key = p.organization_id ?? "__unknown";
+      if (!orgMap.has(key)) orgMap.set(key, []);
+      orgMap.get(key)!.push(p);
+    }
+
+    const orgInfoMap = new Map<string, MarketplaceOrgInfo>();
+    if (orgs) {
+      for (const o of orgs) orgInfoMap.set(o.id, o);
+    }
+
+    return Array.from(orgMap.entries())
+      .map(([orgId, props]) => ({
+        orgId,
+        org: orgInfoMap.get(orgId) ?? { id: orgId, name: "Imobiliária", logo_url: null, slug: "" },
+        properties: props,
+      }))
+      .sort((a, b) => b.properties.length - a.properties.length);
+  }, [properties, orgs]);
 
   // Reset page when filters change
   useEffect(() => {
@@ -86,7 +117,6 @@ export default function Marketplace() {
         )}
 
         {isLoading ? (
-          // PERF: UX — structured card skeletons instead of generic rectangles
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className="rounded-xl border overflow-hidden">
@@ -123,9 +153,14 @@ export default function Marketplace() {
           </Card>
         ) : (
           <>
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {properties.map((property) => (
-                <MarketplacePropertyCard key={property.id} property={property} onContactClick={handleContactClick} />
+            <div className="space-y-8">
+              {groupedByOrg.map(({ orgId, org, properties: orgProperties }) => (
+                <MarketplaceOrgSection
+                  key={orgId}
+                  org={org}
+                  properties={orgProperties}
+                  onContactClick={handleContactClick}
+                />
               ))}
             </div>
             {hasMore && (
