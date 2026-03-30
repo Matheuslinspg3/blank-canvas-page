@@ -992,6 +992,46 @@ async function importContactEvents(
   }
 }
 
+// ─── FETCH CONVERSION EVENTS for enrichment ───
+
+async function fetchContactConversionEvents(
+  uuid: string,
+  apiHeaders: Record<string, string>
+): Promise<any[]> {
+  try {
+    let res = await fetchWithTimeout(
+      `https://api.rd.services/platform/contacts/${uuid}/events?event_type=CONVERSION&page=1&page_size=10`,
+      apiHeaders,
+      10000
+    );
+    if (res.status === 400) {
+      res = await fetchWithTimeout(
+        `https://api.rd.services/platform/contacts/${uuid}/events?page=1&page_size=10`,
+        apiHeaders,
+        10000
+      );
+    }
+    if (!res.ok) return [];
+    const data = await res.json();
+    const events = Array.isArray(data?.events) ? data.events : (Array.isArray(data) ? data : []);
+    return events.slice(0, 10);
+  } catch {
+    return [];
+  }
+}
+
+function extractFromEvents(events: any[]): { conversionId: string | null; trafficSource: string | null } {
+  const conversionEvents = events.filter((e: any) => (e.event_type || e.type) === "CONVERSION");
+  const ids = conversionEvents
+    .map((e: any) => e.event_identifier || e.conversion_identifier)
+    .filter(Boolean);
+  const source = conversionEvents.find((e: any) => e.event_source)?.event_source || null;
+  return {
+    conversionId: ids.length > 0 ? [...new Set(ids)].join(", ") : null,
+    trafficSource: source,
+  };
+}
+
 function extractPhoneFromCustomFields(contact: any): string | null {
   if (contact.custom_fields && typeof contact.custom_fields === "object") {
     for (const [key, value] of Object.entries(contact.custom_fields)) {
