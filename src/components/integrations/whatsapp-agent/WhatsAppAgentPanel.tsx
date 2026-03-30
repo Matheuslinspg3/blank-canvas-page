@@ -16,18 +16,18 @@ export function WhatsAppAgentPanel() {
   return (
     <Tabs defaultValue="conexao" className="space-y-4">
       <TabsList className="bg-muted/50 overflow-x-auto flex-nowrap h-auto gap-1 p-1 w-full">
-        <TabsTrigger value="conexao" className="gap-1.5 text-xs sm:text-sm">
+        <TabsTrigger value="conexao" className="gap-1.5 text-xs sm:text-sm shrink-0">
           <Wifi className="h-3.5 w-3.5" /> Conexão
         </TabsTrigger>
         {isConnected && (
           <>
-            <TabsTrigger value="comportamento" className="gap-1.5 text-xs sm:text-sm">
+            <TabsTrigger value="comportamento" className="gap-1.5 text-xs sm:text-sm shrink-0">
               <Bot className="h-3.5 w-3.5" /> Comportamento
             </TabsTrigger>
-            <TabsTrigger value="imoveis" className="gap-1.5 text-xs sm:text-sm">
+            <TabsTrigger value="imoveis" className="gap-1.5 text-xs sm:text-sm shrink-0">
               <Building2 className="h-3.5 w-3.5" /> Imóveis
             </TabsTrigger>
-            <TabsTrigger value="qualificacao" className="gap-1.5 text-xs sm:text-sm">
+            <TabsTrigger value="qualificacao" className="gap-1.5 text-xs sm:text-sm shrink-0">
               <UserCheck className="h-3.5 w-3.5" /> Qualificação
             </TabsTrigger>
             <TabsTrigger value="transferencia" className="gap-1.5 text-xs sm:text-sm shrink-0">
