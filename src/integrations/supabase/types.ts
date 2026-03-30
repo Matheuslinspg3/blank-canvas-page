@@ -1356,6 +1356,7 @@ export type Database = {
           tagline: string | null
           updated_at: string
           updated_by: string | null
+          white_label_enabled: boolean
         }
         Insert: {
           accent_color?: string
@@ -1370,6 +1371,7 @@ export type Database = {
           tagline?: string | null
           updated_at?: string
           updated_by?: string | null
+          white_label_enabled?: boolean
         }
         Update: {
           accent_color?: string
@@ -1384,6 +1386,7 @@ export type Database = {
           tagline?: string | null
           updated_at?: string
           updated_by?: string | null
+          white_label_enabled?: boolean
         }
         Relationships: [
           {

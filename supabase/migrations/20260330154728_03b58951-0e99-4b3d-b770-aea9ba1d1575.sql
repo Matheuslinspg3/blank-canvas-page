@@ -1,0 +1,1 @@
+ALTER TABLE public.brand_settings ADD COLUMN IF NOT EXISTS white_label_enabled boolean NOT NULL DEFAULT false;
