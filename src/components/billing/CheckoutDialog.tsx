@@ -43,8 +43,8 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
   if (!plan) return null;
 
   const price = billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly;
-  const monthlyEquivalent = billingCycle === "yearly" ? (plan.price_yearly / 12 / 100).toFixed(0) : null;
-  const savings = billingCycle === "yearly" ? ((plan.price_monthly * 12 - plan.price_yearly) / 100).toFixed(0) : null;
+  const yearlyMonthlyEquivalent = Math.round(plan.price_yearly / 12);
+  const yearlySavings = plan.price_monthly * 12 - plan.price_yearly;
 
   const formatCpf = (value: string) => {
     const digits = value.replace(/\D/g, "").slice(0, 14);
@@ -268,7 +268,7 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
                 )}
               >
                 <p className="text-sm font-medium">Mensal</p>
-                <p className="text-lg font-bold">R$ {(Number(plan.price_monthly) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+                <p className="text-lg font-bold">R$ {(plan.price_monthly / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
               </button>
               <button
                 type="button"
@@ -280,13 +280,13 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
                     : "hover:border-muted-foreground/30"
                 )}
               >
-                {savings && (
-                  <Badge className="absolute -top-2 right-2 text-[10px] bg-green-500 text-white">
-                    Economize R$ {savings}
+                {yearlySavings > 0 && (
+                  <Badge className="absolute -top-2 right-2 text-[10px] bg-green-600 text-white">
+                    Economize R$ {(yearlySavings / 100).toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
                   </Badge>
                 )}
                 <p className="text-sm font-medium">Anual</p>
-                <p className="text-lg font-bold">R$ {monthlyEquivalent}<span className="text-xs font-normal text-muted-foreground">/mês</span></p>
+                <p className="text-lg font-bold">R$ {(yearlyMonthlyEquivalent / 100).toLocaleString("pt-BR", { minimumFractionDigits: 0 })}<span className="text-xs font-normal text-muted-foreground">/mês</span></p>
               </button>
             </div>
           </div>
@@ -373,8 +373,15 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
               <span className="font-medium">R$ {(Number(price) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              {billingCycle === "yearly" ? "Cobrado anualmente" : "Cobrado mensalmente"} via {paymentMethod === "pix" ? "PIX" : "Cartão"}
+              {billingCycle === "yearly"
+                ? `Cobrado anualmente via ${paymentMethod === "pix" ? "PIX" : "Cartão"}`
+                : `Cobrado mensalmente via ${paymentMethod === "pix" ? "PIX" : "Cartão"}`}
             </p>
+            {billingCycle === "yearly" && (
+              <p className="text-xs text-muted-foreground">
+                Equivalente a R$ {(yearlyMonthlyEquivalent / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/mês
+              </p>
+            )}
           </div>
 
           <Button
