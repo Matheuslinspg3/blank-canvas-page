@@ -37,6 +37,25 @@ Deno.serve(async (req) => {
       return redirectToApp("?meta_error=invalid_state");
     }
 
+    // Verify that the claimed user actually belongs to the claimed org
+    const verifySupabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+    const { data: memberCheck } = await verifySupabase
+      .from("profiles")
+      .select("user_id")
+      .eq("user_id", stateData.user_id)
+      .eq("organization_id", stateData.org_id)
+      .maybeSingle();
+    if (!memberCheck) {
+      console.error("State validation failed: user does not belong to claimed org", {
+        user_id: stateData.user_id,
+        org_id: stateData.org_id,
+      });
+      return redirectToApp("?meta_error=invalid_state", stateData.origin);
+    }
+
     const appId = Deno.env.get("META_APP_ID");
     const appSecret = Deno.env.get("META_APP_SECRET");
     const redirectUri = `${Deno.env.get("SUPABASE_URL")}/functions/v1/meta-oauth-callback`;
