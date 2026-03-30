@@ -137,6 +137,8 @@ export function AgentTransferTab() {
             saveConfig({
               transfer_keywords: keywords,
               max_messages_before_transfer: maxMessages,
+              transfer_phone: transferPhone || null,
+              transfer_message: transferMessage || null,
             })
           }
           disabled={isSaving}

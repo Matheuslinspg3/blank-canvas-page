@@ -91,7 +91,7 @@ export default function Automations() {
 
         {!showWizard && !selectedAutomation && (
           <Tabs defaultValue="automations" className="space-y-4">
-            <TabsList className="bg-muted/50">
+            <TabsList className="bg-muted/50 overflow-x-auto flex-nowrap w-full">
               <TabsTrigger value="automations" className="gap-1.5">
                 <Zap className="h-3.5 w-3.5" /> Automações
               </TabsTrigger>

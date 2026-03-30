@@ -34,6 +34,8 @@ export interface AgentConfig {
   phone_number: string | null;
   qr_code: string | null;
   webhook_url: string | null;
+  transfer_phone: string | null;
+  transfer_message: string | null;
   updated_at: string;
 }
 

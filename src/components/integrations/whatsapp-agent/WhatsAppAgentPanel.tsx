@@ -61,6 +61,10 @@ export function WhatsAppAgentPanel() {
           <TabsContent value="transferencia">
             <AgentTransferTab />
           </TabsContent>
+
+          <TabsContent value="chat">
+            <WhatsAppChatPanel />
+          </TabsContent>
         </>
       )}
     </Tabs>
