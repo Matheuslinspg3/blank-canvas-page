@@ -468,69 +468,70 @@ export default function Plans() {
           <ChevronDown className={cn("h-4 w-4 transition-transform", showComparison && "rotate-180")} />
         </button>
 
+        {showComparison && (
           <div className="relative">
-          <div className="overflow-x-auto border rounded-xl">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/30">
-                  <th className="text-left p-3 font-medium min-w-[200px]">Recurso</th>
-                  {mainPlans.map((p) => (
-                    <th
-                      key={p.id}
-                      className={cn(
-                        "text-center p-3 font-medium min-w-[120px]",
-                        p.slug === "profissional" && "bg-primary/5"
-                      )}
-                    >
-                      {p.name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(() => {
-                  const categories = [...new Set(featureRows.map(r => r.category))];
-                  return categories.map(cat => (
-                    <>
-                      <tr key={`cat-${cat}`} className="border-b bg-muted/10">
-                        <td colSpan={mainPlans.length + 1} className="p-2 font-semibold text-xs uppercase tracking-wider text-muted-foreground">
-                          {cat}
-                        </td>
-                      </tr>
-                      {featureRows.filter(r => r.category === cat).map(row => (
-                        <tr key={row.key} className="border-b hover:bg-muted/20">
-                          <td className="p-3 text-muted-foreground">{row.label}</td>
-                          {mainPlans.map(p => {
-                            const f = (p.features as Record<string, any>) || {};
-                            const val = f[row.key] ?? (p as Record<string, any>)[row.key];
-                            const isPro = p.slug === "profissional";
-
-                            let display: React.ReactNode;
-                            if (row.type === "bool") {
-                              display = val ? <Check className="h-4 w-4 text-green-500 mx-auto" /> : <X className="h-4 w-4 text-muted-foreground/30 mx-auto" />;
-                            } else if (row.type === "storage") {
-                              display = storageFmt(val || 0);
-                            } else if (row.type === "text") {
-                              display = supportLabels[val] || val || "—";
-                            } else {
-                              display = val === -1 ? "∞" : val === 0 ? "—" : val?.toLocaleString("pt-BR") || "—";
-                            }
-
-                            return (
-                              <td key={p.id} className={cn("p-3 text-center", isPro && "bg-primary/5")}>
-                                {display}
-                              </td>
-                            );
-                          })}
+            <div className="overflow-x-auto border rounded-xl">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/30">
+                    <th className="text-left p-3 font-medium min-w-[200px]">Recurso</th>
+                    {mainPlans.map((p) => (
+                      <th
+                        key={p.id}
+                        className={cn(
+                          "text-center p-3 font-medium min-w-[120px]",
+                          p.slug === "profissional" && "bg-primary/5"
+                        )}
+                      >
+                        {p.name}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const categories = [...new Set(featureRows.map(r => r.category))];
+                    return categories.map(cat => (
+                      <>
+                        <tr key={`cat-${cat}`} className="border-b bg-muted/10">
+                          <td colSpan={mainPlans.length + 1} className="p-2 font-semibold text-xs uppercase tracking-wider text-muted-foreground">
+                            {cat}
+                          </td>
                         </tr>
-                      ))}
-                    </>
-                  ));
-                })()}
-              </tbody>
-            </table>
-          </div>
-          <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none sm:hidden rounded-r-xl" />
+                        {featureRows.filter(r => r.category === cat).map(row => (
+                          <tr key={row.key} className="border-b hover:bg-muted/20">
+                            <td className="p-3 text-muted-foreground">{row.label}</td>
+                            {mainPlans.map(p => {
+                              const f = (p.features as Record<string, any>) || {};
+                              const val = f[row.key] ?? (p as Record<string, any>)[row.key];
+                              const isPro = p.slug === "profissional";
+
+                              let display: React.ReactNode;
+                              if (row.type === "bool") {
+                                display = val ? <Check className="h-4 w-4 text-green-500 mx-auto" /> : <X className="h-4 w-4 text-muted-foreground/30 mx-auto" />;
+                              } else if (row.type === "storage") {
+                                display = storageFmt(val || 0);
+                              } else if (row.type === "text") {
+                                display = supportLabels[val] || val || "—";
+                              } else {
+                                display = val === -1 ? "∞" : val === 0 ? "—" : val?.toLocaleString("pt-BR") || "—";
+                              }
+
+                              return (
+                                <td key={p.id} className={cn("p-3 text-center", isPro && "bg-primary/5")}>
+                                  {display}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </>
+                    ));
+                  })()}
+                </tbody>
+              </table>
+            </div>
+            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none sm:hidden rounded-r-xl" />
           </div>
         )}
       </section>
