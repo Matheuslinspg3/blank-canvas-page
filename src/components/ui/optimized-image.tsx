@@ -97,6 +97,9 @@ export function OptimizedImage(props: OptimizedImageProps) {
     if (imgRef.current?.complete && imgRef.current?.naturalWidth > 0) {
       setLoaded(true);
     }
+    // Safety fallback: force visible after 3s if onLoad never fired
+    const timer = setTimeout(() => setLoaded(true), 3000);
+    return () => clearTimeout(timer);
   }, [resolvedSrc]);
 
   if (error && fallback) {
