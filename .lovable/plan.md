@@ -1,39 +1,70 @@
 
 
-## Plano: Controles de visualização no Marketplace
+## Plano: 4 melhorias no Marketplace/WhatsApp/White-Label
 
-### Objetivo
-Substituir o botão "Carregar mais" por carregamento completo (até 100 imóveis por org) e adicionar controles de visualização: quantidade por organização (10, 25, 50, 100) e modo de exibição (grade/detalhado).
+### 1. White-Label — Extração de cores da logo (já existe)
+A funcionalidade de extrair cores da logo **já está implementada** em `WhiteLabelSettings.tsx` com o botão "Extrair cores da logo" usando `extractColorsFromImage`. Ele extrai até 6 cores e aplica as 3 primeiras automaticamente como primária, secundária e destaque. Nenhuma alteração necessária aqui.
 
-### Alterações
+### 2. Tabs de Automações — Scroll horizontal no mobile
 
-#### 1. `src/hooks/useMarketplace.ts`
-- Remover sistema de paginação incremental (`page`, `loadMore`, `hasMore`)
-- Carregar todos os imóveis de uma vez (limit 1000 — o máximo do Supabase) em vez de paginar 12 em 12
-- Simplificar o hook para retornar apenas `properties`, `totalCount`, `isLoading`, `isFetching`
+**Problema:** O `TabsList` na página Automações (`Automations.tsx`) e no `WhatsAppAgentPanel.tsx` não tem `overflow-x-auto`, então em telas pequenas as abas ficam cortadas.
 
-#### 2. `src/pages/Marketplace.tsx`
-- Adicionar estados: `orgPageSize` (10|25|50|100, default 10) e `viewMode` ("grid"|"list")
-- Adicionar barra de controles acima dos resultados com:
-  - Toggle Grade/Lista (ícones LayoutGrid / List)
-  - Select de quantidade por organização: 10, 25, 50, 100
-- Remover o botão "Carregar mais"
-- Passar `orgPageSize` e `viewMode` para `MarketplaceOrgSection`
+**Solução:** Adicionar `overflow-x-auto` no `TabsList` de ambos os arquivos para permitir scroll horizontal:
+- `src/pages/Automations.tsx` — linha 94: adicionar classes `overflow-x-auto flex-nowrap w-full`
+- `src/components/integrations/whatsapp-agent/WhatsAppAgentPanel.tsx` — linha 18: adicionar `overflow-x-auto` e remover `flex-wrap` (que impede o scroll)
 
-#### 3. `src/components/marketplace/MarketplaceOrgSection.tsx`
-- Receber props `initialCount` (quantidade visível) e `viewMode`
-- Usar `initialCount` em vez do hardcoded `COLLAPSED_COUNT = 6`
-- Botão "Ver todos" expande para mostrar todos os imóveis daquela org (sem limite)
-- Quando `viewMode === "list"`, renderizar cards em layout de lista (1 coluna, formato compacto)
+### 3. Transferência para Humano — Número de destino e mensagem
 
-#### 4. `src/components/marketplace/MarketplacePropertyCard.tsx`
-- Adicionar prop `viewMode` opcional
-- Quando `viewMode === "list"`, usar layout horizontal (imagem à esquerda, info à direita) em vez do card vertical
+**Arquivo:** `src/components/integrations/whatsapp-agent/AgentTransferTab.tsx`
 
-### Layout dos controles
+Adicionar campos:
+- **Número/contato de transferência** — Input para o número do WhatsApp para onde enviar a conversa (ex: 5521999999999)
+- **Mensagem de encaminhamento** — Textarea com a mensagem que a IA envia ao humano junto com o contexto do atendimento (ex: "Olá, um cliente precisa de atendimento humano. Segue o histórico...")
+
+**Banco de dados:** Adicionar colunas `transfer_phone` (text) e `transfer_message` (text) na tabela `whatsapp_agent_config` via migration.
+
+**Hook:** `useWhatsAppAgentConfig.ts` já suporta upsert genérico, basta adicionar os campos ao `AgentConfig` interface.
+
+### 4. Chat WhatsApp no Painel — Nova aba de conversas
+
+Criar uma nova aba "Chat" dentro do `WhatsAppAgentPanel` que exibe as conversas do WhatsApp em tempo real.
+
+**Estrutura:**
+- Nova tabela `whatsapp_messages` com: `id`, `organization_id`, `instance_name`, `remote_jid` (número do contato), `from_me` (boolean), `message_text`, `timestamp`, `message_id` (externo)
+- Nova aba no `WhatsAppAgentPanel.tsx` com ícone MessageCircle
+- Componente `WhatsAppChatPanel.tsx`:
+  - Lista de conversas à esquerda (agrupadas por `remote_jid`)
+  - Área de chat à direita com histórico de mensagens
+  - Layout responsivo (lista em mobile, split em desktop)
+- As mensagens são armazenadas pelo webhook do N8N que já recebe os eventos `MESSAGES_UPSERT` — basta gravar na tabela
+
 ```text
-[Grade|Lista]  [10 por imob. ▼]     1103 imóveis encontrados
+┌────────────────────────────────────────────┐
+│ Conexão │ Comportamento │ ... │ Chat 💬    │
+├──────────┬─────────────────────────────────┤
+│ Contatos │  João Silva         14:32       │
+│ ──────── │  > Olá, tenho interesse no apt  │
+│ ● João   │  < Olá João! Qual bairro?       │
+│   Maria  │  > Centro, 2 quartos            │
+│   Pedro  │                                 │
+│          │  [_________________] [Enviar]    │
+└──────────┴─────────────────────────────────┘
 ```
 
-### Sem alterações no banco de dados
+### Alterações por arquivo
+
+| Arquivo | Ação |
+|---------|------|
+| `src/components/ui/tabs.tsx` | Nenhuma (scroll via className) |
+| `src/pages/Automations.tsx` | Adicionar `overflow-x-auto` no TabsList |
+| `WhatsAppAgentPanel.tsx` | Scroll horizontal + nova aba "Chat" |
+| `AgentTransferTab.tsx` | Campos de número e mensagem de transferência |
+| `useWhatsAppAgentConfig.ts` | Adicionar `transfer_phone`, `transfer_message` à interface |
+| **Nova migration** | Colunas `transfer_phone`, `transfer_message` + tabela `whatsapp_messages` |
+| **Novo:** `WhatsAppChatPanel.tsx` | Componente de chat com lista de conversas e mensagens |
+| **Novo:** `useWhatsAppChat.ts` | Hook para buscar/enviar mensagens via Supabase realtime |
+
+### Sobre o envio de mensagens
+
+O envio de mensagens do painel será feito via Evolution API (endpoint `sendText`), chamado por uma Edge Function `whatsapp-send-message` que recebe `instance_name`, `remote_jid` e `text`, valida a sessão e encaminha à API.
 
