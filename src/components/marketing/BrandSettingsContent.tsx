@@ -22,6 +22,7 @@ interface BrandConfig {
   tagline: string;
   logo_url: string;
   logo_dark_url: string;
+  white_label_enabled: boolean;
 }
 
 const DEFAULT_BRAND: BrandConfig = {
