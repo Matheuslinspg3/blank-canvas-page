@@ -268,7 +268,7 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
                 )}
               >
                 <p className="text-sm font-medium">Mensal</p>
-                <p className="text-lg font-bold">R$ {(Number(plan.price_monthly) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+                <p className="text-lg font-bold">R$ {(plan.price_monthly / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
               </button>
               <button
                 type="button"
@@ -280,13 +280,13 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
                     : "hover:border-muted-foreground/30"
                 )}
               >
-                {savings && (
-                  <Badge className="absolute -top-2 right-2 text-[10px] bg-green-500 text-white">
-                    Economize R$ {savings}
+                {yearlySavings > 0 && (
+                  <Badge className="absolute -top-2 right-2 text-[10px] bg-green-600 text-white">
+                    Economize R$ {(yearlySavings / 100).toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
                   </Badge>
                 )}
                 <p className="text-sm font-medium">Anual</p>
-                <p className="text-lg font-bold">R$ {monthlyEquivalent}<span className="text-xs font-normal text-muted-foreground">/mês</span></p>
+                <p className="text-lg font-bold">R$ {(yearlyMonthlyEquivalent / 100).toLocaleString("pt-BR", { minimumFractionDigits: 0 })}<span className="text-xs font-normal text-muted-foreground">/mês</span></p>
               </button>
             </div>
           </div>
