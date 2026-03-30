@@ -199,6 +199,34 @@ export default function WhiteLabelSettings() {
 
         {config.white_label_enabled && planAllowsWhiteLabel && (
           <>
+            {/* Extract from logo */}
+            {config.logo_url && (
+              <div className="space-y-2">
+                <Button variant="outline" size="sm" onClick={handleExtractColors} disabled={extracting} className="gap-2 h-8 text-xs">
+                  {extracting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Pipette className="h-3 w-3" />}
+                  Extrair cores da logo
+                </Button>
+                {extractedColors.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] text-muted-foreground mr-1">Cores detectadas:</span>
+                    {extractedColors.map((color, i) => (
+                      <button key={i} type="button" title={`Aplicar ${color}`}
+                        className="h-7 w-7 rounded-md border border-border hover:ring-2 ring-primary/40 transition-all cursor-pointer"
+                        style={{ backgroundColor: color }}
+                        onClick={() => {
+                          // Click to apply: 1st→primary, 2nd→secondary, 3rd→accent, else cycles
+                          const targets = ["primary_color", "secondary_color", "accent_color"] as const;
+                          const target = targets[i % 3];
+                          setConfig((prev) => ({ ...prev, [target]: color }));
+                          toast.success(`Cor aplicada como ${target === "primary_color" ? "primária" : target === "secondary_color" ? "secundária" : "destaque"}`);
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Colors */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <MiniColorPicker label="Cor Primária" value={config.primary_color} onChange={(v) => setConfig({ ...config, primary_color: v })} />
