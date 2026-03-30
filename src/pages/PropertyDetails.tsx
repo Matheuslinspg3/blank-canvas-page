@@ -93,6 +93,7 @@ export default function PropertyDetails() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { properties, isLoading, updateProperty, publishToMarketplace, isUpdating, createProperty, isCreating } = useProperties();
+  const { publishedIds } = useMarketplaceStatus();
   const { profile } = useAuth();
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
