@@ -148,7 +148,7 @@ export default function WhiteLabelSettings() {
     }
   }, [config.logo_url]);
 
-
+  const handleSave = async () => {
     if (!profile?.organization_id || !user) return;
     setSaving(true);
     try {
