@@ -697,6 +697,20 @@ async function processContacts(
         await sleep(200);
       }
 
+      // Fetch conversion events to enrich conversion_identifier and traffic_source
+      let eventConversionId: string | null = null;
+      let eventTrafficSource: string | null = null;
+      if (contact.uuid && apiHeaders) {
+        const convEvents = await fetchContactConversionEvents(contact.uuid, apiHeaders);
+        if (convEvents.length > 0) {
+          const extracted = extractFromEvents(convEvents);
+          eventConversionId = extracted.conversionId;
+          eventTrafficSource = extracted.trafficSource;
+          console.log(`[sync] Events for ${contact.uuid}: convId=${eventConversionId}, src=${eventTrafficSource}`);
+        }
+        await sleep(200);
+      }
+
       const email = contact.email || null;
       const name =
         contact.name ||
