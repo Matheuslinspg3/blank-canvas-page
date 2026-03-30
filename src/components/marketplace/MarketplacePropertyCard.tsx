@@ -132,7 +132,7 @@ export const MarketplacePropertyCard = React.memo(function MarketplacePropertyCa
             onContactClick(property);
           }}
         >
-          <Phone className="h-4 w-4 mr-2" /> Ver contato do corretor
+          <Phone className="h-4 w-4 mr-2" /> Ver contato da imobiliária
         </Button>
       </CardContent>
     </Card>
