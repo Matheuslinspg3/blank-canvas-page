@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
-import { Crown, Sparkles, Save, Loader2, Upload, X, Palette } from "lucide-react";
+import { Crown, Sparkles, Save, Loader2, Upload, X, Palette, Pipette } from "lucide-react";
+import { extractColorsFromImage } from "@/lib/extractColors";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWhiteLabel } from "@/hooks/useWhiteLabel";
