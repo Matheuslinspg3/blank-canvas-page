@@ -118,6 +118,7 @@ export function KanbanBoard() {
   }, []);
   const [selectedBrokerId, setSelectedBrokerId] = useState<string | null>(null);
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
+  const [selectedConversion, setSelectedConversion] = useState<string | null>(null);
   const [selectedTemperature, setSelectedTemperature] = useState<string | null>(() => {
     try {
       return localStorage.getItem('crm_temperature_filter') || null;
@@ -189,6 +190,12 @@ export function KanbanBoard() {
       if (selectedTemperature) {
         stageLeads = stageLeads.filter((lead) => lead.temperature === selectedTemperature);
       }
+      if (selectedConversion) {
+        stageLeads = stageLeads.filter((lead) => {
+          const ci = (lead as any).conversion_identifier as string | null;
+          return ci?.split(',').map(s => s.trim()).includes(selectedConversion);
+        });
+      }
       // Sort: oldest updated_at first (stalest leads on top)
       return [...stageLeads].sort((a, b) => 
         new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime()
@@ -204,7 +211,7 @@ export function KanbanBoard() {
     result['__unclassified__'] = applyFilters(leadsByStage['__unclassified__'] || [], '__unclassified__');
 
     return result;
-  }, [leadsByStage, leadStages, search, selectedBrokerId, selectedSource, selectedTemperature]);
+  }, [leadsByStage, leadStages, search, selectedBrokerId, selectedSource, selectedTemperature, selectedConversion]);
 
   const filteredStageStats = useMemo(() => {
     const allStageIds = [...leadStages.map(s => s.id), '__unclassified__'];
@@ -221,6 +228,20 @@ export function KanbanBoard() {
   const filteredLeads = useMemo(() => {
     return Object.values(filteredLeadsByStage).flat();
   }, [filteredLeadsByStage]);
+
+  const conversionOptions = useMemo(() => {
+    const set = new Set<string>();
+    leads.forEach((lead) => {
+      const ci = (lead as any).conversion_identifier as string | null;
+      if (ci) {
+        ci.split(',').forEach((s: string) => {
+          const trimmed = s.trim();
+          if (trimmed) set.add(trimmed);
+        });
+      }
+    });
+    return [...set].sort();
+  }, [leads]);
 
   const activeLead = activeId ? leads.find((l) => l.id === activeId) : null;
 
@@ -441,6 +462,9 @@ export function KanbanBoard() {
     );
   }
 
+
+
+
   return (
     <div className="space-y-4 lg:space-y-6">
       <LeadMetrics leads={leads} />
@@ -456,6 +480,9 @@ export function KanbanBoard() {
           onSourceChange={setSelectedSource}
           selectedTemperature={selectedTemperature}
           onTemperatureChange={handleTemperatureChange}
+          selectedConversion={selectedConversion}
+          onConversionChange={setSelectedConversion}
+          conversionOptions={conversionOptions}
         />
         <div className="flex gap-2">
           <div className="flex border rounded-md overflow-hidden shrink-0">

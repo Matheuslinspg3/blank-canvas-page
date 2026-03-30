@@ -29,6 +29,9 @@ interface LeadFiltersProps {
   onSourceChange: (value: string | null) => void;
   selectedTemperature: string | null;
   onTemperatureChange: (value: string | null) => void;
+  selectedConversion: string | null;
+  onConversionChange: (value: string | null) => void;
+  conversionOptions: string[];
 }
 
 export function LeadFilters({
@@ -41,11 +44,14 @@ export function LeadFilters({
   onSourceChange,
   selectedTemperature,
   onTemperatureChange,
+  selectedConversion,
+  onConversionChange,
+  conversionOptions,
 }: LeadFiltersProps) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { isAdminOrAbove } = useUserRoles();
   const canManageTypes = isAdminOrAbove;
-  const hasAdvancedFilters = !!selectedBrokerId || !!selectedSource || !!selectedTemperature;
+  const hasAdvancedFilters = !!selectedBrokerId || !!selectedSource || !!selectedTemperature || !!selectedConversion;
 
   return (
     <div className="flex flex-col gap-2 flex-1">
@@ -126,14 +132,34 @@ export function LeadFilters({
               </SelectContent>
             </Select>
 
+            {conversionOptions.length > 0 && (
+              <Select
+                value={selectedConversion || 'all'}
+                onValueChange={(value) => onConversionChange(value === 'all' ? null : value)}
+              >
+                <SelectTrigger className="flex-1 sm:w-[200px]">
+                  <SelectValue placeholder="Anúncio de origem" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os anúncios</SelectItem>
+                  {conversionOptions.map((ci) => (
+                    <SelectItem key={ci} value={ci}>
+                      {ci}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
             {hasAdvancedFilters && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                 onBrokerChange(null);
+                  onBrokerChange(null);
                   onSourceChange(null);
                   onTemperatureChange(null);
+                  onConversionChange(null);
                 }}
                 className="text-xs"
               >
