@@ -188,18 +188,9 @@ export default function Plans() {
   const mainPlans = useMemo(() => allPlans.filter((p) => (p as any).plan_type === 'plan'), [allPlans]);
   const addons = useMemo(() => allPlans.filter(p => (p as any).plan_type === 'addon'), [allPlans]);
 
-  const now = new Date();
   const currentSlug = isLoggedIn ? getCurrentPlanSlug() : null;
-  const subscriptionTrialActive = isLoggedIn ? isTrialActive() : false;
-  const orgTrialActive = isLoggedIn
-    ? (trialInfo?.trial_ends_at ? new Date(trialInfo.trial_ends_at) > now : true)
-    : false;
-  const trialActive = subscriptionTrialActive && orgTrialActive;
-  const trialDays = isLoggedIn
-    ? (trialInfo?.trial_ends_at
-        ? Math.max(0, Math.ceil((new Date(trialInfo.trial_ends_at).getTime() - now.getTime()) / 86400000))
-        : getTrialDaysRemaining())
-    : 0;
+  const trialActive = isLoggedIn ? isTrialActive() : false;
+  const trialDays = isLoggedIn ? getTrialDaysRemaining() : 0;
 
   const applyDiscount = (cents: number) => {
     if (!hasDiscount) return cents;
