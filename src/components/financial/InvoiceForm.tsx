@@ -99,7 +99,7 @@ export function InvoiceForm({ open, onOpenChange, invoice }: InvoiceFormProps) {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Valor *</Label>
               <Input
@@ -124,7 +124,7 @@ export function InvoiceForm({ open, onOpenChange, invoice }: InvoiceFormProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Status *</Label>
               <Select

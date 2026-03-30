@@ -90,11 +90,11 @@ export function SimulationResults({ resultado: r, itbiRate, itbiValue, state }: 
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="resumo">
-          <TabsList className="w-full grid grid-cols-4 h-9">
-            <TabsTrigger value="resumo" className="text-xs gap-1"><BarChart3 className="h-3 w-3 hidden sm:inline" /> Resumo</TabsTrigger>
-            <TabsTrigger value="evolucao" className="text-xs gap-1"><TrendingDown className="h-3 w-3 hidden sm:inline" /> Evolução</TabsTrigger>
-            <TabsTrigger value="renda" className="text-xs gap-1"><Wallet className="h-3 w-3 hidden sm:inline" /> Renda</TabsTrigger>
-            <TabsTrigger value="custos" className="text-xs gap-1"><Receipt className="h-3 w-3 hidden sm:inline" /> Custos</TabsTrigger>
+          <TabsList className="w-full grid grid-cols-4 h-9 overflow-x-auto">
+            <TabsTrigger value="resumo" className="text-xs gap-1 shrink-0"><BarChart3 className="h-3 w-3 hidden sm:inline" /> Resumo</TabsTrigger>
+            <TabsTrigger value="evolucao" className="text-xs gap-1 shrink-0"><TrendingDown className="h-3 w-3 hidden sm:inline" /> Evolução</TabsTrigger>
+            <TabsTrigger value="renda" className="text-xs gap-1 shrink-0"><Wallet className="h-3 w-3 hidden sm:inline" /> Renda</TabsTrigger>
+            <TabsTrigger value="custos" className="text-xs gap-1 shrink-0"><Receipt className="h-3 w-3 hidden sm:inline" /> Custos</TabsTrigger>
           </TabsList>
 
           {/* ── Resumo ── */}
