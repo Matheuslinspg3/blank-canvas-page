@@ -367,7 +367,7 @@ export default function Plans() {
                       R${fmt(plan.price_yearly)} cobrado anualmente
                     </p>
                   )}
-                  {trialDaysPlan > 0 && (
+                  {trialDaysPlan > 0 && !needsToPay && (
                     <Badge variant="outline" className="mt-2 text-xs">
                       <Clock className="h-3 w-3 mr-1" />
                       {trialDaysPlan} dias grátis
