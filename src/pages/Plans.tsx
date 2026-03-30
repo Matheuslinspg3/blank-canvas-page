@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription, SubscriptionPlan } from "@/hooks/useSubscription";
 import { useFreeTrialExpired } from "@/hooks/useFreeTrialExpired";
 import { CheckoutDialog } from "@/components/billing/CheckoutDialog";
+import { CustomPlanBuilder } from "@/components/billing/CustomPlanBuilder";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -457,6 +458,12 @@ export default function Plans() {
         </div>
       </section>
 
+
+      {/* ─── CUSTOM PLAN BUILDER ─── */}
+      <section className="max-w-5xl mx-auto px-4 pb-16">
+        <Separator className="mb-8" />
+        <CustomPlanBuilder />
+      </section>
 
       {/* ─── COMPARISON TABLE ─── */}
       <section className="max-w-7xl mx-auto px-4 pb-16">
