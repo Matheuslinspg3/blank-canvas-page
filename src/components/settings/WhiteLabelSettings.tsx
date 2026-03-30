@@ -122,7 +122,33 @@ export default function WhiteLabelSettings() {
     }
   };
 
-  const handleSave = async () => {
+  const handleExtractColors = useCallback(async () => {
+    const url = config.logo_url;
+    if (!url) { toast.error("Envie uma logo primeiro"); return; }
+    setExtracting(true);
+    try {
+      const colors = await extractColorsFromImage(url, 6);
+      if (colors.length === 0) {
+        toast.error("Não foi possível extrair cores desta imagem");
+        return;
+      }
+      setExtractedColors(colors);
+      // Auto-apply top 3
+      setConfig((prev) => ({
+        ...prev,
+        primary_color: colors[0] || prev.primary_color,
+        secondary_color: colors[1] || prev.secondary_color,
+        accent_color: colors[2] || prev.accent_color,
+      }));
+      toast.success(`${colors.length} cores extraídas da logo!`);
+    } catch {
+      toast.error("Erro ao extrair cores. A imagem pode estar em outro domínio.");
+    } finally {
+      setExtracting(false);
+    }
+  }, [config.logo_url]);
+
+
     if (!profile?.organization_id || !user) return;
     setSaving(true);
     try {
