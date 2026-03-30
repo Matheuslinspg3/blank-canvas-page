@@ -62,11 +62,11 @@ interface PlanMeta { icon: React.ElementType; badge?: string; highlighted?: bool
 
 const planMeta: Record<string, PlanMeta> = {
   gratuito: { icon: Shield, ctaLabel: "Começar grátis", ctaVariant: "outline" },
-  starter: { icon: Star, ctaLabel: "Testar 15 dias grátis", ctaVariant: "default" },
-  correspondente: { icon: Landmark, badge: "Para Financiamentos", ctaLabel: "Testar 7 dias grátis", ctaVariant: "default" },
-  essencial: { icon: Briefcase, badge: "Melhor custo", ctaLabel: "Testar 7 dias grátis", ctaVariant: "default" },
-  profissional: { icon: Crown, badge: "Mais popular", highlighted: true, ctaLabel: "Testar 7 dias grátis", ctaVariant: "default" },
-  business: { icon: Building2, ctaLabel: "Testar 7 dias grátis", ctaVariant: "default" },
+  starter: { icon: Star, ctaLabel: "Selecionar", ctaVariant: "default" },
+  correspondente: { icon: Landmark, badge: "Para Financiamentos", ctaLabel: "Selecionar", ctaVariant: "default" },
+  essencial: { icon: Briefcase, badge: "Melhor custo", ctaLabel: "Selecionar", ctaVariant: "default" },
+  profissional: { icon: Crown, badge: "Mais popular", highlighted: true, ctaLabel: "Selecionar", ctaVariant: "default" },
+  business: { icon: Building2, ctaLabel: "Selecionar", ctaVariant: "default" },
 };
 
 /* ─── Feature comparison table ─── */
@@ -197,10 +197,12 @@ export default function Plans() {
     return Math.round(cents * (1 - DISCOUNT_PCT / 100));
   };
 
-  // Check if user needs to pay (trial expired, free plan expired, or on free plan)
+  // Check if user needs to pay (trial expired, free plan expired, or subscription not truly active)
+  const isSubActive = subscription?.status === "active" || 
+    (subscription?.status === "trial" && subscription.trial_end && new Date(subscription.trial_end) > new Date());
   const needsToPay = isLoggedIn && (
-    trialActive || 
-    currentSlug === "gratuito" || 
+    !isSubActive ||
+    currentSlug === "gratuito" ||
     qualifiesForDiscount ||
     subscription?.status === "expired" ||
     subscription?.status === "cancelled"
@@ -209,7 +211,13 @@ export default function Plans() {
   const getCtaProps = (plan: SubscriptionPlan) => {
     const meta = planMeta[plan.slug] || { ctaLabel: "Selecionar", ctaVariant: "default" as const };
     const isCurrent = currentSlug === plan.slug;
-    if (!isLoggedIn) return { label: meta.ctaLabel, disabled: false, action: () => navigate("/auth") };
+    const trialDaysPlan = (plan as any).trial_days || 0;
+
+    if (!isLoggedIn) {
+      // Show trial info for non-logged-in users
+      const label = trialDaysPlan > 0 ? `Testar ${trialDaysPlan} dias grátis` : meta.ctaLabel;
+      return { label, disabled: false, action: () => navigate("/auth") };
+    }
     
     // Free plan can't be "selected" — it's the default
     if (plan.slug === "gratuito") {
