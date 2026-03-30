@@ -462,55 +462,6 @@ export default function Plans() {
         </div>
       </section>
 
-      {/* ─── ADDONS ─── */}
-      <section className="max-w-5xl mx-auto px-4 pb-16">
-        <h2 className="text-2xl font-bold text-center mb-2">Potencialize seu plano</h2>
-        <p className="text-muted-foreground text-center mb-8">Módulos extras para expandir sua operação</p>
-
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {addons.map((addon) => {
-            const f = addon.features as Record<string, any> || {};
-            const type = f.addon_type as string;
-            const meta = addonMeta[type];
-            if (!meta) return null;
-            const Icon = meta.icon;
-
-            return (
-              <Card key={addon.id} className="flex flex-col">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Icon className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold">{addon.name}</h3>
-                      <p className="text-sm font-medium text-primary">
-                        R${fmt(annual ? Math.round(addon.price_yearly / 12) : addon.price_monthly)}/mês
-                      </p>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex-1 flex flex-col">
-                  <ul className="space-y-1.5 text-sm mb-4 flex-1">
-                    {meta.bullets.map((b, i) => (
-                      <li key={i} className="flex items-center gap-2">
-                        <Check className="h-3.5 w-3.5 text-green-500 shrink-0" />
-                        {b}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    A partir do plano <span className="font-medium capitalize">{f.requires_min_plan}</span>
-                  </p>
-                  <Button variant="ghost" size="sm" className="w-full">
-                    Saiba mais
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      </section>
 
       {/* ─── COMPARISON TABLE ─── */}
       <section className="max-w-7xl mx-auto px-4 pb-16">
