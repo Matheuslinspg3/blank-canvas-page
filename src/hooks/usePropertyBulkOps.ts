@@ -130,6 +130,8 @@ export function usePropertyBulkOps() {
         images: imageUrls, owner_name: ownerData?.name || null, owner_phone: ownerData?.phone || null,
         owner_email: ownerData?.email || null, status: prop.status,
         external_code: (prop as any).property_code || null, commission_percentage: (prop as any).commission_value || null,
+        sale_price_financed: (prop as any).sale_price_financed || null,
+        payment_options: (prop as any).payment_options || null,
         is_featured: false, organization_id: profile.organization_id,
       }, { onConflict: 'id' });
       if (error) throw error;
@@ -175,6 +177,8 @@ export function usePropertyBulkOps() {
           images: imageUrls, owner_name: owner?.name || null, owner_phone: owner?.phone || null,
           owner_email: owner?.email || null, status: prop.status,
           external_code: prop.property_code || null, commission_percentage: prop.commission_value || null,
+          sale_price_financed: (prop as any).sale_price_financed || null,
+          payment_options: (prop as any).payment_options || null,
           is_featured: false, organization_id: profile.organization_id,
         };
       });
