@@ -91,20 +91,20 @@ export default function Automations() {
 
         {!showWizard && !selectedAutomation && (
           <Tabs defaultValue="automations" className="space-y-4">
-            <TabsList className="bg-muted/50">
-              <TabsTrigger value="automations" className="gap-1.5">
+            <TabsList className="bg-muted/50 overflow-x-auto flex-nowrap w-full">
+              <TabsTrigger value="automations" className="gap-1.5 shrink-0">
                 <Zap className="h-3.5 w-3.5" /> Automações
               </TabsTrigger>
-              <TabsTrigger value="templates" className="gap-1.5">
+              <TabsTrigger value="templates" className="gap-1.5 shrink-0">
                 <LayoutTemplate className="h-3.5 w-3.5" /> Templates
               </TabsTrigger>
-              <TabsTrigger value="logs" className="gap-1.5">
+              <TabsTrigger value="logs" className="gap-1.5 shrink-0">
                 <History className="h-3.5 w-3.5" /> Logs
               </TabsTrigger>
-              <TabsTrigger value="score" className="gap-1.5">
+              <TabsTrigger value="score" className="gap-1.5 shrink-0">
                 <BarChart3 className="h-3.5 w-3.5" /> Score
               </TabsTrigger>
-              <TabsTrigger value="whatsapp-agent" className="gap-1.5">
+              <TabsTrigger value="whatsapp-agent" className="gap-1.5 shrink-0">
                 <MessageSquare className="h-3.5 w-3.5" /> Agente IA (WhatsApp)
               </TabsTrigger>
             </TabsList>

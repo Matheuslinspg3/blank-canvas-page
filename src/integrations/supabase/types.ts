@@ -5705,6 +5705,8 @@ export type Database = {
           system_prompt: string | null
           tone: Database["public"]["Enums"]["agent_tone"]
           transfer_keywords: string[] | null
+          transfer_message: string | null
+          transfer_phone: string | null
           updated_at: string
           webhook_url: string | null
           welcome_message: string | null
@@ -5740,6 +5742,8 @@ export type Database = {
           system_prompt?: string | null
           tone?: Database["public"]["Enums"]["agent_tone"]
           transfer_keywords?: string[] | null
+          transfer_message?: string | null
+          transfer_phone?: string | null
           updated_at?: string
           webhook_url?: string | null
           welcome_message?: string | null
@@ -5775,6 +5779,8 @@ export type Database = {
           system_prompt?: string | null
           tone?: Database["public"]["Enums"]["agent_tone"]
           transfer_keywords?: string[] | null
+          transfer_message?: string | null
+          transfer_phone?: string | null
           updated_at?: string
           webhook_url?: string | null
           welcome_message?: string | null
@@ -5868,6 +5874,53 @@ export type Database = {
             foreignKeyName: "whatsapp_instances_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_messages: {
+        Row: {
+          created_at: string
+          from_me: boolean
+          id: string
+          instance_name: string
+          message_id: string | null
+          message_text: string | null
+          message_type: string | null
+          organization_id: string
+          remote_jid: string
+          timestamp: string
+        }
+        Insert: {
+          created_at?: string
+          from_me?: boolean
+          id?: string
+          instance_name: string
+          message_id?: string | null
+          message_text?: string | null
+          message_type?: string | null
+          organization_id: string
+          remote_jid: string
+          timestamp?: string
+        }
+        Update: {
+          created_at?: string
+          from_me?: boolean
+          id?: string
+          instance_name?: string
+          message_id?: string | null
+          message_text?: string | null
+          message_type?: string | null
+          organization_id?: string
+          remote_jid?: string
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },

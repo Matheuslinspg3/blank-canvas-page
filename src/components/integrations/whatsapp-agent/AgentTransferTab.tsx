@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Save, ArrowRightLeft, Plus, X } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Save, ArrowRightLeft, Plus, X, Phone } from "lucide-react";
 import { useWhatsAppAgentConfig } from "@/hooks/useWhatsAppAgentConfig";
 
 export function AgentTransferTab() {
@@ -13,11 +14,15 @@ export function AgentTransferTab() {
   const [keywords, setKeywords] = useState<string[]>([]);
   const [newKeyword, setNewKeyword] = useState("");
   const [maxMessages, setMaxMessages] = useState(10);
+  const [transferPhone, setTransferPhone] = useState("");
+  const [transferMessage, setTransferMessage] = useState("");
 
   useEffect(() => {
     if (config) {
       setKeywords(config.transfer_keywords ?? []);
       setMaxMessages(config.max_messages_before_transfer ?? 10);
+      setTransferPhone(config.transfer_phone ?? "");
+      setTransferMessage(config.transfer_message ?? "Olá! Um cliente precisa de atendimento humano. Segue o contexto da conversa:");
     }
   }, [config]);
 
@@ -89,12 +94,51 @@ export function AgentTransferTab() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Phone className="h-4 w-4" /> Destino da Transferência
+          </CardTitle>
+          <CardDescription>
+            Defina para quem e com qual mensagem a IA encaminha o atendimento
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Número do WhatsApp para transferência</Label>
+            <Input
+              value={transferPhone}
+              onChange={(e) => setTransferPhone(e.target.value)}
+              placeholder="Ex: 5521999999999"
+            />
+            <p className="text-xs text-muted-foreground">
+              Número com código do país + DDD, sem espaços ou caracteres especiais.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Mensagem de encaminhamento</Label>
+            <Textarea
+              value={transferMessage}
+              onChange={(e) => setTransferMessage(e.target.value)}
+              placeholder="Mensagem que a IA envia ao corretor junto com o contexto..."
+              rows={3}
+            />
+            <p className="text-xs text-muted-foreground">
+              Essa mensagem será enviada ao corretor/humano com o resumo da conversa do cliente.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex justify-end">
         <Button
           onClick={() =>
             saveConfig({
               transfer_keywords: keywords,
               max_messages_before_transfer: maxMessages,
+              transfer_phone: transferPhone || null,
+              transfer_message: transferMessage || null,
             })
           }
           disabled={isSaving}
