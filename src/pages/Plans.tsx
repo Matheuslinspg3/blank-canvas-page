@@ -62,11 +62,11 @@ interface PlanMeta { icon: React.ElementType; badge?: string; highlighted?: bool
 
 const planMeta: Record<string, PlanMeta> = {
   gratuito: { icon: Shield, ctaLabel: "Começar grátis", ctaVariant: "outline" },
-  starter: { icon: Star, ctaLabel: "Testar 15 dias grátis", ctaVariant: "default" },
-  correspondente: { icon: Landmark, badge: "Para Financiamentos", ctaLabel: "Testar 7 dias grátis", ctaVariant: "default" },
-  essencial: { icon: Briefcase, badge: "Melhor custo", ctaLabel: "Testar 7 dias grátis", ctaVariant: "default" },
-  profissional: { icon: Crown, badge: "Mais popular", highlighted: true, ctaLabel: "Testar 7 dias grátis", ctaVariant: "default" },
-  business: { icon: Building2, ctaLabel: "Testar 7 dias grátis", ctaVariant: "default" },
+  starter: { icon: Star, ctaLabel: "Selecionar", ctaVariant: "default" },
+  correspondente: { icon: Landmark, badge: "Para Financiamentos", ctaLabel: "Selecionar", ctaVariant: "default" },
+  essencial: { icon: Briefcase, badge: "Melhor custo", ctaLabel: "Selecionar", ctaVariant: "default" },
+  profissional: { icon: Crown, badge: "Mais popular", highlighted: true, ctaLabel: "Selecionar", ctaVariant: "default" },
+  business: { icon: Building2, ctaLabel: "Selecionar", ctaVariant: "default" },
 };
 
 /* ─── Feature comparison table ─── */
