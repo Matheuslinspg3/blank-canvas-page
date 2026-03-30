@@ -77,6 +77,8 @@ export default function WhiteLabelSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [extractedColors, setExtractedColors] = useState<string[]>([]);
+  const [extracting, setExtracting] = useState(false);
 
   useEffect(() => {
     if (!profile?.organization_id) return;
