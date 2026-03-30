@@ -9,7 +9,7 @@ const ScrollArea = React.forwardRef<
 >(({ className, children, type = "hover", ...props }, ref) => (
   <ScrollAreaPrimitive.Root ref={ref} type={type} scrollHideDelay={0} className={cn("relative overflow-hidden", className)} {...props}>
     <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit]">{children}</ScrollAreaPrimitive.Viewport>
-    <ScrollBar forceMount={type === "always"} />
+    <ScrollBar {...(type === "always" ? { forceMount: true } : {})} />
     <ScrollAreaPrimitive.Corner />
   </ScrollAreaPrimitive.Root>
 ));
