@@ -197,13 +197,14 @@ export default function Plans() {
     return Math.round(cents * (1 - DISCOUNT_PCT / 100));
   };
 
-  // Check if user needs to pay (trial expired, free plan expired, or subscription not truly active)
-  const isSubActive = subscription?.status === "active" || 
-    (subscription?.status === "trial" && subscription.trial_end && new Date(subscription.trial_end) > new Date());
+  // Check if user needs to pay (trial, trial expired, free plan, or subscription not truly active)
+  const isOnTrial = subscription?.status === "trial";
+  const isSubPaidActive = subscription?.status === "active";
   const needsToPay = isLoggedIn && (
-    !isSubActive ||
+    !isSubPaidActive ||
     currentSlug === "gratuito" ||
     qualifiesForDiscount ||
+    isOnTrial ||
     subscription?.status === "expired" ||
     subscription?.status === "cancelled"
   );
