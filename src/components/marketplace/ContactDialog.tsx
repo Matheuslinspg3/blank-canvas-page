@@ -49,15 +49,15 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
 
   if (!property) return null;
 
-  const name = contactData?.owner_name || contactData?.org_name;
-  const phone = contactData?.owner_phone || contactData?.org_phone;
+  const name = contactData?.org_name;
+  const phone = contactData?.org_phone;
   const email = contactData?.org_email;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Contato do Corretor</DialogTitle>
+          <DialogTitle>Contato da Imobiliária</DialogTitle>
           <DialogDescription>{property.title}</DialogDescription>
         </DialogHeader>
         {loadingContact ? (
@@ -70,12 +70,7 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
               <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                 <div className="flex items-center gap-3">
                   <User className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <span className="font-medium">{name}</span>
-                    {contactData?.org_name && contactData?.owner_name && contactData.org_name !== contactData.owner_name && (
-                      <p className="text-xs text-muted-foreground">{contactData.org_name}</p>
-                    )}
-                  </div>
+              <span className="font-medium">{name}</span>
                 </div>
               </div>
             )}
