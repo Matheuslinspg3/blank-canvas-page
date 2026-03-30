@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
-import { Crown, Sparkles, Save, Loader2, Upload, X, Palette } from "lucide-react";
+import { Crown, Sparkles, Save, Loader2, Upload, X, Palette, Pipette } from "lucide-react";
+import { extractColorsFromImage } from "@/lib/extractColors";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWhiteLabel } from "@/hooks/useWhiteLabel";
@@ -76,6 +77,8 @@ export default function WhiteLabelSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [extractedColors, setExtractedColors] = useState<string[]>([]);
+  const [extracting, setExtracting] = useState(false);
 
   useEffect(() => {
     if (!profile?.organization_id) return;
@@ -118,6 +121,32 @@ export default function WhiteLabelSettings() {
       setUploading(false);
     }
   };
+
+  const handleExtractColors = useCallback(async () => {
+    const url = config.logo_url;
+    if (!url) { toast.error("Envie uma logo primeiro"); return; }
+    setExtracting(true);
+    try {
+      const colors = await extractColorsFromImage(url, 6);
+      if (colors.length === 0) {
+        toast.error("Não foi possível extrair cores desta imagem");
+        return;
+      }
+      setExtractedColors(colors);
+      // Auto-apply top 3
+      setConfig((prev) => ({
+        ...prev,
+        primary_color: colors[0] || prev.primary_color,
+        secondary_color: colors[1] || prev.secondary_color,
+        accent_color: colors[2] || prev.accent_color,
+      }));
+      toast.success(`${colors.length} cores extraídas da logo!`);
+    } catch {
+      toast.error("Erro ao extrair cores. A imagem pode estar em outro domínio.");
+    } finally {
+      setExtracting(false);
+    }
+  }, [config.logo_url]);
 
   const handleSave = async () => {
     if (!profile?.organization_id || !user) return;
@@ -170,6 +199,34 @@ export default function WhiteLabelSettings() {
 
         {config.white_label_enabled && planAllowsWhiteLabel && (
           <>
+            {/* Extract from logo */}
+            {config.logo_url && (
+              <div className="space-y-2">
+                <Button variant="outline" size="sm" onClick={handleExtractColors} disabled={extracting} className="gap-2 h-8 text-xs">
+                  {extracting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Pipette className="h-3 w-3" />}
+                  Extrair cores da logo
+                </Button>
+                {extractedColors.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] text-muted-foreground mr-1">Cores detectadas:</span>
+                    {extractedColors.map((color, i) => (
+                      <button key={i} type="button" title={`Aplicar ${color}`}
+                        className="h-7 w-7 rounded-md border border-border hover:ring-2 ring-primary/40 transition-all cursor-pointer"
+                        style={{ backgroundColor: color }}
+                        onClick={() => {
+                          // Click to apply: 1st→primary, 2nd→secondary, 3rd→accent, else cycles
+                          const targets = ["primary_color", "secondary_color", "accent_color"] as const;
+                          const target = targets[i % 3];
+                          setConfig((prev) => ({ ...prev, [target]: color }));
+                          toast.success(`Cor aplicada como ${target === "primary_color" ? "primária" : target === "secondary_color" ? "secundária" : "destaque"}`);
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Colors */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <MiniColorPicker label="Cor Primária" value={config.primary_color} onChange={(v) => setConfig({ ...config, primary_color: v })} />
