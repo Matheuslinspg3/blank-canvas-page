@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -269,8 +269,20 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
     return () => { supabase.removeChannel(channel); };
   }, [orgId, queryClient, enabled]);
 
-  const isActive = subscription?.status === "active" || 
-    (subscription?.status === "trial" && subscription.trial_end && new Date(subscription.trial_end) > new Date());
+  const isActive = useMemo(() => {
+    if (!subscription) return false;
+    if (subscription.status === "active") return true;
+    if (subscription.status !== "trial") return false;
+
+    const now = new Date();
+    const trialEnd = subscription.trial_end ? new Date(subscription.trial_end) : null;
+    const periodEnd = subscription.current_period_end ? new Date(subscription.current_period_end) : null;
+
+    const trialStillValid = !!trialEnd && trialEnd > now;
+    const periodStillValid = periodEnd ? periodEnd > now : true;
+
+    return trialStillValid && periodStillValid;
+  }, [subscription]);
   const isPending = subscription?.status === "pending";
   const isOverdue = subscription?.status === "overdue";
   const isCancelled = subscription?.status === "cancelled";
@@ -301,11 +313,16 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
 
   const isTrialActive = useCallback(() => {
     if (!subscription) return false;
-    // Only show trial if subscription is actually in trial status
     if (subscription.status !== "trial") return false;
-    const trialEnd = subscription.trial_end;
-    if (!trialEnd) return false;
-    return new Date(trialEnd) > new Date();
+
+    const now = new Date();
+    const trialEnd = subscription.trial_end ? new Date(subscription.trial_end) : null;
+    const periodEnd = subscription.current_period_end ? new Date(subscription.current_period_end) : null;
+
+    const trialStillValid = !!trialEnd && trialEnd > now;
+    const periodStillValid = periodEnd ? periodEnd > now : true;
+
+    return trialStillValid && periodStillValid;
   }, [subscription]);
 
   const getTrialDaysRemaining = useCallback(() => {
