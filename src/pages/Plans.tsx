@@ -163,7 +163,7 @@ export default function Plans() {
   const [showComparison, setShowComparison] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { session, trialInfo } = useAuth();
+  const { session } = useAuth();
   const { subscription, currentPlan, isTrialActive, getTrialDaysRemaining, getCurrentPlanSlug, canUpgradeTo } = useSubscription({ enabled: !!session });
   const { qualifiesForDiscount } = useFreeTrialExpired();
   const isLoggedIn = !!session;
