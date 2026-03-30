@@ -57,7 +57,7 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Contato do Corretor</DialogTitle>
+          <DialogTitle>Contato da Imobiliária</DialogTitle>
           <DialogDescription>{property.title}</DialogDescription>
         </DialogHeader>
         {loadingContact ? (
