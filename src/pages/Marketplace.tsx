@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { useMarketplace, useMarketplaceFilterData, useMarketplaceOrganizations, type MarketplaceProperty, type MarketplaceOrgInfo } from "@/hooks/useMarketplace";
@@ -6,19 +6,24 @@ import { MarketplaceFilters, type MarketplaceFiltersState, defaultMarketplaceFil
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Building, Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Toggle } from "@/components/ui/toggle";
+import { Building, Loader2, LayoutGrid, List } from "lucide-react";
 import { MarketplaceOrgSection } from "@/components/marketplace/MarketplaceOrgSection";
 import { ContactDialog } from "@/components/marketplace/ContactDialog";
+
+export type ViewMode = "grid" | "list";
 
 export default function Marketplace() {
   const navigate = useNavigate();
   const [filters, setFilters] = useState<MarketplaceFiltersState>(defaultMarketplaceFilters);
   const [contactProperty, setContactProperty] = useState<MarketplaceProperty | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [orgPageSize, setOrgPageSize] = useState<number>(10);
 
-  const { properties, isLoading, isFetching, totalCount, hasMore, loadMore, resetPage, logContactAccess } = useMarketplace(filters);
+  const { properties, isLoading, isFetching, totalCount, logContactAccess } = useMarketplace(filters);
   const { cities, neighborhoods, propertyTypes, availableAmenities } = useMarketplaceFilterData(filters.city || undefined);
 
-  // Get distinct org IDs from loaded properties
   const orgIds = useMemo(() => {
     const ids = new Set(properties.map((p) => p.organization_id).filter(Boolean) as string[]);
     return Array.from(ids);
@@ -26,7 +31,6 @@ export default function Marketplace() {
 
   const { data: orgs } = useMarketplaceOrganizations(orgIds);
 
-  // Group properties by organization, sorted by count desc
   const groupedByOrg = useMemo(() => {
     const orgMap = new Map<string, MarketplaceProperty[]>();
     for (const p of properties) {
@@ -48,11 +52,6 @@ export default function Marketplace() {
       }))
       .sort((a, b) => b.properties.length - a.properties.length);
   }, [properties, orgs]);
-
-  // Reset page when filters change
-  useEffect(() => {
-    resetPage();
-  }, [filters, resetPage]);
 
   const updateFilter = useCallback(<K extends keyof MarketplaceFiltersState>(key: K, value: MarketplaceFiltersState[K]) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -105,14 +104,53 @@ export default function Marketplace() {
           availableAmenities={availableAmenities}
         />
 
+        {/* Controls bar */}
         {!isLoading && (
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
             <p className="text-sm text-muted-foreground">
               {totalCount === 0 ? "Nenhum imóvel encontrado" : (
                 <><span className="font-medium text-foreground">{totalCount}</span> {totalCount === 1 ? "imóvel encontrado" : "imóveis encontrados"}</>
               )}
             </p>
-            {isFetching && !isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+
+            <div className="flex items-center gap-2">
+              {isFetching && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+
+              {/* Quantity per org */}
+              <Select value={String(orgPageSize)} onValueChange={(v) => setOrgPageSize(Number(v))}>
+                <SelectTrigger className="w-auto h-8 text-xs gap-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10 por imob.</SelectItem>
+                  <SelectItem value="25">25 por imob.</SelectItem>
+                  <SelectItem value="50">50 por imob.</SelectItem>
+                  <SelectItem value="100">100 por imob.</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* View mode toggles */}
+              <div className="flex border border-border rounded-md overflow-hidden">
+                <Toggle
+                  size="sm"
+                  pressed={viewMode === "grid"}
+                  onPressedChange={() => setViewMode("grid")}
+                  className="rounded-none h-8 w-8 p-0"
+                  aria-label="Visualização em grade"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Toggle>
+                <Toggle
+                  size="sm"
+                  pressed={viewMode === "list"}
+                  onPressedChange={() => setViewMode("list")}
+                  className="rounded-none h-8 w-8 p-0"
+                  aria-label="Visualização em lista"
+                >
+                  <List className="h-4 w-4" />
+                </Toggle>
+              </div>
+            </div>
           </div>
         )}
 
@@ -152,25 +190,18 @@ export default function Marketplace() {
             </CardContent>
           </Card>
         ) : (
-          <>
-            <div className="space-y-8">
-              {groupedByOrg.map(({ orgId, org, properties: orgProperties }) => (
-                <MarketplaceOrgSection
-                  key={orgId}
-                  org={org}
-                  properties={orgProperties}
-                  onContactClick={handleContactClick}
-                />
-              ))}
-            </div>
-            {hasMore && (
-              <div className="flex justify-center pt-4">
-                <Button variant="outline" onClick={loadMore} disabled={isFetching} className="min-w-[200px]">
-                  {isFetching ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />Carregando...</>) : "Carregar mais"}
-                </Button>
-              </div>
-            )}
-          </>
+          <div className="space-y-8">
+            {groupedByOrg.map(({ orgId, org, properties: orgProperties }) => (
+              <MarketplaceOrgSection
+                key={orgId}
+                org={org}
+                properties={orgProperties}
+                onContactClick={handleContactClick}
+                initialCount={orgPageSize}
+                viewMode={viewMode}
+              />
+            ))}
+          </div>
         )}
       </div>
 

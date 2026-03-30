@@ -4,29 +4,32 @@ import { OptimizedImage } from "@/components/ui/optimized-image";
 import { Building, ChevronDown, ChevronUp } from "lucide-react";
 import { MarketplacePropertyCard } from "./MarketplacePropertyCard";
 import type { MarketplaceProperty, MarketplaceOrgInfo } from "@/hooks/useMarketplace";
-
-const COLLAPSED_COUNT = 6;
+import type { ViewMode } from "@/pages/Marketplace";
 
 interface MarketplaceOrgSectionProps {
   org: MarketplaceOrgInfo;
   properties: MarketplaceProperty[];
   onContactClick: (property: MarketplaceProperty) => void;
+  initialCount: number;
+  viewMode: ViewMode;
 }
 
 export const MarketplaceOrgSection = React.memo(function MarketplaceOrgSection({
   org,
   properties,
   onContactClick,
+  initialCount,
+  viewMode,
 }: MarketplaceOrgSectionProps) {
   const [expanded, setExpanded] = useState(false);
 
   const visibleProperties = useMemo(
-    () => (expanded ? properties : properties.slice(0, COLLAPSED_COUNT)),
-    [expanded, properties]
+    () => (expanded ? properties : properties.slice(0, initialCount)),
+    [expanded, properties, initialCount]
   );
 
-  const remaining = properties.length - COLLAPSED_COUNT;
-  const canExpand = properties.length > COLLAPSED_COUNT;
+  const remaining = properties.length - initialCount;
+  const canExpand = properties.length > initialCount;
 
   return (
     <section className="space-y-4">
@@ -53,13 +56,18 @@ export const MarketplaceOrgSection = React.memo(function MarketplaceOrgSection({
         </div>
       </div>
 
-      {/* Property grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {/* Property grid or list */}
+      <div className={
+        viewMode === "list"
+          ? "flex flex-col gap-4"
+          : "grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+      }>
         {visibleProperties.map((property) => (
           <MarketplacePropertyCard
             key={property.id}
             property={property}
             onContactClick={onContactClick}
+            viewMode={viewMode}
           />
         ))}
       </div>
@@ -79,8 +87,8 @@ export const MarketplaceOrgSection = React.memo(function MarketplaceOrgSection({
               </>
             ) : (
               <>
-                <ChevronDown className="h-4 w-4 mr-1" /> Ver mais {remaining}{" "}
-                {remaining === 1 ? "imóvel" : "imóveis"}
+                <ChevronDown className="h-4 w-4 mr-1" /> Ver todos ({remaining}{" "}
+                {remaining === 1 ? "imóvel" : "imóveis"})
               </>
             )}
           </Button>
