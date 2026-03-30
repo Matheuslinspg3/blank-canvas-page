@@ -1,72 +1,60 @@
 
 
-## Corrigir perda de dados no marketplace ao editar/duplicar imoveis
+## Plano: Agrupar imóveis por organização no Marketplace
 
-### Problemas identificados
+### Objetivo
+Exibir os imóveis do Marketplace organizados por imobiliária/corretor, mostrando inicialmente 5-10 imóveis de cada organização com um botão "Ver mais" para expandir.
 
-1. **Marketplace nao sincroniza ao editar**: Quando um imovel publicado no marketplace e editado, os dados no `marketplace_properties` ficam desatualizados. O codigo so chama `publishToMarketplace` quando o checkbox e marcado explicitamente — e o checkbox reseta para `false` ao abrir o form (linha 246 do PropertyForm).
+### Como vai funcionar
 
-2. **`sale_price_financed` e `payment_options` nao existem na tabela `marketplace_properties`**: A tabela nao possui essas colunas. O `publishToMarketplace` (usePropertyBulkOps.ts linha 121-134) nao inclui esses campos no upsert. Mesmo que o imovel tenha esses dados no CRM, eles nunca chegam ao marketplace.
+1. **Seção por organização** — Em vez de uma grade plana, o Marketplace mostrará blocos separados por organização. Cada bloco terá:
+   - Nome e logo da organização (cabeçalho)
+   - Grid com 5-6 imóveis iniciais (colapsado)
+   - Botão "Ver mais imóveis" que expande para mostrar todos os imóveis daquela org
+   - Contagem total de imóveis da org
 
-3. **Duplicacao nao afeta marketplace diretamente** — o imovel duplicado e novo e nao e publicado automaticamente, o que e correto. Porem o imovel ORIGINAL pode perder sincronizacao se o usuario editar apos duplicar.
+2. **Busca do nome/logo da organização** — O hook `useMarketplace` será atualizado para buscar dados da tabela `organizations` (name, logo_url) com base nos `organization_id` distintos retornados.
 
----
+3. **Agrupamento no frontend** — Os imóveis serão agrupados por `organization_id` usando `useMemo`, criando seções visuais distintas.
 
-### Solucao
+### Alterações técnicas
 
-#### 1. Migracao: adicionar colunas ao marketplace_properties
+**Arquivo: `src/hooks/useMarketplace.ts`**
+- Adicionar query para buscar organizações distintas que possuem imóveis no marketplace (`organizations` table — `id`, `name`, `logo_url`, `slug`)
+- Exportar novo hook ou dados adicionais: `organizationInfo`
 
-```sql
-ALTER TABLE public.marketplace_properties
-  ADD COLUMN IF NOT EXISTS sale_price_financed bigint,
-  ADD COLUMN IF NOT EXISTS payment_options text[];
+**Arquivo: Novo componente `src/components/marketplace/MarketplaceOrgSection.tsx`**
+- Componente que recebe org info + lista de propriedades
+- Estado local `expanded` (default: false)
+- Mostra 6 imóveis quando colapsado, todos quando expandido
+- Cabeçalho com logo + nome da org + contagem
+- Botão "Ver mais X imóveis" / "Ver menos"
+
+**Arquivo: `src/pages/Marketplace.tsx`**
+- Agrupar `properties` por `organization_id`
+- Renderizar um `MarketplaceOrgSection` por grupo
+- Manter filtros e busca existentes funcionando normalmente
+
+### Layout visual
+
+```text
+┌─────────────────────────────────────────┐
+│  [Logo] Imobiliária XYZ  (12 imóveis)  │
+├─────────────────────────────────────────┤
+│  [Card] [Card] [Card]                  │
+│  [Card] [Card] [Card]                  │
+│        [ Ver mais 6 imóveis ]          │
+└─────────────────────────────────────────┘
+
+┌─────────────────────────────────────────┐
+│  [Logo] Corretor ABC  (3 imóveis)      │
+├─────────────────────────────────────────┤
+│  [Card] [Card] [Card]                  │
+└─────────────────────────────────────────┘
 ```
 
-#### 2. Atualizar publishToMarketplace (usePropertyBulkOps.ts)
-
-No upsert do `publishToMarketplace` (linha 121-134), adicionar os novos campos:
-
-```ts
-sale_price_financed: prop.sale_price_financed,
-payment_options: (prop as any).payment_options || null,
-```
-
-Fazer o mesmo no `bulkPublishToMarketplace` (o trecho que monta o array de rows).
-
-#### 3. Auto-sync ao editar imovel publicado (Properties.tsx)
-
-No `executePropertySubmit`, apos o `updateProperty`, verificar se o imovel esta publicado no marketplace e re-sincronizar automaticamente:
-
-```ts
-// Apos updateProperty
-if (editingProperty) {
-  await updateProperty(editingProperty.id, data, images, ownerData);
-  propertyId = editingProperty.id;
-  // Auto-sync marketplace if published
-  publishToMarketplace(editingProperty.id).catch(() => {});
-}
-```
-
-Porem, para evitar publicar um imovel que NAO esta no marketplace, precisamos checar primeiro. A abordagem:
-
-- Importar `useMarketplaceStatus` no Properties.tsx
-- No `executePropertySubmit`, se `editingProperty` e `publishedIds.has(editingProperty.id)`, chamar `publishToMarketplace` automaticamente (fire-and-forget)
-- Se o usuario tambem marcou o checkbox de publicar, nao duplicar a chamada
-
-#### 4. Atualizar a view publica (se necessario)
-
-Verificar se `marketplace_properties_public` precisa expor `sale_price_financed` e `payment_options` para consumidores. Se sim, atualizar a view.
-
----
-
-### Arquivos modificados
-
-| Arquivo | Mudanca |
-|---------|---------|
-| Nova migracao SQL | `ALTER TABLE` para adicionar `sale_price_financed` e `payment_options` |
-| `src/hooks/usePropertyBulkOps.ts` | Incluir novos campos no upsert de publish e bulkPublish |
-| `src/pages/Properties.tsx` | Importar `useMarketplaceStatus`, auto-sync marketplace ao editar imovel ja publicado |
-| View `marketplace_properties_public` (migracao) | Adicionar as novas colunas se precisar exibi-las publicamente |
-
-Nenhuma mudanca em logica de negocio existente — apenas adicao de campos e auto-sync.
+### Observações
+- Organizações com mais imóveis aparecem primeiro
+- Nenhuma migração de banco necessária — usa tabelas existentes (`organizations`, `marketplace_properties_public`)
+- Os build errors existentes (vite not found, TypeScript) são problemas de ambiente/dependências, não relacionados a esta feature
 
