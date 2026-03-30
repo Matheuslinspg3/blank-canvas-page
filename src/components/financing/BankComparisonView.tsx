@@ -102,6 +102,7 @@ export function BankComparisonView({ resultados, selectedBankId, onSelectBank }:
           <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Comparativo Detalhado</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="relative">
           <div className="overflow-x-auto -mx-2">
             <table className="w-full text-xs min-w-[600px]">
               <thead>
@@ -141,6 +142,8 @@ export function BankComparisonView({ resultados, selectedBankId, onSelectBank }:
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-background to-transparent pointer-events-none sm:hidden" />
           </div>
         </CardContent>
       </Card>
