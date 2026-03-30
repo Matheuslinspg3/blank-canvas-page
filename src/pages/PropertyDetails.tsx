@@ -17,6 +17,7 @@ import { ImageGallery } from "@/components/properties/ImageViewer";
 import { proxyDriveImageUrl } from "@/lib/utils";
 import { getImageUrl } from "@/lib/imageUrl";
 import { useProperties, PropertyWithDetails, PropertyFormData } from "@/hooks/useProperties";
+import { useMarketplaceStatus } from "@/hooks/useMarketplaceStatus";
 // PERF: lazy load - PropertyForm is heavy (~800 lines), only needed when editing
 const PropertyForm = lazy(() => import("@/components/properties/PropertyForm").then(m => ({ default: m.PropertyForm })));
 import { useAuth } from "@/contexts/AuthContext";
@@ -93,6 +94,7 @@ export default function PropertyDetails() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { properties, isLoading, updateProperty, publishToMarketplace, isUpdating, createProperty, isCreating } = useProperties();
+  const { publishedIds } = useMarketplaceStatus();
   const { profile } = useAuth();
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
@@ -177,6 +179,10 @@ export default function PropertyDetails() {
   const handleFormSubmit = async (data: PropertyFormData, images: PropertyImage[], ownerData?: any, publishMarketplace?: boolean) => {
     if (!id) return;
     await updateProperty(id, data, images, ownerData);
+    // Auto-sync marketplace if property is already published (and user didn't explicitly request publish)
+    if (!publishMarketplace && publishedIds.has(id)) {
+      publishToMarketplace(id).catch(() => {});
+    }
     if (publishMarketplace) {
       // Fire-and-forget: run in background
       publishToMarketplace(id).catch(() => {});
