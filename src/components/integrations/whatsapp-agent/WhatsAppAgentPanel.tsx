@@ -30,8 +30,11 @@ export function WhatsAppAgentPanel() {
             <TabsTrigger value="qualificacao" className="gap-1.5 text-xs sm:text-sm">
               <UserCheck className="h-3.5 w-3.5" /> Qualificação
             </TabsTrigger>
-            <TabsTrigger value="transferencia" className="gap-1.5 text-xs sm:text-sm">
+            <TabsTrigger value="transferencia" className="gap-1.5 text-xs sm:text-sm shrink-0">
               <ArrowRightLeft className="h-3.5 w-3.5" /> Transferência
+            </TabsTrigger>
+            <TabsTrigger value="chat" className="gap-1.5 text-xs sm:text-sm shrink-0">
+              <MessageCircle className="h-3.5 w-3.5" /> Chat
             </TabsTrigger>
           </>
         )}
