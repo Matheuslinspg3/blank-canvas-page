@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Save, ArrowRightLeft, Plus, X } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Save, ArrowRightLeft, Plus, X, Phone } from "lucide-react";
 import { useWhatsAppAgentConfig } from "@/hooks/useWhatsAppAgentConfig";
 
 export function AgentTransferTab() {
