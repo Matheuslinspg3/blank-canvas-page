@@ -468,7 +468,7 @@ export default function Plans() {
           <ChevronDown className={cn("h-4 w-4 transition-transform", showComparison && "rotate-180")} />
         </button>
 
-        {showComparison && (
+          <div className="relative">
           <div className="overflow-x-auto border rounded-xl">
             <table className="w-full text-sm">
               <thead>
