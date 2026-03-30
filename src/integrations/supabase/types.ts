@@ -5957,6 +5957,53 @@ export type Database = {
       }
     }
     Views: {
+      ad_accounts_safe: {
+        Row: {
+          created_at: string | null
+          external_account_id: string | null
+          id: string | null
+          is_active: boolean | null
+          is_connected: boolean | null
+          name: string | null
+          organization_id: string | null
+          provider: Database["public"]["Enums"]["ad_provider"] | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          external_account_id?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          is_connected?: never
+          name?: string | null
+          organization_id?: string | null
+          provider?: Database["public"]["Enums"]["ad_provider"] | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          external_account_id?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          is_connected?: never
+          name?: string | null
+          organization_id?: string | null
+          provider?: Database["public"]["Enums"]["ad_provider"] | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_accounts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_properties_view: {
         Row: {
           ai_blacklist: boolean | null
