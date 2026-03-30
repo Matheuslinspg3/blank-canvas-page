@@ -1,17 +1,14 @@
 import { useState, useEffect, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
-import { Palette, Save, Loader2, Upload, Image as ImageIcon, Type, X, Crown, Sparkles } from "lucide-react";
+import { Palette, Save, Loader2, Upload, Image as ImageIcon, Type, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useWhiteLabel } from "@/hooks/useWhiteLabel";
 
 interface BrandConfig {
   primary_color: string;
