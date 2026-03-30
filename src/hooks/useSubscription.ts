@@ -301,6 +301,8 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
 
   const isTrialActive = useCallback(() => {
     if (!subscription) return false;
+    // Only show trial if subscription is actually in trial status
+    if (subscription.status !== "trial") return false;
     const trialEnd = subscription.trial_end;
     if (!trialEnd) return false;
     return new Date(trialEnd) > new Date();
