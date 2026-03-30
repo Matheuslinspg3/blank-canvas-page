@@ -97,7 +97,6 @@ function LogoUploader({ label, url, onUpload, onRemove }: { label: string; url: 
 
 export default function BrandSettingsContent() {
   const { user, profile } = useAuth();
-  const { planAllowsWhiteLabel } = useWhiteLabel();
   const [config, setConfig] = useState<BrandConfig>(DEFAULT_BRAND);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
