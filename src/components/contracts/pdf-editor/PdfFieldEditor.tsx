@@ -62,8 +62,11 @@ export function PdfFieldEditor({ pdfUrl, onPdfUploaded, fieldPositions, onFieldP
       });
       if (uploadErr) throw uploadErr;
 
-      const { data: urlData } = supabase.storage.from("contract-templates").getPublicUrl(path);
-      onPdfUploaded(urlData.publicUrl);
+      const { data: signedUrlData, error: signedUrlErr } = await supabase.storage
+        .from("contract-templates")
+        .createSignedUrl(path, 60 * 60 * 24 * 365); // 1 year signed URL
+      if (signedUrlErr || !signedUrlData?.signedUrl) throw signedUrlErr || new Error("Failed to create signed URL");
+      onPdfUploaded(signedUrlData.signedUrl);
       onFieldPositionsChange([]);
       setCurrentPage(0);
       toast.success("PDF enviado com sucesso!");
