@@ -37,7 +37,7 @@ export function useAdAccount() {
         .eq('organization_id', profile.organization_id)
         .eq('provider', 'meta' as any)
         .maybeSingle();
-      return data as AdAccount | null;
+      return data as unknown as AdAccount | null;
     },
     enabled: !!profile?.organization_id,
   });
