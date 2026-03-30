@@ -94,6 +94,43 @@ export function AgentTransferTab() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Phone className="h-4 w-4" /> Destino da Transferência
+          </CardTitle>
+          <CardDescription>
+            Defina para quem e com qual mensagem a IA encaminha o atendimento
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Número do WhatsApp para transferência</Label>
+            <Input
+              value={transferPhone}
+              onChange={(e) => setTransferPhone(e.target.value)}
+              placeholder="Ex: 5521999999999"
+            />
+            <p className="text-xs text-muted-foreground">
+              Número com código do país + DDD, sem espaços ou caracteres especiais.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Mensagem de encaminhamento</Label>
+            <Textarea
+              value={transferMessage}
+              onChange={(e) => setTransferMessage(e.target.value)}
+              placeholder="Mensagem que a IA envia ao corretor junto com o contexto..."
+              rows={3}
+            />
+            <p className="text-xs text-muted-foreground">
+              Essa mensagem será enviada ao corretor/humano com o resumo da conversa do cliente.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex justify-end">
         <Button
           onClick={() =>
