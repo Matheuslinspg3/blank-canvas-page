@@ -737,9 +737,9 @@ async function processContacts(
           }
           const notes = buildNotes(contact);
           if (notes && notes !== "[Sincronizado via RD Station API]") updateData.notes = notes;
-          const convId = extractConversionIdentifier(contact);
+          const convId = extractConversionIdentifier(contact) || eventConversionId;
           if (convId) updateData.conversion_identifier = convId;
-          const tSrc = extractTrafficSource(contact);
+          const tSrc = extractTrafficSource(contact) || eventTrafficSource;
           if (tSrc) updateData.traffic_source = tSrc;
           if (Object.keys(updateData).length > 0) {
             await supabase.from("leads").update(updateData).eq("id", existingByEmail.id);
@@ -783,9 +783,9 @@ async function processContacts(
             }
             const notes = buildNotes(contact);
             if (notes && notes !== "[Sincronizado via RD Station API]") updateData.notes = notes;
-            const convId = extractConversionIdentifier(contact);
+            const convId = extractConversionIdentifier(contact) || eventConversionId;
             if (convId) updateData.conversion_identifier = convId;
-            const tSrc = extractTrafficSource(contact);
+            const tSrc = extractTrafficSource(contact) || eventTrafficSource;
             if (tSrc) updateData.traffic_source = tSrc;
             if (Object.keys(updateData).length > 0) {
               await supabase.from("leads").update(updateData).eq("id", phoneMatch.id);
@@ -805,8 +805,8 @@ async function processContacts(
         const source = settings.default_source || "RD Station";
         const notes = buildNotes(contact);
         const propertyId = await matchProperty(supabase, orgId, contact);
-        const conversionId = extractConversionIdentifier(contact);
-        const trafficSource = extractTrafficSource(contact);
+        const conversionId = extractConversionIdentifier(contact) || eventConversionId;
+        const trafficSource = extractTrafficSource(contact) || eventTrafficSource;
 
         const { data: newLead, error: insertError } = await supabase
           .from("leads")
