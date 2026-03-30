@@ -8,6 +8,30 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Allowlist-based HTML sanitizer for contract templates
+const ALLOWED_TAGS = new Set([
+  "p", "h1", "h2", "h3", "h4", "h5", "h6",
+  "strong", "em", "b", "i", "u",
+  "ol", "ul", "li",
+  "br", "hr",
+  "table", "thead", "tbody", "tr", "th", "td",
+  "span", "div", "blockquote",
+]);
+
+function sanitizeHtml(html: string): string {
+  // Remove script tags and their content
+  let cleaned = html.replace(/<script[\s\S]*?<\/script>/gi, "");
+  // Remove style tags and their content
+  cleaned = cleaned.replace(/<style[\s\S]*?<\/style>/gi, "");
+  // Remove all event handlers (on* attributes) - handles quoted, unquoted, backtick
+  cleaned = cleaned.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|`[^`]*`|[^\s>]+)/gi, "");
+  // Remove javascript: URIs in any attribute
+  cleaned = cleaned.replace(/\s+(href|src|action|formaction|data)\s*=\s*(?:"[^"]*javascript:[^"]*"|'[^']*javascript:[^']*'|javascript:[^\s>]+)/gi, "");
+  // Remove dangerous tags not in allowlist (svg, iframe, object, embed, form, input, img with potential XSS)
+  cleaned = cleaned.replace(/<\/?(?!(?:p|h[1-6]|strong|em|b|i|u|ol|ul|li|br|hr|table|thead|tbody|tr|th|td|span|div|blockquote)\b)[a-z][a-z0-9]*(?:\s[^>]*)?\/?>/gi, "");
+  return cleaned.trim();
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -68,8 +92,8 @@ REGRAS:
 
     let html = aiResult.text || "";
     html = html.replace(/^```html?\n?/i, "").replace(/\n?```$/i, "").trim();
-    html = html.replace(/<script[\s\S]*?<\/script>/gi, "");
-    html = html.replace(/\son\w+\s*=\s*["'][^"']*["']/gi, "");
+    // Server-side allowlist-based sanitization
+    html = sanitizeHtml(html);
 
     return new Response(JSON.stringify({ html }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

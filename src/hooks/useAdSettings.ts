@@ -32,12 +32,12 @@ export function useAdAccount() {
     queryFn: async () => {
       if (!profile?.organization_id) return null;
       const { data } = await supabase
-        .from('ad_accounts')
-        .select('id, organization_id, provider, external_account_id, name, is_active, status, created_at, updated_at')
+        .from('ad_accounts_safe' as any)
+        .select('id, organization_id, provider, external_account_id, name, is_active, status, created_at, updated_at, is_connected')
         .eq('organization_id', profile.organization_id)
         .eq('provider', 'meta' as any)
         .maybeSingle();
-      return data as AdAccount | null;
+      return data as unknown as AdAccount | null;
     },
     enabled: !!profile?.organization_id,
   });
