@@ -3017,9 +3017,11 @@ export type Database = {
           owner_name: string | null
           owner_phone: string | null
           parking_spots: number | null
+          payment_options: string[] | null
           property_type_id: string | null
           rent_price: number | null
           sale_price: number | null
+          sale_price_financed: number | null
           status: Database["public"]["Enums"]["property_status"]
           suites: number | null
           title: string
@@ -3051,9 +3053,11 @@ export type Database = {
           owner_name?: string | null
           owner_phone?: string | null
           parking_spots?: number | null
+          payment_options?: string[] | null
           property_type_id?: string | null
           rent_price?: number | null
           sale_price?: number | null
+          sale_price_financed?: number | null
           status?: Database["public"]["Enums"]["property_status"]
           suites?: number | null
           title: string
@@ -3085,9 +3089,11 @@ export type Database = {
           owner_name?: string | null
           owner_phone?: string | null
           parking_spots?: number | null
+          payment_options?: string[] | null
           property_type_id?: string | null
           rent_price?: number | null
           sale_price?: number | null
+          sale_price_financed?: number | null
           status?: Database["public"]["Enums"]["property_status"]
           suites?: number | null
           title?: string
@@ -6140,9 +6146,11 @@ export type Database = {
           is_featured: boolean | null
           organization_id: string | null
           parking_spots: number | null
+          payment_options: string[] | null
           property_type_id: string | null
           rent_price: number | null
           sale_price: number | null
+          sale_price_financed: number | null
           status: string | null
           suites: number | null
           title: string | null
@@ -6314,9 +6322,11 @@ export type Database = {
           is_featured: boolean
           organization_id: string
           parking_spots: number
+          payment_options: string[]
           property_type_id: string
           rent_price: number
           sale_price: number
+          sale_price_financed: number
           status: string
           suites: number
           title: string
