@@ -1,17 +1,14 @@
 import { useState, useEffect, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
-import { Palette, Save, Loader2, Upload, Image as ImageIcon, Type, X, Crown, Sparkles } from "lucide-react";
+import { Palette, Save, Loader2, Upload, Image as ImageIcon, Type, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useWhiteLabel } from "@/hooks/useWhiteLabel";
 
 interface BrandConfig {
   primary_color: string;
@@ -100,7 +97,6 @@ function LogoUploader({ label, url, onUpload, onRemove }: { label: string; url: 
 
 export default function BrandSettingsContent() {
   const { user, profile } = useAuth();
-  const { planAllowsWhiteLabel } = useWhiteLabel();
   const [config, setConfig] = useState<BrandConfig>(DEFAULT_BRAND);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -288,52 +284,7 @@ export default function BrandSettingsContent() {
         </CardContent>
       </Card>
 
-      {/* White-Label */}
-      <Card className={!planAllowsWhiteLabel ? "opacity-60" : "border-primary/30 bg-primary/5"}>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Crown className="h-5 w-5 text-primary" />
-            Tema White-Label
-          </CardTitle>
-          <CardDescription>
-            {planAllowsWhiteLabel
-              ? "Ative para substituir a marca 'Porta do Corretor' pela sua em toda a plataforma."
-              : "Disponível nos planos Business e Enterprise. Faça upgrade para personalizar toda a plataforma com sua marca."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label className="text-sm font-medium">Ativar White-Label</Label>
-              <p className="text-xs text-muted-foreground">
-                Substitui logos, cores e remove referências ao Porta do Corretor
-              </p>
-            </div>
-            <Switch
-              checked={config.white_label_enabled}
-              onCheckedChange={(v) => setConfig({ ...config, white_label_enabled: v })}
-              disabled={!planAllowsWhiteLabel}
-            />
-          </div>
-          {config.white_label_enabled && planAllowsWhiteLabel && (
-            <div className="rounded-md border border-primary/20 bg-primary/5 p-3 flex items-start gap-2">
-              <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-              <p className="text-xs text-foreground/80">
-                As cores, logos e fontes configuradas acima serão aplicadas em toda a plataforma.
-                O nome "Porta do Corretor" será substituído pelo nome da sua organização.
-              </p>
-            </div>
-          )}
-          {!planAllowsWhiteLabel && (
-            <Button variant="outline" size="sm" className="gap-2" asChild>
-              <a href="/planos">
-                <Crown className="h-4 w-4" />
-                Fazer upgrade
-              </a>
-            </Button>
-          )}
-        </CardContent>
-      </Card>
+
 
       {/* Save */}
       <div className="flex justify-end">
