@@ -211,7 +211,13 @@ export default function Plans() {
   const getCtaProps = (plan: SubscriptionPlan) => {
     const meta = planMeta[plan.slug] || { ctaLabel: "Selecionar", ctaVariant: "default" as const };
     const isCurrent = currentSlug === plan.slug;
-    if (!isLoggedIn) return { label: meta.ctaLabel, disabled: false, action: () => navigate("/auth") };
+    const trialDaysPlan = (plan as any).trial_days || 0;
+
+    if (!isLoggedIn) {
+      // Show trial info for non-logged-in users
+      const label = trialDaysPlan > 0 ? `Testar ${trialDaysPlan} dias grátis` : meta.ctaLabel;
+      return { label, disabled: false, action: () => navigate("/auth") };
+    }
     
     // Free plan can't be "selected" — it's the default
     if (plan.slug === "gratuito") {
