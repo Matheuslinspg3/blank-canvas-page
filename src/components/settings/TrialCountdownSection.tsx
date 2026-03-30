@@ -2,15 +2,20 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSubscription } from "@/hooks/useSubscription";
 import { Clock, CalendarCheck, AlertTriangle, CheckCircle2, ShieldCheck } from "lucide-react";
 import { differenceInDays, differenceInHours, format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export function TrialCountdownSection() {
   const { trialInfo } = useAuth();
+  const { subscription, currentPlan } = useSubscription();
 
-  // No trial info = no trial system for this org
-  if (!trialInfo || !trialInfo.trial_ends_at) {
+  // If user has an active paid subscription, show "full access" card
+  const slug = currentPlan?.slug ?? "gratuito";
+  const isActivePaid = subscription?.status === "active" && slug !== "gratuito";
+
+  if (isActivePaid || !trialInfo || !trialInfo.trial_ends_at) {
     return (
       <Card>
         <CardHeader>

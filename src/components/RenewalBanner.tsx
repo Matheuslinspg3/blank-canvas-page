@@ -1,10 +1,17 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { useSubscription } from "@/hooks/useSubscription";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Clock, Sparkles } from "lucide-react";
 import { differenceInDays, differenceInHours } from "date-fns";
 
 export function RenewalBanner() {
   const { trialInfo } = useAuth();
+  const { subscription, currentPlan } = useSubscription();
+
+  // Don't show if user has an active paid subscription
+  const slug = currentPlan?.slug ?? "gratuito";
+  const isActivePaid = subscription?.status === "active" && slug !== "gratuito";
+  if (isActivePaid) return null;
 
   if (!trialInfo || !trialInfo.trial_ends_at) return null;
 
