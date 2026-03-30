@@ -20,15 +20,7 @@ import { SettingsTeamTab } from "@/components/settings/SettingsTeamTab";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const WhiteLabelSettings = lazy(() => import("@/components/settings/WhiteLabelSettings"));
-import { SupportTicketDialog } from "@/components/settings/SupportTicketDialog";
-import { UserTicketsSection } from "@/components/settings/UserTicketsSection";
-import { PlatformInviteSection } from "@/components/settings/PlatformInviteSection";
-import { BillingTab } from "@/components/settings/BillingTab";
-import { ChangelogSection } from "@/components/settings/ChangelogSection";
-import { SettingsProfileTab } from "@/components/settings/SettingsProfileTab";
-import { SettingsCompanyTab } from "@/components/settings/SettingsCompanyTab";
-import { SettingsTeamTab } from "@/components/settings/SettingsTeamTab";
-import { usePushNotifications } from "@/hooks/usePushNotifications";
+
 
 export default function Settings() {
   const { isAdminOrAbove, isDeveloperOrLeader } = useUserRoles();

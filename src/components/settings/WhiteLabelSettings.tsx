@@ -1,0 +1,232 @@
+import { useState, useEffect, useRef } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
+import { Crown, Sparkles, Save, Loader2, Upload, X, Palette } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useWhiteLabel } from "@/hooks/useWhiteLabel";
+import { useQueryClient } from "@tanstack/react-query";
+
+interface WhiteLabelConfig {
+  primary_color: string;
+  secondary_color: string;
+  accent_color: string;
+  logo_url: string;
+  logo_dark_url: string;
+  white_label_enabled: boolean;
+}
+
+const DEFAULTS: WhiteLabelConfig = {
+  primary_color: "#D62828",
+  secondary_color: "#1E3A5F",
+  accent_color: "#F77F00",
+  logo_url: "",
+  logo_dark_url: "",
+  white_label_enabled: false,
+};
+
+function MiniColorPicker({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">{label}</Label>
+      <div className="flex items-center gap-2">
+        <input type="color" value={value} onChange={(e) => onChange(e.target.value)}
+          className="h-8 w-10 rounded border border-border cursor-pointer" />
+        <Input value={value} onChange={(e) => onChange(e.target.value)}
+          className="flex-1 font-mono text-xs h-8" maxLength={7} />
+      </div>
+    </div>
+  );
+}
+
+function LogoField({ label, url, onUpload, onRemove }: { label: string; url: string; onUpload: (f: File) => void; onRemove: () => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">{label}</Label>
+      {url ? (
+        <div className="relative inline-block">
+          <img src={url} alt={label} className="h-12 max-w-[140px] object-contain rounded border p-1 bg-muted/30" />
+          <button type="button" onClick={onRemove}
+            className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-[10px]">
+            <X className="h-2.5 w-2.5" />
+          </button>
+        </div>
+      ) : (
+        <Button variant="outline" size="sm" onClick={() => ref.current?.click()} className="gap-1.5 h-8 text-xs">
+          <Upload className="h-3 w-3" /> Upload
+        </Button>
+      )}
+      <input ref={ref} type="file" accept="image/*" className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); }} />
+    </div>
+  );
+}
+
+export default function WhiteLabelSettings() {
+  const { user, profile } = useAuth();
+  const { planAllowsWhiteLabel } = useWhiteLabel();
+  const qc = useQueryClient();
+  const [config, setConfig] = useState<WhiteLabelConfig>(DEFAULTS);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    if (!profile?.organization_id) return;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("brand_settings")
+          .select("primary_color, secondary_color, accent_color, logo_url, logo_dark_url, white_label_enabled")
+          .eq("organization_id", profile.organization_id)
+          .single();
+        if (data) {
+          setConfig({
+            primary_color: (data as any).primary_color || DEFAULTS.primary_color,
+            secondary_color: (data as any).secondary_color || DEFAULTS.secondary_color,
+            accent_color: (data as any).accent_color || DEFAULTS.accent_color,
+            logo_url: (data as any).logo_url || "",
+            logo_dark_url: (data as any).logo_dark_url || "",
+            white_label_enabled: (data as any).white_label_enabled ?? false,
+          });
+        }
+      } catch { /* defaults */ }
+      setLoading(false);
+    })();
+  }, [profile?.organization_id]);
+
+  const handleLogoUpload = async (file: File, field: "logo_url" | "logo_dark_url") => {
+    if (!profile?.organization_id) return;
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() || "png";
+      const path = `${profile.organization_id}/brand/${field}-${Date.now()}.${ext}`;
+      const { error: err } = await supabase.storage.from("brand-assets").upload(path, file, { upsert: true });
+      if (err) throw err;
+      const { data: pub } = supabase.storage.from("brand-assets").getPublicUrl(path);
+      setConfig((prev) => ({ ...prev, [field]: pub.publicUrl }));
+      toast.success("Logo enviada!");
+    } catch (e: any) {
+      toastError("Erro ao enviar logo", e, { module: "WhiteLabelSettings" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!profile?.organization_id || !user) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("brand_settings").upsert({
+        organization_id: profile.organization_id,
+        ...config,
+        updated_at: new Date().toISOString(),
+        updated_by: user.id,
+      } as any, { onConflict: "organization_id" });
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ["white-label"] });
+      toast.success("Personalização salva! Recarregue para ver as mudanças.");
+    } catch (e: any) {
+      toastError("Erro ao salvar", e, { module: "WhiteLabelSettings" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return null;
+
+  return (
+    <Card className={!planAllowsWhiteLabel ? "opacity-60" : "border-primary/20"}>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Crown className="h-4 w-4 text-primary" />
+          Personalização White-Label
+        </CardTitle>
+        <CardDescription className="text-xs">
+          {planAllowsWhiteLabel
+            ? "Personalize cores, logos e remova a marca 'Porta do Corretor' da plataforma."
+            : "Disponível nos planos Business e Enterprise."}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Toggle */}
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label className="text-sm font-medium">Ativar White-Label</Label>
+            <p className="text-xs text-muted-foreground">Substitui logos e cores em toda a plataforma</p>
+          </div>
+          <Switch
+            checked={config.white_label_enabled}
+            onCheckedChange={(v) => setConfig({ ...config, white_label_enabled: v })}
+            disabled={!planAllowsWhiteLabel}
+          />
+        </div>
+
+        {config.white_label_enabled && planAllowsWhiteLabel && (
+          <>
+            {/* Colors */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <MiniColorPicker label="Cor Primária" value={config.primary_color} onChange={(v) => setConfig({ ...config, primary_color: v })} />
+              <MiniColorPicker label="Cor Secundária" value={config.secondary_color} onChange={(v) => setConfig({ ...config, secondary_color: v })} />
+              <MiniColorPicker label="Cor de Destaque" value={config.accent_color} onChange={(v) => setConfig({ ...config, accent_color: v })} />
+            </div>
+
+            {/* Preview */}
+            <div className="flex gap-2 items-center">
+              <div className="h-8 w-8 rounded" style={{ backgroundColor: config.primary_color }} />
+              <div className="h-8 w-8 rounded" style={{ backgroundColor: config.secondary_color }} />
+              <div className="h-8 w-8 rounded" style={{ backgroundColor: config.accent_color }} />
+              <span className="text-xs text-muted-foreground ml-2">Pré-visualização</span>
+            </div>
+
+            {/* Logos */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <LogoField label="Logo principal" url={config.logo_url}
+                onUpload={(f) => handleLogoUpload(f, "logo_url")}
+                onRemove={() => setConfig({ ...config, logo_url: "" })} />
+              <LogoField label="Logo (fundo escuro)" url={config.logo_dark_url}
+                onUpload={(f) => handleLogoUpload(f, "logo_dark_url")}
+                onRemove={() => setConfig({ ...config, logo_dark_url: "" })} />
+            </div>
+
+            <div className="rounded-md border border-primary/20 bg-primary/5 p-3 flex items-start gap-2">
+              <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              <p className="text-xs text-foreground/80">
+                As cores e logos serão aplicadas na sidebar, header e em toda a plataforma.
+                O nome "Porta do Corretor" será substituído pelo nome da sua organização.
+              </p>
+            </div>
+
+            <div className="flex justify-end">
+              <Button onClick={handleSave} disabled={saving || uploading} size="sm" className="gap-2">
+                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                Salvar personalização
+              </Button>
+            </div>
+          </>
+        )}
+
+        {!config.white_label_enabled && planAllowsWhiteLabel && (
+          <Button onClick={handleSave} disabled={saving} size="sm" variant="outline" className="gap-2">
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            Salvar
+          </Button>
+        )}
+
+        {!planAllowsWhiteLabel && (
+          <Button variant="outline" size="sm" className="gap-2" asChild>
+            <a href="/planos">
+              <Crown className="h-3.5 w-3.5" /> Fazer upgrade
+            </a>
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
