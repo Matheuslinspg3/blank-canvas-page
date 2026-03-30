@@ -373,8 +373,15 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
               <span className="font-medium">R$ {(Number(price) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              {billingCycle === "yearly" ? "Cobrado anualmente" : "Cobrado mensalmente"} via {paymentMethod === "pix" ? "PIX" : "Cartão"}
+              {billingCycle === "yearly"
+                ? `Cobrado anualmente via ${paymentMethod === "pix" ? "PIX" : "Cartão"}`
+                : `Cobrado mensalmente via ${paymentMethod === "pix" ? "PIX" : "Cartão"}`}
             </p>
+            {billingCycle === "yearly" && (
+              <p className="text-xs text-muted-foreground">
+                Equivalente a R$ {(yearlyMonthlyEquivalent / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/mês
+              </p>
+            )}
           </div>
 
           <Button
