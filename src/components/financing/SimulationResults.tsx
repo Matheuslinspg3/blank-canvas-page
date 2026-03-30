@@ -90,16 +90,18 @@ export function SimulationResults({ resultado: r, itbiRate, itbiValue, state }: 
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="resumo">
-          <TabsList className="w-full grid grid-cols-4 h-9 overflow-x-auto">
-            <TabsTrigger value="resumo" className="text-xs gap-1 shrink-0"><BarChart3 className="h-3 w-3 hidden sm:inline" /> Resumo</TabsTrigger>
-            <TabsTrigger value="evolucao" className="text-xs gap-1 shrink-0"><TrendingDown className="h-3 w-3 hidden sm:inline" /> Evolução</TabsTrigger>
-            <TabsTrigger value="renda" className="text-xs gap-1 shrink-0"><Wallet className="h-3 w-3 hidden sm:inline" /> Renda</TabsTrigger>
-            <TabsTrigger value="custos" className="text-xs gap-1 shrink-0"><Receipt className="h-3 w-3 hidden sm:inline" /> Custos</TabsTrigger>
-          </TabsList>
+          <div className="relative">
+            <TabsList className="w-full grid grid-cols-4 h-9 overflow-x-auto">
+              <TabsTrigger value="resumo" className="text-xs gap-1 shrink-0"><BarChart3 className="h-3 w-3 hidden sm:inline" /> Resumo</TabsTrigger>
+              <TabsTrigger value="evolucao" className="text-xs gap-1 shrink-0"><TrendingDown className="h-3 w-3 hidden sm:inline" /> Evolução</TabsTrigger>
+              <TabsTrigger value="renda" className="text-xs gap-1 shrink-0"><Wallet className="h-3 w-3 hidden sm:inline" /> Renda</TabsTrigger>
+              <TabsTrigger value="custos" className="text-xs gap-1 shrink-0"><Receipt className="h-3 w-3 hidden sm:inline" /> Custos</TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* ── Resumo ── */}
           <TabsContent value="resumo" className="space-y-4 mt-4">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
               {metricCards.map(({ label, value, icon: Icon, accent }) => (
                 <div key={label} className={`rounded-xl border p-3 ${accent ? 'bg-primary/5 border-primary/20' : 'bg-muted/30'}`}>
                   <div className="flex items-center gap-1.5 text-muted-foreground text-[10px] mb-1.5">
@@ -167,6 +169,7 @@ export function SimulationResults({ resultado: r, itbiRate, itbiValue, state }: 
 
           {/* ── Evolução ── */}
           <TabsContent value="evolucao" className="mt-4">
+            <div className="relative">
             <div className="overflow-x-auto rounded-lg border">
               <table className="w-full text-xs">
                 <thead>
@@ -194,6 +197,8 @@ export function SimulationResults({ resultado: r, itbiRate, itbiValue, state }: 
                   ))}
                 </tbody>
               </table>
+            </div>
+            <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-background to-transparent pointer-events-none sm:hidden rounded-r-lg" />
             </div>
             <Button
               variant="ghost" size="sm" className="w-full mt-2 gap-1.5 text-xs"
@@ -231,7 +236,7 @@ export function SimulationResults({ resultado: r, itbiRate, itbiValue, state }: 
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3 text-xs mt-4">
+              <div className="grid grid-cols-1 min-[380px]:grid-cols-3 gap-3 text-xs mt-4">
                 {[
                   { label: "Renda bruta", value: fmtBRL(r.primeiraParcela.parcela / r.comprometimentoRenda || 0) },
                   { label: "Renda mínima", value: fmtBRL(r.rendaMinimaExigida) },
