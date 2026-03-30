@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription, SubscriptionPlan } from "@/hooks/useSubscription";
 import { useFreeTrialExpired } from "@/hooks/useFreeTrialExpired";
+import { CheckoutDialog } from "@/components/billing/CheckoutDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -161,6 +162,7 @@ const mainFeatureKeys = [
 export default function Plans() {
   const [annual, setAnnual] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
+  const [checkoutPlan, setCheckoutPlan] = useState<SubscriptionPlan | null>(null);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { session } = useAuth();
@@ -231,13 +233,13 @@ export default function Plans() {
       return { 
         label: isCurrent ? "Assinar este plano" : "Selecionar plano", 
         disabled: false, 
-        action: () => navigate("/configuracoes?tab=billing") 
+        action: () => setCheckoutPlan(plan) 
       };
     }
 
     // Active paid subscription — normal upgrade/current logic
     if (isCurrent) return { label: "Plano atual", disabled: true, action: () => {} };
-    if (canUpgradeTo(plan.slug)) return { label: "Fazer upgrade", disabled: false, action: () => navigate("/configuracoes?tab=billing") };
+    if (canUpgradeTo(plan.slug)) return { label: "Fazer upgrade", disabled: false, action: () => setCheckoutPlan(plan) };
     return { label: "Plano inferior", disabled: true, action: () => {} };
   };
 
