@@ -54,78 +54,50 @@ export function useMarketplace(filters: MarketplaceFiltersState) {
     queryKey: ["marketplace-properties", filters, page],
     placeholderData: keepPreviousData,
     queryFn: async () => {
-      let query = supabase
-        .from("marketplace_properties_public")
-        .select("id, title, status, transaction_type, sale_price, rent_price, bedrooms, bathrooms, parking_spots, area_total, area_built, address_city, address_neighborhood, address_state, images, amenities, is_featured, organization_id, property_type_id, created_at", { count: "exact" })
-        .eq("status", "disponivel")
+      const pageSize = (page + 1) * PAGE_SIZE;
+
+      // Build base filter helper
+      const applyFilters = (q: any) => {
+        let query = q.eq("status", "disponivel");
+        if (organizationId) query = query.neq("organization_id", organizationId);
+        if (filters.transactionType && filters.transactionType !== "all") query = query.eq("transaction_type", filters.transactionType);
+        if (filters.propertyTypeId && filters.propertyTypeId !== "all") query = query.eq("property_type_id", filters.propertyTypeId);
+        if (filters.city) query = query.ilike("address_city", `%${filters.city}%`);
+        if (filters.neighborhood) query = query.ilike("address_neighborhood", `%${filters.neighborhood}%`);
+        if (filters.minPrice) query = query.or(`sale_price.gte.${filters.minPrice},rent_price.gte.${filters.minPrice}`);
+        if (filters.maxPrice) query = query.or(`sale_price.lte.${filters.maxPrice},rent_price.lte.${filters.maxPrice}`);
+        if (filters.minBedrooms) query = query.gte("bedrooms", filters.minBedrooms);
+        if (filters.minSuites) query = query.gte("suites", filters.minSuites);
+        if (filters.minBathrooms) query = query.gte("bathrooms", filters.minBathrooms);
+        if (filters.minParking) query = query.gte("parking_spots", filters.minParking);
+        if (filters.minArea) query = query.gte("area_total", filters.minArea);
+        if (filters.maxArea) query = query.lte("area_total", filters.maxArea);
+        if (filters.featured) query = query.eq("is_featured", true);
+        if (filters.amenities.length > 0) query = query.contains("amenities", filters.amenities);
+        return query;
+      };
+
+      // Data query
+      let dataQuery = applyFilters(
+        supabase.from("marketplace_properties_public")
+          .select("id, title, status, transaction_type, sale_price, rent_price, bedrooms, bathrooms, parking_spots, area_total, area_built, address_city, address_neighborhood, address_state, images, amenities, is_featured, organization_id, property_type_id, created_at")
+      )
         .order("is_featured", { ascending: false })
         .order("created_at", { ascending: false })
-        .range(0, (page + 1) * PAGE_SIZE - 1);
+        .range(0, pageSize - 1);
 
-      if (organizationId) {
-        query = query.neq("organization_id", organizationId);
-      }
+      // Separate count query (count: "exact" doesn't work reliably on function-backed views)
+      let countQuery = applyFilters(
+        supabase.from("marketplace_properties_public")
+          .select("id", { count: "exact", head: true })
+      );
 
-      if (filters.transactionType && filters.transactionType !== "all") {
-        query = query.eq("transaction_type", filters.transactionType);
-      }
+      const [dataResult, countResult] = await Promise.all([dataQuery, countQuery]);
 
-      if (filters.propertyTypeId && filters.propertyTypeId !== "all") {
-        query = query.eq("property_type_id", filters.propertyTypeId);
-      }
+      if (dataResult.error) throw dataResult.error;
+      const totalCount = countResult.count ?? dataResult.data?.length ?? 0;
 
-      if (filters.city) {
-        query = query.ilike("address_city", `%${filters.city}%`);
-      }
-
-      if (filters.neighborhood) {
-        query = query.ilike("address_neighborhood", `%${filters.neighborhood}%`);
-      }
-
-      if (filters.minPrice) {
-        query = query.or(`sale_price.gte.${filters.minPrice},rent_price.gte.${filters.minPrice}`);
-      }
-
-      if (filters.maxPrice) {
-        query = query.or(`sale_price.lte.${filters.maxPrice},rent_price.lte.${filters.maxPrice}`);
-      }
-
-      if (filters.minBedrooms) {
-        query = query.gte("bedrooms", filters.minBedrooms);
-      }
-
-      if (filters.minSuites) {
-        query = query.gte("suites", filters.minSuites);
-      }
-
-      if (filters.minBathrooms) {
-        query = query.gte("bathrooms", filters.minBathrooms);
-      }
-
-      if (filters.minParking) {
-        query = query.gte("parking_spots", filters.minParking);
-      }
-
-      if (filters.minArea) {
-        query = query.gte("area_total", filters.minArea);
-      }
-
-      if (filters.maxArea) {
-        query = query.lte("area_total", filters.maxArea);
-      }
-
-      if (filters.featured) {
-        query = query.eq("is_featured", true);
-      }
-
-      if (filters.amenities.length > 0) {
-        query = query.contains("amenities", filters.amenities);
-      }
-
-      const { data, error, count } = await query;
-
-      if (error) throw error;
-      return { properties: (data as unknown) as MarketplaceProperty[], totalCount: count ?? 0 };
+      return { properties: (dataResult.data as unknown) as MarketplaceProperty[], totalCount };
     },
     enabled: !!organizationId,
   });
