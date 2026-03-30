@@ -1,9 +1,11 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useWhiteLabel } from "@/hooks/useWhiteLabel";
 
 export function WelcomeHeader() {
   const { profile } = useAuth();
+  const wl = useWhiteLabel();
   const now = new Date();
   const hour = now.getHours();
 
@@ -12,11 +14,15 @@ export function WelcomeHeader() {
   const firstName = profile?.full_name?.split(" ")[0] || "";
   const dateStr = format(now, "EEEE, d 'de' MMMM", { locale: ptBR });
 
+  const labelText = wl.enabled
+    ? (wl.orgName || "Painel")
+    : isCarnival ? `Carnaval 2026 🎉` : "Central de Performance";
+
   return (
     <div className="space-y-3 page-enter">
       <span className="editorial-label flex items-center gap-2">
         <span className="color-dot-accent" />
-        {isCarnival ? `Carnaval 2026 🎉` : "Central de Performance"}
+        {labelText}
       </span>
       <p className="editorial-label-muted capitalize" style={{ animationDelay: "50ms" }}>
         {dateStr}
