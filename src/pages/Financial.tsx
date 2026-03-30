@@ -235,9 +235,9 @@ function FinancialContent() {
         {finTab === "transactions" && <CashFlowChart data={chartData} />}
 
         <Tabs value={finTab} onValueChange={setFinTab}>
-          <TabsList className="w-full sm:w-auto">
-            <TabsTrigger value="transactions" className="flex-1 sm:flex-initial min-h-[44px]">Transações</TabsTrigger>
-            <TabsTrigger value="invoices" className="flex-1 sm:flex-initial min-h-[44px]">
+          <TabsList className="w-full sm:w-auto overflow-x-auto scrollbar-hide flex-nowrap justify-start">
+            <TabsTrigger value="transactions" className="shrink-0 min-h-[44px]">Transações</TabsTrigger>
+            <TabsTrigger value="invoices" className="shrink-0 min-h-[44px]">
               Cobranças
               {pendingCount > 0 && (
                 <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] rounded-full bg-destructive text-destructive-foreground">
@@ -245,16 +245,16 @@ function FinancialContent() {
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="commissions" className="flex-1 sm:flex-initial min-h-[44px]">Comissões</TabsTrigger>
-            <TabsTrigger value="contracts" className="flex-1 sm:flex-initial min-h-[44px] gap-2">
+            <TabsTrigger value="commissions" className="shrink-0 min-h-[44px]">Comissões</TabsTrigger>
+            <TabsTrigger value="contracts" className="shrink-0 min-h-[44px] gap-2">
               <FileText className="h-4 w-4" />
               Contratos
             </TabsTrigger>
-            <TabsTrigger value="templates" className="flex-1 sm:flex-initial min-h-[44px] gap-2">
+            <TabsTrigger value="templates" className="shrink-0 min-h-[44px] gap-2">
               <LayoutTemplate className="h-4 w-4" />
               Templates
             </TabsTrigger>
-            <TabsTrigger value="financiamentos" className="flex-1 sm:flex-initial min-h-[44px] gap-2">
+            <TabsTrigger value="financiamentos" className="shrink-0 min-h-[44px] gap-2">
               <Landmark className="h-4 w-4" />
               Financiamentos
             </TabsTrigger>
