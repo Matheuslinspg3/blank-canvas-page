@@ -299,7 +299,7 @@ export default function MyPlan() {
                     <CardTitle className="text-sm">{plan.name}</CardTitle>
                     <div className="pt-1">
                       <span className="text-2xl font-bold">
-                        R$ {Math.round(monthlyEq / 100)}
+                        R$ {(monthlyEq / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                       <span className="text-xs text-muted-foreground">/mês</span>
                     </div>
