@@ -1,60 +1,27 @@
 
 
-## Plano: Agrupar imóveis por organização no Marketplace
+## Problema: View do Marketplace quebrada por tipo enum
 
-### Objetivo
-Exibir os imóveis do Marketplace organizados por imobiliária/corretor, mostrando inicialmente 5-10 imóveis de cada organização com um botão "Ver mais" para expandir.
+### Diagnóstico
+A view `marketplace_properties_public` é alimentada pela função `get_marketplace_properties_public()`. Essa função declara `transaction_type text` e `status text` no retorno, mas as colunas reais na tabela `marketplace_properties` são do tipo enum (`transaction_type` e `property_status`). Isso causa erro de tipo e a view retorna zero resultados.
 
-### Como vai funcionar
+Existem **1.102 imóveis disponíveis** no banco, mas nenhum aparece porque a view falha silenciosamente.
 
-1. **Seção por organização** — Em vez de uma grade plana, o Marketplace mostrará blocos separados por organização. Cada bloco terá:
-   - Nome e logo da organização (cabeçalho)
-   - Grid com 5-6 imóveis iniciais (colapsado)
-   - Botão "Ver mais imóveis" que expande para mostrar todos os imóveis daquela org
-   - Contagem total de imóveis da org
+### Solução
+Criar uma migration que recria a função com casts explícitos `::text` nos campos enum:
 
-2. **Busca do nome/logo da organização** — O hook `useMarketplace` será atualizado para buscar dados da tabela `organizations` (name, logo_url) com base nos `organization_id` distintos retornados.
+**Arquivo: Nova migration SQL**
+- `DROP VIEW` e `DROP FUNCTION` existentes
+- Recriar `get_marketplace_properties_public()` com `mp.transaction_type::text` e `mp.status::text` no SELECT
+- Recriar a view e manter os GRANTs
 
-3. **Agrupamento no frontend** — Os imóveis serão agrupados por `organization_id` usando `useMemo`, criando seções visuais distintas.
+### Alteração específica
 
-### Alterações técnicas
-
-**Arquivo: `src/hooks/useMarketplace.ts`**
-- Adicionar query para buscar organizações distintas que possuem imóveis no marketplace (`organizations` table — `id`, `name`, `logo_url`, `slug`)
-- Exportar novo hook ou dados adicionais: `organizationInfo`
-
-**Arquivo: Novo componente `src/components/marketplace/MarketplaceOrgSection.tsx`**
-- Componente que recebe org info + lista de propriedades
-- Estado local `expanded` (default: false)
-- Mostra 6 imóveis quando colapsado, todos quando expandido
-- Cabeçalho com logo + nome da org + contagem
-- Botão "Ver mais X imóveis" / "Ver menos"
-
-**Arquivo: `src/pages/Marketplace.tsx`**
-- Agrupar `properties` por `organization_id`
-- Renderizar um `MarketplaceOrgSection` por grupo
-- Manter filtros e busca existentes funcionando normalmente
-
-### Layout visual
-
-```text
-┌─────────────────────────────────────────┐
-│  [Logo] Imobiliária XYZ  (12 imóveis)  │
-├─────────────────────────────────────────┤
-│  [Card] [Card] [Card]                  │
-│  [Card] [Card] [Card]                  │
-│        [ Ver mais 6 imóveis ]          │
-└─────────────────────────────────────────┘
-
-┌─────────────────────────────────────────┐
-│  [Logo] Corretor ABC  (3 imóveis)      │
-├─────────────────────────────────────────┤
-│  [Card] [Card] [Card]                  │
-└─────────────────────────────────────────┘
+```sql
+-- No SELECT da função, mudar:
+mp.transaction_type,   -->  mp.transaction_type::text,
+mp.status,             -->  mp.status::text,
 ```
 
-### Observações
-- Organizações com mais imóveis aparecem primeiro
-- Nenhuma migração de banco necessária — usa tabelas existentes (`organizations`, `marketplace_properties_public`)
-- Os build errors existentes (vite not found, TypeScript) são problemas de ambiente/dependências, não relacionados a esta feature
+Nenhuma alteração no frontend é necessária — o código já funciona, só precisa da view retornando dados corretamente.
 
