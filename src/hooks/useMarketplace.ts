@@ -1,7 +1,7 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useState, useCallback, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { type MarketplaceFiltersState, defaultMarketplaceFilters } from "@/components/marketplace/MarketplaceFilters";
 
 export interface MarketplaceProperty {
@@ -34,7 +34,6 @@ export interface MarketplaceProperty {
   organization_id: string | null;
 }
 
-// Minimal row shape returned from marketplace_properties_public view filter queries
 interface MarketplaceViewRow {
   address_city?: string | null;
   address_neighborhood?: string | null;
@@ -43,57 +42,48 @@ interface MarketplaceViewRow {
   organization_id?: string | null;
 }
 
-const PAGE_SIZE = 12;
-
 export function useMarketplace(filters: MarketplaceFiltersState) {
   const { profile } = useAuth();
   const organizationId = profile?.organization_id;
-  const [page, setPage] = useState(0);
+
+  const applyFilters = useCallback((q: any) => {
+    let query = q.eq("status", "disponivel");
+    if (organizationId) query = query.neq("organization_id", organizationId);
+    if (filters.transactionType && filters.transactionType !== "all") query = query.eq("transaction_type", filters.transactionType);
+    if (filters.propertyTypeId && filters.propertyTypeId !== "all") query = query.eq("property_type_id", filters.propertyTypeId);
+    if (filters.city) query = query.ilike("address_city", `%${filters.city}%`);
+    if (filters.neighborhood) query = query.ilike("address_neighborhood", `%${filters.neighborhood}%`);
+    if (filters.minPrice) query = query.or(`sale_price.gte.${filters.minPrice},rent_price.gte.${filters.minPrice}`);
+    if (filters.maxPrice) query = query.or(`sale_price.lte.${filters.maxPrice},rent_price.lte.${filters.maxPrice}`);
+    if (filters.minBedrooms) query = query.gte("bedrooms", filters.minBedrooms);
+    if (filters.minSuites) query = query.gte("suites", filters.minSuites);
+    if (filters.minBathrooms) query = query.gte("bathrooms", filters.minBathrooms);
+    if (filters.minParking) query = query.gte("parking_spots", filters.minParking);
+    if (filters.minArea) query = query.gte("area_total", filters.minArea);
+    if (filters.maxArea) query = query.lte("area_total", filters.maxArea);
+    if (filters.featured) query = query.eq("is_featured", true);
+    if (filters.amenities.length > 0) query = query.contains("amenities", filters.amenities);
+    return query;
+  }, [organizationId, filters]);
 
   const { data, isLoading, error, isFetching } = useQuery({
-    queryKey: ["marketplace-properties", filters, page],
+    queryKey: ["marketplace-properties", filters],
     placeholderData: keepPreviousData,
     queryFn: async () => {
-      const pageSize = (page + 1) * PAGE_SIZE;
-
-      // Build base filter helper
-      const applyFilters = (q: any) => {
-        let query = q.eq("status", "disponivel");
-        if (organizationId) query = query.neq("organization_id", organizationId);
-        if (filters.transactionType && filters.transactionType !== "all") query = query.eq("transaction_type", filters.transactionType);
-        if (filters.propertyTypeId && filters.propertyTypeId !== "all") query = query.eq("property_type_id", filters.propertyTypeId);
-        if (filters.city) query = query.ilike("address_city", `%${filters.city}%`);
-        if (filters.neighborhood) query = query.ilike("address_neighborhood", `%${filters.neighborhood}%`);
-        if (filters.minPrice) query = query.or(`sale_price.gte.${filters.minPrice},rent_price.gte.${filters.minPrice}`);
-        if (filters.maxPrice) query = query.or(`sale_price.lte.${filters.maxPrice},rent_price.lte.${filters.maxPrice}`);
-        if (filters.minBedrooms) query = query.gte("bedrooms", filters.minBedrooms);
-        if (filters.minSuites) query = query.gte("suites", filters.minSuites);
-        if (filters.minBathrooms) query = query.gte("bathrooms", filters.minBathrooms);
-        if (filters.minParking) query = query.gte("parking_spots", filters.minParking);
-        if (filters.minArea) query = query.gte("area_total", filters.minArea);
-        if (filters.maxArea) query = query.lte("area_total", filters.maxArea);
-        if (filters.featured) query = query.eq("is_featured", true);
-        if (filters.amenities.length > 0) query = query.contains("amenities", filters.amenities);
-        return query;
-      };
-
-      // Data query
       let dataQuery = applyFilters(
         supabase.from("marketplace_properties_public")
           .select("id, title, status, transaction_type, sale_price, rent_price, bedrooms, bathrooms, parking_spots, area_total, area_built, address_city, address_neighborhood, address_state, images, amenities, is_featured, organization_id, property_type_id, created_at")
       )
         .order("is_featured", { ascending: false })
         .order("created_at", { ascending: false })
-        .range(0, pageSize - 1);
+        .range(0, 999);
 
-      // Separate count query (count: "exact" doesn't work reliably on function-backed views)
       let countQuery = applyFilters(
         supabase.from("marketplace_properties_public")
           .select("id", { count: "exact", head: true })
       );
 
       const [dataResult, countResult] = await Promise.all([dataQuery, countQuery]);
-
       if (dataResult.error) throw dataResult.error;
       const totalCount = countResult.count ?? dataResult.data?.length ?? 0;
 
@@ -104,19 +94,9 @@ export function useMarketplace(filters: MarketplaceFiltersState) {
 
   const properties = data?.properties ?? [];
   const totalCount = data?.totalCount ?? 0;
-  const hasMore = properties.length < totalCount;
-
-  const loadMore = useCallback(() => {
-    setPage((p) => p + 1);
-  }, []);
-
-  const resetPage = useCallback(() => {
-    setPage(0);
-  }, []);
 
   const logContactAccess = async (propertyId: string) => {
     if (!organizationId || !profile?.user_id) return;
-
     await supabase.from("marketplace_contact_access").insert({
       user_id: profile.user_id,
       organization_id: organizationId,
@@ -124,20 +104,9 @@ export function useMarketplace(filters: MarketplaceFiltersState) {
     });
   };
 
-  return {
-    properties,
-    isLoading,
-    isFetching,
-    error,
-    totalCount,
-    hasMore,
-    loadMore,
-    resetPage,
-    logContactAccess,
-  };
+  return { properties, isLoading, isFetching, error, totalCount, logContactAccess };
 }
 
-// Hook to fetch marketplace filter data (cities, neighborhoods, property types, amenities)
 export interface MarketplaceOrgInfo {
   id: string;
   name: string;
@@ -174,20 +143,14 @@ export function useMarketplaceFilterData(cityFilter?: string) {
         .select("address_city")
         .eq("status", "disponivel")
         .not("address_city", "is", null);
-
-      if (organizationId) {
-        query = query.neq("organization_id", organizationId);
-      }
-
+      if (organizationId) query = query.neq("organization_id", organizationId);
       const { data, error } = await query;
       if (error) throw error;
-
       const cityMap = new Map<string, number>();
       (data as MarketplaceViewRow[]).forEach((d) => {
         const city = (d.address_city as string | null)?.trim();
         if (city) cityMap.set(city, (cityMap.get(city) || 0) + 1);
       });
-
       return Array.from(cityMap.entries())
         .map(([city, count]) => ({ city, count }))
         .sort((a, b) => a.city.localeCompare(b.city));
@@ -204,24 +167,15 @@ export function useMarketplaceFilterData(cityFilter?: string) {
         .select("address_neighborhood")
         .eq("status", "disponivel")
         .not("address_neighborhood", "is", null);
-
-      if (organizationId) {
-        query = query.neq("organization_id", organizationId);
-      }
-
-      if (cityFilter) {
-        query = query.ilike("address_city", `%${cityFilter}%`);
-      }
-
+      if (organizationId) query = query.neq("organization_id", organizationId);
+      if (cityFilter) query = query.ilike("address_city", `%${cityFilter}%`);
       const { data, error } = await query;
       if (error) throw error;
-
       const neighMap = new Map<string, number>();
       (data as MarketplaceViewRow[]).forEach((d) => {
         const n = (d.address_neighborhood as string | null)?.trim();
         if (n) neighMap.set(n, (neighMap.get(n) || 0) + 1);
       });
-
       return Array.from(neighMap.entries())
         .map(([neighborhood, count]) => ({ neighborhood, count }))
         .sort((a, b) => a.neighborhood.localeCompare(b.neighborhood));
@@ -238,23 +192,16 @@ export function useMarketplaceFilterData(cityFilter?: string) {
         .select("property_type_id")
         .eq("status", "disponivel")
         .not("property_type_id", "is", null);
-
-      if (organizationId) {
-        query = query.neq("organization_id", organizationId);
-      }
-
+      if (organizationId) query = query.neq("organization_id", organizationId);
       const { data, error } = await query;
       if (error) throw error;
-
       const typeIds = [...new Set((data as MarketplaceViewRow[]).map((d) => d.property_type_id).filter(Boolean))] as string[];
       if (typeIds.length === 0) return [];
-
       const { data: types, error: typesError } = await supabase
         .from("property_types")
         .select("id, name")
         .in("id", typeIds)
         .order("name");
-
       if (typesError) throw typesError;
       return types || [];
     },
@@ -270,19 +217,13 @@ export function useMarketplaceFilterData(cityFilter?: string) {
         .select("amenities")
         .eq("status", "disponivel")
         .not("amenities", "is", null);
-
-      if (organizationId) {
-        query = query.neq("organization_id", organizationId);
-      }
-
+      if (organizationId) query = query.neq("organization_id", organizationId);
       const { data, error } = await query;
       if (error) throw error;
-
       const allAmenities = new Set<string>();
       (data as MarketplaceViewRow[]).forEach((d) => {
         if (d.amenities) d.amenities.forEach((a: string) => allAmenities.add(a));
       });
-
       return Array.from(allAmenities).sort();
     },
     enabled: !!organizationId,
