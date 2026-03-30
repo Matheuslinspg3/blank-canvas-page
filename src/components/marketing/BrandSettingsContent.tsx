@@ -34,6 +34,7 @@ const DEFAULT_BRAND: BrandConfig = {
   tagline: "",
   logo_url: "",
   logo_dark_url: "",
+  white_label_enabled: false,
 };
 
 const FONT_OPTIONS = [
