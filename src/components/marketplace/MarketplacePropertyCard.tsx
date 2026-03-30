@@ -46,9 +46,7 @@ export const MarketplacePropertyCard = React.memo(function MarketplacePropertyCa
           <OptimizedImage
             src={proxyDriveImageUrl(property.images[0])}
             alt={property.title}
-            aspectRatio="16/10"
-            wrapperClassName="w-full h-full"
-            className="group-hover:scale-[1.03] transition-transform duration-700 ease-out-expo"
+            className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700 ease-out-expo"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
