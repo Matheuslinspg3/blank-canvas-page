@@ -140,11 +140,6 @@ const FAQ_ITEMS = [
   { q: "Posso cancelar?", a: "Sim, sem multa. Você mantém acesso até o fim do período pago." },
 ];
 
-const addonMeta: Record<string, { icon: React.ElementType; bullets: string[] }> = {
-  ia: { icon: Sparkles, bullets: ["+50 créditos de IA", "+10 artes com IA", "+5 landing pages"] },
-  whatsapp: { icon: MessageCircle, bullets: ["WhatsApp Business integrado", "Valentina IA no WhatsApp", "Notificações de leads"] },
-  automations: { icon: Workflow, bullets: ["+5 automações extras", "Templates prontos de automação", "Fluxos avançados"] },
-};
 
 /* ─── Main Features for card display ─── */
 const mainFeatureKeys = [
@@ -188,7 +183,7 @@ export default function Plans() {
   });
 
   const mainPlans = useMemo(() => allPlans.filter((p) => (p as any).plan_type === 'plan'), [allPlans]);
-  const addons = useMemo(() => allPlans.filter(p => (p as any).plan_type === 'addon'), [allPlans]);
+  
 
   const currentSlug = isLoggedIn ? getCurrentPlanSlug() : null;
   const trialActive = isLoggedIn ? isTrialActive() : false;
