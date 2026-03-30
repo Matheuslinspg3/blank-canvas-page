@@ -197,10 +197,12 @@ export default function Plans() {
     return Math.round(cents * (1 - DISCOUNT_PCT / 100));
   };
 
-  // Check if user needs to pay (trial expired, free plan expired, or on free plan)
+  // Check if user needs to pay (trial expired, free plan expired, or subscription not truly active)
+  const isSubActive = subscription?.status === "active" || 
+    (subscription?.status === "trial" && subscription.trial_end && new Date(subscription.trial_end) > new Date());
   const needsToPay = isLoggedIn && (
-    trialActive || 
-    currentSlug === "gratuito" || 
+    !isSubActive ||
+    currentSlug === "gratuito" ||
     qualifiesForDiscount ||
     subscription?.status === "expired" ||
     subscription?.status === "cancelled"
