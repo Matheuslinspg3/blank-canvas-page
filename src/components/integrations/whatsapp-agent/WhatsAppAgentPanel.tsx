@@ -1,11 +1,12 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wifi, Bot, Building2, UserCheck, ArrowRightLeft } from "lucide-react";
+import { Wifi, Bot, Building2, UserCheck, ArrowRightLeft, MessageCircle } from "lucide-react";
 import { WhatsAppIntegrationCard } from "@/components/integrations/WhatsAppIntegrationCard";
 import { AgentBehaviorTab } from "./AgentBehaviorTab";
 import { AgentPropertiesTab } from "./AgentPropertiesTab";
 import { AgentQualificationTab } from "./AgentQualificationTab";
 import { AgentTransferTab } from "./AgentTransferTab";
+import { WhatsAppChatPanel } from "./WhatsAppChatPanel";
 import { useWhatsAppInstance } from "@/hooks/useWhatsAppInstance";
 
 export function WhatsAppAgentPanel() {
