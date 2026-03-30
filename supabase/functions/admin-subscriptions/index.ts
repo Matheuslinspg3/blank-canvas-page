@@ -107,11 +107,16 @@ Deno.serve(async (req) => {
       }
 
       // Update subscription plan/status if provided
-      if (plan_id || status || current_period_end) {
+      if (plan_id || status || current_period_end || trial_ends_at !== undefined) {
         const subUpdate: Record<string, any> = { updated_at: new Date().toISOString() };
         if (plan_id) subUpdate.plan_id = plan_id;
         if (status) subUpdate.status = status;
         if (current_period_end) subUpdate.current_period_end = current_period_end;
+
+        // Keep subscription trial in sync with organization trial adjustments from admin panel
+        if (trial_ends_at !== undefined) {
+          subUpdate.trial_end = trial_ends_at;
+        }
 
         // Check if subscription exists
         const { data: existingSub } = await supabaseAdmin
