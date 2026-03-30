@@ -262,8 +262,8 @@ export default function Plans() {
       {/* ─── Current plan banner (logged in) ─── */}
       {isLoggedIn && currentPlan && (
         <div className="bg-muted/50 border-b">
-          <div className="max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
+          <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <Badge variant="secondary" className="text-sm">
                 {currentPlan.name}
               </Badge>
@@ -273,7 +273,7 @@ export default function Plans() {
                   : "Plano ativo"}
               </span>
             </div>
-            <Button variant="outline" size="sm" onClick={() => navigate("/configuracoes?tab=billing")}>
+            <Button variant="outline" size="sm" className="w-full sm:w-auto min-h-[44px]" onClick={() => navigate("/configuracoes?tab=billing")}>
               Gerenciar assinatura
             </Button>
           </div>
@@ -304,7 +304,7 @@ export default function Plans() {
         </p>
 
         {/* Toggle */}
-        <div className="inline-flex items-center gap-3 bg-muted/50 rounded-full px-4 py-2 border">
+        <div className="inline-flex items-center gap-3 bg-muted/50 rounded-full px-4 py-2 border my-2">
           <span className={cn("text-sm font-medium transition-colors", !annual ? "text-foreground" : "text-muted-foreground")}>Mensal</span>
           <Switch checked={annual} onCheckedChange={setAnnual} />
           <span className={cn("text-sm font-medium transition-colors", annual ? "text-foreground" : "text-muted-foreground")}>Anual</span>
@@ -318,7 +318,7 @@ export default function Plans() {
 
       {/* ─── PLAN CARDS ─── */}
       <section className="max-w-7xl mx-auto px-4 pb-16">
-        <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory md:grid md:grid-cols-3 lg:grid-cols-6 md:overflow-visible md:pb-0">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {mainPlans.map((plan) => {
             const f = plan.features as Record<string, any> || {};
             const meta: PlanMeta = planMeta[plan.slug] || { icon: Star, ctaLabel: "Selecionar", ctaVariant: "default" as const };
@@ -340,9 +340,9 @@ export default function Plans() {
               <Card
                 key={plan.id}
                 className={cn(
-                  "min-w-[280px] snap-center flex flex-col relative transition-all",
-                  meta.highlighted && "border-primary ring-2 ring-primary/20 shadow-lg scale-[1.02]",
-                  isCurrent && "border-primary/50"
+                  "flex flex-col relative transition-all",
+                  meta.highlighted && "border-primary ring-2 ring-primary/20 shadow-lg sm:scale-[1.02]",
+                  isCurrent && !meta.highlighted && "ring-2 ring-primary shadow-lg shadow-primary/20 border-primary/50"
                 )}
               >
                 {meta.badge && (
@@ -390,7 +390,7 @@ export default function Plans() {
                   <Separator className="mb-4" />
 
                   {/* Limits */}
-                  <div className="space-y-2 mb-4 text-sm">
+                  <div className="space-y-2.5 mb-4 text-sm">
                     <div className="flex items-center gap-2">
                       <Users className="h-4 w-4 text-muted-foreground shrink-0" />
                       <span>{limitDisplay(maxUsers)} {maxUsers === 1 ? "usuário" : "usuários"}</span>
@@ -467,7 +467,7 @@ export default function Plans() {
         <h2 className="text-2xl font-bold text-center mb-2">Potencialize seu plano</h2>
         <p className="text-muted-foreground text-center mb-8">Módulos extras para expandir sua operação</p>
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {addons.map((addon) => {
             const f = addon.features as Record<string, any> || {};
             const type = f.addon_type as string;

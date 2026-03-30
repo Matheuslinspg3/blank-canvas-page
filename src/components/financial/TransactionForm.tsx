@@ -95,7 +95,7 @@ export function TransactionForm({ open, onOpenChange, transaction }: Transaction
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Tipo *</Label>
               <Select
@@ -135,7 +135,7 @@ export function TransactionForm({ open, onOpenChange, transaction }: Transaction
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Valor *</Label>
               <Input
