@@ -166,6 +166,30 @@ export function useMarketplace(filters: MarketplaceFiltersState) {
 }
 
 // Hook to fetch marketplace filter data (cities, neighborhoods, property types, amenities)
+export interface MarketplaceOrgInfo {
+  id: string;
+  name: string;
+  logo_url: string | null;
+  slug: string;
+}
+
+export function useMarketplaceOrganizations(orgIds: string[]) {
+  return useQuery({
+    queryKey: ["marketplace-org-info", orgIds],
+    queryFn: async () => {
+      if (orgIds.length === 0) return [] as MarketplaceOrgInfo[];
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("id, name, logo_url, slug")
+        .in("id", orgIds);
+      if (error) throw error;
+      return (data ?? []) as MarketplaceOrgInfo[];
+    },
+    enabled: orgIds.length > 0,
+    staleTime: 120000,
+  });
+}
+
 export function useMarketplaceFilterData(cityFilter?: string) {
   const { profile } = useAuth();
   const organizationId = profile?.organization_id;
