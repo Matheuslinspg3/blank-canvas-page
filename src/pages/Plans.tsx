@@ -632,6 +632,13 @@ export default function Plans() {
           </div>
         </section>
       )}
+
+      {/* Checkout dialog */}
+      <CheckoutDialog
+        open={!!checkoutPlan}
+        onOpenChange={(open) => { if (!open) setCheckoutPlan(null); }}
+        plan={checkoutPlan}
+      />
     </div>
   );
 }
