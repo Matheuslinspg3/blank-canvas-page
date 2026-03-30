@@ -1,45 +1,72 @@
 
 
-## Adicionar Plano Personalizado na pagina /planos
+## Corrigir perda de dados no marketplace ao editar/duplicar imoveis
 
-O componente `CustomPlanBuilder` ja existe e funciona dentro do `PlanCatalogDialog` (configuracoes). O objetivo e integra-lo diretamente na pagina `/planos`, visivel para todos os usuarios, como uma secao dedicada abaixo dos cards de planos principais.
+### Problemas identificados
+
+1. **Marketplace nao sincroniza ao editar**: Quando um imovel publicado no marketplace e editado, os dados no `marketplace_properties` ficam desatualizados. O codigo so chama `publishToMarketplace` quando o checkbox e marcado explicitamente — e o checkbox reseta para `false` ao abrir o form (linha 246 do PropertyForm).
+
+2. **`sale_price_financed` e `payment_options` nao existem na tabela `marketplace_properties`**: A tabela nao possui essas colunas. O `publishToMarketplace` (usePropertyBulkOps.ts linha 121-134) nao inclui esses campos no upsert. Mesmo que o imovel tenha esses dados no CRM, eles nunca chegam ao marketplace.
+
+3. **Duplicacao nao afeta marketplace diretamente** — o imovel duplicado e novo e nao e publicado automaticamente, o que e correto. Porem o imovel ORIGINAL pode perder sincronizacao se o usuario editar apos duplicar.
 
 ---
 
-### Implementacao
+### Solucao
 
-**Arquivo: `src/pages/Plans.tsx`**
+#### 1. Migracao: adicionar colunas ao marketplace_properties
 
-1. Importar o componente `CustomPlanBuilder` de `@/components/billing/CustomPlanBuilder`
-
-2. Adicionar uma nova secao entre os cards de planos e a tabela de comparacao (antes da linha 461), com:
-   - Separador visual com titulo "Monte seu Plano Personalizado"
-   - Subtitulo explicativo: "Escolha apenas os modulos que voce precisa"
-   - O componente `<CustomPlanBuilder />` renderizado dentro de um container com `max-w-5xl mx-auto px-4`
-
-A secao tera este formato:
-
-```tsx
-{/* CUSTOM PLAN BUILDER */}
-<section className="max-w-5xl mx-auto px-4 pb-16">
-  <Separator className="mb-8" />
-  <CustomPlanBuilder />
-</section>
+```sql
+ALTER TABLE public.marketplace_properties
+  ADD COLUMN IF NOT EXISTS sale_price_financed bigint,
+  ADD COLUMN IF NOT EXISTS payment_options text[];
 ```
 
-O `CustomPlanBuilder` ja possui:
-- Header proprio ("Monte seu Plano")
-- Toggle mensal/anual
-- Cards de modulos por categoria (gestao, marketing, IA, integracao)
-- Controle de quantidade para modulos numericos
-- Resumo com preco total
-- Integracao com `CheckoutDialog` para pagamento via Asaas
+#### 2. Atualizar publishToMarketplace (usePropertyBulkOps.ts)
 
-**Nenhuma mudanca em logica, queries ou hooks** — apenas 1 import e ~5 linhas de JSX.
+No upsert do `publishToMarketplace` (linha 121-134), adicionar os novos campos:
+
+```ts
+sale_price_financed: prop.sale_price_financed,
+payment_options: (prop as any).payment_options || null,
+```
+
+Fazer o mesmo no `bulkPublishToMarketplace` (o trecho que monta o array de rows).
+
+#### 3. Auto-sync ao editar imovel publicado (Properties.tsx)
+
+No `executePropertySubmit`, apos o `updateProperty`, verificar se o imovel esta publicado no marketplace e re-sincronizar automaticamente:
+
+```ts
+// Apos updateProperty
+if (editingProperty) {
+  await updateProperty(editingProperty.id, data, images, ownerData);
+  propertyId = editingProperty.id;
+  // Auto-sync marketplace if published
+  publishToMarketplace(editingProperty.id).catch(() => {});
+}
+```
+
+Porem, para evitar publicar um imovel que NAO esta no marketplace, precisamos checar primeiro. A abordagem:
+
+- Importar `useMarketplaceStatus` no Properties.tsx
+- No `executePropertySubmit`, se `editingProperty` e `publishedIds.has(editingProperty.id)`, chamar `publishToMarketplace` automaticamente (fire-and-forget)
+- Se o usuario tambem marcou o checkbox de publicar, nao duplicar a chamada
+
+#### 4. Atualizar a view publica (se necessario)
+
+Verificar se `marketplace_properties_public` precisa expor `sale_price_financed` e `payment_options` para consumidores. Se sim, atualizar a view.
+
+---
 
 ### Arquivos modificados
 
 | Arquivo | Mudanca |
 |---------|---------|
-| `src/pages/Plans.tsx` | Import + secao com `<CustomPlanBuilder />` |
+| Nova migracao SQL | `ALTER TABLE` para adicionar `sale_price_financed` e `payment_options` |
+| `src/hooks/usePropertyBulkOps.ts` | Incluir novos campos no upsert de publish e bulkPublish |
+| `src/pages/Properties.tsx` | Importar `useMarketplaceStatus`, auto-sync marketplace ao editar imovel ja publicado |
+| View `marketplace_properties_public` (migracao) | Adicionar as novas colunas se precisar exibi-las publicamente |
+
+Nenhuma mudanca em logica de negocio existente — apenas adicao de campos e auto-sync.
 
