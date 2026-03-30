@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/accordion";
 import {
   Check, X, Users, Building2, UserCheck, HardDrive, Sparkles, Store,
-  Crown, Star, Briefcase, Zap, MessageCircle, Bot, Workflow,
+  Crown, Star, Briefcase, Zap,
   ChevronDown, ArrowRight, Shield, Clock, Landmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
