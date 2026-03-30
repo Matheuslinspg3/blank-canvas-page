@@ -71,7 +71,7 @@ export function AmenitiesPickerDialog({ selected, onChange }: AmenitiesPickerDia
           )}
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px] max-h-[80vh] flex flex-col">
+      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Tags className="h-5 w-5" />
@@ -107,13 +107,13 @@ export function AmenitiesPickerDialog({ selected, onChange }: AmenitiesPickerDia
         )}
 
         {/* Grouped list */}
-        <ScrollArea className="flex-1 min-h-0 max-h-[400px]" type="always">
+        <ScrollArea className="flex-1 min-h-[260px] h-[400px] max-h-[50vh] rounded-md border pr-2" type="always">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="space-y-4 pr-4">
+            <div className="space-y-4 p-3 pr-4">
               {Object.entries(grouped).map(([category, items]) => (
                 <div key={category}>
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
