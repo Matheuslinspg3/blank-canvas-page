@@ -523,6 +523,10 @@ export default function Properties() {
     if (editingProperty) {
       await updateProperty(editingProperty.id, data, images, ownerData);
       propertyId = editingProperty.id;
+      // Auto-sync marketplace if property is already published (and user didn't explicitly request publish)
+      if (!publishMarketplace && publishedIds.has(editingProperty.id)) {
+        publishToMarketplace(editingProperty.id).catch(() => {});
+      }
     } else {
       const result = await createProperty(data, images, ownerData);
       propertyId = result?.id;
@@ -531,7 +535,7 @@ export default function Properties() {
       // Fire-and-forget: run in background so user can navigate away
       publishToMarketplace(propertyId).catch(() => {});
     }
-  }, [editingProperty, updateProperty, createProperty, publishToMarketplace]);
+  }, [editingProperty, updateProperty, createProperty, publishToMarketplace, publishedIds]);
 
   const handleFormSubmit = async (data: PropertyFormData, images: PropertyImage[], ownerData?: { name?: string; phone?: string; email?: string; document?: string; notes?: string }, publishMarketplace?: boolean) => {
     // Only check duplicates for new properties (not edits)
