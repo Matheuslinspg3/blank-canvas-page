@@ -107,7 +107,7 @@ export function AmenitiesPickerDialog({ selected, onChange }: AmenitiesPickerDia
         )}
 
         {/* Grouped list */}
-        <ScrollArea className="flex-1 min-h-0 max-h-[400px]">
+        <ScrollArea className="flex-1 min-h-0 max-h-[400px]" type="always">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
