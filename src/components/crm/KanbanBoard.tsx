@@ -462,19 +462,8 @@ export function KanbanBoard() {
     );
   }
 
-  const conversionOptions = useMemo(() => {
-    const set = new Set<string>();
-    leads.forEach((lead) => {
-      const ci = (lead as any).conversion_identifier as string | null;
-      if (ci) {
-        ci.split(',').forEach((s: string) => {
-          const trimmed = s.trim();
-          if (trimmed) set.add(trimmed);
-        });
-      }
-    });
-    return [...set].sort();
-  }, [leads]);
+
+
 
   return (
     <div className="space-y-4 lg:space-y-6">
