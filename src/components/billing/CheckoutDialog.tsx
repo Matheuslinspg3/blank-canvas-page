@@ -43,8 +43,8 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
   if (!plan) return null;
 
   const price = billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly;
-  const monthlyEquivalent = billingCycle === "yearly" ? (plan.price_yearly / 12 / 100).toFixed(0) : null;
-  const savings = billingCycle === "yearly" ? ((plan.price_monthly * 12 - plan.price_yearly) / 100).toFixed(0) : null;
+  const yearlyMonthlyEquivalent = Math.round(plan.price_yearly / 12);
+  const yearlySavings = plan.price_monthly * 12 - plan.price_yearly;
 
   const formatCpf = (value: string) => {
     const digits = value.replace(/\D/g, "").slice(0, 14);
