@@ -446,7 +446,7 @@ export default function Plans() {
                     return (
                       <Button
                         variant={meta.ctaVariant}
-                        className={cn("w-full mt-auto", meta.highlighted && "shadow-md")}
+                        className={cn("w-full mt-auto min-h-[44px]", meta.highlighted && "shadow-md")}
                         onClick={cta.action}
                         disabled={cta.disabled}
                       >
