@@ -197,10 +197,36 @@ export default function Plans() {
     return Math.round(cents * (1 - DISCOUNT_PCT / 100));
   };
 
+  // Check if user needs to pay (trial expired, free plan expired, or on free plan)
+  const needsToPay = isLoggedIn && (
+    trialActive || 
+    currentSlug === "gratuito" || 
+    qualifiesForDiscount ||
+    subscription?.status === "expired" ||
+    subscription?.status === "cancelled"
+  );
+
   const getCtaProps = (plan: SubscriptionPlan) => {
     const meta = planMeta[plan.slug] || { ctaLabel: "Selecionar", ctaVariant: "default" as const };
     const isCurrent = currentSlug === plan.slug;
     if (!isLoggedIn) return { label: meta.ctaLabel, disabled: false, action: () => navigate("/auth") };
+    
+    // Free plan can't be "selected" — it's the default
+    if (plan.slug === "gratuito") {
+      if (isCurrent) return { label: "Plano atual", disabled: true, action: () => {} };
+      return { label: "Plano gratuito", disabled: true, action: () => {} };
+    }
+
+    // If user needs to pay (trial expired, free plan, etc), allow selecting ANY paid plan
+    if (needsToPay) {
+      return { 
+        label: isCurrent ? "Assinar este plano" : "Selecionar plano", 
+        disabled: false, 
+        action: () => navigate("/configuracoes?tab=billing") 
+      };
+    }
+
+    // Active paid subscription — normal upgrade/current logic
     if (isCurrent) return { label: "Plano atual", disabled: true, action: () => {} };
     if (canUpgradeTo(plan.slug)) return { label: "Fazer upgrade", disabled: false, action: () => navigate("/configuracoes?tab=billing") };
     return { label: "Plano inferior", disabled: true, action: () => {} };
