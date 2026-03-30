@@ -100,6 +100,7 @@ function LogoUploader({ label, url, onUpload, onRemove }: { label: string; url: 
 
 export default function BrandSettingsContent() {
   const { user, profile } = useAuth();
+  const { planAllowsWhiteLabel } = useWhiteLabel();
   const [config, setConfig] = useState<BrandConfig>(DEFAULT_BRAND);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -125,6 +126,7 @@ export default function BrandSettingsContent() {
           tagline: (data as any).tagline || "",
           logo_url: (data as any).logo_url || "",
           logo_dark_url: (data as any).logo_dark_url || "",
+          white_label_enabled: (data as any).white_label_enabled ?? false,
         });
       }
     } catch { /* first time, use defaults */ }
