@@ -353,7 +353,7 @@ export function PropertyFilters({
                     checked={filters.frenteMar}
                     onCheckedChange={(checked) => onUpdateFilter('frenteMar', !!checked)}
                   />
-                  <Waves className="h-4 w-4 text-blue-500" />
+                  <Waves className="h-4 w-4 text-primary" />
                   <span className="font-medium">Frente Mar</span>
                 </label>
                 <div className="px-1">
