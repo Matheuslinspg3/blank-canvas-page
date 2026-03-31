@@ -59,7 +59,11 @@ export function useAdvancedPropertySearch(
         p_max_area: filters.maxArea,
         p_min_condominium: filters.minCondominium,
         p_max_condominium: filters.maxCondominium,
-        p_amenities: filters.amenities.length > 0 ? filters.amenities : null,
+        p_amenities: (() => {
+          const ams = [...filters.amenities];
+          if (filters.frenteMar && !ams.includes('Frente Mar')) ams.push('Frente Mar');
+          return ams.length > 0 ? ams : null;
+        })(),
         p_property_condition: filters.propertyCondition === 'all' ? null : filters.propertyCondition,
         p_max_beach_distance: filters.maxBeachDistance,
         p_launch_stage: filters.launchStage === 'all' ? null : filters.launchStage,

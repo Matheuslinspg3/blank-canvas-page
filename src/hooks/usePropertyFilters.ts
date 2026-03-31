@@ -26,6 +26,7 @@ export interface PropertyFilters {
   maxBeachDistance: number | null;
   launchStage: string;
   ownerId: string;
+  frenteMar: boolean;
 }
 
 const defaultFilters: PropertyFilters = {
@@ -50,6 +51,7 @@ const defaultFilters: PropertyFilters = {
   maxBeachDistance: null,
   launchStage: 'all',
   ownerId: '',
+  frenteMar: false,
 };
 
 export function usePropertyFilters() {
@@ -78,6 +80,7 @@ export function usePropertyFilters() {
     maxBeachDistance: searchParams.get('praia_max') ? Number(searchParams.get('praia_max')) : null,
     launchStage: searchParams.get('fase') || 'all',
     ownerId: searchParams.get('proprietario') || '',
+    frenteMar: searchParams.get('frente_mar') === 'true',
   }));
 
   // Sync filters to URL
@@ -105,6 +108,7 @@ export function usePropertyFilters() {
     if (filters.maxBeachDistance) params.set('praia_max', String(filters.maxBeachDistance));
     if (filters.launchStage !== 'all') params.set('fase', filters.launchStage);
     if (filters.ownerId) params.set('proprietario', filters.ownerId);
+    if (filters.frenteMar) params.set('frente_mar', 'true');
 
     setSearchParams(params, { replace: true });
   }, [filters, setSearchParams]);
@@ -213,7 +217,8 @@ export function usePropertyFilters() {
       filters.propertyCondition !== 'all' ||
       filters.maxBeachDistance !== null ||
       filters.launchStage !== 'all' ||
-      filters.ownerId !== ''
+      filters.ownerId !== '' ||
+      filters.frenteMar
     );
   }, [filters]);
 
@@ -238,6 +243,7 @@ export function usePropertyFilters() {
     if (filters.maxBeachDistance !== null) count++;
     if (filters.launchStage !== 'all') count++;
     if (filters.ownerId !== '') count++;
+    if (filters.frenteMar) count++;
     return count;
   }, [filters]);
 
