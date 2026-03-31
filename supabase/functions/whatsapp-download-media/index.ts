@@ -104,7 +104,9 @@ serve(async (req) => {
 
     const evoData = await evoRes.json();
     const base64Data = evoData.base64 || evoData.data;
-    const mimeType = evoData.mimetype || evoData.mediaType || getMimeType(media_type);
+    const rawMime = evoData.mimetype || evoData.mediaType || getMimeType(media_type);
+    // Normalize: strip codec params (e.g. "audio/ogg; codecs=opus" -> "audio/ogg")
+    const mimeType = rawMime.split(";")[0].trim();
 
     if (!base64Data) {
       throw new Error("No base64 data returned from Evolution API");
