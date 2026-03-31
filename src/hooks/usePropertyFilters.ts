@@ -80,6 +80,7 @@ export function usePropertyFilters() {
     maxBeachDistance: searchParams.get('praia_max') ? Number(searchParams.get('praia_max')) : null,
     launchStage: searchParams.get('fase') || 'all',
     ownerId: searchParams.get('proprietario') || '',
+    frenteMar: searchParams.get('frente_mar') === 'true',
   }));
 
   // Sync filters to URL
