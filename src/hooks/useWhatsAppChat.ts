@@ -14,6 +14,7 @@ export interface ChatMessage {
   message_text: string | null;
   message_type: string;
   message_id: string | null;
+  media_url: string | null;
   timestamp: string;
   created_at: string;
   sender_type: "customer" | "agent" | "human";
@@ -97,6 +98,7 @@ export function useWhatsAppChat() {
         message_text: message,
         message_type: "text",
         message_id: null,
+        media_url: null,
         timestamp: new Date().toISOString(),
         created_at: new Date().toISOString(),
         sender_type: "human",

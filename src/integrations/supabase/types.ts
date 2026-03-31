@@ -5894,6 +5894,7 @@ export type Database = {
           from_me: boolean
           id: string
           instance_name: string
+          media_url: string | null
           message_id: string | null
           message_text: string | null
           message_type: string | null
@@ -5907,6 +5908,7 @@ export type Database = {
           from_me?: boolean
           id?: string
           instance_name: string
+          media_url?: string | null
           message_id?: string | null
           message_text?: string | null
           message_type?: string | null
@@ -5920,6 +5922,7 @@ export type Database = {
           from_me?: boolean
           id?: string
           instance_name?: string
+          media_url?: string | null
           message_id?: string | null
           message_text?: string | null
           message_type?: string | null

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,9 @@ import { useWhatsAppChat } from "@/hooks/useWhatsAppChat";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { AudioMessageBubble } from "./AudioMessageBubble";
+import { AudioRecorder } from "./AudioRecorder";
+import { supabase } from "@/integrations/supabase/client";
 
 export function WhatsAppChatPanel() {
   const {
@@ -28,6 +31,41 @@ export function WhatsAppChatPanel() {
   const [newPhone, setNewPhone] = useState("");
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [sendingAudio, setSendingAudio] = useState(false);
+
+  const handleAudioRecorded = useCallback(async (blob: Blob) => {
+    if (!selectedJid) return;
+    setSendingAudio(true);
+    try {
+      const phone = selectedJid.replace("@s.whatsapp.net", "").replace("@c.us", "");
+      const formData = new FormData();
+      formData.append("audio", blob, "audio.webm");
+      formData.append("phone", phone);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-send-audio`,
+        {
+          method: "POST",
+          headers: {
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Erro ao enviar áudio");
+      }
+
+      toast.success("Áudio enviado!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao enviar áudio");
+    } finally {
+      setSendingAudio(false);
+    }
+  }, [selectedJid]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -186,7 +224,11 @@ export function WhatsAppChatPanel() {
                               <Bot className="h-3 w-3 mr-0.5" /> Agente IA
                             </Badge>
                           )}
-                          <p className="whitespace-pre-wrap break-words">{msg.message_text}</p>
+                          {msg.message_type === "audio" && msg.media_url ? (
+                            <AudioMessageBubble url={msg.media_url} fromMe={msg.from_me} />
+                          ) : (
+                            <p className="whitespace-pre-wrap break-words">{msg.message_text}</p>
+                          )}
                           <p
                             className={cn(
                               "text-[10px] mt-1",
@@ -202,7 +244,12 @@ export function WhatsAppChatPanel() {
                   </div>
                 </ScrollArea>
 
-                <div className="px-4 py-3 border-t border-border flex gap-2">
+                <div className="px-4 py-3 border-t border-border flex gap-2 items-center">
+                  <AudioRecorder
+                    onRecorded={handleAudioRecorded}
+                    disabled={isSending}
+                    isSending={sendingAudio}
+                  />
                   <Input
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
