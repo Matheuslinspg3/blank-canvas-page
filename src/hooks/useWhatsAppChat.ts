@@ -16,6 +16,7 @@ export interface ChatMessage {
   message_id: string | null;
   timestamp: string;
   created_at: string;
+  sender_type: "customer" | "agent" | "human";
 }
 
 export interface ChatConversation {
@@ -98,6 +99,7 @@ export function useWhatsAppChat() {
         message_id: null,
         timestamp: new Date().toISOString(),
         created_at: new Date().toISOString(),
+        sender_type: "human",
       };
 
       await queryClient.cancelQueries({ queryKey: ["whatsapp-messages", orgId] });
