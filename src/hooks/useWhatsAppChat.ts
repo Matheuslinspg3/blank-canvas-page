@@ -16,6 +16,7 @@ export interface ChatMessage {
   message_id: string | null;
   timestamp: string;
   created_at: string;
+  sender_type: "customer" | "agent" | "human";
 }
 
 export interface ChatConversation {
