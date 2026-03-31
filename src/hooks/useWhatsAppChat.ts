@@ -77,9 +77,11 @@ export function useWhatsAppChat() {
   // Send message
   const sendMutation = useMutation({
     mutationFn: async ({ phone, message }: { phone: string; message: string }) => {
+      console.log("[WhatsAppChat] Sending via edge function", { phone, message });
       const { data, error } = await supabase.functions.invoke("whatsapp-send", {
         body: { phone, message },
       });
+      console.log("[WhatsAppChat] Edge function response", { data, error });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       return data;
