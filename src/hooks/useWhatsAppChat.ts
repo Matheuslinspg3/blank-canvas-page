@@ -77,20 +77,46 @@ export function useWhatsAppChat() {
   // Send message
   const sendMutation = useMutation({
     mutationFn: async ({ phone, message }: { phone: string; message: string }) => {
-      console.log("[WhatsAppChat] Sending via edge function", { phone, message });
       const { data, error } = await supabase.functions.invoke("whatsapp-send", {
         body: { phone, message },
       });
-      console.log("[WhatsAppChat] Edge function response", { data, error });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["whatsapp-messages"] });
+    onMutate: async ({ phone, message }) => {
+      // Optimistic update: add message to cache immediately
+      const remoteJid = phone.includes("@") ? phone : `${phone}@s.whatsapp.net`;
+      const optimisticMsg: ChatMessage = {
+        id: `optimistic-${Date.now()}`,
+        organization_id: orgId || "",
+        instance_name: config?.instance_name || "",
+        remote_jid: remoteJid,
+        from_me: true,
+        message_text: message,
+        message_type: "text",
+        message_id: null,
+        timestamp: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+      };
+
+      await queryClient.cancelQueries({ queryKey: ["whatsapp-messages", orgId] });
+      const previous = queryClient.getQueryData<ChatMessage[]>(["whatsapp-messages", orgId]);
+      queryClient.setQueryData<ChatMessage[]>(["whatsapp-messages", orgId], (old = []) => [
+        ...old,
+        optimisticMsg,
+      ]);
+      return { previous };
     },
-    onError: (err: Error) => {
+    onError: (err: Error, _vars, context) => {
+      // Rollback on error
+      if (context?.previous) {
+        queryClient.setQueryData(["whatsapp-messages", orgId], context.previous);
+      }
       toast.error("Erro ao enviar: " + err.message);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-messages", orgId] });
     },
   });
 
