@@ -98,7 +98,7 @@ serve(async (req) => {
         number: cleanPhone,
         mediatype: body.mediaType || "image",
         media: body.mediaUrl,
-        caption: message,
+        caption: formattedMessage,
       };
     } else {
       endpoint = `${baseUrl}/message/sendText/${config.instance_name}`;
