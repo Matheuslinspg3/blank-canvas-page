@@ -28,7 +28,11 @@ export function WhatsAppChatPanel() {
 
   const handleSend = () => {
     const text = draft.trim();
-    if (!text) return;
+    console.log("[WhatsAppChat] handleSend called", { text, selectedJid, isSending });
+    if (!text) {
+      console.log("[WhatsAppChat] empty text, aborting");
+      return;
+    }
     sendMessage(text);
     setDraft("");
   };
