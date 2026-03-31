@@ -217,7 +217,8 @@ export function usePropertyFilters() {
       filters.propertyCondition !== 'all' ||
       filters.maxBeachDistance !== null ||
       filters.launchStage !== 'all' ||
-      filters.ownerId !== ''
+      filters.ownerId !== '' ||
+      filters.frenteMar
     );
   }, [filters]);
 
