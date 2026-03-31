@@ -96,8 +96,13 @@ export function useWhatsAppChat() {
 
   const sendMessage = useCallback(
     (message: string) => {
-      if (!selectedJid) return;
+      if (!selectedJid) {
+        console.warn("[WhatsAppChat] No selectedJid, cannot send");
+        toast.error("Selecione uma conversa antes de enviar.");
+        return;
+      }
       const phone = selectedJid.replace("@s.whatsapp.net", "").replace("@c.us", "");
+      console.log("[WhatsAppChat] sendMessage calling mutate", { phone, message, selectedJid });
       sendMutation.mutate({ phone, message });
     },
     [selectedJid, sendMutation]
