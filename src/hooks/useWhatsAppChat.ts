@@ -158,12 +158,22 @@ export function useWhatsAppChat() {
     };
   }, [orgId, queryClient]);
 
+  const sendToPhone = useCallback(
+    (phone: string, message: string) => {
+      const cleanPhone = phone.replace(/\D/g, "");
+      console.log("[WhatsAppChat] sendToPhone", { cleanPhone, message });
+      sendMutation.mutate({ phone: cleanPhone, message });
+    },
+    [sendMutation]
+  );
+
   return {
     conversations,
     selectedJid,
     setSelectedJid,
     selectedMessages,
     sendMessage,
+    sendToPhone,
     isSending: sendMutation.isPending,
     isLoading,
   };
