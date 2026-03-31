@@ -104,7 +104,7 @@ serve(async (req) => {
       endpoint = `${baseUrl}/message/sendText/${config.instance_name}`;
       payload = {
         number: cleanPhone,
-        text: message,
+        text: formattedMessage,
       };
     }
 
