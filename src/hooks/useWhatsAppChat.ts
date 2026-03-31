@@ -14,6 +14,7 @@ export interface ChatMessage {
   message_text: string | null;
   message_type: string;
   message_id: string | null;
+  media_url: string | null;
   timestamp: string;
   created_at: string;
   sender_type: "customer" | "agent" | "human";
