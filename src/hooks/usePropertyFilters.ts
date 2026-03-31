@@ -26,6 +26,7 @@ export interface PropertyFilters {
   maxBeachDistance: number | null;
   launchStage: string;
   ownerId: string;
+  frenteMar: boolean;
 }
 
 const defaultFilters: PropertyFilters = {
