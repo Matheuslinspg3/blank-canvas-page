@@ -153,6 +153,7 @@ serve(async (req) => {
         message_type: type,
         message_id: sentMessageId,
         timestamp: new Date().toISOString(),
+        sender_type: "human",
       });
     } catch (persistErr) {
       console.warn("Failed to persist sent message:", persistErr);

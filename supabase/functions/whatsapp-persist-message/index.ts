@@ -150,6 +150,7 @@ serve(async (req) => {
       message_type: m.message_type,
       message_id: m.message_id,
       timestamp: m.timestamp,
+      sender_type: m.from_me ? "agent" : "customer",
     }));
 
     // Use upsert with message_id to avoid duplicates when message_id exists
