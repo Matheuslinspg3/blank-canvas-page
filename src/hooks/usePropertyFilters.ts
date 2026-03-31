@@ -51,6 +51,7 @@ const defaultFilters: PropertyFilters = {
   maxBeachDistance: null,
   launchStage: 'all',
   ownerId: '',
+  frenteMar: false,
 };
 
 export function usePropertyFilters() {
