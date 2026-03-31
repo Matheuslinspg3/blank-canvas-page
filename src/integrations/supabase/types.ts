@@ -5708,6 +5708,9 @@ export type Database = {
           transfer_message: string | null
           transfer_phone: string | null
           updated_at: string
+          voice_enabled: boolean
+          voice_id: string | null
+          voice_percentage: number
           webhook_url: string | null
           welcome_message: string | null
           working_hours_end: string | null
@@ -5745,6 +5748,9 @@ export type Database = {
           transfer_message?: string | null
           transfer_phone?: string | null
           updated_at?: string
+          voice_enabled?: boolean
+          voice_id?: string | null
+          voice_percentage?: number
           webhook_url?: string | null
           welcome_message?: string | null
           working_hours_end?: string | null
@@ -5782,6 +5788,9 @@ export type Database = {
           transfer_message?: string | null
           transfer_phone?: string | null
           updated_at?: string
+          voice_enabled?: boolean
+          voice_id?: string | null
+          voice_percentage?: number
           webhook_url?: string | null
           welcome_message?: string | null
           working_hours_end?: string | null
