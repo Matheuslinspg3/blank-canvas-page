@@ -31,6 +31,41 @@ export function WhatsAppChatPanel() {
   const [newPhone, setNewPhone] = useState("");
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [sendingAudio, setSendingAudio] = useState(false);
+
+  const handleAudioRecorded = useCallback(async (blob: Blob) => {
+    if (!selectedJid) return;
+    setSendingAudio(true);
+    try {
+      const phone = selectedJid.replace("@s.whatsapp.net", "").replace("@c.us", "");
+      const formData = new FormData();
+      formData.append("audio", blob, "audio.webm");
+      formData.append("phone", phone);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-send-audio`,
+        {
+          method: "POST",
+          headers: {
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Erro ao enviar áudio");
+      }
+
+      toast.success("Áudio enviado!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao enviar áudio");
+    } finally {
+      setSendingAudio(false);
+    }
+  }, [selectedJid]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
