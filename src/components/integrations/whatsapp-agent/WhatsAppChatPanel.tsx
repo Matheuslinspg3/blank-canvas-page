@@ -225,7 +225,7 @@ export function WhatsAppChatPanel() {
                             </Badge>
                           )}
                           {msg.message_type === "audio" && msg.media_url ? (
-                            <AudioMessageBubble url={msg.media_url} fromMe={msg.from_me} />
+                            <AudioMessageBubble url={msg.media_url} fromMe={msg.from_me} transcription={msg.message_text} />
                           ) : (
                             <p className="whitespace-pre-wrap break-words">{msg.message_text}</p>
                           )}
