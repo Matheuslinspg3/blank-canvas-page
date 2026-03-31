@@ -108,6 +108,7 @@ export function usePropertyFilters() {
     if (filters.maxBeachDistance) params.set('praia_max', String(filters.maxBeachDistance));
     if (filters.launchStage !== 'all') params.set('fase', filters.launchStage);
     if (filters.ownerId) params.set('proprietario', filters.ownerId);
+    if (filters.frenteMar) params.set('frente_mar', 'true');
 
     setSearchParams(params, { replace: true });
   }, [filters, setSearchParams]);
