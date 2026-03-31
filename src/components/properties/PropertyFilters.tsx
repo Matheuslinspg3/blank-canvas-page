@@ -336,17 +336,28 @@ export function PropertyFilters({
 
             <Separator />
 
-            {/* Beach Distance */}
-            <Collapsible>
+            {/* Frente Mar + Beach Distance */}
+            <Collapsible defaultOpen={filters.frenteMar || !!filters.maxBeachDistance}>
               <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium w-full">
-                <Waves className="h-4 w-4 text-muted-foreground" /> Proximidade da Praia
-                {filters.maxBeachDistance && (
-                  <Badge variant="secondary" className="text-xs ml-1">≤{filters.maxBeachDistance}m</Badge>
+                <Waves className="h-4 w-4 text-muted-foreground" /> Praia
+                {(filters.frenteMar || filters.maxBeachDistance) && (
+                  <Badge variant="secondary" className="text-xs ml-1">
+                    {filters.frenteMar ? '🏖️ Frente Mar' : `≤${filters.maxBeachDistance}m`}
+                  </Badge>
                 )}
                 <ChevronDown className="h-4 w-4 ml-auto" />
               </CollapsibleTrigger>
-              <CollapsibleContent className="pt-2 space-y-2">
+              <CollapsibleContent className="pt-2 space-y-3">
+                <label className="flex items-center gap-2 text-sm cursor-pointer p-2 rounded-md border hover:bg-muted transition-colors">
+                  <Checkbox
+                    checked={filters.frenteMar}
+                    onCheckedChange={(checked) => onUpdateFilter('frenteMar', !!checked)}
+                  />
+                  <Waves className="h-4 w-4 text-blue-500" />
+                  <span className="font-medium">Frente Mar</span>
+                </label>
                 <div className="px-1">
+                  <Label className="text-xs text-muted-foreground">Distância máxima da praia</Label>
                   <Slider
                     min={0}
                     max={5000}
