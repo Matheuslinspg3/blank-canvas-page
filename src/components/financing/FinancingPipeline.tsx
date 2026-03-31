@@ -1,52 +1,38 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, User, Building2, Phone, ArrowRight } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Switch } from "@/components/ui/switch";
+import { Plus, User, Building2, Phone, ArrowRight, FileText } from "lucide-react";
 import { toast } from "sonner";
+import { FinancingProcess, STAGES, EMPTY_FORM } from "./types";
+import { BankFormDialog } from "./BankFormDialog";
 
-interface FinancingProcess {
-  id: string;
-  clientName: string;
-  clientPhone: string;
-  propertyValue: number;
-  financingValue: number;
-  bank: string;
-  stage: string;
-  createdAt: Date;
-}
-
-const STAGES = [
-  { id: "analise_credito", label: "Análise de Crédito", color: "bg-blue-500/10 text-blue-700 dark:text-blue-400" },
-  { id: "documentacao", label: "Documentação", color: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400" },
-  { id: "avaliacao", label: "Avaliação", color: "bg-purple-500/10 text-purple-700 dark:text-purple-400" },
-  { id: "contrato", label: "Contrato", color: "bg-orange-500/10 text-orange-700 dark:text-orange-400" },
-  { id: "liberacao", label: "Liberação", color: "bg-green-500/10 text-green-700 dark:text-green-400" },
-];
+const UF_OPTIONS = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"];
 
 export function FinancingPipeline() {
   const [processes, setProcesses] = useState<FinancingProcess[]>([]);
   const [newOpen, setNewOpen] = useState(false);
-  const [form, setForm] = useState({ clientName: "", clientPhone: "", propertyValue: "", financingValue: "", bank: "caixa" });
+  const [form, setForm] = useState({ ...EMPTY_FORM });
+  const [formDialogProc, setFormDialogProc] = useState<FinancingProcess | null>(null);
+
+  const set = (key: string, value: any) => setForm((prev) => ({ ...prev, [key]: value }));
 
   const handleCreate = () => {
     if (!form.clientName) { toast.error("Informe o nome do cliente"); return; }
     const newProc: FinancingProcess = {
+      ...form,
       id: crypto.randomUUID(),
-      clientName: form.clientName,
-      clientPhone: form.clientPhone,
-      propertyValue: parseFloat(form.propertyValue.replace(/\D/g, "")) || 0,
-      financingValue: parseFloat(form.financingValue.replace(/\D/g, "")) || 0,
-      bank: form.bank,
       stage: "analise_credito",
       createdAt: new Date(),
     };
     setProcesses((prev) => [...prev, newProc]);
-    setForm({ clientName: "", clientPhone: "", propertyValue: "", financingValue: "", bank: "caixa" });
+    setForm({ ...EMPTY_FORM });
     setNewOpen(false);
     toast.success("Processo criado!");
   };
@@ -72,42 +58,171 @@ export function FinancingPipeline() {
           <DialogTrigger asChild>
             <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Novo Processo</Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Novo Processo de Financiamento</DialogTitle></DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Nome do cliente</Label>
-                <Input value={form.clientName} onChange={(e) => setForm({ ...form, clientName: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Telefone</Label>
-                <Input value={form.clientPhone} onChange={(e) => setForm({ ...form, clientPhone: e.target.value })} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Valor do imóvel</Label>
-                  <Input value={form.propertyValue} onChange={(e) => setForm({ ...form, propertyValue: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Valor financiado</Label>
-                  <Input value={form.financingValue} onChange={(e) => setForm({ ...form, financingValue: e.target.value })} />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Banco</Label>
-                <Select value={form.bank} onValueChange={(v) => setForm({ ...form, bank: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="caixa">Caixa Econômica</SelectItem>
-                    <SelectItem value="bb">Banco do Brasil</SelectItem>
-                    <SelectItem value="itau">Itaú</SelectItem>
-                    <SelectItem value="bradesco">Bradesco</SelectItem>
-                    <SelectItem value="santander">Santander</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button onClick={handleCreate} className="w-full">Criar Processo</Button>
-            </div>
+            <Accordion type="multiple" defaultValue={["basico"]} className="w-full">
+              {/* Step 1 */}
+              <AccordionItem value="basico">
+                <AccordionTrigger className="text-sm font-medium">1. Dados Básicos</AccordionTrigger>
+                <AccordionContent className="space-y-3 pt-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Nome do cliente *</Label>
+                    <Input value={form.clientName} onChange={(e) => set("clientName", e.target.value)} placeholder="Nome completo" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">CPF</Label>
+                      <Input value={form.clientCpf} onChange={(e) => set("clientCpf", e.target.value)} placeholder="000.000.000-00" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">RG</Label>
+                      <Input value={form.clientRg} onChange={(e) => set("clientRg", e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Telefone</Label>
+                      <Input value={form.clientPhone} onChange={(e) => set("clientPhone", e.target.value)} placeholder="(11) 99999-9999" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">E-mail</Label>
+                      <Input value={form.clientEmail} onChange={(e) => set("clientEmail", e.target.value)} placeholder="email@exemplo.com" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Data de Nascimento</Label>
+                      <Input type="date" value={form.clientBirthDate} onChange={(e) => set("clientBirthDate", e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Estado Civil</Label>
+                      <Select value={form.clientMaritalStatus} onValueChange={(v) => set("clientMaritalStatus", v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="solteiro">Solteiro(a)</SelectItem>
+                          <SelectItem value="casado">Casado(a)</SelectItem>
+                          <SelectItem value="divorciado">Divorciado(a)</SelectItem>
+                          <SelectItem value="viuvo">Viúvo(a)</SelectItem>
+                          <SelectItem value="uniao_estavel">União Estável</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Step 2 */}
+              <AccordionItem value="pessoal">
+                <AccordionTrigger className="text-sm font-medium">2. Dados Pessoais</AccordionTrigger>
+                <AccordionContent className="space-y-3 pt-2">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Nacionalidade</Label>
+                      <Input value={form.clientNationality} onChange={(e) => set("clientNationality", e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Profissão</Label>
+                      <Input value={form.clientOccupation} onChange={(e) => set("clientOccupation", e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Renda Mensal Bruta (R$)</Label>
+                    <Input type="number" value={form.clientMonthlyIncome || ""} onChange={(e) => set("clientMonthlyIncome", parseFloat(e.target.value) || 0)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Endereço</Label>
+                    <Input value={form.clientAddress} onChange={(e) => set("clientAddress", e.target.value)} placeholder="Rua, nº, complemento" />
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Cidade</Label>
+                      <Input value={form.clientCity} onChange={(e) => set("clientCity", e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">UF</Label>
+                      <Select value={form.clientState} onValueChange={(v) => set("clientState", v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {UF_OPTIONS.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">CEP</Label>
+                      <Input value={form.clientCep} onChange={(e) => set("clientCep", e.target.value)} placeholder="00000-000" />
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Step 3 */}
+              <AccordionItem value="imovel">
+                <AccordionTrigger className="text-sm font-medium">3. Imóvel e Financiamento</AccordionTrigger>
+                <AccordionContent className="space-y-3 pt-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Banco</Label>
+                    <Select value={form.bank} onValueChange={(v) => set("bank", v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="caixa">Caixa Econômica</SelectItem>
+                        <SelectItem value="bb">Banco do Brasil</SelectItem>
+                        <SelectItem value="itau">Itaú</SelectItem>
+                        <SelectItem value="bradesco">Bradesco</SelectItem>
+                        <SelectItem value="santander">Santander</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Valor do Imóvel (R$)</Label>
+                      <Input type="number" value={form.propertyValue || ""} onChange={(e) => set("propertyValue", parseFloat(e.target.value) || 0)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Valor Financiado (R$)</Label>
+                      <Input type="number" value={form.financingValue || ""} onChange={(e) => set("financingValue", parseFloat(e.target.value) || 0)} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Entrada (R$)</Label>
+                      <Input type="number" value={form.downPayment || ""} onChange={(e) => set("downPayment", parseFloat(e.target.value) || 0)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Prazo (meses)</Label>
+                      <Input type="number" value={form.financingTermMonths || ""} onChange={(e) => set("financingTermMonths", parseInt(e.target.value) || 0)} />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Endereço do Imóvel</Label>
+                    <Input value={form.propertyAddress} onChange={(e) => set("propertyAddress", e.target.value)} />
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Cidade</Label>
+                      <Input value={form.propertyCity} onChange={(e) => set("propertyCity", e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">UF</Label>
+                      <Select value={form.propertyState} onValueChange={(v) => set("propertyState", v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {UF_OPTIONS.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Matrícula</Label>
+                      <Input value={form.propertyRegistration} onChange={(e) => set("propertyRegistration", e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch checked={form.useFgts} onCheckedChange={(v) => set("useFgts", v)} />
+                    <Label className="text-xs">Utilizar FGTS</Label>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+            <Button onClick={handleCreate} className="w-full mt-2">Criar Processo</Button>
           </DialogContent>
         </Dialog>
       </div>
@@ -145,11 +260,16 @@ export function FinancingPipeline() {
                           </div>
                         )}
                         <p className="text-xs text-muted-foreground">{fmtBRL(proc.financingValue)}</p>
-                        {stage.id !== "liberacao" && (
-                          <Button size="sm" variant="ghost" className="w-full text-xs h-7" onClick={() => moveNext(proc.id)}>
-                            Avançar <ArrowRight className="h-3 w-3 ml-1" />
+                        <div className="flex gap-1">
+                          <Button size="sm" variant="outline" className="flex-1 text-xs h-7" onClick={() => setFormDialogProc(proc)}>
+                            <FileText className="h-3 w-3 mr-1" /> Formulários
                           </Button>
-                        )}
+                          {stage.id !== "liberacao" && (
+                            <Button size="sm" variant="ghost" className="text-xs h-7" onClick={() => moveNext(proc.id)}>
+                              <ArrowRight className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
                       </CardContent>
                     </Card>
                   ))}
@@ -159,6 +279,12 @@ export function FinancingPipeline() {
           })}
         </div>
       )}
+
+      <BankFormDialog
+        open={!!formDialogProc}
+        onOpenChange={(open) => { if (!open) setFormDialogProc(null); }}
+        process={formDialogProc}
+      />
     </div>
   );
 }
