@@ -136,7 +136,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Track if user was previously logged in to detect session expiry
   const hadSessionRef = useRef(false);
 
+  const setupSession = async (sessionUser: { id: string; email?: string; user_metadata?: any }) => {
+    try {
+      const existingProfile = await fetchProfile(sessionUser.id);
+      
+      // Fallback para usuários legados sem organização
+      if (!existingProfile?.organization_id) {
+        const metadata = sessionUser.user_metadata;
+        const fullName = metadata?.full_name || 'Usuário';
+        await fixLegacyUser(sessionUser.id, sessionUser.email!, fullName);
+      }
+      
+      // Vincular usuário ao OneSignal e PostHog (fire-and-forget)
+      loginOneSignal(sessionUser.id).catch(e => console.error("[Auth] OneSignal login error:", e));
+      identifyUser(sessionUser.id, sessionUser.email, existingProfile?.full_name || sessionUser.user_metadata?.full_name);
+    } catch (err) {
+      console.error('[Auth] Error during session setup:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
+    // 1. getSession runs first and sets the profile
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        hadSessionRef.current = true;
+        profileFetchedForRef.current = session.user.id;
+        await setupSession(session.user);
+      } else {
+        setLoading(false);
+      }
+    }).catch(() => {
+      setLoading(false);
+    });
+
+    // 2. onAuthStateChange handles subsequent changes (sign-in, sign-out, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
@@ -144,67 +182,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         if (session?.user) {
           hadSessionRef.current = true;
-          // Usar setTimeout para evitar deadlock com Supabase
-          setTimeout(async () => {
-            try {
-              // Trigger já criou tudo - apenas buscar perfil
-              const existingProfile = await fetchProfile(session.user.id);
-              
-              // Fallback para usuários legados sem organização
-              if (!existingProfile?.organization_id) {
-                const metadata = session.user.user_metadata;
-                const fullName = metadata?.full_name || 'Usuário';
-                await fixLegacyUser(session.user.id, session.user.email!, fullName);
-              }
-              
-              // Vincular usuário ao OneSignal e PostHog
-              loginOneSignal(session.user.id).catch(e => console.error("[Auth] OneSignal login error:", e));
-              identifyUser(session.user.id, session.user.email, existingProfile?.full_name || session.user.user_metadata?.full_name);
-            } catch (err) {
-              console.error('[Auth] Error during session setup:', err);
-            } finally {
-              setLoading(false);
-            }
-          }, 0);
+          // Skip if getSession already fetched profile for this user
+          if (profileFetchedForRef.current === session.user.id) {
+            return;
+          }
+          profileFetchedForRef.current = session.user.id;
+          // Use setTimeout to avoid Supabase deadlock
+          setTimeout(() => setupSession(session.user), 0);
         } else {
-          // Show toast only if user was previously logged in (session expired or token_refreshed failed)
           if (hadSessionRef.current && event === 'SIGNED_OUT') {
             toast.warning('Sua sessão expirou. Faça login novamente.');
           }
           hadSessionRef.current = false;
+          profileFetchedForRef.current = null;
           setProfile(null);
           setLoading(false);
         }
       }
     );
-
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        try {
-          const existingProfile = await fetchProfile(session.user.id);
-          
-          if (!existingProfile?.organization_id) {
-            const metadata = session.user.user_metadata;
-            const fullName = metadata?.full_name || 'Usuário';
-            await fixLegacyUser(session.user.id, session.user.email!, fullName);
-          }
-          
-          loginOneSignal(session.user.id).catch(e => console.error("[Auth] OneSignal login error:", e));
-          identifyUser(session.user.id, session.user.email, existingProfile?.full_name || session.user.user_metadata?.full_name);
-        } catch (err) {
-          console.error('[Auth] Error during initial session setup:', err);
-        } finally {
-          setLoading(false);
-        }
-      } else {
-        setLoading(false);
-      }
-    }).catch(() => {
-      setLoading(false);
-    });
 
     return () => subscription.unsubscribe();
   }, []);
