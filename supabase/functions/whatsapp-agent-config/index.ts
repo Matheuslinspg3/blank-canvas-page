@@ -150,6 +150,12 @@ serve(async (req) => {
         max_messages_before_transfer: config.max_messages_before_transfer,
         broker_assignment_mode: config.broker_assignment_mode,
       },
+      voice_config: {
+        enabled: !!config.voice_enabled,
+        percentage: config.voice_percentage ?? 0,
+        voice_id: config.voice_id ?? "EXAVITQu4vr4xnSDxMaL",
+        tts_endpoint: `${Deno.env.get("SUPABASE_URL")}/functions/v1/elevenlabs-tts`,
+      },
       composed_system_prompt,
       prompt_variables: {
         qualify: prompt_qualify,
