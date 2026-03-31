@@ -36,6 +36,9 @@ export interface AgentConfig {
   webhook_url: string | null;
   transfer_phone: string | null;
   transfer_message: string | null;
+  voice_enabled: boolean;
+  voice_percentage: number;
+  voice_id: string;
   updated_at: string;
 }
 
