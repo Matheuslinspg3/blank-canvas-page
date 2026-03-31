@@ -5890,6 +5890,7 @@ export type Database = {
           message_type: string | null
           organization_id: string
           remote_jid: string
+          sender_type: string
           timestamp: string
         }
         Insert: {
@@ -5902,6 +5903,7 @@ export type Database = {
           message_type?: string | null
           organization_id: string
           remote_jid: string
+          sender_type?: string
           timestamp?: string
         }
         Update: {
@@ -5914,6 +5916,7 @@ export type Database = {
           message_type?: string | null
           organization_id?: string
           remote_jid?: string
+          sender_type?: string
           timestamp?: string
         }
         Relationships: [
