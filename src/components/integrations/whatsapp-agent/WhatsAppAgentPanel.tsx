@@ -37,6 +37,9 @@ export function WhatsAppAgentPanel() {
             <TabsTrigger value="chat" className="gap-1.5 text-xs sm:text-sm shrink-0">
               <MessageCircle className="h-3.5 w-3.5" /> Chat
             </TabsTrigger>
+            <TabsTrigger value="voz" className="gap-1.5 text-xs sm:text-sm shrink-0">
+              <Volume2 className="h-3.5 w-3.5" /> Voz
+            </TabsTrigger>
           </>
         )}
       </TabsList>
