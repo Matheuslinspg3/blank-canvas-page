@@ -224,7 +224,11 @@ export function WhatsAppChatPanel() {
                               <Bot className="h-3 w-3 mr-0.5" /> Agente IA
                             </Badge>
                           )}
-                          <p className="whitespace-pre-wrap break-words">{msg.message_text}</p>
+                          {msg.message_type === "audio" && msg.media_url ? (
+                            <AudioMessageBubble url={msg.media_url} fromMe={msg.from_me} />
+                          ) : (
+                            <p className="whitespace-pre-wrap break-words">{msg.message_text}</p>
+                          )}
                           <p
                             className={cn(
                               "text-[10px] mt-1",
