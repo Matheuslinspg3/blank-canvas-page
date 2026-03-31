@@ -138,6 +138,24 @@ serve(async (req) => {
 
     await auditLog(supabaseClient, orgId, "send", user.id, { phone: cleanPhone, type });
 
+    // Persist sent message to whatsapp_messages for chat panel
+    try {
+      const remoteJid = cleanPhone.includes("@") ? cleanPhone : `${cleanPhone}@s.whatsapp.net`;
+      const sentMessageId = evoData?.key?.id || evoData?.messageId || null;
+      await supabaseClient.from("whatsapp_messages").insert({
+        organization_id: orgId,
+        instance_name: config.instance_name,
+        remote_jid: remoteJid,
+        from_me: true,
+        message_text: message,
+        message_type: type,
+        message_id: sentMessageId,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (persistErr) {
+      console.warn("Failed to persist sent message:", persistErr);
+    }
+
     return new Response(JSON.stringify({ success: true, data: evoData }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
