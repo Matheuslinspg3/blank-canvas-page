@@ -1,46 +1,47 @@
 
 
-## O chat já está pronto — falta alimentar os dados via N8N
+## Diagnóstico: Login lento
 
-### Estado atual
-Toda a infraestrutura frontend + backend + banco está implementada. A tabela `whatsapp_messages` existe mas tem **0 registros**.
+### Problema raiz
 
-### O que precisa ser feito
-
-O workflow do N8N que recebe o webhook `MESSAGES_UPSERT` da Evolution API precisa ser atualizado para **inserir cada mensagem recebida/enviada** na tabela `whatsapp_messages`.
-
-#### Opção A: N8N insere diretamente via Supabase node
-No workflow N8N, após receber o evento `MESSAGES_UPSERT`, adicionar um node Supabase que faz INSERT:
+Ao fazer login, há uma **cascata sequencial de requisições** que bloqueia a tela no spinner "Carregando sua sessão...":
 
 ```text
-Dados a mapear do payload da Evolution API:
-- organization_id  → resolver via instance_name (lookup na whatsapp_agent_config)
-- instance_name    → body.instance
-- remote_jid       → body.data[0].key.remoteJid
-- from_me          → body.data[0].key.fromMe
-- message_text     → body.data[0].message.conversation ou extendedTextMessage.text
-- message_type     → "text" / "image" / etc.
-- message_id       → body.data[0].key.id
-- timestamp        → converter body.data[0].messageTimestamp (unix) para ISO
+1. getSession() → fetchProfile() → fetchOrg()     [AuthContext]
+   ↓ (onAuthStateChange TAMBÉM dispara fetchProfile de novo = duplicado)
+2. useUserRoles()                                   [ProtectedRoute]
+3. useSubscription() → depende de orgId do profile  [useFreeTrialExpired]
+4. useFreeTrialExpired() resolve                    [ProtectedRoute]
 ```
 
-#### Opção B: Edge Function dedicada para persistir mensagens
-Criar uma Edge Function `whatsapp-persist-message` que o N8N chama via HTTP POST, validando com `X-Webhook-Secret`, e que faz o INSERT com service role.
+O `ProtectedRoute` aguarda **todos** (`loading`, `rolesLoading`, `freeLoading`) antes de renderizar. Isso gera ~4-6 requisições sequenciais ao banco.
 
-### Recomendação
-**Opção B** é mais robusta — centraliza a lógica no backend, valida o payload e evita expor credenciais do Supabase no N8N.
+Além disso, `onAuthStateChange` e `getSession` **ambos** chamam `fetchProfile`, causando requisições duplicadas.
 
-### Implementação (se aprovado)
+### Plano de correção
 
-1. **Nova Edge Function `whatsapp-persist-message`** — recebe payload do N8N, valida secret, resolve org pelo instance_name, insere na tabela
-2. **Também inserir a mensagem enviada** — quando o `whatsapp-send` envia com sucesso, inserir o registro na `whatsapp_messages` com `from_me: true`
-3. **Configurar o N8N** — adicionar HTTP Request node no workflow do agente para chamar esta Edge Function após cada `MESSAGES_UPSERT`
+**1. Eliminar fetchProfile duplicado no AuthContext**
+- Adicionar um `ref` (`profileFetchedRef`) para evitar que `onAuthStateChange` busque o perfil quando `getSession` já o fez (e vice-versa). Garantir que `fetchProfile` execute apenas uma vez por login.
 
-### Alterações por arquivo
+**2. Paralelizar queries no AuthContext**
+- Buscar `profile` e `organization` em paralelo usando `Promise.all` ao invés de sequencialmente (fetchProfile faz profile → depois org).
 
-| Arquivo | Ação |
-|---------|------|
-| **Novo:** `supabase/functions/whatsapp-persist-message/index.ts` | Recebe mensagens do N8N e insere na tabela |
-| `supabase/functions/whatsapp-send/index.ts` | Após envio bem-sucedido, inserir registro `from_me: true` na tabela |
-| **N8N (manual)** | Adicionar node HTTP POST para `whatsapp-persist-message` no workflow |
+**3. Paralelizar as verificações no ProtectedRoute**
+- Passar `organization_id` do profile diretamente para `useSubscription` com `enabled: !!orgId`, em vez de depender do hook reativo. As queries de `useUserRoles` e `useSubscription` já rodam em paralelo via React Query — o problema é que `useFreeTrialExpired` chama `useSubscription()` sem `enabled`, causando fetch imediato antes do orgId estar disponível.
+- Garantir que `useSubscription` dentro de `useFreeTrialExpired` use `enabled` baseado no `orgId`.
+
+### Alterações técnicas
+
+**Arquivo: `src/contexts/AuthContext.tsx`**
+- Adicionar `profileFetchedRef` para prevenir dupla execução
+- Dentro de `fetchProfile`, buscar profile e org com `Promise.all` (a query de org depende do resultado do profile, então manter sequencial mas com timeout menor)
+- No `onAuthStateChange`, verificar se `getSession` já completou antes de buscar novamente
+
+**Arquivo: `src/hooks/useFreeTrialExpired.ts`**
+- Nenhuma mudança necessária — `useSubscription` já usa `enabled: !!orgId`
+
+**Arquivo: `src/components/ProtectedRoute.tsx`**
+- Nenhuma mudança estrutural — já consome os hooks corretamente
+
+**Resultado esperado**: Login passa de ~3-5s de spinner para ~1-2s, eliminando requisições duplicadas e a cascata desnecessária.
 
