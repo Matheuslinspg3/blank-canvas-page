@@ -1,70 +1,46 @@
 
 
-## Plano: 4 melhorias no Marketplace/WhatsApp/White-Label
+## O chat já está pronto — falta alimentar os dados via N8N
 
-### 1. White-Label — Extração de cores da logo (já existe)
-A funcionalidade de extrair cores da logo **já está implementada** em `WhiteLabelSettings.tsx` com o botão "Extrair cores da logo" usando `extractColorsFromImage`. Ele extrai até 6 cores e aplica as 3 primeiras automaticamente como primária, secundária e destaque. Nenhuma alteração necessária aqui.
+### Estado atual
+Toda a infraestrutura frontend + backend + banco está implementada. A tabela `whatsapp_messages` existe mas tem **0 registros**.
 
-### 2. Tabs de Automações — Scroll horizontal no mobile
+### O que precisa ser feito
 
-**Problema:** O `TabsList` na página Automações (`Automations.tsx`) e no `WhatsAppAgentPanel.tsx` não tem `overflow-x-auto`, então em telas pequenas as abas ficam cortadas.
+O workflow do N8N que recebe o webhook `MESSAGES_UPSERT` da Evolution API precisa ser atualizado para **inserir cada mensagem recebida/enviada** na tabela `whatsapp_messages`.
 
-**Solução:** Adicionar `overflow-x-auto` no `TabsList` de ambos os arquivos para permitir scroll horizontal:
-- `src/pages/Automations.tsx` — linha 94: adicionar classes `overflow-x-auto flex-nowrap w-full`
-- `src/components/integrations/whatsapp-agent/WhatsAppAgentPanel.tsx` — linha 18: adicionar `overflow-x-auto` e remover `flex-wrap` (que impede o scroll)
-
-### 3. Transferência para Humano — Número de destino e mensagem
-
-**Arquivo:** `src/components/integrations/whatsapp-agent/AgentTransferTab.tsx`
-
-Adicionar campos:
-- **Número/contato de transferência** — Input para o número do WhatsApp para onde enviar a conversa (ex: 5521999999999)
-- **Mensagem de encaminhamento** — Textarea com a mensagem que a IA envia ao humano junto com o contexto do atendimento (ex: "Olá, um cliente precisa de atendimento humano. Segue o histórico...")
-
-**Banco de dados:** Adicionar colunas `transfer_phone` (text) e `transfer_message` (text) na tabela `whatsapp_agent_config` via migration.
-
-**Hook:** `useWhatsAppAgentConfig.ts` já suporta upsert genérico, basta adicionar os campos ao `AgentConfig` interface.
-
-### 4. Chat WhatsApp no Painel — Nova aba de conversas
-
-Criar uma nova aba "Chat" dentro do `WhatsAppAgentPanel` que exibe as conversas do WhatsApp em tempo real.
-
-**Estrutura:**
-- Nova tabela `whatsapp_messages` com: `id`, `organization_id`, `instance_name`, `remote_jid` (número do contato), `from_me` (boolean), `message_text`, `timestamp`, `message_id` (externo)
-- Nova aba no `WhatsAppAgentPanel.tsx` com ícone MessageCircle
-- Componente `WhatsAppChatPanel.tsx`:
-  - Lista de conversas à esquerda (agrupadas por `remote_jid`)
-  - Área de chat à direita com histórico de mensagens
-  - Layout responsivo (lista em mobile, split em desktop)
-- As mensagens são armazenadas pelo webhook do N8N que já recebe os eventos `MESSAGES_UPSERT` — basta gravar na tabela
+#### Opção A: N8N insere diretamente via Supabase node
+No workflow N8N, após receber o evento `MESSAGES_UPSERT`, adicionar um node Supabase que faz INSERT:
 
 ```text
-┌────────────────────────────────────────────┐
-│ Conexão │ Comportamento │ ... │ Chat 💬    │
-├──────────┬─────────────────────────────────┤
-│ Contatos │  João Silva         14:32       │
-│ ──────── │  > Olá, tenho interesse no apt  │
-│ ● João   │  < Olá João! Qual bairro?       │
-│   Maria  │  > Centro, 2 quartos            │
-│   Pedro  │                                 │
-│          │  [_________________] [Enviar]    │
-└──────────┴─────────────────────────────────┘
+Dados a mapear do payload da Evolution API:
+- organization_id  → resolver via instance_name (lookup na whatsapp_agent_config)
+- instance_name    → body.instance
+- remote_jid       → body.data[0].key.remoteJid
+- from_me          → body.data[0].key.fromMe
+- message_text     → body.data[0].message.conversation ou extendedTextMessage.text
+- message_type     → "text" / "image" / etc.
+- message_id       → body.data[0].key.id
+- timestamp        → converter body.data[0].messageTimestamp (unix) para ISO
 ```
+
+#### Opção B: Edge Function dedicada para persistir mensagens
+Criar uma Edge Function `whatsapp-persist-message` que o N8N chama via HTTP POST, validando com `X-Webhook-Secret`, e que faz o INSERT com service role.
+
+### Recomendação
+**Opção B** é mais robusta — centraliza a lógica no backend, valida o payload e evita expor credenciais do Supabase no N8N.
+
+### Implementação (se aprovado)
+
+1. **Nova Edge Function `whatsapp-persist-message`** — recebe payload do N8N, valida secret, resolve org pelo instance_name, insere na tabela
+2. **Também inserir a mensagem enviada** — quando o `whatsapp-send` envia com sucesso, inserir o registro na `whatsapp_messages` com `from_me: true`
+3. **Configurar o N8N** — adicionar HTTP Request node no workflow do agente para chamar esta Edge Function após cada `MESSAGES_UPSERT`
 
 ### Alterações por arquivo
 
 | Arquivo | Ação |
 |---------|------|
-| `src/components/ui/tabs.tsx` | Nenhuma (scroll via className) |
-| `src/pages/Automations.tsx` | Adicionar `overflow-x-auto` no TabsList |
-| `WhatsAppAgentPanel.tsx` | Scroll horizontal + nova aba "Chat" |
-| `AgentTransferTab.tsx` | Campos de número e mensagem de transferência |
-| `useWhatsAppAgentConfig.ts` | Adicionar `transfer_phone`, `transfer_message` à interface |
-| **Nova migration** | Colunas `transfer_phone`, `transfer_message` + tabela `whatsapp_messages` |
-| **Novo:** `WhatsAppChatPanel.tsx` | Componente de chat com lista de conversas e mensagens |
-| **Novo:** `useWhatsAppChat.ts` | Hook para buscar/enviar mensagens via Supabase realtime |
-
-### Sobre o envio de mensagens
-
-O envio de mensagens do painel será feito via Evolution API (endpoint `sendText`), chamado por uma Edge Function `whatsapp-send-message` que recebe `instance_name`, `remote_jid` e `text`, valida a sessão e encaminha à API.
+| **Novo:** `supabase/functions/whatsapp-persist-message/index.ts` | Recebe mensagens do N8N e insere na tabela |
+| `supabase/functions/whatsapp-send/index.ts` | Após envio bem-sucedido, inserir registro `from_me: true` na tabela |
+| **N8N (manual)** | Adicionar node HTTP POST para `whatsapp-persist-message` no workflow |
 
