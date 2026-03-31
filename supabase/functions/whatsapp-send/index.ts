@@ -51,12 +51,13 @@ serve(async (req) => {
 
     const { data: profile } = await supabaseClient
       .from("profiles")
-      .select("organization_id")
+      .select("organization_id, full_name")
       .eq("user_id", user.id)
       .single();
     if (!profile?.organization_id) throw new Error("No organization found");
 
     const orgId = profile.organization_id;
+    const senderName = profile.full_name || user.email || "Atendente";
 
     // Get config (unified table)
     const { data: config } = await supabaseClient
@@ -85,6 +86,7 @@ serve(async (req) => {
     if (!phone || !message) throw new Error("phone and message are required");
 
     const cleanPhone = phone.replace(/\D/g, "");
+    const formattedMessage = `*${senderName}*:\n${message}`;
     const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
 
     let endpoint: string;
@@ -96,13 +98,13 @@ serve(async (req) => {
         number: cleanPhone,
         mediatype: body.mediaType || "image",
         media: body.mediaUrl,
-        caption: message,
+        caption: formattedMessage,
       };
     } else {
       endpoint = `${baseUrl}/message/sendText/${config.instance_name}`;
       payload = {
         number: cleanPhone,
-        text: message,
+        text: formattedMessage,
       };
     }
 
