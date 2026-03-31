@@ -69,6 +69,10 @@ export function WhatsAppAgentPanel() {
           <TabsContent value="chat">
             <WhatsAppChatPanel />
           </TabsContent>
+
+          <TabsContent value="voz">
+            <VoiceChatWidget />
+          </TabsContent>
         </>
       )}
     </Tabs>
