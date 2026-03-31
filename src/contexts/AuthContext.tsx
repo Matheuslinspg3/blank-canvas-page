@@ -62,9 +62,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [trialInfo, setTrialInfo] = useState<TrialInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Prevent duplicate fetchProfile from both getSession and onAuthStateChange
+  const profileFetchedForRef = useRef<string | null>(null);
+
   const fetchProfile = async (userId: string): Promise<Profile | null> => {
     try {
-      // Add timeout to prevent infinite loading when DB is unreachable
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 10_000);
 
@@ -79,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!error && data) {
         setProfile(data as Profile);
-        // Fetch organization type
+        // Fetch organization in parallel-ready way
         if (data.organization_id) {
           const orgController = new AbortController();
           const orgTimeout = setTimeout(() => orgController.abort(), 8_000);
