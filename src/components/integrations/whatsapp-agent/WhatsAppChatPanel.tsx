@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,9 @@ import { useWhatsAppChat } from "@/hooks/useWhatsAppChat";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { AudioMessageBubble } from "./AudioMessageBubble";
+import { AudioRecorder } from "./AudioRecorder";
+import { supabase } from "@/integrations/supabase/client";
 
 export function WhatsAppChatPanel() {
   const {
