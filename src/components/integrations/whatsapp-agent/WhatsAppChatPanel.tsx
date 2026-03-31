@@ -181,6 +181,11 @@ export function WhatsAppChatPanel() {
                               : "bg-muted text-foreground"
                           )}
                         >
+                          {msg.from_me && msg.sender_type === "agent" && (
+                            <Badge variant="outline" className="mb-1 text-[10px] px-1.5 py-0 border-primary-foreground/30 text-primary-foreground/80">
+                              <Bot className="h-3 w-3 mr-0.5" /> Agente IA
+                            </Badge>
+                          )}
                           <p className="whitespace-pre-wrap break-words">{msg.message_text}</p>
                           <p
                             className={cn(

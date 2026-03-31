@@ -99,6 +99,7 @@ export function useWhatsAppChat() {
         message_id: null,
         timestamp: new Date().toISOString(),
         created_at: new Date().toISOString(),
+        sender_type: "human",
       };
 
       await queryClient.cancelQueries({ queryKey: ["whatsapp-messages", orgId] });
