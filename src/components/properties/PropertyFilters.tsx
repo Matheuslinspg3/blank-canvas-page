@@ -528,6 +528,12 @@ export function PropertyFilters({
               <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter('maxBeachDistance', null)} />
             </Badge>
           )}
+          {filters.frenteMar && (
+            <Badge variant="secondary" className="gap-1">
+              🏖️ Frente Mar
+              <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter('frenteMar', false)} />
+            </Badge>
+          )}
           {filters.launchStage !== 'all' && (
             <Badge variant="secondary" className="gap-1">
               {filters.launchStage === 'pre_lancamento' ? 'Pré-Lançamento' : 
