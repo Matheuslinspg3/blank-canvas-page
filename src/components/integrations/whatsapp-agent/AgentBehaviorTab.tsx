@@ -84,6 +84,9 @@ export function AgentBehaviorTab() {
         prompt_create_leads: config.prompt_create_leads,
         prompt_schedule_visits: config.prompt_schedule_visits,
         prompt_property_db: config.prompt_property_db,
+        voice_enabled: config.voice_enabled,
+        voice_percentage: config.voice_percentage,
+        voice_id: config.voice_id,
       });
     }
   }, [config]);
