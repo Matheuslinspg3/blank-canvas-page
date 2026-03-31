@@ -13,7 +13,7 @@ import { useState } from "react";
 
 export type DevSection =
   | "overview" | "database" | "storage" | "imports"
-  | "orgs" | "users" | "roles" | "subscriptions"
+  | "users" | "subscriptions"
   | "ai" | "ai-router" | "billing"
   | "tickets" | "tools" | "migration" | "setup";
 
