@@ -51,12 +51,13 @@ serve(async (req) => {
 
     const { data: profile } = await supabaseClient
       .from("profiles")
-      .select("organization_id")
+      .select("organization_id, full_name")
       .eq("user_id", user.id)
       .single();
     if (!profile?.organization_id) throw new Error("No organization found");
 
     const orgId = profile.organization_id;
+    const senderName = profile.full_name || user.email || "Atendente";
 
     // Get config (unified table)
     const { data: config } = await supabaseClient
