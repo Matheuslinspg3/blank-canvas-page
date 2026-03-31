@@ -23,19 +23,20 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("No auth");
+    if (!authHeader?.startsWith("Bearer ")) throw new Error("No auth");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Verify caller is developer
+    // Verify caller via getClaims (more reliable than getUser)
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user: authUser }, error: userError } = await userClient.auth.getUser();
-    if (userError || !authUser) throw new Error("Unauthorized");
-    const user = { id: authUser.id };
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await (userClient.auth as any).getClaims(token);
+    if (claimsError || !claimsData?.claims?.sub) throw new Error("Unauthorized");
+    const user = { id: claimsData.claims.sub as string };
 
     const adminClient = createClient(supabaseUrl, serviceKey);
 
