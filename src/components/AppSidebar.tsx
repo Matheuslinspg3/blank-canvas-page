@@ -54,6 +54,7 @@ const mainItems = [
   { title: "Agenda", url: "/agenda", icon: Calendar },
   { title: "Marketplace", url: "/marketplace", icon: Store },
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
+  { title: "Correspondente", url: "/correspondente", icon: Landmark },
   { title: "Marketing", url: "/marketing", icon: Megaphone, badge: true },
 ];
 

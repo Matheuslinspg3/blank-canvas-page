@@ -196,6 +196,7 @@ const App = () => (
                         <Route path="/crm" element={<CRM />} />
                         <Route path="/contratos" element={<Navigate to="/financeiro?tab=contracts" replace />} />
                         <Route path="/financeiro" element={<Financial />} />
+                        <Route path="/correspondente" element={<CorrespondenteBancario />} />
                         <Route path="/agenda" element={<Schedule />} />
                         
                         <Route path="/automacoes" element={<Automations />} />

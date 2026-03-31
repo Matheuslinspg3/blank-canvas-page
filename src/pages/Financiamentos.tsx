@@ -1,9 +1,8 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calculator, Kanban, FileCheck, FileText, Landmark } from "lucide-react";
+import { Calculator, Kanban, FileCheck, FileText } from "lucide-react";
 import { FinancingSimulator } from "@/components/financing/FinancingSimulator";
 import { FinancingPipeline } from "@/components/financing/FinancingPipeline";
 import { FinancingDocsChecklist } from "@/components/financing/FinancingDocsChecklist";
-import { CorrespondenteTab } from "@/components/financing/CorrespondenteTab";
 import { Card, CardContent } from "@/components/ui/card";
 import { BANK_FORMS, BANK_COLORS } from "@/components/financing/types";
 
@@ -52,11 +51,8 @@ export default function Financiamentos() {
         <p className="text-muted-foreground">Simule, gerencie e acompanhe processos de financiamento imobiliário.</p>
       </div>
 
-      <Tabs defaultValue="correspondente">
+      <Tabs defaultValue="simulador">
         <TabsList className="flex-wrap">
-          <TabsTrigger value="correspondente" className="gap-1.5">
-            <Landmark className="h-4 w-4" /> Correspondente
-          </TabsTrigger>
           <TabsTrigger value="simulador" className="gap-1.5">
             <Calculator className="h-4 w-4" /> Simulador
           </TabsTrigger>
@@ -71,9 +67,6 @@ export default function Financiamentos() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="correspondente">
-          <CorrespondenteTab />
-        </TabsContent>
         <TabsContent value="simulador">
           <FinancingSimulator />
         </TabsContent>
