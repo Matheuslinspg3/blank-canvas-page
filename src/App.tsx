@@ -66,6 +66,7 @@ const Maintenance = lazy(() => lazyRetry(() => import("./pages/Maintenance")));
 const EmailTemplates = lazy(() => lazyRetry(() => import("./pages/EmailTemplates")));
 const Plans = lazy(() => lazyRetry(() => import("./pages/Plans")));
 const MyPlan = lazy(() => lazyRetry(() => import("./pages/MyPlan")));
+const CorrespondenteBancario = lazy(() => lazyRetry(() => import("./pages/CorrespondenteBancario")));
 const Onboarding = lazy(() => lazyRetry(() => import("./pages/app/Onboarding")));
 const AppAuth = lazy(() => lazyRetry(() => import("./pages/app/AppAuth")));
 const AppHome = lazy(() => lazyRetry(() => import("./pages/app/Home")));
