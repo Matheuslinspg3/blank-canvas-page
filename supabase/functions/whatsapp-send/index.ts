@@ -86,6 +86,7 @@ serve(async (req) => {
     if (!phone || !message) throw new Error("phone and message are required");
 
     const cleanPhone = phone.replace(/\D/g, "");
+    const formattedMessage = `*${senderName}*:\n${message}`;
     const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
 
     let endpoint: string;
