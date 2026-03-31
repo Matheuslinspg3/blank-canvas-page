@@ -36,6 +36,9 @@ export interface AgentConfig {
   webhook_url: string | null;
   transfer_phone: string | null;
   transfer_message: string | null;
+  voice_enabled: boolean;
+  voice_percentage: number;
+  voice_id: string;
   updated_at: string;
 }
 
@@ -62,6 +65,9 @@ const DEFAULTS: Partial<AgentConfig> = {
   prompt_schedule_visits: "",
   prompt_property_db: "",
   status: "disconnected",
+  voice_enabled: false,
+  voice_percentage: 0,
+  voice_id: "EXAVITQu4vr4xnSDxMaL",
 };
 
 export function useWhatsAppAgentConfig() {

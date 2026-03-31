@@ -1,12 +1,13 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wifi, Bot, Building2, UserCheck, ArrowRightLeft, MessageCircle } from "lucide-react";
+import { Wifi, Bot, Building2, UserCheck, ArrowRightLeft, MessageCircle, Volume2 } from "lucide-react";
 import { WhatsAppIntegrationCard } from "@/components/integrations/WhatsAppIntegrationCard";
 import { AgentBehaviorTab } from "./AgentBehaviorTab";
 import { AgentPropertiesTab } from "./AgentPropertiesTab";
 import { AgentQualificationTab } from "./AgentQualificationTab";
 import { AgentTransferTab } from "./AgentTransferTab";
 import { WhatsAppChatPanel } from "./WhatsAppChatPanel";
+import { VoiceChatWidget } from "./VoiceChatWidget";
 import { useWhatsAppInstance } from "@/hooks/useWhatsAppInstance";
 
 export function WhatsAppAgentPanel() {
@@ -36,6 +37,9 @@ export function WhatsAppAgentPanel() {
             <TabsTrigger value="chat" className="gap-1.5 text-xs sm:text-sm shrink-0">
               <MessageCircle className="h-3.5 w-3.5" /> Chat
             </TabsTrigger>
+            <TabsTrigger value="voz" className="gap-1.5 text-xs sm:text-sm shrink-0">
+              <Volume2 className="h-3.5 w-3.5" /> Voz
+            </TabsTrigger>
           </>
         )}
       </TabsList>
@@ -64,6 +68,10 @@ export function WhatsAppAgentPanel() {
 
           <TabsContent value="chat">
             <WhatsAppChatPanel />
+          </TabsContent>
+
+          <TabsContent value="voz">
+            <VoiceChatWidget />
           </TabsContent>
         </>
       )}

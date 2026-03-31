@@ -6,7 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Save, Bot, Eye } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
+import { Save, Bot, Eye, Volume2 } from "lucide-react";
 import { useWhatsAppAgentConfig, type AgentConfig } from "@/hooks/useWhatsAppAgentConfig";
 
 const DAY_LABELS: Record<string, string> = {
@@ -82,6 +84,9 @@ export function AgentBehaviorTab() {
         prompt_create_leads: config.prompt_create_leads,
         prompt_schedule_visits: config.prompt_schedule_visits,
         prompt_property_db: config.prompt_property_db,
+        voice_enabled: config.voice_enabled,
+        voice_percentage: config.voice_percentage,
+        voice_id: config.voice_id,
       });
     }
   }, [config]);
@@ -200,6 +205,62 @@ export function AgentBehaviorTab() {
               rows={2}
             />
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Volume2 className="h-4 w-4" /> Voz do Agente (ElevenLabs)
+          </CardTitle>
+          <CardDescription>Configure quando o agente envia áudio ao invés de texto</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Ativar Voz</Label>
+              <p className="text-xs text-muted-foreground">Permite que o agente envie mensagens de áudio via WhatsApp</p>
+            </div>
+            <Switch
+              checked={form.voice_enabled ?? false}
+              onCheckedChange={(v) => update("voice_enabled", v)}
+            />
+          </div>
+
+          {form.voice_enabled && (
+            <>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Frequência de Áudio</Label>
+                  <span className="text-sm font-medium text-primary">{form.voice_percentage ?? 0}%</span>
+                </div>
+                <Slider
+                  value={[form.voice_percentage ?? 0]}
+                  onValueChange={([v]) => update("voice_percentage", v)}
+                  min={0}
+                  max={100}
+                  step={5}
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground">
+                  0% = sempre texto · 100% = sempre áudio · 50% = metade texto, metade áudio
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Voice ID (ElevenLabs)</Label>
+                <Input
+                  value={form.voice_id ?? "EXAVITQu4vr4xnSDxMaL"}
+                  onChange={(e) => update("voice_id", e.target.value)}
+                  placeholder="EXAVITQu4vr4xnSDxMaL"
+                />
+                <p className="text-xs text-muted-foreground">
+                  ID da voz no ElevenLabs. Padrão: Sarah (multilingual). Explore vozes em{" "}
+                  <a href="https://elevenlabs.io/voice-library" target="_blank" rel="noopener" className="underline">Voice Library</a>.
+                </p>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
