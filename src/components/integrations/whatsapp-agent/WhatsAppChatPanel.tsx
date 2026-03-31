@@ -244,7 +244,12 @@ export function WhatsAppChatPanel() {
                   </div>
                 </ScrollArea>
 
-                <div className="px-4 py-3 border-t border-border flex gap-2">
+                <div className="px-4 py-3 border-t border-border flex gap-2 items-center">
+                  <AudioRecorder
+                    onRecorded={handleAudioRecorded}
+                    disabled={isSending}
+                    isSending={sendingAudio}
+                  />
                   <Input
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
