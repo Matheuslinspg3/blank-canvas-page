@@ -6,10 +6,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { DevSidebar, type DevSection } from "@/components/developer/DevSidebar";
 import { DevOverviewCards } from "@/components/developer/DevOverviewCards";
 import { SystemHealthCard } from "@/components/developer/SystemHealthCard";
-import { OrgUsageTab } from "@/components/developer/OrgUsageTab";
 import { StorageUsageTab } from "@/components/developer/StorageUsageTab";
-import { RolesTab } from "@/components/developer/RolesTab";
-import { UsersTab } from "@/components/developer/UsersTab";
 import { ImportHistoryTab } from "@/components/developer/ImportHistoryTab";
 import { DatabaseTab } from "@/components/developer/DatabaseTab";
 import { SubscriptionsTab } from "@/components/developer/SubscriptionsTab";
@@ -20,15 +17,14 @@ import { MigrationTab } from "@/components/developer/MigrationTab";
 import { AiRouterTab } from "@/components/developer/ai-router/AiRouterTab";
 import { SetupChecklistTab } from "@/components/developer/SetupChecklistTab";
 import { ToolsSection } from "@/components/developer/ToolsSection";
+import { UsersAndOrgsSection } from "@/components/developer/UsersAndOrgsSection";
 
 const sectionTitles: Record<DevSection, string> = {
   overview: "Dashboard",
   database: "Banco de Dados",
   storage: "Storage",
   imports: "Importações",
-  orgs: "Uso por Organização",
-  users: "Usuários",
-  roles: "Permissões",
+  users: "Usuários & Organizações",
   subscriptions: "Assinaturas",
   ai: "Inteligência Artificial",
   "ai-router": "AI Router",
@@ -54,12 +50,8 @@ function SectionContent({ section, onNavigate }: { section: DevSection; onNaviga
       return <StorageUsageTab />;
     case "imports":
       return <ImportHistoryTab />;
-    case "orgs":
-      return <OrgUsageTab />;
     case "users":
-      return <UsersTab />;
-    case "roles":
-      return <RolesTab />;
+      return <UsersAndOrgsSection />;
     case "subscriptions":
       return <SubscriptionsTab />;
     case "ai":

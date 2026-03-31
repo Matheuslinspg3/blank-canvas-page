@@ -13,7 +13,7 @@ import { useState } from "react";
 
 export type DevSection =
   | "overview" | "database" | "storage" | "imports"
-  | "orgs" | "users" | "roles" | "subscriptions"
+  | "users" | "subscriptions"
   | "ai" | "ai-router" | "billing"
   | "tickets" | "tools" | "migration" | "setup";
 
@@ -40,9 +40,7 @@ const navGroups: NavGroup[] = [
   {
     label: "Gestão",
     items: [
-      { id: "orgs", label: "Organizações", icon: Building2 },
-      { id: "users", label: "Usuários", icon: Users },
-      { id: "roles", label: "Permissões", icon: Shield },
+      { id: "users", label: "Usuários & Orgs", icon: Users },
       { id: "subscriptions", label: "Assinaturas", icon: CreditCard },
     ],
   },
