@@ -98,6 +98,7 @@ export function useWhatsAppChat() {
         message_text: message,
         message_type: "text",
         message_id: null,
+        media_url: null,
         timestamp: new Date().toISOString(),
         created_at: new Date().toISOString(),
         sender_type: "human",
