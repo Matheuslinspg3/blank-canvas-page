@@ -243,6 +243,7 @@ export function usePropertyFilters() {
     if (filters.maxBeachDistance !== null) count++;
     if (filters.launchStage !== 'all') count++;
     if (filters.ownerId !== '') count++;
+    if (filters.frenteMar) count++;
     return count;
   }, [filters]);
 
