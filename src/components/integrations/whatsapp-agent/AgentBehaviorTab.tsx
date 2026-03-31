@@ -248,14 +248,36 @@ export function AgentBehaviorTab() {
               </div>
 
               <div className="space-y-2">
-                <Label>Voice ID (ElevenLabs)</Label>
-                <Input
+                <Label>Voz do Agente</Label>
+                <Select
                   value={form.voice_id ?? "EXAVITQu4vr4xnSDxMaL"}
-                  onChange={(e) => update("voice_id", e.target.value)}
-                  placeholder="EXAVITQu4vr4xnSDxMaL"
-                />
+                  onValueChange={(v) => update("voice_id", v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione uma voz" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="EXAVITQu4vr4xnSDxMaL">Sarah (Feminina, Multilingual)</SelectItem>
+                    <SelectItem value="FGY2WhTYpPnrIDTdsKH5">Laura (Feminina, Suave)</SelectItem>
+                    <SelectItem value="Xb7hH8MSUJpSbSDYk0k2">Alice (Feminina, Confiante)</SelectItem>
+                    <SelectItem value="XrExE9yKIg1WjnnlVkGX">Matilda (Feminina, Quente)</SelectItem>
+                    <SelectItem value="pFZP5JQG7iQjIQuC4Bku">Lily (Feminina, Narrativa)</SelectItem>
+                    <SelectItem value="cgSgspJ2msm6clMCkdW9">Jessica (Feminina, Expressiva)</SelectItem>
+                    <SelectItem value="CwhRBWXzGAHq8TQ4Fs17">Roger (Masculina, Profissional)</SelectItem>
+                    <SelectItem value="IKne3meq5aSn9XLyUdCD">Charlie (Masculina, Casual)</SelectItem>
+                    <SelectItem value="JBFqnCBsd6RMkjVDRZzb">George (Masculina, Quente)</SelectItem>
+                    <SelectItem value="N2lVS1w4EtoT3dr4eOWO">Callum (Masculina, Intensa)</SelectItem>
+                    <SelectItem value="TX3LPaxmHKxFdv7VOQHJ">Liam (Masculina, Articulada)</SelectItem>
+                    <SelectItem value="nPczCjzI2devNBz1zQrb">Brian (Masculina, Narrativa)</SelectItem>
+                    <SelectItem value="onwK4e9ZLuTAKqWW03F9">Daniel (Masculina, Autoritativa)</SelectItem>
+                    <SelectItem value="cjVigY5qzO86Huf0OWal">Eric (Masculina, Amigável)</SelectItem>
+                    <SelectItem value="bIHbv24MWmeRgasZH58o">Will (Masculina, Jovem)</SelectItem>
+                    <SelectItem value="iP95p4xoKVk53GoZ742B">Chris (Masculina, Casual)</SelectItem>
+                    <SelectItem value="SAz9YHcvj6GT2YYXdXww">River (Não-Binária)</SelectItem>
+                  </SelectContent>
+                </Select>
                 <p className="text-xs text-muted-foreground">
-                  ID da voz no ElevenLabs. Padrão: Sarah (multilingual). Explore vozes em{" "}
+                  Voz usada pelo N8N para gerar áudio via ElevenLabs. Explore mais em{" "}
                   <a href="https://elevenlabs.io/voice-library" target="_blank" rel="noopener" className="underline">Voice Library</a>.
                 </p>
               </div>
