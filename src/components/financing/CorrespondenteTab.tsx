@@ -177,6 +177,7 @@ export function CorrespondenteTab() {
       case "dashboard": return <CorbanDashboard />;
       case "pipeline": return <FinancingPipeline />;
       case "simulador": return <FinancingSimulator />;
+      case "rentabilidade": return <InvestmentCalculator />;
       case "formularios": return <FormulariosSection />;
       case "documentacao": return <FinancingDocsChecklist />;
     }
