@@ -108,6 +108,9 @@ export default function Automations() {
               <TabsTrigger value="whatsapp-agent" className="gap-1.5 shrink-0">
                 <MessageSquare className="h-3.5 w-3.5" /> Agente IA (WhatsApp)
               </TabsTrigger>
+              <TabsTrigger value="followup" className="gap-1.5 shrink-0">
+                <UserCheck className="h-3.5 w-3.5" /> Follow-up
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="automations" className="space-y-6">
