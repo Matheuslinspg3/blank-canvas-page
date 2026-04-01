@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,13 +7,52 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, Clock, MessageSquare, Brain, Users, RefreshCw, UserPlus, AlertTriangle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import {
+  Save, Clock, MessageSquare, Brain, Users, RefreshCw, UserPlus,
+  AlertTriangle, Send, History, StopCircle, PlayCircle, Search, ChevronLeft, ChevronRight,
+} from "lucide-react";
 import { useWhatsAppAgentConfig } from "@/hooks/useWhatsAppAgentConfig";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+
+// ── Types ──
+interface ContactRow {
+  organization_id: string;
+  remote_jid: string;
+  last_message_at: string;
+  last_message_text: string | null;
+  last_sender_type: string | null;
+  last_from_me: boolean;
+  total_messages: number;
+  display_name: string;
+  followup_id: string | null;
+  followup_status: string | null;
+  attempt_count: number | null;
+  next_followup_at: string | null;
+  followup_last_outbound: string | null;
+  followup_last_inbound: string | null;
+  opted_out: boolean | null;
+  property_interest: string | null;
+  conversation_context: string | null;
+}
+
+interface LogEntry {
+  id: string;
+  attempt_number: number;
+  message_sent: string;
+  message_source: string;
+  sent_at: string;
+  delivery_status: string;
+}
 
 interface FollowUpQueueItem {
   id: string;
@@ -24,24 +63,22 @@ interface FollowUpQueueItem {
   attempt_count: number;
   next_followup_at: string;
   created_at: string;
+  opted_out: boolean;
 }
 
-interface WhatsAppContact {
-  remote_jid: string;
-  last_message: string | null;
-  last_timestamp: string;
-  last_from_me: boolean;
-  last_sender_type: string;
-  hours_since_last: number;
-  in_queue: boolean;
-  queue_status: string | null;
-}
-
+// ── Helpers ──
 const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   pending: { label: "Pendente", variant: "default" },
   responded: { label: "Respondeu", variant: "secondary" },
   completed: { label: "Concluído", variant: "outline" },
   opted_out: { label: "Opt-out", variant: "destructive" },
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+  template_1: "Template 1",
+  ai_generated: "IA",
+  template_3: "Template 3",
+  manual: "Manual",
 };
 
 function formatJid(jid: string): string {
@@ -52,26 +89,51 @@ function formatJid(jid: string): string {
   return phone;
 }
 
+const PAGE_SIZE = 20;
+
+// ── Component ──
 export function FollowUpConfigPanel() {
   const { config, saveConfig, isSaving, isLoading } = useWhatsAppAgentConfig();
   const { profile } = useAuth();
+  const orgId = profile?.organization_id;
 
+  // Config state
   const [enabled, setEnabled] = useState(false);
   const [intervals, setIntervals] = useState<number[]>([24, 48, 72]);
+  const [maxAttempts, setMaxAttempts] = useState(3);
   const [bhStart, setBhStart] = useState("08:00");
   const [bhEnd, setBhEnd] = useState("18:00");
   const [template1, setTemplate1] = useState("");
   const [template3, setTemplate3] = useState("");
   const [aiPrompt, setAiPrompt] = useState("");
-  const [queue, setQueue] = useState<FollowUpQueueItem[]>([]);
-  const [contacts, setContacts] = useState<WhatsAppContact[]>([]);
-  const [loadingQueue, setLoadingQueue] = useState(false);
-  const [loadingContacts, setLoadingContacts] = useState(false);
 
+  // Contacts state
+  const [contacts, setContacts] = useState<ContactRow[]>([]);
+  const [loadingContacts, setLoadingContacts] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(0);
+
+  // Queue state
+  const [queue, setQueue] = useState<FollowUpQueueItem[]>([]);
+  const [loadingQueue, setLoadingQueue] = useState(false);
+
+  // Modal: manual follow-up
+  const [manualContact, setManualContact] = useState<ContactRow | null>(null);
+  const [manualMessage, setManualMessage] = useState("");
+  const [sendingManual, setSendingManual] = useState(false);
+
+  // Sheet: history
+  const [historyContact, setHistoryContact] = useState<ContactRow | null>(null);
+  const [historyLogs, setHistoryLogs] = useState<LogEntry[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // ── Sync config ──
   useEffect(() => {
     if (config) {
       setEnabled((config as any).followup_enabled ?? false);
       setIntervals((config as any).followup_intervals ?? [24, 48, 72]);
+      setMaxAttempts((config as any).followup_max_attempts ?? 3);
       const bh = (config as any).followup_business_hours as { start: string; end: string } | null;
       setBhStart(bh?.start ?? "08:00");
       setBhEnd(bh?.end ?? "18:00");
@@ -81,80 +143,79 @@ export function FollowUpConfigPanel() {
     }
   }, [config]);
 
-  const loadQueue = async () => {
-    if (!profile?.organization_id) return;
+  // ── Load contacts from view ──
+  const loadContacts = useCallback(async () => {
+    if (!orgId) return;
+    setLoadingContacts(true);
+    const { data, error } = await supabase
+      .from("whatsapp_contacts_followup_view" as any)
+      .select("*")
+      .eq("organization_id", orgId)
+      .order("last_message_at", { ascending: false })
+      .limit(500);
+    if (!error && data) setContacts(data as any as ContactRow[]);
+    setLoadingContacts(false);
+  }, [orgId]);
+
+  // ── Load queue ──
+  const loadQueue = useCallback(async () => {
+    if (!orgId) return;
     setLoadingQueue(true);
     const { data } = await supabase
       .from("follow_up_queue" as any)
-      .select("id, lead_phone, lead_name, property_interest, status, attempt_count, next_followup_at, created_at")
-      .eq("org_id", profile.organization_id)
+      .select("id, lead_phone, lead_name, property_interest, status, attempt_count, next_followup_at, created_at, opted_out")
+      .eq("org_id", orgId)
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(100);
     setQueue((data as any as FollowUpQueueItem[]) ?? []);
     setLoadingQueue(false);
-  };
-
-  const loadContacts = async () => {
-    if (!profile?.organization_id) return;
-    setLoadingContacts(true);
-
-    // Fetch recent WhatsApp messages
-    const { data: messages } = await supabase
-      .from("whatsapp_messages" as any)
-      .select("remote_jid, from_me, sender_type, message_text, timestamp")
-      .eq("organization_id", profile.organization_id)
-      .order("timestamp", { ascending: false })
-      .limit(2000);
-
-    // Fetch current queue
-    const { data: queueData } = await supabase
-      .from("follow_up_queue" as any)
-      .select("lead_phone, status")
-      .eq("org_id", profile.organization_id);
-
-    const queueMap = new Map<string, string>();
-    if (queueData) {
-      for (const q of queueData as any[]) {
-        queueMap.set(q.lead_phone, q.status);
-      }
-    }
-
-    // Group messages by contact
-    const contactMap = new Map<string, WhatsAppContact>();
-    if (messages) {
-      for (const msg of messages as any[]) {
-        if (msg.remote_jid.includes("@g.us")) continue; // skip groups
-        if (!contactMap.has(msg.remote_jid)) {
-          const hoursSince = (Date.now() - new Date(msg.timestamp).getTime()) / (1000 * 60 * 60);
-          contactMap.set(msg.remote_jid, {
-            remote_jid: msg.remote_jid,
-            last_message: msg.message_text,
-            last_timestamp: msg.timestamp,
-            last_from_me: msg.from_me,
-            last_sender_type: msg.sender_type,
-            hours_since_last: Math.round(hoursSince * 10) / 10,
-            in_queue: queueMap.has(msg.remote_jid),
-            queue_status: queueMap.get(msg.remote_jid) ?? null,
-          });
-        }
-      }
-    }
-
-    setContacts(Array.from(contactMap.values()).sort((a, b) => 
-      new Date(b.last_timestamp).getTime() - new Date(a.last_timestamp).getTime()
-    ));
-    setLoadingContacts(false);
-  };
+  }, [orgId]);
 
   useEffect(() => {
-    loadQueue();
     loadContacts();
-  }, [profile?.organization_id]);
+    loadQueue();
+  }, [loadContacts, loadQueue]);
 
+  // ── Realtime on follow_up_queue ──
+  useEffect(() => {
+    if (!orgId) return;
+    const channel = supabase
+      .channel("followup-queue-changes")
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "follow_up_queue",
+        filter: `org_id=eq.${orgId}`,
+      }, () => {
+        loadQueue();
+        loadContacts();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [orgId, loadQueue, loadContacts]);
+
+  // ── Filtered & paginated contacts ──
+  const filteredContacts = contacts.filter((c) => {
+    if (statusFilter === "pending" && c.followup_status !== "pending") return false;
+    if (statusFilter === "responded" && c.followup_status !== "responded") return false;
+    if (statusFilter === "completed" && c.followup_status !== "completed") return false;
+    if (statusFilter === "opted_out" && c.followup_status !== "opted_out") return false;
+    if (statusFilter === "none" && c.followup_id !== null) return false;
+    if (searchTerm) {
+      const s = searchTerm.toLowerCase();
+      if (!c.display_name.toLowerCase().includes(s) && !c.remote_jid.toLowerCase().includes(s)) return false;
+    }
+    return true;
+  });
+  const totalPages = Math.ceil(filteredContacts.length / PAGE_SIZE);
+  const pagedContacts = filteredContacts.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  // ── Save config ──
   const handleSave = () => {
     saveConfig({
       followup_enabled: enabled,
       followup_intervals: intervals,
+      followup_max_attempts: maxAttempts,
       followup_business_hours: { start: bhStart, end: bhEnd },
       followup_template_1: template1,
       followup_template_3: template3,
@@ -162,25 +223,105 @@ export function FollowUpConfigPanel() {
     } as any);
   };
 
-  const handleManualEnqueue = async (contact: WhatsAppContact) => {
-    if (!profile?.organization_id || !config) return;
-    const { error } = await supabase
+  // ── Manual follow-up ──
+  const openManualModal = (contact: ContactRow) => {
+    const name = contact.display_name !== contact.remote_jid ? contact.display_name : formatJid(contact.remote_jid);
+    const msg = template1
+      .replace("{nome}", name)
+      .replace("{imovel}", contact.property_interest ?? "imóvel");
+    setManualMessage(msg);
+    setManualContact(contact);
+  };
+
+  const sendManualFollowup = async () => {
+    if (!orgId || !manualContact || !manualMessage.trim()) return;
+    setSendingManual(true);
+
+    // Upsert queue
+    const { data: upserted, error: upsertErr } = await supabase
       .from("follow_up_queue" as any)
       .upsert({
-        org_id: profile.organization_id,
-        lead_phone: contact.remote_jid,
-        lead_name: contact.remote_jid.replace("@s.whatsapp.net", ""),
+        org_id: orgId,
+        lead_phone: manualContact.remote_jid,
+        lead_name: manualContact.display_name !== manualContact.remote_jid ? manualContact.display_name : null,
         instance_name: (config as any).instance_name ?? "",
         status: "pending",
         attempt_count: 0,
         next_followup_at: new Date().toISOString(),
         opted_out: false,
-      } as any, { onConflict: "org_id,lead_phone" } as any);
+      } as any, { onConflict: "org_id,lead_phone" } as any)
+      .select("id")
+      .single();
 
-    if (error) {
-      toast.error("Erro ao adicionar: " + error.message);
-    } else {
-      toast.success("Lead adicionado à fila de follow-up!");
+    if (upsertErr) {
+      toast.error("Erro ao enfileirar: " + upsertErr.message);
+      setSendingManual(false);
+      return;
+    }
+
+    // Insert log
+    if (upserted) {
+      await supabase.from("follow_up_log" as any).insert({
+        queue_id: (upserted as any).id,
+        org_id: orgId,
+        lead_phone: manualContact.remote_jid,
+        attempt_number: 0,
+        message_sent: manualMessage,
+        message_source: "manual",
+      } as any);
+    }
+
+    toast.success("Follow-up enfileirado para envio!");
+    setManualContact(null);
+    setSendingManual(false);
+    loadQueue();
+    loadContacts();
+  };
+
+  // ── History ──
+  const openHistory = async (contact: ContactRow) => {
+    setHistoryContact(contact);
+    setLoadingHistory(true);
+    const { data } = await supabase
+      .from("follow_up_log" as any)
+      .select("id, attempt_number, message_sent, message_source, sent_at, delivery_status")
+      .eq("org_id", orgId)
+      .eq("lead_phone", contact.remote_jid)
+      .order("sent_at", { ascending: false })
+      .limit(50);
+    setHistoryLogs((data as any as LogEntry[]) ?? []);
+    setLoadingHistory(false);
+  };
+
+  // ── Opt-out ──
+  const handleOptOut = async (contact: ContactRow) => {
+    if (!contact.followup_id) return;
+    const confirmed = window.confirm("Tem certeza que quer parar o follow-up para este contato?");
+    if (!confirmed) return;
+
+    const { error } = await supabase.functions.invoke("whatsapp-followup-update", {
+      body: { id: contact.followup_id, action: "opted_out" },
+    });
+    if (error) toast.error("Erro: " + error.message);
+    else toast.success("Follow-up interrompido.");
+  };
+
+  // ── Reactivate ──
+  const handleReactivate = async (contact: ContactRow) => {
+    if (!contact.followup_id) return;
+    const nextAt = new Date(Date.now() + (intervals[0] ?? 24) * 3600 * 1000).toISOString();
+    const { error } = await supabase
+      .from("follow_up_queue" as any)
+      .update({
+        status: "pending",
+        attempt_count: 0,
+        opted_out: false,
+        next_followup_at: nextAt,
+      } as any)
+      .eq("id", contact.followup_id);
+    if (error) toast.error("Erro: " + error.message);
+    else {
+      toast.success("Follow-up reativado!");
       loadQueue();
       loadContacts();
     }
@@ -188,22 +329,14 @@ export function FollowUpConfigPanel() {
 
   if (isLoading) return <div className="text-muted-foreground text-sm p-4">Carregando...</div>;
 
-  // Contacts that are stale (last msg was outbound, >X hours ago)
-  const firstInterval = intervals[0] ?? 24;
-  const staleContacts = contacts.filter(
-    (c) => c.last_from_me && c.hours_since_last >= firstInterval && !c.in_queue
-  );
-  const waitingContacts = contacts.filter(
-    (c) => c.last_from_me && c.hours_since_last < firstInterval && !c.in_queue
-  );
-  const respondedContacts = contacts.filter((c) => !c.last_from_me);
+  const cfgMaxAttempts = maxAttempts;
 
   return (
     <div className="space-y-4">
       <Tabs defaultValue="contacts" className="space-y-4">
         <TabsList className="bg-muted/50">
           <TabsTrigger value="contacts" className="gap-1.5">
-            <Users className="h-3.5 w-3.5" /> Contatos ({contacts.length})
+            <Users className="h-3.5 w-3.5" /> Contatos
           </TabsTrigger>
           <TabsTrigger value="queue" className="gap-1.5">
             <RefreshCw className="h-3.5 w-3.5" /> Fila ({queue.filter(q => q.status === "pending").length})
@@ -213,122 +346,147 @@ export function FollowUpConfigPanel() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Contacts Tab */}
+        {/* ═══ CONTACTS TAB ═══ */}
         <TabsContent value="contacts" className="space-y-4">
-          {/* Stale contacts alert */}
-          {staleContacts.length > 0 && (
-            <Card className="border-orange-500/30 bg-orange-500/5">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2 text-orange-600 dark:text-orange-400">
-                  <AlertTriangle className="h-4 w-4" />
-                  {staleContacts.length} contato(s) sem resposta há mais de {firstInterval}h
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Esses contatos receberam sua última mensagem há mais de {firstInterval} horas e não responderam. 
-                  {enabled ? " O sistema automático os adicionará à fila." : " Ative o follow-up automático ou adicione manualmente."}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {staleContacts.map((c) => (
-                    <div key={c.remote_jid} className="flex items-center justify-between py-2 px-3 rounded-md bg-background border border-border/50">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium">{formatJid(c.remote_jid)}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          Última msg: {formatDistanceToNow(new Date(c.last_timestamp), { addSuffix: true, locale: ptBR })}
-                          {" · "}{c.last_sender_type === "agent" ? "Agente IA" : "Humano"}
-                        </p>
-                      </div>
-                      <Button size="sm" variant="outline" onClick={() => handleManualEnqueue(c)} className="shrink-0 ml-2">
-                        <UserPlus className="h-3.5 w-3.5 mr-1" /> Enfileirar
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* All contacts table */}
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4" /> Todos os Contatos WhatsApp
+                  <MessageSquare className="h-4 w-4" /> Contatos WhatsApp
                 </CardTitle>
                 <Button variant="ghost" size="sm" onClick={loadContacts} disabled={loadingContacts}>
-                  <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loadingContacts ? "animate-spin" : ""}`} />
-                  Atualizar
+                  <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loadingContacts ? "animate-spin" : ""}`} /> Atualizar
                 </Button>
               </div>
-              <CardDescription>
-                Contatos com conversas ativas. O follow-up automático detecta quem não respondeu após {firstInterval}h.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {contacts.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">
-                  Nenhuma conversa WhatsApp encontrada
-                </p>
-              ) : (
-                <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
-                  <table className="w-full text-sm">
-                    <thead className="sticky top-0 bg-card z-10">
-                      <tr className="border-b text-left text-muted-foreground">
-                        <th className="pb-2 pr-3">Contato</th>
-                        <th className="pb-2 pr-3">Última mensagem</th>
-                        <th className="pb-2 pr-3">Tempo</th>
-                        <th className="pb-2 pr-3">Status</th>
-                        <th className="pb-2">Ação</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {contacts.map((c) => {
-                        const isStale = c.last_from_me && c.hours_since_last >= firstInterval;
-                        return (
-                          <tr key={c.remote_jid} className={`border-b border-border/50 ${isStale && !c.in_queue ? "bg-orange-500/5" : ""}`}>
-                            <td className="py-2 pr-3">
-                              <span className="font-medium text-xs">{formatJid(c.remote_jid)}</span>
-                            </td>
-                            <td className="py-2 pr-3 text-xs max-w-[200px] truncate text-muted-foreground">
-                              {c.last_from_me ? "→ " : "← "}
-                              {c.last_message?.substring(0, 50) || "—"}
-                            </td>
-                            <td className="py-2 pr-3 text-xs text-muted-foreground whitespace-nowrap">
-                              {formatDistanceToNow(new Date(c.last_timestamp), { addSuffix: true, locale: ptBR })}
-                            </td>
-                            <td className="py-2 pr-3">
-                              {c.in_queue ? (
-                                <Badge variant={STATUS_MAP[c.queue_status ?? ""]?.variant ?? "outline"} className="text-xs">
-                                  {STATUS_MAP[c.queue_status ?? ""]?.label ?? c.queue_status}
-                                </Badge>
-                              ) : c.last_from_me ? (
-                                <Badge variant={isStale ? "destructive" : "outline"} className="text-xs">
-                                  {isStale ? `Sem resposta ${Math.round(c.hours_since_last)}h` : "Aguardando"}
-                                </Badge>
-                              ) : (
-                                <Badge variant="secondary" className="text-xs">Respondeu</Badge>
-                              )}
-                            </td>
-                            <td className="py-2">
-                              {!c.in_queue && c.last_from_me && isStale && (
-                                <Button size="sm" variant="ghost" onClick={() => handleManualEnqueue(c)} className="h-7 text-xs">
-                                  <UserPlus className="h-3 w-3 mr-1" /> Enfileirar
-                                </Button>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+              {/* Filters */}
+              <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar nome ou telefone..."
+                    value={searchTerm}
+                    onChange={(e) => { setSearchTerm(e.target.value); setPage(0); }}
+                    className="pl-8 h-9 text-sm"
+                  />
                 </div>
+                <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}>
+                  <SelectTrigger className="w-full sm:w-[160px] h-9 text-sm">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="pending">Pendente</SelectItem>
+                    <SelectItem value="responded">Respondeu</SelectItem>
+                    <SelectItem value="completed">Concluído</SelectItem>
+                    <SelectItem value="opted_out">Opt-out</SelectItem>
+                    <SelectItem value="none">Sem follow-up</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {pagedContacts.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">Nenhum contato encontrado</p>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Contato</TableHead>
+                          <TableHead className="hidden sm:table-cell">Última msg</TableHead>
+                          <TableHead>Tempo</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="hidden sm:table-cell">Tentativas</TableHead>
+                          <TableHead>Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {pagedContacts.map((c) => {
+                          const canSendManual = enabled && !c.opted_out && (c.attempt_count ?? 0) < cfgMaxAttempts;
+                          const canOptOut = c.followup_id && c.followup_status === "pending";
+                          const canReactivate = c.followup_id && ["responded", "completed", "opted_out"].includes(c.followup_status ?? "");
+
+                          return (
+                            <TableRow key={c.remote_jid}>
+                              <TableCell>
+                                <div className="font-medium text-xs">
+                                  {c.display_name !== c.remote_jid ? c.display_name : formatJid(c.remote_jid)}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground">{formatJid(c.remote_jid)}</div>
+                              </TableCell>
+                              <TableCell className="hidden sm:table-cell text-xs text-muted-foreground max-w-[150px] truncate">
+                                {c.last_message_text?.substring(0, 50) || "—"}
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                {formatDistanceToNow(new Date(c.last_message_at), { addSuffix: true, locale: ptBR })}
+                              </TableCell>
+                              <TableCell>
+                                {c.followup_status ? (
+                                  <Badge
+                                    variant={STATUS_MAP[c.followup_status]?.variant ?? "outline"}
+                                    className="text-[10px]"
+                                  >
+                                    {STATUS_MAP[c.followup_status]?.label ?? c.followup_status}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-[10px] text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="hidden sm:table-cell text-xs">
+                                {c.followup_id ? `${c.attempt_count ?? 0}/${cfgMaxAttempts}` : "—"}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex gap-1">
+                                  {canSendManual && (
+                                    <Button size="icon" variant="ghost" className="h-7 w-7" title="Enviar follow-up manual" onClick={() => openManualModal(c)}>
+                                      <Send className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
+                                  <Button size="icon" variant="ghost" className="h-7 w-7" title="Ver histórico" onClick={() => openHistory(c)}>
+                                    <History className="h-3.5 w-3.5" />
+                                  </Button>
+                                  {canOptOut && (
+                                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" title="Parar follow-up" onClick={() => handleOptOut(c)}>
+                                      <StopCircle className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
+                                  {canReactivate && (
+                                    <Button size="icon" variant="ghost" className="h-7 w-7 text-primary" title="Reativar follow-up" onClick={() => handleReactivate(c)}>
+                                      <PlayCircle className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between px-4 py-3 border-t">
+                      <span className="text-xs text-muted-foreground">
+                        {filteredContacts.length} contato(s) · Página {page + 1}/{totalPages}
+                      </span>
+                      <div className="flex gap-1">
+                        <Button size="icon" variant="ghost" className="h-7 w-7" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Queue Tab */}
+        {/* ═══ QUEUE TAB ═══ */}
         <TabsContent value="queue">
           <Card>
             <CardHeader>
@@ -337,82 +495,65 @@ export function FollowUpConfigPanel() {
                   <Users className="h-4 w-4" /> Fila de Follow-up
                 </CardTitle>
                 <Button variant="ghost" size="sm" onClick={loadQueue} disabled={loadingQueue}>
-                  <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loadingQueue ? "animate-spin" : ""}`} />
-                  Atualizar
+                  <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loadingQueue ? "animate-spin" : ""}`} /> Atualizar
                 </Button>
               </div>
-              <CardDescription>
-                Leads enfileirados para follow-up automático via N8N a cada 5 minutos.
-              </CardDescription>
+              <CardDescription>Leads enfileirados para follow-up automático via N8N a cada 5 minutos.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               {queue.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">
-                  Nenhum lead na fila de follow-up
-                </p>
+                <p className="text-sm text-muted-foreground text-center py-6">Nenhum lead na fila</p>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b text-left text-muted-foreground">
-                        <th className="pb-2 pr-3">Lead</th>
-                        <th className="pb-2 pr-3">Interesse</th>
-                        <th className="pb-2 pr-3">Status</th>
-                        <th className="pb-2 pr-3">Tentativas</th>
-                        <th className="pb-2">Próximo envio</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {queue.map((item) => {
-                        const st = STATUS_MAP[item.status] ?? { label: item.status, variant: "outline" as const };
-                        return (
-                          <tr key={item.id} className="border-b border-border/50">
-                            <td className="py-2 pr-3">
-                              <div className="font-medium">{item.lead_name || "Sem nome"}</div>
-                              <div className="text-xs text-muted-foreground">{formatJid(item.lead_phone)}</div>
-                            </td>
-                            <td className="py-2 pr-3 text-xs max-w-[200px] truncate">
-                              {item.property_interest || "—"}
-                            </td>
-                            <td className="py-2 pr-3">
-                              <Badge variant={st.variant}>{st.label}</Badge>
-                            </td>
-                            <td className="py-2 pr-3 text-center">{item.attempt_count}/3</td>
-                            <td className="py-2 text-xs">
-                              {item.status === "pending"
-                                ? format(new Date(item.next_followup_at), "dd/MM HH:mm", { locale: ptBR })
-                                : "—"}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Lead</TableHead>
+                      <TableHead>Interesse</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Tentativas</TableHead>
+                      <TableHead>Próximo envio</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {queue.map((item) => {
+                      const st = STATUS_MAP[item.status] ?? { label: item.status, variant: "outline" as const };
+                      return (
+                        <TableRow key={item.id}>
+                          <TableCell>
+                            <div className="font-medium text-xs">{item.lead_name || "Sem nome"}</div>
+                            <div className="text-[10px] text-muted-foreground">{formatJid(item.lead_phone)}</div>
+                          </TableCell>
+                          <TableCell className="text-xs max-w-[150px] truncate">{item.property_interest || "—"}</TableCell>
+                          <TableCell><Badge variant={st.variant} className="text-[10px]">{st.label}</Badge></TableCell>
+                          <TableCell className="text-xs text-center">{item.attempt_count}/{cfgMaxAttempts}</TableCell>
+                          <TableCell className="text-xs">
+                            {item.status === "pending"
+                              ? format(new Date(item.next_followup_at), "dd/MM HH:mm", { locale: ptBR })
+                              : "—"}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Config Tab */}
+        {/* ═══ CONFIG TAB ═══ */}
         <TabsContent value="config" className="space-y-4">
-          {/* Toggle + Intervals */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Clock className="h-4 w-4" /> Configuração de Follow-up
               </CardTitle>
-              <CardDescription>
-                O sistema detecta automaticamente conversas sem resposta e enfileira para follow-up progressivo.
-              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label>Ativar Follow-up Automático</Label>
-                  <p className="text-xs text-muted-foreground">
-                    O N8N processará a fila a cada 5 minutos. Contatos sem resposta após o intervalo configurado serão enfileirados automaticamente.
-                  </p>
+                  <p className="text-xs text-muted-foreground">Contatos sem resposta serão enfileirados automaticamente.</p>
                 </div>
                 <Switch checked={enabled} onCheckedChange={setEnabled} />
               </div>
@@ -424,95 +565,70 @@ export function FollowUpConfigPanel() {
                       <div key={i} className="space-y-1">
                         <Label className="text-xs">Tentativa {i + 1} (horas)</Label>
                         <Input
-                          type="number"
-                          min={1}
-                          max={168}
-                          value={val}
-                          onChange={(e) => {
-                            const next = [...intervals];
-                            next[i] = parseInt(e.target.value) || 24;
-                            setIntervals(next);
-                          }}
+                          type="number" min={1} max={168} value={val}
+                          onChange={(e) => { const next = [...intervals]; next[i] = parseInt(e.target.value) || 24; setIntervals(next); }}
                         />
                       </div>
                     ))}
                   </div>
 
-                  <div className="p-3 rounded-md bg-muted/50 text-xs text-muted-foreground space-y-1">
-                    <p><strong>Como funciona:</strong></p>
-                    <p>1. Quando um contato não responde por <strong>{intervals[0]}h</strong>, ele é detectado automaticamente</p>
-                    <p>2. A 1ª tentativa usa o <strong>template fixo</strong>. Após <strong>{intervals[1] ?? 48}h</strong> sem resposta, a 2ª tentativa usa <strong>IA</strong></p>
-                    <p>3. Após mais <strong>{intervals[2] ?? 72}h</strong>, a 3ª e última tentativa é a <strong>mensagem de despedida</strong></p>
-                    <p>4. Se o lead responder a qualquer momento, o follow-up <strong>para imediatamente</strong></p>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Máximo de tentativas</Label>
+                    <Input type="number" min={1} max={10} value={maxAttempts} onChange={(e) => setMaxAttempts(parseInt(e.target.value) || 3)} className="w-24" />
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label className="text-xs">Horário comercial - início</Label>
+                      <Label className="text-xs">Horário comercial — início</Label>
                       <Input type="time" value={bhStart} onChange={(e) => setBhStart(e.target.value)} />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Horário comercial - fim</Label>
+                      <Label className="text-xs">Horário comercial — fim</Label>
                       <Input type="time" value={bhEnd} onChange={(e) => setBhEnd(e.target.value)} />
                     </div>
+                  </div>
+
+                  <div className="p-3 rounded-md bg-muted/50 text-xs text-muted-foreground space-y-1">
+                    <p><strong>Como funciona:</strong></p>
+                    <p>1. Contato sem resposta por <strong>{intervals[0]}h</strong> → 1ª tentativa (template)</p>
+                    <p>2. Após <strong>{intervals[1] ?? 48}h</strong> → 2ª tentativa (IA)</p>
+                    <p>3. Após <strong>{intervals[2] ?? 72}h</strong> → 3ª tentativa (despedida)</p>
+                    <p>4. Se o lead responder, o follow-up <strong>para imediatamente</strong></p>
                   </div>
                 </>
               )}
             </CardContent>
           </Card>
 
-          {/* Templates */}
           {enabled && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <MessageSquare className="h-4 w-4" /> Templates de Mensagem
                 </CardTitle>
-                <CardDescription>
-                  Use {"{nome}"} e {"{imovel}"} como variáveis. A tentativa 2 usa IA.
-                </CardDescription>
+                <CardDescription>Use {"{nome}"} e {"{imovel}"} como variáveis.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label>Tentativa 1 — Mensagem fixa</Label>
-                  <Textarea
-                    value={template1}
-                    onChange={(e) => setTemplate1(e.target.value)}
-                    rows={3}
-                    placeholder="Oi {nome}! Vi que você se interessou..."
-                  />
+                  <Textarea value={template1} onChange={(e) => setTemplate1(e.target.value)} rows={3} placeholder="Oi {nome}! Vi que você se interessou..." />
                 </div>
-
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Brain className="h-3.5 w-3.5 text-primary" />
                     <Label>Tentativa 2 — Prompt para IA</Label>
                   </div>
-                  <Textarea
-                    value={aiPrompt}
-                    onChange={(e) => setAiPrompt(e.target.value)}
-                    rows={3}
-                    placeholder="Gere uma mensagem de follow-up personalizada..."
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Variáveis: {"{nome}"}, {"{imovel}"}, {"{contexto}"}
-                  </p>
+                  <Textarea value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} rows={3} placeholder="Gere uma mensagem de follow-up personalizada..." />
+                  <p className="text-xs text-muted-foreground">Variáveis: {"{nome}"}, {"{imovel}"}, {"{contexto}"}</p>
                 </div>
-
                 <div className="space-y-2">
                   <Label>Tentativa 3 — Mensagem de despedida</Label>
-                  <Textarea
-                    value={template3}
-                    onChange={(e) => setTemplate3(e.target.value)}
-                    rows={3}
-                    placeholder="Última mensagem, {nome}!..."
-                  />
+                  <Textarea value={template3} onChange={(e) => setTemplate3(e.target.value)} rows={3} placeholder="Última mensagem, {nome}!..." />
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Save button */}
           <div className="flex justify-end">
             <Button onClick={handleSave} disabled={isSaving}>
               <Save className="h-4 w-4 mr-1" /> {isSaving ? "Salvando..." : "Salvar Follow-up"}
@@ -520,6 +636,111 @@ export function FollowUpConfigPanel() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* ═══ MANUAL FOLLOW-UP MODAL ═══ */}
+      <Dialog open={!!manualContact} onOpenChange={(open) => !open && setManualContact(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enviar Follow-up Manual</DialogTitle>
+          </DialogHeader>
+          {manualContact && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Contato</Label>
+                  <p className="text-sm font-medium">
+                    {manualContact.display_name !== manualContact.remote_jid ? manualContact.display_name : formatJid(manualContact.remote_jid)}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Telefone</Label>
+                  <p className="text-sm">{formatJid(manualContact.remote_jid)}</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Mensagem</Label>
+                <Textarea value={manualMessage} onChange={(e) => setManualMessage(e.target.value)} rows={4} />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setManualContact(null)}>Cancelar</Button>
+            <Button onClick={sendManualFollowup} disabled={sendingManual || !manualMessage.trim()}>
+              <Send className="h-4 w-4 mr-1" /> {sendingManual ? "Enviando..." : "Enviar agora"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══ HISTORY SHEET ═══ */}
+      <Sheet open={!!historyContact} onOpenChange={(open) => !open && setHistoryContact(null)}>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Histórico de Follow-up</SheetTitle>
+            {historyContact && (
+              <SheetDescription>
+                {historyContact.display_name !== historyContact.remote_jid
+                  ? historyContact.display_name
+                  : formatJid(historyContact.remote_jid)}
+                {" · "}{formatJid(historyContact.remote_jid)}
+              </SheetDescription>
+            )}
+          </SheetHeader>
+
+          {historyContact && (
+            <div className="mt-4 space-y-4">
+              {/* Contact info */}
+              <div className="p-3 rounded-md bg-muted/50 space-y-1 text-sm">
+                {historyContact.property_interest && (
+                  <p><span className="text-muted-foreground">Interesse:</span> {historyContact.property_interest}</p>
+                )}
+                <p>
+                  <span className="text-muted-foreground">Status:</span>{" "}
+                  {historyContact.followup_status ? (
+                    <Badge variant={STATUS_MAP[historyContact.followup_status]?.variant ?? "outline"} className="text-[10px] ml-1">
+                      {STATUS_MAP[historyContact.followup_status]?.label ?? historyContact.followup_status}
+                    </Badge>
+                  ) : "Sem follow-up"}
+                </p>
+                {historyContact.opted_out && (
+                  <div className="flex items-center gap-1.5 text-destructive mt-2">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    <span className="text-xs font-medium">Este contato optou por não receber mensagens</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Timeline */}
+              {loadingHistory ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Carregando...</p>
+              ) : historyLogs.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Nenhuma tentativa registrada</p>
+              ) : (
+                <div className="space-y-3">
+                  {historyLogs.map((log) => (
+                    <div key={log.id} className="border-l-2 border-border pl-3 pb-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium">
+                          Tentativa {log.attempt_number}
+                        </span>
+                        <Badge variant="outline" className="text-[10px]">
+                          {SOURCE_LABELS[log.message_source] ?? log.message_source}
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground ml-auto">
+                          {format(new Date(log.sent_at), "dd/MM HH:mm", { locale: ptBR })}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                        {log.message_sent}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

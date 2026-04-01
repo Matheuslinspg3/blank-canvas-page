@@ -21,14 +21,19 @@ Deno.serve(async (req) => {
     }
   }
 
-  let body: { id?: string; action?: string };
+  let body: {
+    id?: string;
+    action?: string;
+    message_sent?: string;
+    message_source?: string;
+  };
   try {
     body = await req.json();
   } catch {
     return errorResponse("Invalid JSON body", 400);
   }
 
-  const { id, action } = body;
+  const { id, action, message_sent, message_source } = body;
   if (!id || !action) return errorResponse("Missing id or action", 400);
   if (!["sent", "responded", "opted_out"].includes(action)) {
     return errorResponse("Invalid action. Use: sent, responded, opted_out", 400);
@@ -55,10 +60,9 @@ Deno.serve(async (req) => {
   }
 
   // action === "sent"
-  // Get current record to calculate next interval
   const { data: record, error: fetchErr } = await sb
     .from("follow_up_queue")
-    .select("attempt_count, org_id")
+    .select("attempt_count, org_id, lead_phone")
     .eq("id", id)
     .single();
 
@@ -76,7 +80,6 @@ Deno.serve(async (req) => {
   const newCount = record.attempt_count + 1;
   const isCompleted = newCount >= maxAttempts;
 
-  // Calculate next followup time
   const nextIntervalHours = intervals[newCount] ?? intervals[intervals.length - 1] ?? 72;
   const nextFollowup = new Date(Date.now() + nextIntervalHours * 3600 * 1000).toISOString();
 
@@ -91,6 +94,21 @@ Deno.serve(async (req) => {
     .eq("id", id);
 
   if (updateErr) return errorResponse(updateErr.message, 500);
+
+  // Insert into follow_up_log
+  if (message_sent) {
+    const validSources = ["template_1", "ai_generated", "template_3", "manual"];
+    const source = validSources.includes(message_source ?? "") ? message_source : "template_1";
+
+    await sb.from("follow_up_log").insert({
+      queue_id: id,
+      org_id: record.org_id,
+      lead_phone: record.lead_phone,
+      attempt_number: newCount,
+      message_sent,
+      message_source: source,
+    });
+  }
 
   return json({ success: true, status: isCompleted ? "completed" : "sent" });
 });
