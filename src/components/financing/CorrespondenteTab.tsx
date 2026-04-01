@@ -3,23 +3,25 @@ import { cn } from "@/lib/utils";
 import { 
   Kanban, Calculator, FileText, FileCheck, BarChart3, 
   Landmark, TrendingUp, Users, Clock, DollarSign,
-  CheckCircle2, AlertCircle
+  CheckCircle2, AlertCircle, PiggyBank,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FinancingSimulator } from "./FinancingSimulator";
 import { FinancingPipeline } from "./FinancingPipeline";
 import { FinancingDocsChecklist } from "./FinancingDocsChecklist";
+import { InvestmentCalculator } from "./InvestmentCalculator";
 import { BANK_FORMS, BANK_COLORS } from "./types";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-type Section = "dashboard" | "pipeline" | "simulador" | "formularios" | "documentacao";
+type Section = "dashboard" | "pipeline" | "simulador" | "rentabilidade" | "formularios" | "documentacao";
 
 const NAV_ITEMS: { id: Section; label: string; icon: React.ElementType }[] = [
   { id: "dashboard", label: "Painel", icon: BarChart3 },
   { id: "pipeline", label: "Pipeline", icon: Kanban },
   { id: "simulador", label: "Simulador", icon: Calculator },
+  { id: "rentabilidade", label: "Rentabilidade", icon: PiggyBank },
   { id: "formularios", label: "Formulários", icon: FileText },
   { id: "documentacao", label: "Documentação", icon: FileCheck },
 ];
