@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Zap, BarChart3, History, LayoutTemplate, MessageSquare } from "lucide-react";
+import { Plus, Zap, BarChart3, History, LayoutTemplate, MessageSquare, UserCheck } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
