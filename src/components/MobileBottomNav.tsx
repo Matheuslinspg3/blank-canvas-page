@@ -31,6 +31,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { icon: Store, label: "Marketplace", path: "/marketplace" },
       { icon: DollarSign, label: "Financeiro", path: "/financeiro" },
+      { icon: Landmark, label: "Correspondente", path: "/correspondente" },
       { icon: Megaphone, label: "Marketing", path: "/marketing" },
       { icon: Building2, label: "Proprietários", path: "/proprietarios" },
       { icon: Zap, label: "Automações", path: "/automacoes" },
