@@ -12,6 +12,7 @@ import { AutomationExecutionLog, type ExecutionLogEntry } from "@/components/aut
 import { AutomationTemplates } from "@/components/automations/AutomationTemplates";
 import { LeadScoreConfig } from "@/components/automations/LeadScoreConfig";
 import { WhatsAppAgentPanel } from "@/components/integrations/whatsapp-agent/WhatsAppAgentPanel";
+import { FollowUpConfigPanel } from "@/components/automations/FollowUpConfigPanel";
 import { FeatureFlagGate } from "@/components/FeatureGate";
 import { useAutomations } from "@/hooks/useAutomations";
 import { toast } from "@/hooks/use-toast";
