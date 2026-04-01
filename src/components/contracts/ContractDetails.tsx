@@ -261,6 +261,10 @@ export function ContractDetails({ contract, open, onOpenChange, onEdit, onDelete
             </Button>
           </div>
 
+          {/* Checklist */}
+          <Separator />
+          <ContractChecklist contractId={contract.id} contractCode={contract.code} />
+
           {/* Timestamps */}
           <div className="pt-4 border-t text-xs text-muted-foreground">
             <p>Criado em: {formatDate(contract.created_at)}</p>
