@@ -47,6 +47,22 @@ const quickActions: QuickAction[] = [
     dotClass: "color-dot",
     isDialog: true,
   },
+  {
+    icon: Calculator,
+    label: "Simular",
+    description: "Simule financiamento",
+    path: "/financeiro",
+    action: "simulate",
+    dotClass: "color-dot-accent",
+  },
+  {
+    icon: PiggyBank,
+    label: "Rentabilidade",
+    description: "Calcule retorno",
+    path: "/financeiro?tab=rentabilidade",
+    action: "rentabilidade",
+    dotClass: "color-dot-warm",
+  },
 ];
 
 export function QuickActions() {
