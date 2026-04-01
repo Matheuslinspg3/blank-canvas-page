@@ -1886,6 +1886,68 @@ export type Database = {
           },
         ]
       }
+      follow_up_queue: {
+        Row: {
+          attempt_count: number
+          conversation_context: string | null
+          created_at: string | null
+          id: string
+          instance_name: string
+          last_inbound_at: string | null
+          last_outbound_at: string | null
+          lead_name: string | null
+          lead_phone: string
+          next_followup_at: string
+          opted_out: boolean
+          org_id: string
+          property_interest: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          attempt_count?: number
+          conversation_context?: string | null
+          created_at?: string | null
+          id?: string
+          instance_name: string
+          last_inbound_at?: string | null
+          last_outbound_at?: string | null
+          lead_name?: string | null
+          lead_phone: string
+          next_followup_at: string
+          opted_out?: boolean
+          org_id: string
+          property_interest?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          attempt_count?: number
+          conversation_context?: string | null
+          created_at?: string | null
+          id?: string
+          instance_name?: string
+          last_inbound_at?: string | null
+          last_outbound_at?: string | null
+          lead_name?: string | null
+          lead_phone?: string
+          next_followup_at?: string
+          opted_out?: boolean
+          org_id?: string
+          property_interest?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "follow_up_queue_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generated_arts: {
         Row: {
           config: Json | null
@@ -5685,6 +5747,13 @@ export type Database = {
           cache_updated_at: string | null
           cached_bairros: Json | null
           cached_property_types: Json | null
+          followup_ai_prompt: string
+          followup_business_hours: Json
+          followup_enabled: boolean
+          followup_intervals: Json
+          followup_max_attempts: number
+          followup_template_1: string
+          followup_template_3: string
           id: string
           instance_name: string | null
           instance_token: string | null
@@ -5725,6 +5794,13 @@ export type Database = {
           cache_updated_at?: string | null
           cached_bairros?: Json | null
           cached_property_types?: Json | null
+          followup_ai_prompt?: string
+          followup_business_hours?: Json
+          followup_enabled?: boolean
+          followup_intervals?: Json
+          followup_max_attempts?: number
+          followup_template_1?: string
+          followup_template_3?: string
           id?: string
           instance_name?: string | null
           instance_token?: string | null
@@ -5765,6 +5841,13 @@ export type Database = {
           cache_updated_at?: string | null
           cached_bairros?: Json | null
           cached_property_types?: Json | null
+          followup_ai_prompt?: string
+          followup_business_hours?: Json
+          followup_enabled?: boolean
+          followup_intervals?: Json
+          followup_max_attempts?: number
+          followup_template_1?: string
+          followup_template_3?: string
           id?: string
           instance_name?: string | null
           instance_token?: string | null

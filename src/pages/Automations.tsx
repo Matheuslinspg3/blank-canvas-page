@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Zap, BarChart3, History, LayoutTemplate, MessageSquare } from "lucide-react";
+import { Plus, Zap, BarChart3, History, LayoutTemplate, MessageSquare, UserCheck } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,6 +12,7 @@ import { AutomationExecutionLog, type ExecutionLogEntry } from "@/components/aut
 import { AutomationTemplates } from "@/components/automations/AutomationTemplates";
 import { LeadScoreConfig } from "@/components/automations/LeadScoreConfig";
 import { WhatsAppAgentPanel } from "@/components/integrations/whatsapp-agent/WhatsAppAgentPanel";
+import { FollowUpConfigPanel } from "@/components/automations/FollowUpConfigPanel";
 import { FeatureFlagGate } from "@/components/FeatureGate";
 import { useAutomations } from "@/hooks/useAutomations";
 import { toast } from "@/hooks/use-toast";
@@ -107,6 +108,9 @@ export default function Automations() {
               <TabsTrigger value="whatsapp-agent" className="gap-1.5 shrink-0">
                 <MessageSquare className="h-3.5 w-3.5" /> Agente IA (WhatsApp)
               </TabsTrigger>
+              <TabsTrigger value="followup" className="gap-1.5 shrink-0">
+                <UserCheck className="h-3.5 w-3.5" /> Follow-up
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="automations" className="space-y-6">
@@ -148,6 +152,11 @@ export default function Automations() {
             <TabsContent value="whatsapp-agent">
               <FeatureFlagGate featureKey="has_whatsapp">
                 <WhatsAppAgentPanel />
+              </FeatureFlagGate>
+            </TabsContent>
+            <TabsContent value="followup">
+              <FeatureFlagGate featureKey="has_whatsapp">
+                <FollowUpConfigPanel />
               </FeatureFlagGate>
             </TabsContent>
           </Tabs>
