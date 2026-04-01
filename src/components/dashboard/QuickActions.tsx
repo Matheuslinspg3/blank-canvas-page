@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Home, UserPlus, FileText, CalendarPlus } from "lucide-react";
+import { Home, UserPlus, FileText, CalendarPlus, Calculator, PiggyBank } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ScheduleVisitDialog } from "@/components/visits/ScheduleVisitDialog";
 import { trackQuickAction } from "@/hooks/useAnalytics";
@@ -46,6 +46,22 @@ const quickActions: QuickAction[] = [
     description: "Marque uma visita",
     dotClass: "color-dot",
     isDialog: true,
+  },
+  {
+    icon: Calculator,
+    label: "Simular",
+    description: "Simule financiamento",
+    path: "/financeiro",
+    action: "simulate",
+    dotClass: "color-dot-accent",
+  },
+  {
+    icon: PiggyBank,
+    label: "Rentabilidade",
+    description: "Calcule retorno",
+    path: "/financeiro?tab=rentabilidade",
+    action: "rentabilidade",
+    dotClass: "color-dot-warm",
   },
 ];
 

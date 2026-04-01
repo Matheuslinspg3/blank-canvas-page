@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/PageHeader";
 import { KanbanBoard } from "@/components/crm/KanbanBoard";
 import { InactiveLeadsList } from "@/components/crm/InactiveLeadsList";
+import { WhatsAppTemplates } from "@/components/crm/WhatsAppTemplates";
 import { SectionErrorBoundary } from "@/components/SectionErrorBoundary";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +42,9 @@ export default function CRM() {
                 </Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="templates" className="flex-1 sm:flex-initial min-h-[44px]">
+              <span className="hidden sm:inline">WhatsApp </span>Templates
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="active" className="mt-0">
@@ -56,6 +60,10 @@ export default function CRM() {
               onReactivate={reactivateLead}
               isReactivating={isReactivating}
             />
+          </TabsContent>
+
+          <TabsContent value="templates" className="mt-0">
+            <WhatsAppTemplates />
           </TabsContent>
         </Tabs>
       </div>

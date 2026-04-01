@@ -1,8 +1,10 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calculator, Kanban, FileCheck, FileText } from "lucide-react";
+import { Calculator, Kanban, FileCheck, FileText, PiggyBank, BarChart3 } from "lucide-react";
 import { FinancingSimulator } from "@/components/financing/FinancingSimulator";
 import { FinancingPipeline } from "@/components/financing/FinancingPipeline";
 import { FinancingDocsChecklist } from "@/components/financing/FinancingDocsChecklist";
+import { InvestmentCalculator } from "@/components/financing/InvestmentCalculator";
+import { MarketComparative } from "@/components/properties/MarketComparative";
 import { Card, CardContent } from "@/components/ui/card";
 import { BANK_FORMS, BANK_COLORS } from "@/components/financing/types";
 
@@ -56,6 +58,12 @@ export default function Financiamentos() {
           <TabsTrigger value="simulador" className="gap-1.5">
             <Calculator className="h-4 w-4" /> Simulador
           </TabsTrigger>
+          <TabsTrigger value="rentabilidade" className="gap-1.5">
+            <PiggyBank className="h-4 w-4" /> Rentabilidade
+          </TabsTrigger>
+          <TabsTrigger value="cma" className="gap-1.5">
+            <BarChart3 className="h-4 w-4" /> CMA
+          </TabsTrigger>
           <TabsTrigger value="pipeline" className="gap-1.5">
             <Kanban className="h-4 w-4" /> Pipeline
           </TabsTrigger>
@@ -69,6 +77,12 @@ export default function Financiamentos() {
 
         <TabsContent value="simulador">
           <FinancingSimulator />
+        </TabsContent>
+        <TabsContent value="rentabilidade">
+          <InvestmentCalculator />
+        </TabsContent>
+        <TabsContent value="cma">
+          <MarketComparative />
         </TabsContent>
         <TabsContent value="pipeline">
           <FinancingPipeline />

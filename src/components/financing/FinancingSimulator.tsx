@@ -18,6 +18,7 @@ import { useSelicRate } from "@/hooks/financing/useSelicRate";
 import { simularTodosBancos, type ResultadoSimulacao } from "./utils/simulationCalc";
 import { BankComparisonView } from "./BankComparisonView";
 import { SimulationResults } from "./SimulationResults";
+import { EvolutionChart } from "./EvolutionChart";
 import {
   TETO_SFH, IDADE_MAX_FIM_CONTRATO, COMPROMETIMENTO_MAX_RENDA,
   ITBI_RATES,
@@ -276,6 +277,14 @@ export function FinancingSimulator() {
           resultados={resultados}
           selectedBankId={selectedBankId}
           onSelectBank={handleSelectBank}
+        />
+      )}
+
+      {/* ── Evolution Charts ── */}
+      {resultados.length > 0 && (
+        <EvolutionChart
+          resultados={resultados}
+          selectedBankId={selectedBankId}
         />
       )}
 
