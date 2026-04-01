@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Home, UserPlus, FileText, CalendarPlus } from "lucide-react";
+import { Home, UserPlus, FileText, CalendarPlus, Calculator, PiggyBank } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ScheduleVisitDialog } from "@/components/visits/ScheduleVisitDialog";
 import { trackQuickAction } from "@/hooks/useAnalytics";
