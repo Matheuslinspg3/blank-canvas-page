@@ -154,6 +154,11 @@ export default function Automations() {
                 <WhatsAppAgentPanel />
               </FeatureFlagGate>
             </TabsContent>
+            <TabsContent value="followup">
+              <FeatureFlagGate featureKey="has_whatsapp">
+                <FollowUpConfigPanel />
+              </FeatureFlagGate>
+            </TabsContent>
           </Tabs>
         )}
       </div>
