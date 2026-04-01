@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import type { ContractWithDetails } from "@/hooks/useContracts";
 import { ContractDocumentPreview } from "./ContractDocumentPreview";
+import { ContractChecklist } from "./ContractChecklist";
 
 interface ContractDetailsProps {
   contract: ContractWithDetails | null;
