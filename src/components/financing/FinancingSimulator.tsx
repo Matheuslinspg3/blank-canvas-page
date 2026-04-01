@@ -280,6 +280,14 @@ export function FinancingSimulator() {
         />
       )}
 
+      {/* ── Evolution Charts ── */}
+      {resultados.length > 0 && (
+        <EvolutionChart
+          resultados={resultados}
+          selectedBankId={selectedBankId}
+        />
+      )}
+
       {/* ── Detailed Results ── */}
       {selectedResult && (
         <SimulationResults
