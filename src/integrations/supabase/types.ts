@@ -1886,6 +1886,64 @@ export type Database = {
           },
         ]
       }
+      follow_up_log: {
+        Row: {
+          attempt_number: number
+          delivery_status: string | null
+          id: string
+          lead_phone: string
+          message_sent: string
+          message_source: string
+          org_id: string
+          queue_id: string
+          sent_at: string
+        }
+        Insert: {
+          attempt_number: number
+          delivery_status?: string | null
+          id?: string
+          lead_phone: string
+          message_sent: string
+          message_source?: string
+          org_id: string
+          queue_id: string
+          sent_at?: string
+        }
+        Update: {
+          attempt_number?: number
+          delivery_status?: string | null
+          id?: string
+          lead_phone?: string
+          message_sent?: string
+          message_source?: string
+          org_id?: string
+          queue_id?: string
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "follow_up_log_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follow_up_log_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "follow_up_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follow_up_log_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_contacts_followup_view"
+            referencedColumns: ["followup_id"]
+          },
+        ]
+      }
       follow_up_queue: {
         Row: {
           attempt_count: number
@@ -6338,6 +6396,36 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_contacts_followup_view: {
+        Row: {
+          attempt_count: number | null
+          conversation_context: string | null
+          display_name: string | null
+          followup_id: string | null
+          followup_last_inbound: string | null
+          followup_last_outbound: string | null
+          followup_status: string | null
+          last_from_me: boolean | null
+          last_message_at: string | null
+          last_message_text: string | null
+          last_sender_type: string | null
+          next_followup_at: string | null
+          opted_out: boolean | null
+          organization_id: string | null
+          property_interest: string | null
+          remote_jid: string | null
+          total_messages: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"

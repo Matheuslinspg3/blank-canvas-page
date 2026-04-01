@@ -1,0 +1,1 @@
+ALTER VIEW public.whatsapp_contacts_followup_view SET (security_invoker = true, security_barrier = true);
