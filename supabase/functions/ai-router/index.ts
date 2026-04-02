@@ -825,7 +825,7 @@ Deno.serve(async (req) => {
 
         clearTimeout(timeout);
         const latencyMs = Date.now() - startMs;
-        const costUsd = estimateCost(provider.provider_key, provider.provider_type, result.tokens_input, result.tokens_output);
+        const costUsd = estimateCost(provider.provider_key, provider.provider_type, result.tokens_input, result.tokens_output, pricing, provider.model_id);
 
         // Reset consecutive errors on success
         const wasInCooldown = provider.consecutive_errors >= 10;
@@ -833,6 +833,11 @@ Deno.serve(async (req) => {
 
         // Track stats (fire and forget)
         trackStats(supabase, provider.provider_key, task_type, latencyMs, true, false, result.tokens_input, result.tokens_output, costUsd);
+
+        // Track org spend (fire and forget)
+        if (orgId && costUsd > 0) {
+          supabase.rpc("track_ai_spend", { p_org_id: orgId, p_cost_usd: costUsd }).then(() => {});
+        }
 
         // Log success
         const logNote = wasInCooldown ? "auto-healed after cooldown" : null;
