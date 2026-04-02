@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Phone, User, Mail, Copy, Check, Loader2, MessageCircle } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Phone, User, Mail, Copy, Check, Loader2, MessageCircle, Building } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { MarketplaceProperty } from "@/hooks/useMarketplace";
@@ -14,18 +15,31 @@ interface ContactDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+interface ContactData {
+  org_name: string | null;
+  org_phone: string | null;
+  org_email: string | null;
+  org_logo: string | null;
+  broker_name: string | null;
+  broker_phone: string | null;
+  broker_avatar: string | null;
+  owner_name: string | null;
+  owner_phone: string | null;
+}
+
 export function ContactDialog({ property, open, onOpenChange }: ContactDialogProps) {
   const { toast } = useToast();
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [contactData, setContactData] = useState<any>(null);
+  const [contactData, setContactData] = useState<ContactData | null>(null);
   const [loadingContact, setLoadingContact] = useState(false);
 
   useEffect(() => {
     if (open && property) {
       setLoadingContact(true);
+      setContactData(null);
       supabase.rpc("get_marketplace_contact", { p_property_id: property.id } as any)
         .then(({ data, error }) => {
-          if (!error) setContactData(data);
+          if (!error && data) setContactData(data as unknown as ContactData);
           setLoadingContact(false);
         });
     }
@@ -49,43 +63,67 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
 
   if (!property) return null;
 
-  const name = contactData?.org_name;
-  const phone = contactData?.org_phone;
-  const email = contactData?.org_email;
+  const primaryPhone = contactData?.broker_phone || contactData?.org_phone || contactData?.owner_phone;
+  const hasAnyData = contactData && (contactData.org_name || contactData.broker_name || primaryPhone || contactData.org_email);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Contato da Imobiliária</DialogTitle>
+          <DialogTitle>Contato</DialogTitle>
           <DialogDescription>{property.title}</DialogDescription>
         </DialogHeader>
         {loadingContact ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
+        ) : !hasAnyData ? (
+          <p className="text-muted-foreground text-center py-4">
+            Dados de contato não disponíveis para este imóvel.
+          </p>
         ) : (
-          <div className="space-y-4">
-            {name && (
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-3">
-                  <User className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium">{name}</span>
+          <div className="space-y-5">
+            {/* Organization section */}
+            {contactData.org_name && (
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                <Avatar className="h-10 w-10 shrink-0">
+                  {contactData.org_logo && <AvatarImage src={contactData.org_logo} alt={contactData.org_name} />}
+                  <AvatarFallback><Building className="h-4 w-4" /></AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm truncate">{contactData.org_name}</p>
+                  <p className="text-xs text-muted-foreground">Imobiliária</p>
                 </div>
               </div>
             )}
-            {phone && (
+
+            {/* Broker section */}
+            {contactData.broker_name && (
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                <Avatar className="h-10 w-10 shrink-0">
+                  {contactData.broker_avatar && <AvatarImage src={contactData.broker_avatar} alt={contactData.broker_name} />}
+                  <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm truncate">{contactData.broker_name}</p>
+                  <p className="text-xs text-muted-foreground">Corretor</p>
+                </div>
+              </div>
+            )}
+
+            {/* Phone */}
+            {primaryPhone && (
               <>
                 <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-3">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span>{phone}</span>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm truncate">{primaryPhone}</span>
                   </div>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
-                    onClick={() => copyToClipboard(phone, "Telefone")}
+                    className="h-8 w-8 shrink-0"
+                    onClick={() => copyToClipboard(primaryPhone, "Telefone")}
                   >
                     {copiedField === "Telefone" ? (
                       <Check className="h-4 w-4 text-success" />
@@ -97,24 +135,26 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
                 <Button
                   className="w-full gap-2"
                   variant="default"
-                  onClick={() => openWhatsApp(phone)}
+                  onClick={() => openWhatsApp(primaryPhone)}
                 >
                   <MessageCircle className="h-4 w-4" />
                   Conversar no WhatsApp
                 </Button>
               </>
             )}
-            {email && (
+
+            {/* Email */}
+            {contactData.org_email && (
               <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-3">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span>{email}</span>
+                <div className="flex items-center gap-3 min-w-0">
+                  <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="text-sm truncate">{contactData.org_email}</span>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8"
-                  onClick={() => copyToClipboard(email, "Email")}
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => copyToClipboard(contactData.org_email!, "Email")}
                 >
                   {copiedField === "Email" ? (
                     <Check className="h-4 w-4 text-success" />
@@ -123,11 +163,6 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
                   )}
                 </Button>
               </div>
-            )}
-            {!name && !phone && !email && (
-              <p className="text-muted-foreground text-center py-4">
-                Dados de contato não disponíveis para este imóvel.
-              </p>
             )}
           </div>
         )}
