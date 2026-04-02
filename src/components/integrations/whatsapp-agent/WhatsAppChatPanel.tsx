@@ -236,7 +236,15 @@ export function WhatsAppChatPanel() {
                   <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
                     <User className="h-4 w-4 text-primary" />
                   </div>
-                  <span className="font-medium text-sm">{formatJid(selectedJid)}</span>
+                  <span className="font-medium text-sm flex-1">{formatJid(selectedJid)}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-xs"
+                    onClick={() => setShowCreateLead(true)}
+                  >
+                    <UserPlus className="h-3.5 w-3.5" /> Cadastrar Lead
+                  </Button>
                 </div>
 
                 <ScrollArea className="flex-1 px-4 py-3">
