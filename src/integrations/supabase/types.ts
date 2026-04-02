@@ -537,6 +537,7 @@ export type Database = {
         Row: {
           auto_create_leads: boolean
           auto_qualify_leads: boolean
+          auto_scoring: boolean
           broker_assignment_mode: string
           created_at: string
           id: string
@@ -549,11 +550,14 @@ export type Database = {
           scheduling_days: string[]
           scheduling_hour_end: string
           scheduling_hour_start: string
+          score_criteria: Json
+          temperature_thresholds: Json
           updated_at: string
         }
         Insert: {
           auto_create_leads?: boolean
           auto_qualify_leads?: boolean
+          auto_scoring?: boolean
           broker_assignment_mode?: string
           created_at?: string
           id?: string
@@ -566,11 +570,14 @@ export type Database = {
           scheduling_days?: string[]
           scheduling_hour_end?: string
           scheduling_hour_start?: string
+          score_criteria?: Json
+          temperature_thresholds?: Json
           updated_at?: string
         }
         Update: {
           auto_create_leads?: boolean
           auto_qualify_leads?: boolean
+          auto_scoring?: boolean
           broker_assignment_mode?: string
           created_at?: string
           id?: string
@@ -583,6 +590,8 @@ export type Database = {
           scheduling_days?: string[]
           scheduling_hour_end?: string
           scheduling_hour_start?: string
+          score_criteria?: Json
+          temperature_thresholds?: Json
           updated_at?: string
         }
         Relationships: [
