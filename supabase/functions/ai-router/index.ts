@@ -530,11 +530,33 @@ async function callOpenAI(
   };
 }
 
-// ── Cost estimation ──
+// ── Cost estimation (uses DB pricing with hardcoded fallback) ──
 
-function estimateCost(providerKey: string, providerType: string, tokensIn: number, tokensOut: number): number {
+let pricingCache: Map<string, { input: number; output: number }> | null = null;
+
+async function loadPricing(supabase: any): Promise<Map<string, { input: number; output: number }>> {
+  if (pricingCache) return pricingCache;
+  const { data } = await supabase.from("ai_billing_pricing").select("provider, model, price_per_1k_input_tokens, price_per_1k_output_tokens").eq("is_active", true);
+  const map = new Map<string, { input: number; output: number }>();
+  for (const row of data || []) {
+    map.set(`${row.provider}:${row.model}`, { input: row.price_per_1k_input_tokens, output: row.price_per_1k_output_tokens });
+  }
+  pricingCache = map;
+  return map;
+}
+
+function estimateCost(providerKey: string, providerType: string, tokensIn: number, tokensOut: number, pricing?: Map<string, { input: number; output: number }>, modelId?: string): number {
   if (providerType === "groq") return 0;
   if (providerType === "gemini") return 0;
+  
+  // Try DB pricing first
+  if (pricing && modelId) {
+    const key = `${providerType}:${modelId}`;
+    const p = pricing.get(key);
+    if (p) return (tokensIn * p.input + tokensOut * p.output) / 1000;
+  }
+  
+  // Hardcoded fallback
   if (providerKey === "openai_dalle") return 0.04;
   if (providerKey === "openai_mini") return (tokensIn * 0.15 + tokensOut * 0.6) / 1_000_000;
   return 0;
