@@ -39,12 +39,31 @@ function handleLocationBlur(fieldName: string, form: any) {
 }
 
 export function LocationTab({ form }: LocationTabProps) {
+  const { neighborhoods: existingNeighborhoods, cities: existingCities } = usePropertyLocations();
   const [isSearchingCep, setIsSearchingCep] = useState(false);
   const [streetSuggestions, setStreetSuggestions] = useState<ViaCepResponse[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isSearchingStreet, setIsSearchingStreet] = useState(false);
+  const [neighborhoodQuery, setNeighborhoodQuery] = useState("");
+  const [showNeighborhoodSuggestions, setShowNeighborhoodSuggestions] = useState(false);
+  const [cityQuery, setCityQuery] = useState("");
+  const [showCitySuggestions, setShowCitySuggestions] = useState(false);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  const neighborhoodRef = useRef<HTMLDivElement>(null);
+  const cityRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const filteredNeighborhoods = useMemo(() => {
+    if (!neighborhoodQuery || neighborhoodQuery.length < 1) return [];
+    const q = neighborhoodQuery.toLowerCase();
+    return existingNeighborhoods.filter(n => n.toLowerCase().includes(q)).slice(0, 8);
+  }, [neighborhoodQuery, existingNeighborhoods]);
+
+  const filteredCities = useMemo(() => {
+    if (!cityQuery || cityQuery.length < 1) return [];
+    const q = cityQuery.toLowerCase();
+    return existingCities.filter(c => c.toLowerCase().includes(q)).slice(0, 8);
+  }, [cityQuery, existingCities]);
 
   const handleCepSearch = async () => {
     const cep = form.getValues("address_zipcode");
