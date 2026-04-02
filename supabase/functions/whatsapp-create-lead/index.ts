@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { createServiceClient } from "../_shared/auth.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const WEBHOOK_SECRET = Deno.env.get("WHATSAPP_AGENT_SECRET");
 
@@ -9,11 +10,44 @@ serve(async (req) => {
   if (cors) return cors;
 
   try {
-    // Validate webhook secret
+    // Auth: accept webhook secret OR valid JWT
     const secret =
       req.headers.get("x-webhook-secret") ||
       req.headers.get("X-Webhook-Secret");
-    if (!WEBHOOK_SECRET || secret !== WEBHOOK_SECRET) {
+    const authHeader = req.headers.get("authorization") || "";
+    let jwtOrgId: string | null = null;
+
+    if (secret && WEBHOOK_SECRET && secret === WEBHOOK_SECRET) {
+      // Webhook auth — org resolved from instance_name below
+    } else if (authHeader.startsWith("Bearer ")) {
+      // JWT auth — resolve org from user profile
+      const token = authHeader.replace("Bearer ", "");
+      const anonClient = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
+        { global: { headers: { Authorization: `Bearer ${token}` } } }
+      );
+      const { data: { user }, error: userErr } = await anonClient.auth.getUser();
+      if (userErr || !user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const sb = createServiceClient();
+      const { data: profile } = await sb
+        .from("profiles")
+        .select("organization_id")
+        .eq("id", user.id)
+        .single();
+      jwtOrgId = profile?.organization_id || null;
+      if (!jwtOrgId) {
+        return new Response(JSON.stringify({ error: "No organization" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    } else {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -34,7 +68,7 @@ serve(async (req) => {
       transaction_interest,
     } = body;
 
-    if (!instance_name) {
+    if (!instance_name && !jwtOrgId) {
       return new Response(
         JSON.stringify({ error: "instance_name is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -50,21 +84,23 @@ serve(async (req) => {
 
     const sb = createServiceClient();
 
-    // Resolve organization from instance
-    const { data: config, error: configError } = await sb
-      .from("whatsapp_agent_config")
-      .select("organization_id")
-      .eq("instance_name", instance_name)
-      .single();
+    // Resolve organization: JWT auth already has orgId, webhook auth resolves from instance
+    let orgId = jwtOrgId;
+    if (!orgId && instance_name) {
+      const { data: config, error: configError } = await sb
+        .from("whatsapp_agent_config")
+        .select("organization_id")
+        .eq("instance_name", instance_name)
+        .single();
 
-    if (configError || !config?.organization_id) {
-      return new Response(
-        JSON.stringify({ error: `Instance '${instance_name}' not found` }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      if (configError || !config?.organization_id) {
+        return new Response(
+          JSON.stringify({ error: `Instance '${instance_name}' not found` }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      orgId = config.organization_id;
     }
-
-    const orgId = config.organization_id;
 
     // Normalize phone for dedup
     const normalizedPhone = phone ? phone.replace(/\D/g, "") : null;

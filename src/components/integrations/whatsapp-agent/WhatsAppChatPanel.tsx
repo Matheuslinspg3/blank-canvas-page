@@ -4,9 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { MessageCircle, Send, ArrowLeft, User, Plus, Bot } from "lucide-react";
+import { MessageCircle, Send, ArrowLeft, User, Plus, Bot, UserPlus, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useWhatsAppChat } from "@/hooks/useWhatsAppChat";
+import { useWhatsAppInstance } from "@/hooks/useWhatsAppInstance";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -32,6 +36,38 @@ export function WhatsAppChatPanel() {
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [sendingAudio, setSendingAudio] = useState(false);
+  const [showCreateLead, setShowCreateLead] = useState(false);
+  const [leadForm, setLeadForm] = useState({ name: "", email: "", notes: "", temperature: "morno" });
+  const [creatingLead, setCreatingLead] = useState(false);
+  const { instance } = useWhatsAppInstance();
+
+  const handleCreateLead = useCallback(async () => {
+    if (!selectedJid) return;
+    const phone = selectedJid.replace("@s.whatsapp.net", "").replace("@c.us", "");
+    if (!phone) return;
+    setCreatingLead(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("whatsapp-create-lead", {
+        body: {
+          phone,
+          name: leadForm.name || `WhatsApp ${phone}`,
+          email: leadForm.email || undefined,
+          notes: leadForm.notes || undefined,
+          temperature: leadForm.temperature,
+          source: "whatsapp",
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(data?.message || "Lead cadastrado!");
+      setShowCreateLead(false);
+      setLeadForm({ name: "", email: "", notes: "", temperature: "morno" });
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao cadastrar lead");
+    } finally {
+      setCreatingLead(false);
+    }
+  }, [selectedJid, leadForm, instance]);
 
   const handleAudioRecorded = useCallback(async (blob: Blob) => {
     if (!selectedJid) return;
@@ -198,7 +234,15 @@ export function WhatsAppChatPanel() {
                   <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
                     <User className="h-4 w-4 text-primary" />
                   </div>
-                  <span className="font-medium text-sm">{formatJid(selectedJid)}</span>
+                  <span className="font-medium text-sm flex-1">{formatJid(selectedJid)}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-xs"
+                    onClick={() => setShowCreateLead(true)}
+                  >
+                    <UserPlus className="h-3.5 w-3.5" /> Cadastrar Lead
+                  </Button>
                 </div>
 
                 <ScrollArea className="flex-1 px-4 py-3">
@@ -309,6 +353,78 @@ export function WhatsAppChatPanel() {
             <Button variant="outline" onClick={() => setShowNewChat(false)}>Cancelar</Button>
             <Button onClick={handleNewChatSend} disabled={isSending}>
               <Send className="h-4 w-4 mr-1" /> Enviar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Lead dialog */}
+      <Dialog open={showCreateLead} onOpenChange={setShowCreateLead}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5" /> Cadastrar Lead no CRM
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Telefone</Label>
+              <Input
+                value={selectedJid ? formatJid(selectedJid) : ""}
+                disabled
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>Nome</Label>
+              <Input
+                value={leadForm.name}
+                onChange={(e) => setLeadForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Nome do contato"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>E-mail</Label>
+              <Input
+                value={leadForm.email}
+                onChange={(e) => setLeadForm(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="email@exemplo.com"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>Temperatura</Label>
+              <Select
+                value={leadForm.temperature}
+                onValueChange={(v) => setLeadForm(prev => ({ ...prev, temperature: v }))}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="frio">🔵 Frio</SelectItem>
+                  <SelectItem value="morno">🟡 Morno</SelectItem>
+                  <SelectItem value="quente">🔴 Quente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Observações</Label>
+              <Textarea
+                value={leadForm.notes}
+                onChange={(e) => setLeadForm(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Contexto da conversa, interesse, etc."
+                className="mt-1"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateLead(false)}>Cancelar</Button>
+            <Button onClick={handleCreateLead} disabled={creatingLead}>
+              {creatingLead ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <UserPlus className="h-4 w-4 mr-1" />}
+              Cadastrar
             </Button>
           </DialogFooter>
         </DialogContent>
