@@ -835,6 +835,19 @@ Deno.serve(async (req) => {
         // Track stats (fire and forget)
         trackStats(supabase, provider.provider_key, task_type, latencyMs, true, false, result.tokens_input, result.tokens_output, costUsd);
 
+        // Track billing (fire and forget)
+        trackAiBilling(supabase, {
+          userId: userId || "system",
+          organizationId: orgId,
+          provider: provider.provider_type,
+          model: provider.model_id,
+          functionName: `ai-router/${task_type}`,
+          inputTokens: result.tokens_input,
+          outputTokens: result.tokens_output,
+          success: true,
+          usageType: config.complexity === "image" ? "image" : "text",
+        }).catch(() => {});
+
         // Track org spend (fire and forget)
         if (orgId && costUsd > 0) {
           supabase.rpc("track_ai_spend", { p_org_id: orgId, p_cost_usd: costUsd }).then(() => {});
