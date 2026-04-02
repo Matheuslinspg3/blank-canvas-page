@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -8,8 +7,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Save, UserCheck, CalendarCheck } from "lucide-react";
-import { useWhatsAppAgentConfig } from "@/hooks/useWhatsAppAgentConfig";
+import { Save, UserCheck, CalendarCheck, Check } from "lucide-react";
+import { useQualificationConfig } from "@/hooks/useQualificationConfig";
+import { cn } from "@/lib/utils";
 
 const DAYS = [
   { value: "seg", label: "Seg" },
@@ -21,13 +21,33 @@ const DAYS = [
   { value: "dom", label: "Dom" },
 ];
 
+const REQUIRED_FIELD_OPTIONS = [
+  { value: "nome", label: "Nome" },
+  { value: "telefone", label: "Telefone" },
+  { value: "email", label: "E-mail" },
+  { value: "regiao", label: "Região de interesse" },
+  { value: "orcamento", label: "Faixa de orçamento" },
+  { value: "tipo_imovel", label: "Tipo de imóvel" },
+  { value: "finalidade", label: "Finalidade" },
+  { value: "prazo_compra", label: "Prazo para compra" },
+];
+
+const BROKER_MODES = [
+  { value: "manual", label: "Manual", description: "Administrador atribui manualmente" },
+  { value: "round_robin", label: "Round-robin", description: "Distribui sequencialmente entre corretores ativos" },
+  { value: "by_region", label: "Por região", description: "Atribui baseado na região de interesse do lead" },
+  { value: "by_availability", label: "Por disponibilidade", description: "Atribui ao corretor online no momento" },
+  { value: "by_score", label: "Automática por score", description: "Leads quentes vão para os top corretores" },
+];
+
 export function AgentQualificationTab() {
-  const { config, saveConfig, isSaving, isLoading } = useWhatsAppAgentConfig();
+  const { config, saveConfig, isSaving, isLoading } = useQualificationConfig();
   const [form, setForm] = useState({
     auto_qualify_leads: false,
     auto_create_leads: false,
     schedule_visits: false,
     broker_assignment_mode: "manual",
+    required_fields: ["nome", "telefone", "email"] as string[],
     scheduling_days: ["seg", "ter", "qua", "qui", "sex"] as string[],
     scheduling_hour_start: "09:00",
     scheduling_hour_end: "17:00",
@@ -43,6 +63,7 @@ export function AgentQualificationTab() {
         auto_create_leads: config.auto_create_leads,
         schedule_visits: config.schedule_visits,
         broker_assignment_mode: config.broker_assignment_mode ?? "manual",
+        required_fields: config.required_fields ?? ["nome", "telefone", "email"],
         scheduling_days: config.scheduling_days ?? ["seg", "ter", "qua", "qui", "sex"],
         scheduling_hour_start: config.scheduling_hour_start ?? "09:00",
         scheduling_hour_end: config.scheduling_hour_end ?? "17:00",
@@ -62,6 +83,17 @@ export function AgentQualificationTab() {
     }));
   };
 
+  const toggleField = (field: string) => {
+    setForm((f) => ({
+      ...f,
+      required_fields: f.required_fields.includes(field)
+        ? f.required_fields.filter((rf) => rf !== field)
+        : [...f.required_fields, field],
+    }));
+  };
+
+  const selectedBrokerMode = BROKER_MODES.find((m) => m.value === form.broker_assignment_mode);
+
   if (isLoading) return <div className="text-muted-foreground text-sm p-4">Carregando...</div>;
 
   return (
@@ -76,6 +108,7 @@ export function AgentQualificationTab() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
+          {/* Auto-qualify toggle */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div>
@@ -102,6 +135,7 @@ export function AgentQualificationTab() {
             )}
           </div>
 
+          {/* Auto-create leads toggle */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div>
@@ -128,7 +162,39 @@ export function AgentQualificationTab() {
             )}
           </div>
 
-          <div className="space-y-2">
+          {/* Required fields chips */}
+          <div className="space-y-3 pt-2 border-t border-border">
+            <div>
+              <Label>Campos obrigatórios</Label>
+              <p className="text-xs text-muted-foreground">
+                Dados que a IA deve coletar antes de considerar o lead qualificado
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {REQUIRED_FIELD_OPTIONS.map((field) => {
+                const active = form.required_fields.includes(field.value);
+                return (
+                  <button
+                    key={field.value}
+                    type="button"
+                    onClick={() => toggleField(field.value)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all border cursor-pointer",
+                      active
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-transparent text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
+                    )}
+                  >
+                    {active && <Check className="h-3 w-3" />}
+                    {field.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Broker assignment mode */}
+          <div className="space-y-2 pt-2 border-t border-border">
             <Label>Atribuição de Corretor</Label>
             <Select
               value={form.broker_assignment_mode}
@@ -138,15 +204,21 @@ export function AgentQualificationTab() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="manual">Manual</SelectItem>
-                <SelectItem value="round_robin">Round-robin</SelectItem>
-                <SelectItem value="by_region">Por região</SelectItem>
+                {BROKER_MODES.map((mode) => (
+                  <SelectItem key={mode.value} value={mode.value}>
+                    {mode.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+            {selectedBrokerMode && (
+              <p className="text-xs text-muted-foreground">{selectedBrokerMode.description}</p>
+            )}
           </div>
         </CardContent>
       </Card>
 
+      {/* Scheduling card */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
