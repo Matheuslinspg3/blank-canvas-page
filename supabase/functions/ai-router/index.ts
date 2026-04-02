@@ -530,11 +530,33 @@ async function callOpenAI(
   };
 }
 
-// ── Cost estimation ──
+// ── Cost estimation (uses DB pricing with hardcoded fallback) ──
 
-function estimateCost(providerKey: string, providerType: string, tokensIn: number, tokensOut: number): number {
+let pricingCache: Map<string, { input: number; output: number }> | null = null;
+
+async function loadPricing(supabase: any): Promise<Map<string, { input: number; output: number }>> {
+  if (pricingCache) return pricingCache;
+  const { data } = await supabase.from("ai_billing_pricing").select("provider, model, price_per_1k_input_tokens, price_per_1k_output_tokens").eq("is_active", true);
+  const map = new Map<string, { input: number; output: number }>();
+  for (const row of data || []) {
+    map.set(`${row.provider}:${row.model}`, { input: row.price_per_1k_input_tokens, output: row.price_per_1k_output_tokens });
+  }
+  pricingCache = map;
+  return map;
+}
+
+function estimateCost(providerKey: string, providerType: string, tokensIn: number, tokensOut: number, pricing?: Map<string, { input: number; output: number }>, modelId?: string): number {
   if (providerType === "groq") return 0;
   if (providerType === "gemini") return 0;
+  
+  // Try DB pricing first
+  if (pricing && modelId) {
+    const key = `${providerType}:${modelId}`;
+    const p = pricing.get(key);
+    if (p) return (tokensIn * p.input + tokensOut * p.output) / 1000;
+  }
+  
+  // Hardcoded fallback
   if (providerKey === "openai_dalle") return 0.04;
   if (providerKey === "openai_mini") return (tokensIn * 0.15 + tokensOut * 0.6) / 1_000_000;
   return 0;
@@ -648,6 +670,33 @@ Deno.serve(async (req) => {
     const allProviders = (providersRes.data || []) as Provider[];
     const allStats = (statsRes.data || []) as ProviderStats[];
 
+    // Resolve org + load pricing + check budget in parallel
+    const orgId = body.organization_id || null;
+    const userId = body.user_id || authUserId;
+
+    const [pricing, budgetResult] = await Promise.all([
+      loadPricing(supabase),
+      orgId ? supabase.rpc("check_ai_budget", { p_org_id: orgId }).then((r: any) => r.data) : Promise.resolve(null),
+    ]);
+
+    const budgetCheck = budgetResult as { allowed: boolean; has_budget: boolean; action: string; force_free: boolean; spent?: number; limit?: number } | null;
+
+    // If budget says block, return immediately
+    if (budgetCheck && !budgetCheck.allowed && budgetCheck.action === "block") {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Limite de IA atingido para esta organização. Gasto: $${budgetCheck.spent?.toFixed(4)} / Limite: $${budgetCheck.limit?.toFixed(2)}`,
+          budget_exceeded: true,
+          tokens_input: 0, tokens_output: 0, latency_ms: Date.now() - startMs, is_free: true, estimated_cost_usd: 0,
+        }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // If budget says degrade, force free providers only
+    const forceFreeOnly = budgetCheck?.force_free === true;
+
     // Build stats lookup: prefer task-specific, fallback to global (null)
     const statsMap = new Map<string, ProviderStats>();
     for (const s of allStats) {
@@ -671,8 +720,6 @@ Deno.serve(async (req) => {
     const systemPrompt = body.system_prompt ?? config.system_prompt;
     const maxTokens = body.max_tokens ?? config.max_tokens;
     const temperature = body.temperature ?? config.temperature;
-    const orgId = body.organization_id || null;
-    const userId = body.user_id || authUserId;
 
     const routingMode = config.routing_mode || "auto";
 
@@ -692,12 +739,15 @@ Deno.serve(async (req) => {
       // AUTO-ROUTING: score-based selection
       const eligible = allProviders.filter(p => {
         if (!p.is_active) return false;
+        if (forceFreeOnly && !p.is_free) return false; // Budget exceeded: only free providers
         const apiKey = p.api_key || Deno.env.get(p.env_secret_name || '');
         if (!apiKey) return false;
         if (config.requires_image && !p.supports_image_input) return false;
         if (config.complexity === "image" && !p.supports_image_output) return false;
         return true;
       });
+
+      if (forceFreeOnly) console.log(`[ai-router] Budget exceeded for org ${orgId} — forcing free providers only`);
 
       console.log(`[ai-router] Auto-routing for '${task_type}': ${allProviders.length} total, ${eligible.length} eligible`);
 
@@ -775,7 +825,7 @@ Deno.serve(async (req) => {
 
         clearTimeout(timeout);
         const latencyMs = Date.now() - startMs;
-        const costUsd = estimateCost(provider.provider_key, provider.provider_type, result.tokens_input, result.tokens_output);
+        const costUsd = estimateCost(provider.provider_key, provider.provider_type, result.tokens_input, result.tokens_output, pricing, provider.model_id);
 
         // Reset consecutive errors on success
         const wasInCooldown = provider.consecutive_errors >= 10;
@@ -783,6 +833,11 @@ Deno.serve(async (req) => {
 
         // Track stats (fire and forget)
         trackStats(supabase, provider.provider_key, task_type, latencyMs, true, false, result.tokens_input, result.tokens_output, costUsd);
+
+        // Track org spend (fire and forget)
+        if (orgId && costUsd > 0) {
+          supabase.rpc("track_ai_spend", { p_org_id: orgId, p_cost_usd: costUsd }).then(() => {});
+        }
 
         // Log success
         const logNote = wasInCooldown ? "auto-healed after cooldown" : null;

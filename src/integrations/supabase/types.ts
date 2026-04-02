@@ -479,6 +479,56 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_org_budgets: {
+        Row: {
+          action_on_limit: string
+          alert_threshold_pct: number
+          created_at: string
+          current_month: string
+          current_month_spend_usd: number
+          id: string
+          is_active: boolean
+          last_alert_sent_at: string | null
+          monthly_budget_usd: number
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          action_on_limit?: string
+          alert_threshold_pct?: number
+          created_at?: string
+          current_month?: string
+          current_month_spend_usd?: number
+          id?: string
+          is_active?: boolean
+          last_alert_sent_at?: string | null
+          monthly_budget_usd?: number
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          action_on_limit?: string
+          alert_threshold_pct?: number
+          created_at?: string
+          current_month?: string
+          current_month_spend_usd?: number
+          id?: string
+          is_active?: boolean
+          last_alert_sent_at?: string | null
+          monthly_budget_usd?: number
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_org_budgets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_provider_config: {
         Row: {
           id: string
@@ -6550,6 +6600,10 @@ export type Database = {
       }
       can_access_marketplace: { Args: { org_id: string }; Returns: boolean }
       can_access_partnerships: { Args: { org_id: string }; Returns: boolean }
+      check_ai_budget: {
+        Args: { p_estimated_cost?: number; p_org_id: string }
+        Returns: Json
+      }
       check_signup_duplicates: {
         Args: { p_document: string; p_email: string; p_phone: string }
         Returns: Json
@@ -7158,6 +7212,10 @@ export type Database = {
       seed_org_lead_types: { Args: { p_org_id: string }; Returns: undefined }
       session_heartbeat: { Args: { p_session_token: string }; Returns: boolean }
       slugify: { Args: { val: string }; Returns: string }
+      track_ai_spend: {
+        Args: { p_cost_usd: number; p_org_id: string }
+        Returns: undefined
+      }
       upsert_ai_router_stats: {
         Args: {
           p_cost_usd: number
