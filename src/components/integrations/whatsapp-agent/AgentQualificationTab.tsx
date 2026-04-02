@@ -75,6 +75,9 @@ export function AgentQualificationTab() {
         prompt_qualify_leads: config.prompt_qualify_leads ?? "",
         prompt_create_leads: config.prompt_create_leads ?? "",
         prompt_schedule_visits: config.prompt_schedule_visits ?? "",
+        auto_scoring: config.auto_scoring ?? false,
+        score_criteria: (config.score_criteria as ScoreCriterion[] | undefined) ?? DEFAULT_SCORE_CRITERIA,
+        temperature_thresholds: (config.temperature_thresholds as TemperatureThresholds | undefined) ?? { cold_max: 30, warm_max: 69 },
       });
     }
   }, [config]);
