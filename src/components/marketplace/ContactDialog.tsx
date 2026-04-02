@@ -149,7 +149,7 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
                     {copiedField === "Tel. Corretor" ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
-                <Button className="w-full gap-2" variant="default" onClick={() => openWhatsApp(brokerPhone)}>
+                <Button className="w-full gap-2" variant="default" onClick={() => openWhatsApp(brokerPhone, "broker")}>
                   <MessageCircle className="h-4 w-4" />
                   WhatsApp do Corretor
                 </Button>
