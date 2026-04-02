@@ -52,13 +52,34 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  const openWhatsApp = (phone: string) => {
+  const openWhatsApp = (phone: string, contactType: "broker" | "org" = "broker") => {
     const cleanPhone = phone.replace(/\D/g, "");
     const fullPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
-    const message = encodeURIComponent(
-      `Olá! Vi o imóvel "${property?.title}" no Marketplace Habitae e gostaria de mais informações.`
-    );
-    window.open(`https://wa.me/${fullPhone}?text=${message}`, "_blank");
+
+    const parts: string[] = [];
+    parts.push(`Olá! Encontrei o imóvel "${property?.title}"`);
+    if (property?.external_code) parts.push(`(Cód: ${property.external_code})`);
+    parts.push("no *Porta do Corretor*");
+    if (contactData?.org_name) parts.push(`anunciado pela imobiliária *${contactData.org_name}*`);
+
+    const locationParts = [property?.address_neighborhood, property?.address_city].filter(Boolean);
+    if (locationParts.length) parts.push(`localizado em ${locationParts.join(" - ")}`);
+
+    const price = property?.sale_price || property?.rent_price;
+    if (price) {
+      const formattedPrice = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0 }).format(price);
+      const txType = property?.sale_price ? "venda" : "aluguel";
+      parts.push(`valor de ${txType}: ${formattedPrice}`);
+    }
+
+    let msg = parts.join(", ") + ".";
+    if (contactType === "org") {
+      msg += "\n\nGostaria de mais informações sobre este imóvel.";
+    } else {
+      msg += "\n\nGostaria de mais informações sobre este imóvel com o corretor responsável.";
+    }
+
+    window.open(`https://wa.me/${fullPhone}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
   if (!property) return null;
@@ -128,7 +149,7 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
                     {copiedField === "Tel. Corretor" ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
-                <Button className="w-full gap-2" variant="default" onClick={() => openWhatsApp(brokerPhone)}>
+                <Button className="w-full gap-2" variant="default" onClick={() => openWhatsApp(brokerPhone, "broker")}>
                   <MessageCircle className="h-4 w-4" />
                   WhatsApp do Corretor
                 </Button>
@@ -149,7 +170,7 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
                     {copiedField === "Tel. Imobiliária" ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
-                <Button className="w-full gap-2" variant="outline" onClick={() => openWhatsApp(orgPhone)}>
+                <Button className="w-full gap-2" variant="outline" onClick={() => openWhatsApp(orgPhone, "org")}>
                   <MessageCircle className="h-4 w-4" />
                   WhatsApp da Imobiliária
                 </Button>
@@ -169,7 +190,7 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
                     {copiedField === "Telefone" ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
-                <Button className="w-full gap-2" variant="default" onClick={() => openWhatsApp(orgPhone)}>
+                <Button className="w-full gap-2" variant="default" onClick={() => openWhatsApp(orgPhone, "org")}>
                   <MessageCircle className="h-4 w-4" />
                   Conversar no WhatsApp
                 </Button>
