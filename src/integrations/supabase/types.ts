@@ -533,6 +533,68 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_qualification_config: {
+        Row: {
+          auto_create_leads: boolean
+          auto_qualify_leads: boolean
+          broker_assignment_mode: string
+          created_at: string
+          id: string
+          organization_id: string
+          prompt_create_leads: string | null
+          prompt_qualify_leads: string | null
+          prompt_schedule_visits: string | null
+          required_fields: string[]
+          schedule_visits: boolean
+          scheduling_days: string[]
+          scheduling_hour_end: string
+          scheduling_hour_start: string
+          updated_at: string
+        }
+        Insert: {
+          auto_create_leads?: boolean
+          auto_qualify_leads?: boolean
+          broker_assignment_mode?: string
+          created_at?: string
+          id?: string
+          organization_id: string
+          prompt_create_leads?: string | null
+          prompt_qualify_leads?: string | null
+          prompt_schedule_visits?: string | null
+          required_fields?: string[]
+          schedule_visits?: boolean
+          scheduling_days?: string[]
+          scheduling_hour_end?: string
+          scheduling_hour_start?: string
+          updated_at?: string
+        }
+        Update: {
+          auto_create_leads?: boolean
+          auto_qualify_leads?: boolean
+          broker_assignment_mode?: string
+          created_at?: string
+          id?: string
+          organization_id?: string
+          prompt_create_leads?: string | null
+          prompt_qualify_leads?: string | null
+          prompt_schedule_visits?: string | null
+          required_fields?: string[]
+          schedule_visits?: boolean
+          scheduling_days?: string[]
+          scheduling_hour_end?: string
+          scheduling_hour_start?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_qualification_config_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_router_config: {
         Row: {
           complexity: string
