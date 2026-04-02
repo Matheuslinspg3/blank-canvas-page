@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { trackAiBilling } from "../_shared/ai-billing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -834,6 +835,19 @@ Deno.serve(async (req) => {
         // Track stats (fire and forget)
         trackStats(supabase, provider.provider_key, task_type, latencyMs, true, false, result.tokens_input, result.tokens_output, costUsd);
 
+        // Track billing (fire and forget)
+        trackAiBilling(supabase, {
+          userId: userId || "system",
+          organizationId: orgId,
+          provider: provider.provider_type,
+          model: provider.model_id,
+          functionName: `ai-router/${task_type}`,
+          inputTokens: result.tokens_input,
+          outputTokens: result.tokens_output,
+          success: true,
+          usageType: config.complexity === "image" ? "image" : "text",
+        }).catch(() => {});
+
         // Track org spend (fire and forget)
         if (orgId && costUsd > 0) {
           supabase.rpc("track_ai_spend", { p_org_id: orgId, p_cost_usd: costUsd }).then(() => {});
@@ -920,6 +934,20 @@ Deno.serve(async (req) => {
       estimated_cost_usd: 0, success: false,
       error_message: lastError.slice(0, 500),
     }).then(() => {});
+
+    // Track billing for total failure (fire and forget)
+    trackAiBilling(supabase, {
+      userId: userId || "system",
+      organizationId: orgId,
+      provider: "none",
+      model: "none",
+      functionName: `ai-router/${task_type}`,
+      inputTokens: 0,
+      outputTokens: 0,
+      success: false,
+      errorMessage: lastError?.slice(0, 500),
+      usageType: "text",
+    }).catch(() => {});
 
     // Use 200 when force_provider so the SDK can parse the error message
     const statusCode = force_provider ? 200 : 502;
