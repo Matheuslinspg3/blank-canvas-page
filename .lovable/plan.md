@@ -1,80 +1,66 @@
 
 
-## Follow-up Completo: Log, View e UI Avançada
+## Problema
 
-### O que existe hoje
-- Tabela `follow_up_queue` com RLS
-- Colunas de follow-up na `whatsapp_agent_config`
-- Edge Functions: `whatsapp-followup-batch`, `whatsapp-followup-update`, `whatsapp-followup-auto-enqueue`
-- UI básica em `FollowUpConfigPanel.tsx` com 3 sub-abas (Contatos, Fila, Configuração)
-- Trigger SQL de sync na `whatsapp_messages`
+Bairros, cidades e categorias aparecem duplicados nos filtros por causa de inconsistências nos dados salvos — diferenças de caixa ("Centro" vs "centro"), espaços extras ("Praia Grande " vs "Praia Grande"), e acentuação. O sistema agrupa por valor exato, então variações geram entradas separadas.
 
-### O que será implementado
+## Locais afetados
 
----
+1. **DB Functions** `get_property_neighborhoods` e `get_property_cities` — agrupam por valor bruto sem normalização
+2. **`usePropertyLocations.ts`** — usa `new Set()` sem normalizar caixa
+3. **`useMarketplace.ts`** — `useMarketplaceFilterData` faz `.trim()` mas não normaliza caixa
+4. **`useMarketplaceNeighborhoods.ts`** — mesmo problema
+5. **Formulário de imóvel** (`LocationTab.tsx`) — salva valor digitado sem normalizar
+6. **Import PDF** (`PdfImportDialog.tsx`) — salva sem normalizar
 
-### 1. Migration SQL
+## Plano
 
-**Tabela `follow_up_log`** (histórico de tentativas, append-only):
-- Campos: `queue_id`, `org_id`, `lead_phone`, `attempt_number`, `message_sent`, `message_source` (template_1/ai_generated/template_3/manual), `sent_at`, `delivery_status`
-- Indexes para queue_id, org+phone, sent_at DESC
-- RLS: SELECT para membros da org, ALL para service_role
+### 1. Criar função SQL de normalização + trigger de escrita
+- Função `normalize_location_text(text)`: aplica `TRIM`, `INITCAP` (primeira letra maiúscula de cada palavra)
+- Trigger `BEFORE INSERT OR UPDATE` na tabela `properties` que normaliza automaticamente `address_neighborhood`, `address_city` e `address_state`
+- Isso garante que dados futuros entrem sempre padronizados
 
-**View `whatsapp_contacts_followup_view`**:
-- Agrega contatos únicos de `whatsapp_messages` (última mensagem, sender_type, total msgs)
-- LEFT JOIN com `follow_up_queue` para trazer status, tentativas, próximo envio
-- Nome de exibição: `COALESCE(fq.lead_name, remote_jid)`
+### 2. Migration para corrigir dados existentes
+- UPDATE em massa normalizando os campos existentes usando a mesma função `normalize_location_text`
 
----
+### 3. Atualizar DB functions de filtro
+- `get_property_neighborhoods`: agrupar por `TRIM(INITCAP(address_neighborhood))` para garantir dedup mesmo em dados legados
+- `get_property_cities`: idem para `TRIM(INITCAP(address_city))`
 
-### 2. Edge Function `whatsapp-followup-update` (atualização)
+### 4. Normalização client-side (defesa em profundidade)
+- **`usePropertyLocations.ts`**: normalizar com `.trim()` e dedup case-insensitive
+- **`useMarketplace.ts`**: normalizar com dedup case-insensitive no Map
+- **`useMarketplaceNeighborhoods.ts`**: idem
 
-Ao receber `action = "sent"`, além de atualizar a fila, inserir registro na `follow_up_log` com:
-- `message_sent` e `message_source` recebidos no body (campos opcionais novos)
+### 5. Normalizar no formulário antes de salvar
+- **`LocationTab.tsx`**: aplicar `onBlur` nos campos de bairro/cidade/estado para auto-capitalizar e trimmar
 
----
+### Detalhes técnicos
 
-### 3. UI Completa — `FollowUpConfigPanel.tsx` (reescrita)
+**Função SQL:**
+```sql
+CREATE OR REPLACE FUNCTION normalize_location_text(val text)
+RETURNS text AS $$
+  SELECT INITCAP(TRIM(REGEXP_REPLACE(val, '\s+', ' ', 'g')))
+$$ LANGUAGE sql IMMUTABLE;
+```
 
-Substituir o componente atual por uma versão completa com:
+**Trigger:**
+```sql
+CREATE FUNCTION normalize_property_location() RETURNS trigger AS $$
+BEGIN
+  NEW.address_neighborhood := normalize_location_text(NEW.address_neighborhood);
+  NEW.address_city := normalize_location_text(NEW.address_city);
+  NEW.address_state := normalize_location_text(NEW.address_state);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
 
-**Sub-aba Contatos:**
-- Tabela usando a view `whatsapp_contacts_followup_view`
-- Colunas: Contato, Última mensagem (texto truncado), Tempo (formatDistanceToNow), Status follow-up (badge colorido), Tentativas (X/3), Próximo envio, Ações
-- Filtro dropdown por status (Todos/Pendente/Respondido/Completo/Opt-out/Sem follow-up)
-- Busca por nome/telefone
-- Paginação de 20 itens
-- Realtime subscription na `follow_up_queue`
-
-**Coluna Ações (3 botões):**
-
-1. **Enviar follow-up manual** (modal):
-   - Nome + telefone read-only
-   - Textarea pré-preenchida com template_1 (variáveis substituídas)
-   - Upsert na `follow_up_queue` + INSERT na `follow_up_log` com source='manual'
-   - Só aparece se: followup_enabled, NOT opted_out, NOT max attempts
-
-2. **Ver histórico** (drawer lateral):
-   - Dados do contato (nome, telefone, imóvel)
-   - Timeline da `follow_up_log` por org_id + lead_phone
-   - Cada entrada: data/hora, tipo (badge), texto enviado
-   - Aviso se opted_out
-
-3. **Parar follow-up / Reativar:**
-   - Se pendente: botão "Parar" com confirmação, chama edge function com action='opted_out'
-   - Se responded/completed/opted_out: botão "Reativar" que reseta status/attempt_count/opted_out
-
-**Sub-aba Fila:** Mantém tabela existente com melhorias visuais
-
-**Sub-aba Configuração:** Mantém formulário existente + campo `followup_max_attempts`
-
----
-
-### Arquivos modificados/criados
-
-| Arquivo | Ação |
-|---------|------|
-| Migration SQL (1 arquivo) | Criar tabela `follow_up_log` + view |
-| `supabase/functions/whatsapp-followup-update/index.ts` | Adicionar insert na `follow_up_log` no action="sent" |
-| `src/components/automations/FollowUpConfigPanel.tsx` | Reescrever com todas as features |
+**Arquivos a editar:**
+- 1 migration SQL (função, trigger, update em massa, recreate das functions de filtro)
+- `src/hooks/usePropertyLocations.ts`
+- `src/hooks/useMarketplace.ts`
+- `src/hooks/useMarketplaceNeighborhoods.ts`
+- `src/components/properties/form/LocationTab.tsx`
 
