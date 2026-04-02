@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { createServiceClient } from "../_shared/auth.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const WEBHOOK_SECRET = Deno.env.get("WHATSAPP_AGENT_SECRET");
 
@@ -9,11 +10,44 @@ serve(async (req) => {
   if (cors) return cors;
 
   try {
-    // Validate webhook secret
+    // Auth: accept webhook secret OR valid JWT
     const secret =
       req.headers.get("x-webhook-secret") ||
       req.headers.get("X-Webhook-Secret");
-    if (!WEBHOOK_SECRET || secret !== WEBHOOK_SECRET) {
+    const authHeader = req.headers.get("authorization") || "";
+    let jwtOrgId: string | null = null;
+
+    if (secret && WEBHOOK_SECRET && secret === WEBHOOK_SECRET) {
+      // Webhook auth — org resolved from instance_name below
+    } else if (authHeader.startsWith("Bearer ")) {
+      // JWT auth — resolve org from user profile
+      const token = authHeader.replace("Bearer ", "");
+      const anonClient = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
+        { global: { headers: { Authorization: `Bearer ${token}` } } }
+      );
+      const { data: { user }, error: userErr } = await anonClient.auth.getUser();
+      if (userErr || !user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const sb = createServiceClient();
+      const { data: profile } = await sb
+        .from("profiles")
+        .select("organization_id")
+        .eq("id", user.id)
+        .single();
+      jwtOrgId = profile?.organization_id || null;
+      if (!jwtOrgId) {
+        return new Response(JSON.stringify({ error: "No organization" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    } else {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
