@@ -94,6 +94,7 @@ Deno.serve(async (req) => {
       template_3: cfg.followup_template_3,
       ai_prompt: cfg.followup_ai_prompt,
       intervals: cfg.followup_intervals,
+      templates: cfg.followup_templates ?? [],
     });
   }
 
