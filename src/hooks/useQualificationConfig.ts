@@ -3,6 +3,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
+export interface ScoreCriterion {
+  key: string;
+  label: string;
+  weight: number;
+  enabled: boolean;
+}
+
+export interface TemperatureThresholds {
+  cold_max: number;
+  warm_max: number;
+}
+
 export interface QualificationConfig {
   id: string;
   organization_id: string;
@@ -17,7 +29,19 @@ export interface QualificationConfig {
   prompt_qualify_leads: string;
   prompt_create_leads: string;
   prompt_schedule_visits: string;
+  auto_scoring: boolean;
+  score_criteria: ScoreCriterion[];
+  temperature_thresholds: TemperatureThresholds;
 }
+
+export const DEFAULT_SCORE_CRITERIA: ScoreCriterion[] = [
+  { key: "responded_24h", label: "Respondeu em menos de 24h", weight: 10, enabled: true },
+  { key: "informed_budget", label: "Informou orçamento/renda", weight: 20, enabled: true },
+  { key: "informed_region", label: "Informou região de interesse", weight: 15, enabled: true },
+  { key: "financing_simulation", label: "Pediu simulação de financiamento", weight: 20, enabled: true },
+  { key: "scheduled_visit", label: "Agendou visita", weight: 25, enabled: true },
+  { key: "paid_campaign", label: "Origem: campanha paga", weight: 10, enabled: true },
+];
 
 const DEFAULTS: Omit<QualificationConfig, "id" | "organization_id"> = {
   required_fields: ["nome", "telefone", "email"],
@@ -31,6 +55,9 @@ const DEFAULTS: Omit<QualificationConfig, "id" | "organization_id"> = {
   prompt_qualify_leads: "",
   prompt_create_leads: "",
   prompt_schedule_visits: "",
+  auto_scoring: false,
+  score_criteria: DEFAULT_SCORE_CRITERIA,
+  temperature_thresholds: { cold_max: 30, warm_max: 69 },
 };
 
 export function useQualificationConfig() {

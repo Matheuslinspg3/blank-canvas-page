@@ -8,7 +8,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Save, UserCheck, CalendarCheck, Check } from "lucide-react";
-import { useQualificationConfig } from "@/hooks/useQualificationConfig";
+import { useQualificationConfig, DEFAULT_SCORE_CRITERIA } from "@/hooks/useQualificationConfig";
+import type { ScoreCriterion, TemperatureThresholds } from "@/hooks/useQualificationConfig";
+import { ScoreTemperatureCard } from "./ScoreTemperatureCard";
 import { cn } from "@/lib/utils";
 
 const DAYS = [
@@ -54,6 +56,9 @@ export function AgentQualificationTab() {
     prompt_qualify_leads: "",
     prompt_create_leads: "",
     prompt_schedule_visits: "",
+    auto_scoring: false,
+    score_criteria: DEFAULT_SCORE_CRITERIA as ScoreCriterion[],
+    temperature_thresholds: { cold_max: 30, warm_max: 69 } as TemperatureThresholds,
   });
 
   useEffect(() => {
@@ -70,6 +75,9 @@ export function AgentQualificationTab() {
         prompt_qualify_leads: config.prompt_qualify_leads ?? "",
         prompt_create_leads: config.prompt_create_leads ?? "",
         prompt_schedule_visits: config.prompt_schedule_visits ?? "",
+        auto_scoring: config.auto_scoring ?? false,
+        score_criteria: (config.score_criteria as ScoreCriterion[] | undefined) ?? DEFAULT_SCORE_CRITERIA,
+        temperature_thresholds: (config.temperature_thresholds as TemperatureThresholds | undefined) ?? { cold_max: 30, warm_max: 69 },
       });
     }
   }, [config]);
@@ -217,6 +225,16 @@ export function AgentQualificationTab() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Score & Temperature card */}
+      <ScoreTemperatureCard
+        autoScoring={form.auto_scoring}
+        onAutoScoringChange={(v) => setForm((f) => ({ ...f, auto_scoring: v }))}
+        criteria={form.score_criteria}
+        onCriteriaChange={(c) => setForm((f) => ({ ...f, score_criteria: c }))}
+        thresholds={form.temperature_thresholds}
+        onThresholdsChange={(t) => setForm((f) => ({ ...f, temperature_thresholds: t }))}
+      />
 
       {/* Scheduling card */}
       <Card>
