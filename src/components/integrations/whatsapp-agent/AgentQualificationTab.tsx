@@ -56,6 +56,9 @@ export function AgentQualificationTab() {
     prompt_qualify_leads: "",
     prompt_create_leads: "",
     prompt_schedule_visits: "",
+    auto_scoring: false,
+    score_criteria: DEFAULT_SCORE_CRITERIA as ScoreCriterion[],
+    temperature_thresholds: { cold_max: 30, warm_max: 69 } as TemperatureThresholds,
   });
 
   useEffect(() => {
