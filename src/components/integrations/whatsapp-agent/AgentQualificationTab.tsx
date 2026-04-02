@@ -226,6 +226,16 @@ export function AgentQualificationTab() {
         </CardContent>
       </Card>
 
+      {/* Score & Temperature card */}
+      <ScoreTemperatureCard
+        autoScoring={form.auto_scoring}
+        onAutoScoringChange={(v) => setForm((f) => ({ ...f, auto_scoring: v }))}
+        criteria={form.score_criteria}
+        onCriteriaChange={(c) => setForm((f) => ({ ...f, score_criteria: c }))}
+        thresholds={form.temperature_thresholds}
+        onThresholdsChange={(t) => setForm((f) => ({ ...f, temperature_thresholds: t }))}
+      />
+
       {/* Scheduling card */}
       <Card>
         <CardHeader>
