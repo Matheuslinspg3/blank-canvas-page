@@ -1,0 +1,1 @@
+UPDATE follow_up_queue SET attempt_count = 3, next_followup_at = now() - interval '1 minute' WHERE id = '97d12e32-415e-4924-bdb0-64c404f583ba';
