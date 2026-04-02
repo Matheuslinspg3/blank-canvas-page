@@ -1358,6 +1358,113 @@ export type Database = {
           },
         ]
       }
+      automation_executions: {
+        Row: {
+          action_type: string
+          automation_id: string | null
+          automation_name: string
+          error_message: string | null
+          executed_at: string
+          id: string
+          lead_name: string | null
+          metadata: Json | null
+          organization_id: string
+          status: string
+          trigger_type: string
+        }
+        Insert: {
+          action_type: string
+          automation_id?: string | null
+          automation_name: string
+          error_message?: string | null
+          executed_at?: string
+          id?: string
+          lead_name?: string | null
+          metadata?: Json | null
+          organization_id: string
+          status?: string
+          trigger_type: string
+        }
+        Update: {
+          action_type?: string
+          automation_id?: string | null
+          automation_name?: string
+          error_message?: string | null
+          executed_at?: string
+          id?: string
+          lead_name?: string | null
+          metadata?: Json | null
+          organization_id?: string
+          status?: string
+          trigger_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_executions_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "automations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_executions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automations: {
+        Row: {
+          actions: Json
+          created_at: string
+          created_by: string
+          description: string | null
+          enabled: boolean
+          id: string
+          name: string
+          organization_id: string
+          trigger_conditions: Json | null
+          trigger_type: string
+          updated_at: string
+        }
+        Insert: {
+          actions?: Json
+          created_at?: string
+          created_by: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          name: string
+          organization_id: string
+          trigger_conditions?: Json | null
+          trigger_type: string
+          updated_at?: string
+        }
+        Update: {
+          actions?: Json
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          name?: string
+          organization_id?: string
+          trigger_conditions?: Json | null
+          trigger_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       billing_payments: {
         Row: {
           amount_cents: number
