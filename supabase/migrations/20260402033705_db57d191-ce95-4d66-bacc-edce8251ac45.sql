@@ -1,0 +1,1 @@
+ALTER TABLE whatsapp_agent_config ADD COLUMN IF NOT EXISTS followup_templates jsonb DEFAULT '[]'::jsonb;
