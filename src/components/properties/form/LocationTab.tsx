@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Search, MapPin } from "lucide-react";
 import { fetchAddressByCep, formatCep, searchAddressByStreet, ViaCepResponse } from "@/lib/viaCep";
 import { cn } from "@/lib/utils";
+import { usePropertyLocations } from "@/hooks/usePropertyLocations";
 
 interface LocationTabProps {
   form: UseFormReturn<any>;
