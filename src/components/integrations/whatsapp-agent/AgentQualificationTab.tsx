@@ -8,7 +8,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Save, UserCheck, CalendarCheck, Check } from "lucide-react";
-import { useQualificationConfig } from "@/hooks/useQualificationConfig";
+import { useQualificationConfig, DEFAULT_SCORE_CRITERIA } from "@/hooks/useQualificationConfig";
+import type { ScoreCriterion, TemperatureThresholds } from "@/hooks/useQualificationConfig";
+import { ScoreTemperatureCard } from "./ScoreTemperatureCard";
 import { cn } from "@/lib/utils";
 
 const DAYS = [
