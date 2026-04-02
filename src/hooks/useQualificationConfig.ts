@@ -34,6 +34,15 @@ export interface QualificationConfig {
   temperature_thresholds: TemperatureThresholds;
 }
 
+export const DEFAULT_SCORE_CRITERIA: ScoreCriterion[] = [
+  { key: "responded_24h", label: "Respondeu em menos de 24h", weight: 10, enabled: true },
+  { key: "informed_budget", label: "Informou orçamento/renda", weight: 20, enabled: true },
+  { key: "informed_region", label: "Informou região de interesse", weight: 15, enabled: true },
+  { key: "financing_simulation", label: "Pediu simulação de financiamento", weight: 20, enabled: true },
+  { key: "scheduled_visit", label: "Agendou visita", weight: 25, enabled: true },
+  { key: "paid_campaign", label: "Origem: campanha paga", weight: 10, enabled: true },
+];
+
 const DEFAULTS: Omit<QualificationConfig, "id" | "organization_id"> = {
   required_fields: ["nome", "telefone", "email"],
   broker_assignment_mode: "manual",
@@ -46,6 +55,9 @@ const DEFAULTS: Omit<QualificationConfig, "id" | "organization_id"> = {
   prompt_qualify_leads: "",
   prompt_create_leads: "",
   prompt_schedule_visits: "",
+  auto_scoring: false,
+  score_criteria: DEFAULT_SCORE_CRITERIA,
+  temperature_thresholds: { cold_max: 30, warm_max: 69 },
 };
 
 export function useQualificationConfig() {
