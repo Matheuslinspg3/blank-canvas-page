@@ -81,6 +81,15 @@ Sentry.init({
   replaysSessionSampleRate: 0.1,
   replaysOnErrorSampleRate: 1.0,
   release: `porta@${APP_VERSION}`,
+  ignoreErrors: [
+    // Supabase Auth navigatorLock timeout — benign, no user impact
+    "signal is aborted without reason",
+    "The operation was aborted",
+    // Network blips
+    "Failed to fetch",
+    "NetworkError",
+    "Load failed",
+  ],
 });
 
 // PostHog initialization — after Sentry, before React
