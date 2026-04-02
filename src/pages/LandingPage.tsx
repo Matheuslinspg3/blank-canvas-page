@@ -22,7 +22,7 @@ const fmt = (value: number | null | undefined) =>
   ((value ?? 0) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /* ─── Section wrapper ─── */
-import React from "react";
+
 
 const Section = React.forwardRef<HTMLElement, { children: React.ReactNode; className?: string; id?: string }>(
   ({ children, className, id }, ref) => (
