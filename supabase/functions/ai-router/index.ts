@@ -935,6 +935,20 @@ Deno.serve(async (req) => {
       error_message: lastError.slice(0, 500),
     }).then(() => {});
 
+    // Track billing for total failure (fire and forget)
+    trackAiBilling(supabase, {
+      userId: userId || "system",
+      organizationId: orgId,
+      provider: "none",
+      model: "none",
+      functionName: `ai-router/${task_type}`,
+      inputTokens: 0,
+      outputTokens: 0,
+      success: false,
+      errorMessage: lastError?.slice(0, 500),
+      usageType: "text",
+    }).catch(() => {});
+
     // Use 200 when force_provider so the SDK can parse the error message
     const statusCode = force_provider ? 200 : 502;
     return new Response(
