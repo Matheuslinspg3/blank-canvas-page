@@ -739,12 +739,15 @@ Deno.serve(async (req) => {
       // AUTO-ROUTING: score-based selection
       const eligible = allProviders.filter(p => {
         if (!p.is_active) return false;
+        if (forceFreeOnly && !p.is_free) return false; // Budget exceeded: only free providers
         const apiKey = p.api_key || Deno.env.get(p.env_secret_name || '');
         if (!apiKey) return false;
         if (config.requires_image && !p.supports_image_input) return false;
         if (config.complexity === "image" && !p.supports_image_output) return false;
         return true;
       });
+
+      if (forceFreeOnly) console.log(`[ai-router] Budget exceeded for org ${orgId} — forcing free providers only`);
 
       console.log(`[ai-router] Auto-routing for '${task_type}': ${allProviders.length} total, ${eligible.length} eligible`);
 
