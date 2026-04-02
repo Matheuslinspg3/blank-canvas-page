@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,11 +22,16 @@ const fmt = (value: number | null | undefined) =>
   ((value ?? 0) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /* ─── Section wrapper ─── */
-const Section = ({ children, className, id }: { children: React.ReactNode; className?: string; id?: string }) => (
-  <section id={id} className={cn("py-16 md:py-24 px-4", className)}>
-    <div className="container max-w-6xl mx-auto">{children}</div>
-  </section>
+
+
+const Section = React.forwardRef<HTMLElement, { children: React.ReactNode; className?: string; id?: string }>(
+  ({ children, className, id }, ref) => (
+    <section ref={ref} id={id} className={cn("py-16 md:py-24 px-4", className)}>
+      <div className="container max-w-6xl mx-auto">{children}</div>
+    </section>
+  )
 );
+Section.displayName = "Section";
 
 /* ─── Features data ─── */
 const features = [
