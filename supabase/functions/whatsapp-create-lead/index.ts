@@ -68,7 +68,7 @@ serve(async (req) => {
       transaction_interest,
     } = body;
 
-    if (!instance_name) {
+    if (!instance_name && !jwtOrgId) {
       return new Response(
         JSON.stringify({ error: "instance_name is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -84,21 +84,23 @@ serve(async (req) => {
 
     const sb = createServiceClient();
 
-    // Resolve organization from instance
-    const { data: config, error: configError } = await sb
-      .from("whatsapp_agent_config")
-      .select("organization_id")
-      .eq("instance_name", instance_name)
-      .single();
+    // Resolve organization: JWT auth already has orgId, webhook auth resolves from instance
+    let orgId = jwtOrgId;
+    if (!orgId && instance_name) {
+      const { data: config, error: configError } = await sb
+        .from("whatsapp_agent_config")
+        .select("organization_id")
+        .eq("instance_name", instance_name)
+        .single();
 
-    if (configError || !config?.organization_id) {
-      return new Response(
-        JSON.stringify({ error: `Instance '${instance_name}' not found` }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      if (configError || !config?.organization_id) {
+        return new Response(
+          JSON.stringify({ error: `Instance '${instance_name}' not found` }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      orgId = config.organization_id;
     }
-
-    const orgId = config.organization_id;
 
     // Normalize phone for dedup
     const normalizedPhone = phone ? phone.replace(/\D/g, "") : null;
