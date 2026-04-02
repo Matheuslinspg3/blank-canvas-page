@@ -25,13 +25,17 @@ export function useMarketplaceNeighborhoods(city?: string) {
       const { data, error } = await query;
       if (error) throw error;
 
-      const unique = [...new Set(
-        (data as any[])
-          .map((d: any) => d.address_neighborhood?.trim())
-          .filter(Boolean)
-      )].sort();
+      // Case-insensitive deduplication
+      const seen = new Map<string, string>();
+      for (const d of data as any[]) {
+        const val = d.address_neighborhood?.trim();
+        if (val) {
+          const key = val.toLowerCase();
+          if (!seen.has(key)) seen.set(key, val);
+        }
+      }
 
-      return unique as string[];
+      return Array.from(seen.values()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
     },
     enabled: !!profile?.organization_id,
   });
