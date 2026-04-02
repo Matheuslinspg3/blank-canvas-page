@@ -670,6 +670,33 @@ Deno.serve(async (req) => {
     const allProviders = (providersRes.data || []) as Provider[];
     const allStats = (statsRes.data || []) as ProviderStats[];
 
+    // Resolve org + load pricing + check budget in parallel
+    const orgId = body.organization_id || null;
+    const userId = body.user_id || authUserId;
+
+    const [pricing, budgetResult] = await Promise.all([
+      loadPricing(supabase),
+      orgId ? supabase.rpc("check_ai_budget", { p_org_id: orgId }).then((r: any) => r.data) : Promise.resolve(null),
+    ]);
+
+    const budgetCheck = budgetResult as { allowed: boolean; has_budget: boolean; action: string; force_free: boolean; spent?: number; limit?: number } | null;
+
+    // If budget says block, return immediately
+    if (budgetCheck && !budgetCheck.allowed && budgetCheck.action === "block") {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Limite de IA atingido para esta organização. Gasto: $${budgetCheck.spent?.toFixed(4)} / Limite: $${budgetCheck.limit?.toFixed(2)}`,
+          budget_exceeded: true,
+          tokens_input: 0, tokens_output: 0, latency_ms: Date.now() - startMs, is_free: true, estimated_cost_usd: 0,
+        }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // If budget says degrade, force free providers only
+    const forceFreeOnly = budgetCheck?.force_free === true;
+
     // Build stats lookup: prefer task-specific, fallback to global (null)
     const statsMap = new Map<string, ProviderStats>();
     for (const s of allStats) {
