@@ -165,7 +165,16 @@ export function useLeadCRUD(opts: { leadStages: LeadStage[]; isBrokerOnly: boole
       trackEvent('lead_enviado');
       toast({ title: 'Lead criado', description: 'O lead foi criado com sucesso.' });
     },
-    onError: (error) => { toast({ title: 'Erro ao criar lead', description: error.message, variant: 'destructive' }); },
+    onError: (error) => {
+      const isDuplicate = error.message?.includes('Lead duplicado');
+      toast({
+        title: isDuplicate ? 'Lead duplicado' : 'Erro ao criar lead',
+        description: isDuplicate
+          ? 'Já existe um lead ativo com este telefone ou e-mail na sua organização.'
+          : error.message,
+        variant: 'destructive',
+      });
+    },
   });
 
   const updateLead = useMutation({
