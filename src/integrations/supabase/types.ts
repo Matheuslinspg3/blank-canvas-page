@@ -3235,6 +3235,71 @@ export type Database = {
           },
         ]
       }
+      marketplace_contact_intents: {
+        Row: {
+          broker_name: string | null
+          consumed_at: string | null
+          consumer_phone: string | null
+          contact_type: string
+          created_at: string
+          id: string
+          org_name: string | null
+          organization_id: string
+          property_code: string | null
+          property_id: string | null
+          property_location: string | null
+          property_price: number | null
+          property_title: string | null
+          property_transaction_type: string | null
+          source_org_name: string | null
+          target_phone: string
+        }
+        Insert: {
+          broker_name?: string | null
+          consumed_at?: string | null
+          consumer_phone?: string | null
+          contact_type?: string
+          created_at?: string
+          id?: string
+          org_name?: string | null
+          organization_id: string
+          property_code?: string | null
+          property_id?: string | null
+          property_location?: string | null
+          property_price?: number | null
+          property_title?: string | null
+          property_transaction_type?: string | null
+          source_org_name?: string | null
+          target_phone: string
+        }
+        Update: {
+          broker_name?: string | null
+          consumed_at?: string | null
+          consumer_phone?: string | null
+          contact_type?: string
+          created_at?: string
+          id?: string
+          org_name?: string | null
+          organization_id?: string
+          property_code?: string | null
+          property_id?: string | null
+          property_location?: string | null
+          property_price?: number | null
+          property_title?: string | null
+          property_transaction_type?: string | null
+          source_org_name?: string | null
+          target_phone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_contact_intents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketplace_properties: {
         Row: {
           address_city: string | null
@@ -6618,6 +6683,14 @@ export type Database = {
       consume_import_token: {
         Args: { p_org_id: string; p_property_id: string; p_token: string }
         Returns: boolean
+      }
+      consume_marketplace_intent: {
+        Args: {
+          p_consumer_phone: string
+          p_organization_id: string
+          p_target_phone: string
+        }
+        Returns: Json
       }
       count_new_ad_leads: {
         Args: { p_external_ad_id?: string; p_organization_id: string }
