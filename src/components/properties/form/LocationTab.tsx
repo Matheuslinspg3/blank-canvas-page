@@ -216,7 +216,7 @@ export function LocationTab({ form }: LocationTabProps) {
         <FormField control={form.control} name="address_city" render={({ field }) => (
           <FormItem>
             <FormLabel>Cidade</FormLabel>
-            <FormControl><Input placeholder="Nome da cidade" {...field} value={field.value || ""} /></FormControl>
+            <FormControl><Input placeholder="Nome da cidade" {...field} value={field.value || ""} onBlur={() => handleLocationBlur("address_city", form)} /></FormControl>
             <FormMessage />
           </FormItem>
         )} />
