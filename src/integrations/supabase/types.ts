@@ -6998,6 +6998,7 @@ export type Database = {
         }
         Returns: string
       }
+      normalize_location_text: { Args: { val: string }; Returns: string }
       normalize_phone: { Args: { phone: string }; Returns: string }
       org_has_active_subscription: {
         Args: { p_organization_id: string }
