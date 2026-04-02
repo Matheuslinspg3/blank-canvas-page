@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Plus, Zap, BarChart3, History, LayoutTemplate, MessageSquare, UserCheck } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Zap, BarChart3, History, LayoutTemplate, MessageSquare, UserCheck, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,6 +15,8 @@ import { WhatsAppAgentPanel } from "@/components/integrations/whatsapp-agent/Wha
 import { FollowUpConfigPanel } from "@/components/automations/FollowUpConfigPanel";
 import { FeatureFlagGate } from "@/components/FeatureGate";
 import { useAutomations } from "@/hooks/useAutomations";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
 export default function Automations() {
@@ -24,15 +26,56 @@ export default function Automations() {
     plan,
     canCreate,
     maxAutomations,
+    loading,
     toggleAutomation,
     deleteAutomation,
     duplicateAutomation,
     addAutomation,
   } = useAutomations();
 
+  const { profile } = useAuth();
   const [showWizard, setShowWizard] = useState(false);
   const [selectedAutomationId, setSelectedAutomationId] = useState<string | null>(null);
-  const [executionLogs] = useState<ExecutionLogEntry[]>([]);
+  const [executionLogs, setExecutionLogs] = useState<ExecutionLogEntry[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+
+  // Fetch execution logs from database
+  useEffect(() => {
+    if (!profile?.organization_id) return;
+
+    const fetchLogs = async () => {
+      setLogsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("automation_executions")
+          .select("*")
+          .eq("organization_id", profile.organization_id)
+          .order("executed_at", { ascending: false })
+          .limit(100);
+
+        if (error) throw error;
+
+        const logs: ExecutionLogEntry[] = (data ?? []).map((row: any) => ({
+          id: row.id,
+          automationName: row.automation_name,
+          triggerType: row.trigger_type,
+          status: row.status as 'success' | 'error' | 'pending',
+          actionType: row.action_type,
+          leadName: row.lead_name ?? undefined,
+          executedAt: row.executed_at,
+          errorMessage: row.error_message ?? undefined,
+        }));
+
+        setExecutionLogs(logs);
+      } catch (err) {
+        console.error("Error fetching execution logs:", err);
+      } finally {
+        setLogsLoading(false);
+      }
+    };
+
+    fetchLogs();
+  }, [profile?.organization_id]);
 
   const selectedAutomation = selectedAutomationId
     ? automations.find((a) => a.id === selectedAutomationId)
@@ -115,20 +158,26 @@ export default function Automations() {
 
             <TabsContent value="automations" className="space-y-6">
               <AutomationDashboard stats={stats} />
-              <AutomationList
-                automations={automations}
-                plan={plan}
-                onToggle={toggleAutomation}
-                onDelete={(id) => {
-                  deleteAutomation(id);
-                  toast({ title: "Automação excluída" });
-                }}
-                onDuplicate={(id) => {
-                  duplicateAutomation(id);
-                  toast({ title: "Automação duplicada" });
-                }}
-                onViewStats={setSelectedAutomationId}
-              />
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <AutomationList
+                  automations={automations}
+                  plan={plan}
+                  onToggle={toggleAutomation}
+                  onDelete={(id) => {
+                    deleteAutomation(id);
+                    toast({ title: "Automação excluída" });
+                  }}
+                  onDuplicate={(id) => {
+                    duplicateAutomation(id);
+                    toast({ title: "Automação duplicada" });
+                  }}
+                  onViewStats={setSelectedAutomationId}
+                />
+              )}
             </TabsContent>
 
             <TabsContent value="templates">
@@ -142,7 +191,13 @@ export default function Automations() {
             </TabsContent>
 
             <TabsContent value="logs">
-              <AutomationExecutionLog logs={executionLogs} />
+              {logsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <AutomationExecutionLog logs={executionLogs} />
+              )}
             </TabsContent>
 
             <TabsContent value="score">
