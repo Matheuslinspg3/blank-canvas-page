@@ -528,8 +528,20 @@ export function PdfImportDialog({ open, onOpenChange, onDataExtracted, onBatchEx
     propertyRefs.current[idx]?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const normalizeLocationText = (val: string | undefined) => {
+    if (!val) return val;
+    return val.trim().replace(/\s+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  };
+
   const handleConfirm = () => {
-    const selected = extractedList.filter((_, i) => selectedIndices.has(i));
+    const selected = extractedList
+      .filter((_, i) => selectedIndices.has(i))
+      .map(item => ({
+        ...item,
+        address_neighborhood: normalizeLocationText(item.address_neighborhood),
+        address_city: normalizeLocationText(item.address_city),
+        address_state: item.address_state?.trim().toUpperCase(),
+      }));
     if (selected.length === 0) return;
 
     const pdfName = fileName.replace(/\.pdf$/i, "");
