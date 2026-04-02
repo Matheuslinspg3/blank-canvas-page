@@ -18,6 +18,25 @@ const BRAZILIAN_STATES = [
   "PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
 ];
 
+function normalizeLocationText(val: string): string {
+  return val
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function handleLocationBlur(fieldName: string, form: any) {
+  const val = form.getValues(fieldName);
+  if (val) {
+    const normalized = fieldName === 'address_state'
+      ? val.trim().toUpperCase()
+      : normalizeLocationText(val);
+    if (normalized !== val) {
+      form.setValue(fieldName, normalized);
+    }
+  }
+}
+
 export function LocationTab({ form }: LocationTabProps) {
   const [isSearchingCep, setIsSearchingCep] = useState(false);
   const [streetSuggestions, setStreetSuggestions] = useState<ViaCepResponse[]>([]);
