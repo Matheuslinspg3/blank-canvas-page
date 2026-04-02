@@ -63,8 +63,11 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
 
   if (!property) return null;
 
-  const primaryPhone = contactData?.broker_phone || contactData?.org_phone || contactData?.owner_phone;
-  const hasAnyData = contactData && (contactData.org_name || contactData.broker_name || primaryPhone || contactData.org_email);
+  const hasAnyData = contactData && (contactData.org_name || contactData.broker_name || contactData.broker_phone || contactData.org_phone || contactData.org_email);
+  const brokerPhone = contactData?.broker_phone;
+  const orgPhone = contactData?.org_phone;
+  // Show both phones if different, otherwise just one
+  const showBothPhones = brokerPhone && orgPhone && brokerPhone.replace(/\D/g, "") !== orgPhone.replace(/\D/g, "");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
