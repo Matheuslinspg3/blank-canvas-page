@@ -52,9 +52,37 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  const openWhatsApp = (phone: string, contactType: "broker" | "org" = "broker") => {
+  const registerIntent = async (phone: string, contactType: "broker" | "org") => {
+    if (!property) return;
+    const locationParts = [property.address_neighborhood, property.address_city].filter(Boolean);
+    const price = property.sale_price || property.rent_price;
+
+    try {
+      await supabase.from("marketplace_contact_intents" as any).insert({
+        organization_id: property.organization_id,
+        target_phone: phone,
+        contact_type: contactType,
+        property_id: property.id,
+        property_title: property.title,
+        property_code: property.external_code || null,
+        property_location: locationParts.length ? locationParts.join(" - ") : null,
+        property_price: price || null,
+        property_transaction_type: property.sale_price ? "venda" : property.rent_price ? "aluguel" : null,
+        source_org_name: null,
+        broker_name: contactData?.broker_name || null,
+        org_name: contactData?.org_name || null,
+      });
+    } catch {
+      // Non-blocking: intent is a bonus, not a requirement
+    }
+  };
+
+  const openWhatsApp = async (phone: string, contactType: "broker" | "org" = "broker") => {
     const cleanPhone = phone.replace(/\D/g, "");
     const fullPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+
+    // Register intent in DB so the org's AI has context even if user deletes the message
+    registerIntent(phone, contactType);
 
     const parts: string[] = [];
     parts.push(`Olá! Encontrei o imóvel "${property?.title}"`);
