@@ -720,8 +720,6 @@ Deno.serve(async (req) => {
     const systemPrompt = body.system_prompt ?? config.system_prompt;
     const maxTokens = body.max_tokens ?? config.max_tokens;
     const temperature = body.temperature ?? config.temperature;
-    const orgId = body.organization_id || null;
-    const userId = body.user_id || authUserId;
 
     const routingMode = config.routing_mode || "auto";
 
