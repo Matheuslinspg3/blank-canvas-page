@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { UseFormReturn } from "react-hook-form";
 import {
   FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -17,6 +17,25 @@ const BRAZILIAN_STATES = [
   "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
   "PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
 ];
+
+function normalizeLocationText(val: string): string {
+  return val
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function handleLocationBlur(fieldName: string, form: any) {
+  const val = form.getValues(fieldName);
+  if (val) {
+    const normalized = fieldName === 'address_state'
+      ? val.trim().toUpperCase()
+      : normalizeLocationText(val);
+    if (normalized !== val) {
+      form.setValue(fieldName, normalized);
+    }
+  }
+}
 
 export function LocationTab({ form }: LocationTabProps) {
   const [isSearchingCep, setIsSearchingCep] = useState(false);
@@ -188,7 +207,7 @@ export function LocationTab({ form }: LocationTabProps) {
       <FormField control={form.control} name="address_neighborhood" render={({ field }) => (
         <FormItem>
           <FormLabel>Bairro</FormLabel>
-          <FormControl><Input placeholder="Nome do bairro" {...field} value={field.value || ""} /></FormControl>
+          <FormControl><Input placeholder="Nome do bairro" {...field} value={field.value || ""} onBlur={() => handleLocationBlur("address_neighborhood", form)} /></FormControl>
           <FormMessage />
         </FormItem>
       )} />
@@ -197,7 +216,7 @@ export function LocationTab({ form }: LocationTabProps) {
         <FormField control={form.control} name="address_city" render={({ field }) => (
           <FormItem>
             <FormLabel>Cidade</FormLabel>
-            <FormControl><Input placeholder="Nome da cidade" {...field} value={field.value || ""} /></FormControl>
+            <FormControl><Input placeholder="Nome da cidade" {...field} value={field.value || ""} onBlur={() => handleLocationBlur("address_city", form)} /></FormControl>
             <FormMessage />
           </FormItem>
         )} />

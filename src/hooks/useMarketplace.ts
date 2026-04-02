@@ -146,14 +146,22 @@ export function useMarketplaceFilterData(cityFilter?: string) {
       if (organizationId) query = query.neq("organization_id", organizationId);
       const { data, error } = await query;
       if (error) throw error;
-      const cityMap = new Map<string, number>();
+      const cityMap = new Map<string, { display: string; count: number }>();
       (data as MarketplaceViewRow[]).forEach((d) => {
         const city = (d.address_city as string | null)?.trim();
-        if (city) cityMap.set(city, (cityMap.get(city) || 0) + 1);
+        if (city) {
+          const key = city.toLowerCase();
+          const existing = cityMap.get(key);
+          if (existing) {
+            existing.count++;
+          } else {
+            cityMap.set(key, { display: city, count: 1 });
+          }
+        }
       });
-      return Array.from(cityMap.entries())
-        .map(([city, count]) => ({ city, count }))
-        .sort((a, b) => a.city.localeCompare(b.city));
+      return Array.from(cityMap.values())
+        .map(({ display, count }) => ({ city: display, count }))
+        .sort((a, b) => a.city.localeCompare(b.city, 'pt-BR'));
     },
     enabled: !!organizationId,
     staleTime: 60000,
@@ -171,14 +179,22 @@ export function useMarketplaceFilterData(cityFilter?: string) {
       if (cityFilter) query = query.ilike("address_city", `%${cityFilter}%`);
       const { data, error } = await query;
       if (error) throw error;
-      const neighMap = new Map<string, number>();
+      const neighMap = new Map<string, { display: string; count: number }>();
       (data as MarketplaceViewRow[]).forEach((d) => {
         const n = (d.address_neighborhood as string | null)?.trim();
-        if (n) neighMap.set(n, (neighMap.get(n) || 0) + 1);
+        if (n) {
+          const key = n.toLowerCase();
+          const existing = neighMap.get(key);
+          if (existing) {
+            existing.count++;
+          } else {
+            neighMap.set(key, { display: n, count: 1 });
+          }
+        }
       });
-      return Array.from(neighMap.entries())
-        .map(([neighborhood, count]) => ({ neighborhood, count }))
-        .sort((a, b) => a.neighborhood.localeCompare(b.neighborhood));
+      return Array.from(neighMap.values())
+        .map(({ display, count }) => ({ neighborhood: display, count }))
+        .sort((a, b) => a.neighborhood.localeCompare(b.neighborhood, 'pt-BR'));
     },
     enabled: !!organizationId,
     staleTime: 60000,
