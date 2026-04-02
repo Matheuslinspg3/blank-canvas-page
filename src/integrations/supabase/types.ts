@@ -5883,6 +5883,7 @@ export type Database = {
           followup_max_attempts: number
           followup_template_1: string
           followup_template_3: string
+          followup_templates: Json | null
           id: string
           instance_name: string | null
           instance_token: string | null
@@ -5930,6 +5931,7 @@ export type Database = {
           followup_max_attempts?: number
           followup_template_1?: string
           followup_template_3?: string
+          followup_templates?: Json | null
           id?: string
           instance_name?: string | null
           instance_token?: string | null
@@ -5977,6 +5979,7 @@ export type Database = {
           followup_max_attempts?: number
           followup_template_1?: string
           followup_template_3?: string
+          followup_templates?: Json | null
           id?: string
           instance_name?: string | null
           instance_token?: string | null

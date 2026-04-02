@@ -14,8 +14,9 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Save, Clock, MessageSquare, Brain, Users, RefreshCw, UserPlus,
-  AlertTriangle, Send, History, StopCircle, PlayCircle, Search, ChevronLeft, ChevronRight,
+  Save, Clock, MessageSquare, Brain, Users, RefreshCw,
+  AlertTriangle, Send, History, StopCircle, PlayCircle, Search,
+  ChevronLeft, ChevronRight, Plus, Trash2, GripVertical,
 } from "lucide-react";
 import { useWhatsAppAgentConfig } from "@/hooks/useWhatsAppAgentConfig";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,6 +67,11 @@ interface FollowUpQueueItem {
   opted_out: boolean;
 }
 
+export interface FollowUpTemplate {
+  type: "template" | "ai" | "farewell";
+  message: string;
+}
+
 // ── Helpers ──
 const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   pending: { label: "Pendente", variant: "default" },
@@ -76,9 +82,18 @@ const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondar
 
 const SOURCE_LABELS: Record<string, string> = {
   template_1: "Template 1",
+  template: "Template",
   ai_generated: "IA",
+  ai: "IA",
   template_3: "Template 3",
+  farewell: "Despedida",
   manual: "Manual",
+};
+
+const TYPE_LABELS: Record<string, { label: string; icon: React.ReactNode; description: string }> = {
+  template: { label: "Template fixo", icon: <MessageSquare className="h-3.5 w-3.5" />, description: "Mensagem fixa com variáveis" },
+  ai: { label: "IA generativa", icon: <Brain className="h-3.5 w-3.5 text-primary" />, description: "Prompt para gerar mensagem personalizada" },
+  farewell: { label: "Despedida", icon: <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />, description: "Última mensagem do ciclo" },
 };
 
 function formatJid(jid: string): string {
@@ -90,6 +105,14 @@ function formatJid(jid: string): string {
 }
 
 const PAGE_SIZE = 20;
+
+function buildDefaultTemplates(count: number): FollowUpTemplate[] {
+  return Array.from({ length: count }, (_, i) => {
+    if (i === 0) return { type: "template" as const, message: "" };
+    if (i === count - 1) return { type: "farewell" as const, message: "" };
+    return { type: "ai" as const, message: "" };
+  });
+}
 
 // ── Component ──
 export function FollowUpConfigPanel() {
@@ -103,6 +126,9 @@ export function FollowUpConfigPanel() {
   const [maxAttempts, setMaxAttempts] = useState(3);
   const [bhStart, setBhStart] = useState("08:00");
   const [bhEnd, setBhEnd] = useState("18:00");
+  const [templates, setTemplates] = useState<FollowUpTemplate[]>(buildDefaultTemplates(3));
+
+  // Legacy fields (kept for backward compat)
   const [template1, setTemplate1] = useState("");
   const [template3, setTemplate3] = useState("");
   const [aiPrompt, setAiPrompt] = useState("");
@@ -132,16 +158,59 @@ export function FollowUpConfigPanel() {
   useEffect(() => {
     if (config) {
       setEnabled((config as any).followup_enabled ?? false);
-      setIntervals((config as any).followup_intervals ?? [24, 48, 72]);
-      setMaxAttempts((config as any).followup_max_attempts ?? 3);
+      const savedIntervals = (config as any).followup_intervals ?? [24, 48, 72];
+      setIntervals(savedIntervals);
+      const savedMax = (config as any).followup_max_attempts ?? 3;
+      setMaxAttempts(savedMax);
       const bh = (config as any).followup_business_hours as { start: string; end: string } | null;
       setBhStart(bh?.start ?? "08:00");
       setBhEnd(bh?.end ?? "18:00");
-      setTemplate1((config as any).followup_template_1 ?? "");
-      setTemplate3((config as any).followup_template_3 ?? "");
-      setAiPrompt((config as any).followup_ai_prompt ?? "");
+
+      // Load new templates format or migrate from legacy
+      const savedTemplates = (config as any).followup_templates as FollowUpTemplate[] | null;
+      if (savedTemplates && savedTemplates.length > 0) {
+        setTemplates(savedTemplates);
+      } else {
+        // Migrate from legacy columns
+        const t1 = (config as any).followup_template_1 ?? "";
+        const t3 = (config as any).followup_template_3 ?? "";
+        const ai = (config as any).followup_ai_prompt ?? "";
+        setTemplate1(t1);
+        setTemplate3(t3);
+        setAiPrompt(ai);
+
+        const migrated: FollowUpTemplate[] = [];
+        for (let i = 0; i < savedMax; i++) {
+          if (i === 0) migrated.push({ type: "template", message: t1 });
+          else if (i === savedMax - 1) migrated.push({ type: "farewell", message: t3 });
+          else migrated.push({ type: "ai", message: ai });
+        }
+        setTemplates(migrated);
+      }
     }
   }, [config]);
+
+  // ── Sync intervals array length with maxAttempts ──
+  useEffect(() => {
+    if (intervals.length < maxAttempts) {
+      const lastVal = intervals[intervals.length - 1] ?? 24;
+      setIntervals([...intervals, ...Array(maxAttempts - intervals.length).fill(lastVal + 24)]);
+    } else if (intervals.length > maxAttempts) {
+      setIntervals(intervals.slice(0, maxAttempts));
+    }
+  }, [maxAttempts]);
+
+  useEffect(() => {
+    if (templates.length < maxAttempts) {
+      const newTemplates = [...templates];
+      while (newTemplates.length < maxAttempts) {
+        newTemplates.push({ type: "template", message: "" });
+      }
+      setTemplates(newTemplates);
+    } else if (templates.length > maxAttempts) {
+      setTemplates(templates.slice(0, maxAttempts));
+    }
+  }, [maxAttempts]);
 
   // ── Load contacts from view ──
   const loadContacts = useCallback(async () => {
@@ -212,21 +281,45 @@ export function FollowUpConfigPanel() {
 
   // ── Save config ──
   const handleSave = () => {
+    // Also sync legacy columns for backward compatibility with edge functions
+    const t1 = templates[0]?.message ?? "";
+    const t3 = templates[templates.length - 1]?.message ?? "";
+    const aiP = templates.find(t => t.type === "ai")?.message ?? "";
+
     saveConfig({
       followup_enabled: enabled,
       followup_intervals: intervals,
       followup_max_attempts: maxAttempts,
       followup_business_hours: { start: bhStart, end: bhEnd },
-      followup_template_1: template1,
-      followup_template_3: template3,
-      followup_ai_prompt: aiPrompt,
+      followup_template_1: t1,
+      followup_template_3: t3,
+      followup_ai_prompt: aiP,
+      followup_templates: templates,
     } as any);
+  };
+
+  // ── Template management ──
+  const updateTemplate = (index: number, field: keyof FollowUpTemplate, value: string) => {
+    const next = [...templates];
+    if (field === "type") {
+      next[index] = { ...next[index], type: value as FollowUpTemplate["type"] };
+    } else {
+      next[index] = { ...next[index], message: value };
+    }
+    setTemplates(next);
+  };
+
+  const updateInterval = (index: number, value: number) => {
+    const next = [...intervals];
+    next[index] = value;
+    setIntervals(next);
   };
 
   // ── Manual follow-up ──
   const openManualModal = (contact: ContactRow) => {
     const name = contact.display_name !== contact.remote_jid ? contact.display_name : formatJid(contact.remote_jid);
-    const msg = template1
+    const firstTemplate = templates[0]?.message ?? "";
+    const msg = firstTemplate
       .replace("{nome}", name)
       .replace("{imovel}", contact.property_interest ?? "imóvel");
     setManualMessage(msg);
@@ -237,7 +330,6 @@ export function FollowUpConfigPanel() {
     if (!orgId || !manualContact || !manualMessage.trim()) return;
     setSendingManual(true);
 
-    // Upsert queue
     const { data: upserted, error: upsertErr } = await supabase
       .from("follow_up_queue" as any)
       .upsert({
@@ -259,7 +351,6 @@ export function FollowUpConfigPanel() {
       return;
     }
 
-    // Insert log
     if (upserted) {
       await supabase.from("follow_up_log" as any).insert({
         queue_id: (upserted as any).id,
@@ -329,8 +420,6 @@ export function FollowUpConfigPanel() {
 
   if (isLoading) return <div className="text-muted-foreground text-sm p-4">Carregando...</div>;
 
-  const cfgMaxAttempts = maxAttempts;
-
   return (
     <div className="space-y-4">
       <Tabs defaultValue="contacts" className="space-y-4">
@@ -358,7 +447,6 @@ export function FollowUpConfigPanel() {
                   <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loadingContacts ? "animate-spin" : ""}`} /> Atualizar
                 </Button>
               </div>
-              {/* Filters */}
               <div className="flex flex-col sm:flex-row gap-2 pt-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
@@ -403,7 +491,7 @@ export function FollowUpConfigPanel() {
                       </TableHeader>
                       <TableBody>
                         {pagedContacts.map((c) => {
-                          const canSendManual = enabled && !c.opted_out && (c.attempt_count ?? 0) < cfgMaxAttempts;
+                          const canSendManual = enabled && !c.opted_out && (c.attempt_count ?? 0) < maxAttempts;
                           const canOptOut = c.followup_id && c.followup_status === "pending";
                           const canReactivate = c.followup_id && ["responded", "completed", "opted_out"].includes(c.followup_status ?? "");
 
@@ -434,7 +522,7 @@ export function FollowUpConfigPanel() {
                                 )}
                               </TableCell>
                               <TableCell className="hidden sm:table-cell text-xs">
-                                {c.followup_id ? `${c.attempt_count ?? 0}/${cfgMaxAttempts}` : "—"}
+                                {c.followup_id ? `${c.attempt_count ?? 0}/${maxAttempts}` : "—"}
                               </TableCell>
                               <TableCell>
                                 <div className="flex gap-1">
@@ -464,7 +552,6 @@ export function FollowUpConfigPanel() {
                       </TableBody>
                     </Table>
                   </div>
-                  {/* Pagination */}
                   {totalPages > 1 && (
                     <div className="flex items-center justify-between px-4 py-3 border-t">
                       <span className="text-xs text-muted-foreground">
@@ -512,11 +599,15 @@ export function FollowUpConfigPanel() {
                       <TableHead>Status</TableHead>
                       <TableHead>Tentativas</TableHead>
                       <TableHead>Próximo envio</TableHead>
+                      <TableHead>Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {queue.map((item) => {
                       const st = STATUS_MAP[item.status] ?? { label: item.status, variant: "outline" as const };
+                      const canStop = item.status === "pending" && !item.opted_out;
+                      const canRestart = ["responded", "completed", "opted_out"].includes(item.status);
+
                       return (
                         <TableRow key={item.id}>
                           <TableCell>
@@ -525,11 +616,49 @@ export function FollowUpConfigPanel() {
                           </TableCell>
                           <TableCell className="text-xs max-w-[150px] truncate">{item.property_interest || "—"}</TableCell>
                           <TableCell><Badge variant={st.variant} className="text-[10px]">{st.label}</Badge></TableCell>
-                          <TableCell className="text-xs text-center">{item.attempt_count}/{cfgMaxAttempts}</TableCell>
+                          <TableCell className="text-xs text-center">{item.attempt_count}/{maxAttempts}</TableCell>
                           <TableCell className="text-xs">
                             {item.status === "pending"
                               ? format(new Date(item.next_followup_at), "dd/MM HH:mm", { locale: ptBR })
                               : "—"}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              {canStop && (
+                                <Button
+                                  size="icon" variant="ghost" className="h-7 w-7 text-destructive"
+                                  title="Parar follow-up"
+                                  onClick={async () => {
+                                    const confirmed = window.confirm("Parar follow-up para este lead?");
+                                    if (!confirmed) return;
+                                    const { error } = await supabase.functions.invoke("whatsapp-followup-update", {
+                                      body: { id: item.id, action: "opted_out" },
+                                    });
+                                    if (error) toast.error("Erro: " + error.message);
+                                    else { toast.success("Follow-up parado."); loadQueue(); }
+                                  }}
+                                >
+                                  <StopCircle className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                              {canRestart && (
+                                <Button
+                                  size="icon" variant="ghost" className="h-7 w-7 text-primary"
+                                  title="Reativar follow-up"
+                                  onClick={async () => {
+                                    const nextAt = new Date(Date.now() + (intervals[0] ?? 24) * 3600 * 1000).toISOString();
+                                    const { error } = await supabase
+                                      .from("follow_up_queue" as any)
+                                      .update({ status: "pending", attempt_count: 0, opted_out: false, next_followup_at: nextAt } as any)
+                                      .eq("id", item.id);
+                                    if (error) toast.error("Erro: " + error.message);
+                                    else { toast.success("Follow-up reativado!"); loadQueue(); }
+                                  }}
+                                >
+                                  <PlayCircle className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
@@ -543,11 +672,13 @@ export function FollowUpConfigPanel() {
 
         {/* ═══ CONFIG TAB ═══ */}
         <TabsContent value="config" className="space-y-4">
+          {/* General settings */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <Clock className="h-4 w-4" /> Configuração de Follow-up
+                <Clock className="h-4 w-4" /> Configuração Geral
               </CardTitle>
+              <CardDescription>Ative o follow-up automático e configure limites globais.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
@@ -560,21 +691,16 @@ export function FollowUpConfigPanel() {
 
               {enabled && (
                 <>
-                  <div className="grid grid-cols-3 gap-3">
-                    {intervals.map((val, i) => (
-                      <div key={i} className="space-y-1">
-                        <Label className="text-xs">Tentativa {i + 1} (horas)</Label>
-                        <Input
-                          type="number" min={1} max={168} value={val}
-                          onChange={(e) => { const next = [...intervals]; next[i] = parseInt(e.target.value) || 24; setIntervals(next); }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs">Máximo de tentativas</Label>
-                    <Input type="number" min={1} max={10} value={maxAttempts} onChange={(e) => setMaxAttempts(parseInt(e.target.value) || 3)} className="w-24" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Máximo de tentativas</Label>
+                      <Input
+                        type="number" min={1} max={10} value={maxAttempts}
+                        onChange={(e) => setMaxAttempts(Math.max(1, Math.min(10, parseInt(e.target.value) || 3)))}
+                        className="w-24"
+                      />
+                      <p className="text-[10px] text-muted-foreground">De 1 a 10 tentativas</p>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
@@ -587,43 +713,104 @@ export function FollowUpConfigPanel() {
                       <Input type="time" value={bhEnd} onChange={(e) => setBhEnd(e.target.value)} />
                     </div>
                   </div>
-
-                  <div className="p-3 rounded-md bg-muted/50 text-xs text-muted-foreground space-y-1">
-                    <p><strong>Como funciona:</strong></p>
-                    <p>1. Contato sem resposta por <strong>{intervals[0]}h</strong> → 1ª tentativa (template)</p>
-                    <p>2. Após <strong>{intervals[1] ?? 48}h</strong> → 2ª tentativa (IA)</p>
-                    <p>3. Após <strong>{intervals[2] ?? 72}h</strong> → 3ª tentativa (despedida)</p>
-                    <p>4. Se o lead responder, o follow-up <strong>para imediatamente</strong></p>
-                  </div>
                 </>
               )}
             </CardContent>
           </Card>
 
+          {/* Attempts configuration */}
           {enabled && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <MessageSquare className="h-4 w-4" /> Templates de Mensagem
+                  <MessageSquare className="h-4 w-4" /> Tentativas ({maxAttempts})
                 </CardTitle>
-                <CardDescription>Use {"{nome}"} e {"{imovel}"} como variáveis.</CardDescription>
+                <CardDescription>
+                  Configure cada tentativa individualmente. Use {"{nome}"}, {"{imovel}"} e {"{contexto}"} como variáveis.
+                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Tentativa 1 — Mensagem fixa</Label>
-                  <Textarea value={template1} onChange={(e) => setTemplate1(e.target.value)} rows={3} placeholder="Oi {nome}! Vi que você se interessou..." />
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Brain className="h-3.5 w-3.5 text-primary" />
-                    <Label>Tentativa 2 — Prompt para IA</Label>
-                  </div>
-                  <Textarea value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} rows={3} placeholder="Gere uma mensagem de follow-up personalizada..." />
-                  <p className="text-xs text-muted-foreground">Variáveis: {"{nome}"}, {"{imovel}"}, {"{contexto}"}</p>
-                </div>
-                <div className="space-y-2">
-                  <Label>Tentativa 3 — Mensagem de despedida</Label>
-                  <Textarea value={template3} onChange={(e) => setTemplate3(e.target.value)} rows={3} placeholder="Última mensagem, {nome}!..." />
+              <CardContent className="space-y-6">
+                {templates.map((tpl, i) => {
+                  const typeInfo = TYPE_LABELS[tpl.type] ?? TYPE_LABELS.template;
+                  return (
+                    <div key={i} className="border rounded-lg p-4 space-y-3 bg-muted/20">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary text-xs font-bold">
+                            {i + 1}
+                          </div>
+                          <span className="text-sm font-medium">Tentativa {i + 1}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="space-y-0.5">
+                            <Label className="text-[10px] text-muted-foreground">Intervalo (horas)</Label>
+                            <Input
+                              type="number" min={1} max={720}
+                              value={intervals[i] ?? 24}
+                              onChange={(e) => updateInterval(i, parseInt(e.target.value) || 24)}
+                              className="w-20 h-8 text-xs"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Tipo de mensagem</Label>
+                        <Select value={tpl.type} onValueChange={(v) => updateTemplate(i, "type", v)}>
+                          <SelectTrigger className="h-9 text-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="template">
+                              <div className="flex items-center gap-2">
+                                <MessageSquare className="h-3.5 w-3.5" /> Template fixo
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="ai">
+                              <div className="flex items-center gap-2">
+                                <Brain className="h-3.5 w-3.5 text-primary" /> IA generativa
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="farewell">
+                              <div className="flex items-center gap-2">
+                                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" /> Despedida
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-[10px] text-muted-foreground">{typeInfo.description}</p>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">
+                          {tpl.type === "ai" ? "Prompt para a IA" : "Mensagem"}
+                        </Label>
+                        <Textarea
+                          value={tpl.message}
+                          onChange={(e) => updateTemplate(i, "message", e.target.value)}
+                          rows={3}
+                          placeholder={
+                            tpl.type === "ai"
+                              ? "Gere uma mensagem de follow-up personalizada para {nome} que se interessou em {imovel}..."
+                              : tpl.type === "farewell"
+                              ? "Última mensagem, {nome}! Estarei aqui caso precise..."
+                              : "Oi {nome}! Vi que você se interessou em {imovel}..."
+                          }
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <div className="p-3 rounded-md bg-muted/50 text-xs text-muted-foreground space-y-1">
+                  <p><strong>Como funciona:</strong></p>
+                  {templates.map((tpl, i) => (
+                    <p key={i}>
+                      {i + 1}. Após <strong>{intervals[i] ?? 24}h</strong> sem resposta →{" "}
+                      {tpl.type === "template" ? "envia template fixo" : tpl.type === "ai" ? "gera mensagem com IA" : "envia mensagem de despedida"}
+                    </p>
+                  ))}
+                  <p className="mt-1">• Se o lead responder, o follow-up <strong>para imediatamente</strong></p>
                 </div>
               </CardContent>
             </Card>
@@ -689,7 +876,6 @@ export function FollowUpConfigPanel() {
 
           {historyContact && (
             <div className="mt-4 space-y-4">
-              {/* Contact info */}
               <div className="p-3 rounded-md bg-muted/50 space-y-1 text-sm">
                 {historyContact.property_interest && (
                   <p><span className="text-muted-foreground">Interesse:</span> {historyContact.property_interest}</p>
@@ -710,7 +896,6 @@ export function FollowUpConfigPanel() {
                 )}
               </div>
 
-              {/* Timeline */}
               {loadingHistory ? (
                 <p className="text-sm text-muted-foreground text-center py-4">Carregando...</p>
               ) : historyLogs.length === 0 ? (
