@@ -63,8 +63,11 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
 
   if (!property) return null;
 
-  const primaryPhone = contactData?.broker_phone || contactData?.org_phone || contactData?.owner_phone;
-  const hasAnyData = contactData && (contactData.org_name || contactData.broker_name || primaryPhone || contactData.org_email);
+  const hasAnyData = contactData && (contactData.org_name || contactData.broker_name || contactData.broker_phone || contactData.org_phone || contactData.org_email);
+  const brokerPhone = contactData?.broker_phone;
+  const orgPhone = contactData?.org_phone;
+  // Show both phones if different, otherwise just one
+  const showBothPhones = brokerPhone && orgPhone && brokerPhone.replace(/\D/g, "") !== orgPhone.replace(/\D/g, "");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -111,36 +114,66 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
               </div>
             )}
 
-            {/* Phone */}
-            {primaryPhone && (
-              <>
+            {/* Broker Phone */}
+            {brokerPhone && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground font-medium">Corretor</p>
                 <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                   <div className="flex items-center gap-3 min-w-0">
                     <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <span className="text-sm truncate">{primaryPhone}</span>
+                    <span className="text-sm truncate">{brokerPhone}</span>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 shrink-0"
-                    onClick={() => copyToClipboard(primaryPhone, "Telefone")}
-                  >
-                    {copiedField === "Telefone" ? (
-                      <Check className="h-4 w-4 text-success" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
+                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0"
+                    onClick={() => copyToClipboard(brokerPhone, "Tel. Corretor")}>
+                    {copiedField === "Tel. Corretor" ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
-                <Button
-                  className="w-full gap-2"
-                  variant="default"
-                  onClick={() => openWhatsApp(primaryPhone)}
-                >
+                <Button className="w-full gap-2" variant="default" onClick={() => openWhatsApp(brokerPhone)}>
+                  <MessageCircle className="h-4 w-4" />
+                  WhatsApp do Corretor
+                </Button>
+              </div>
+            )}
+
+            {/* Org Phone */}
+            {orgPhone && showBothPhones && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground font-medium">Imobiliária</p>
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm truncate">{orgPhone}</span>
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0"
+                    onClick={() => copyToClipboard(orgPhone, "Tel. Imobiliária")}>
+                    {copiedField === "Tel. Imobiliária" ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <Button className="w-full gap-2" variant="outline" onClick={() => openWhatsApp(orgPhone)}>
+                  <MessageCircle className="h-4 w-4" />
+                  WhatsApp da Imobiliária
+                </Button>
+              </div>
+            )}
+
+            {/* Fallback: only org phone when no broker phone */}
+            {orgPhone && !brokerPhone && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm truncate">{orgPhone}</span>
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0"
+                    onClick={() => copyToClipboard(orgPhone, "Telefone")}>
+                    {copiedField === "Telefone" ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <Button className="w-full gap-2" variant="default" onClick={() => openWhatsApp(orgPhone)}>
                   <MessageCircle className="h-4 w-4" />
                   Conversar no WhatsApp
                 </Button>
-              </>
+              </div>
             )}
 
             {/* Email */}
