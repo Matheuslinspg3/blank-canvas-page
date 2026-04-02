@@ -36,6 +36,40 @@ export function WhatsAppChatPanel() {
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [sendingAudio, setSendingAudio] = useState(false);
+  const [showCreateLead, setShowCreateLead] = useState(false);
+  const [leadForm, setLeadForm] = useState({ name: "", email: "", notes: "", temperature: "morno" });
+  const [creatingLead, setCreatingLead] = useState(false);
+  const { instance } = useWhatsAppInstance();
+
+  const handleCreateLead = useCallback(async () => {
+    if (!selectedJid) return;
+    const phone = selectedJid.replace("@s.whatsapp.net", "").replace("@c.us", "");
+    if (!phone) return;
+    setCreatingLead(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("whatsapp-create-lead", {
+        headers: { "X-Webhook-Secret": instance?.instance_token || "" },
+        body: {
+          instance_name: instance?.instance_name || "",
+          phone,
+          name: leadForm.name || `WhatsApp ${phone}`,
+          email: leadForm.email || undefined,
+          notes: leadForm.notes || undefined,
+          temperature: leadForm.temperature,
+          source: "whatsapp",
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(data?.message || "Lead cadastrado!");
+      setShowCreateLead(false);
+      setLeadForm({ name: "", email: "", notes: "", temperature: "morno" });
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao cadastrar lead");
+    } finally {
+      setCreatingLead(false);
+    }
+  }, [selectedJid, leadForm, instance]);
 
   const handleAudioRecorded = useCallback(async (blob: Blob) => {
     if (!selectedJid) return;
