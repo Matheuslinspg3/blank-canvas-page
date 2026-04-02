@@ -48,9 +48,7 @@ export function WhatsAppChatPanel() {
     setCreatingLead(true);
     try {
       const { data, error } = await supabase.functions.invoke("whatsapp-create-lead", {
-        headers: { "X-Webhook-Secret": instance?.instance_token || "" },
         body: {
-          instance_name: instance?.instance_name || "",
           phone,
           name: leadForm.name || `WhatsApp ${phone}`,
           email: leadForm.email || undefined,
