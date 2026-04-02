@@ -359,6 +359,78 @@ export function WhatsAppChatPanel() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Create Lead dialog */}
+      <Dialog open={showCreateLead} onOpenChange={setShowCreateLead}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5" /> Cadastrar Lead no CRM
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Telefone</Label>
+              <Input
+                value={selectedJid ? formatJid(selectedJid) : ""}
+                disabled
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>Nome</Label>
+              <Input
+                value={leadForm.name}
+                onChange={(e) => setLeadForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Nome do contato"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>E-mail</Label>
+              <Input
+                value={leadForm.email}
+                onChange={(e) => setLeadForm(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="email@exemplo.com"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>Temperatura</Label>
+              <Select
+                value={leadForm.temperature}
+                onValueChange={(v) => setLeadForm(prev => ({ ...prev, temperature: v }))}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="frio">🔵 Frio</SelectItem>
+                  <SelectItem value="morno">🟡 Morno</SelectItem>
+                  <SelectItem value="quente">🔴 Quente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Observações</Label>
+              <Textarea
+                value={leadForm.notes}
+                onChange={(e) => setLeadForm(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Contexto da conversa, interesse, etc."
+                className="mt-1"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateLead(false)}>Cancelar</Button>
+            <Button onClick={handleCreateLead} disabled={creatingLead}>
+              {creatingLead ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <UserPlus className="h-4 w-4 mr-1" />}
+              Cadastrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
