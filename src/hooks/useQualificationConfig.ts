@@ -3,6 +3,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
+export interface ScoreCriterion {
+  key: string;
+  label: string;
+  weight: number;
+  enabled: boolean;
+}
+
+export interface TemperatureThresholds {
+  cold_max: number;
+  warm_max: number;
+}
+
 export interface QualificationConfig {
   id: string;
   organization_id: string;
@@ -17,6 +29,9 @@ export interface QualificationConfig {
   prompt_qualify_leads: string;
   prompt_create_leads: string;
   prompt_schedule_visits: string;
+  auto_scoring: boolean;
+  score_criteria: ScoreCriterion[];
+  temperature_thresholds: TemperatureThresholds;
 }
 
 const DEFAULTS: Omit<QualificationConfig, "id" | "organization_id"> = {
