@@ -146,10 +146,18 @@ export function useMarketplaceFilterData(cityFilter?: string) {
       if (organizationId) query = query.neq("organization_id", organizationId);
       const { data, error } = await query;
       if (error) throw error;
-      const cityMap = new Map<string, number>();
+      const cityMap = new Map<string, { display: string; count: number }>();
       (data as MarketplaceViewRow[]).forEach((d) => {
         const city = (d.address_city as string | null)?.trim();
-        if (city) cityMap.set(city, (cityMap.get(city) || 0) + 1);
+        if (city) {
+          const key = city.toLowerCase();
+          const existing = cityMap.get(key);
+          if (existing) {
+            existing.count++;
+          } else {
+            cityMap.set(key, { display: city, count: 1 });
+          }
+        }
       });
       return Array.from(cityMap.entries())
         .map(([city, count]) => ({ city, count }))
