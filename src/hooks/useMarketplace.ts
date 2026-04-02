@@ -159,9 +159,9 @@ export function useMarketplaceFilterData(cityFilter?: string) {
           }
         }
       });
-      return Array.from(cityMap.entries())
-        .map(([city, count]) => ({ city, count }))
-        .sort((a, b) => a.city.localeCompare(b.city));
+      return Array.from(cityMap.values())
+        .map(({ display, count }) => ({ city: display, count }))
+        .sort((a, b) => a.city.localeCompare(b.city, 'pt-BR'));
     },
     enabled: !!organizationId,
     staleTime: 60000,
