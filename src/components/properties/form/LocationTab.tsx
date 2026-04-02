@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Search, MapPin } from "lucide-react";
 import { fetchAddressByCep, formatCep, searchAddressByStreet, ViaCepResponse } from "@/lib/viaCep";
 import { cn } from "@/lib/utils";
+import { usePropertyLocations } from "@/hooks/usePropertyLocations";
 
 interface LocationTabProps {
   form: UseFormReturn<any>;
@@ -38,12 +39,31 @@ function handleLocationBlur(fieldName: string, form: any) {
 }
 
 export function LocationTab({ form }: LocationTabProps) {
+  const { neighborhoods: existingNeighborhoods, cities: existingCities } = usePropertyLocations();
   const [isSearchingCep, setIsSearchingCep] = useState(false);
   const [streetSuggestions, setStreetSuggestions] = useState<ViaCepResponse[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isSearchingStreet, setIsSearchingStreet] = useState(false);
+  const [neighborhoodQuery, setNeighborhoodQuery] = useState("");
+  const [showNeighborhoodSuggestions, setShowNeighborhoodSuggestions] = useState(false);
+  const [cityQuery, setCityQuery] = useState("");
+  const [showCitySuggestions, setShowCitySuggestions] = useState(false);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  const neighborhoodRef = useRef<HTMLDivElement>(null);
+  const cityRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const filteredNeighborhoods = useMemo(() => {
+    if (!neighborhoodQuery || neighborhoodQuery.length < 1) return [];
+    const q = neighborhoodQuery.toLowerCase();
+    return existingNeighborhoods.filter(n => n.toLowerCase().includes(q)).slice(0, 8);
+  }, [neighborhoodQuery, existingNeighborhoods]);
+
+  const filteredCities = useMemo(() => {
+    if (!cityQuery || cityQuery.length < 1) return [];
+    const q = cityQuery.toLowerCase();
+    return existingCities.filter(c => c.toLowerCase().includes(q)).slice(0, 8);
+  }, [cityQuery, existingCities]);
 
   const handleCepSearch = async () => {
     const cep = form.getValues("address_zipcode");
@@ -205,18 +225,100 @@ export function LocationTab({ form }: LocationTabProps) {
       </div>
 
       <FormField control={form.control} name="address_neighborhood" render={({ field }) => (
-        <FormItem>
+        <FormItem className="relative">
           <FormLabel>Bairro</FormLabel>
-          <FormControl><Input placeholder="Nome do bairro" {...field} value={field.value || ""} onBlur={() => handleLocationBlur("address_neighborhood", form)} /></FormControl>
+          <FormControl>
+            <div className="relative" ref={neighborhoodRef}>
+              <Input
+                placeholder="Nome do bairro"
+                value={field.value || ""}
+                onChange={(e) => {
+                  field.onChange(e.target.value);
+                  setNeighborhoodQuery(e.target.value);
+                  setShowNeighborhoodSuggestions(true);
+                }}
+                onBlur={() => {
+                  handleLocationBlur("address_neighborhood", form);
+                  setTimeout(() => setShowNeighborhoodSuggestions(false), 200);
+                }}
+                onFocus={() => {
+                  if (filteredNeighborhoods.length > 0) setShowNeighborhoodSuggestions(true);
+                }}
+                autoComplete="off"
+              />
+              {showNeighborhoodSuggestions && filteredNeighborhoods.length > 0 && (
+                <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                  {filteredNeighborhoods.map((n, i) => (
+                    <button
+                      key={n}
+                      type="button"
+                      className={cn(
+                        "w-full text-left px-3 py-2 hover:bg-accent/10 transition-colors text-sm",
+                        i > 0 && "border-t border-border/50"
+                      )}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        field.onChange(n);
+                        setShowNeighborhoodSuggestions(false);
+                      }}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </FormControl>
           <FormMessage />
         </FormItem>
       )} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormField control={form.control} name="address_city" render={({ field }) => (
-          <FormItem>
+          <FormItem className="relative">
             <FormLabel>Cidade</FormLabel>
-            <FormControl><Input placeholder="Nome da cidade" {...field} value={field.value || ""} onBlur={() => handleLocationBlur("address_city", form)} /></FormControl>
+            <FormControl>
+              <div className="relative" ref={cityRef}>
+                <Input
+                  placeholder="Nome da cidade"
+                  value={field.value || ""}
+                  onChange={(e) => {
+                    field.onChange(e.target.value);
+                    setCityQuery(e.target.value);
+                    setShowCitySuggestions(true);
+                  }}
+                  onBlur={() => {
+                    handleLocationBlur("address_city", form);
+                    setTimeout(() => setShowCitySuggestions(false), 200);
+                  }}
+                  onFocus={() => {
+                    if (filteredCities.length > 0) setShowCitySuggestions(true);
+                  }}
+                  autoComplete="off"
+                />
+                {showCitySuggestions && filteredCities.length > 0 && (
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {filteredCities.map((c, i) => (
+                      <button
+                        key={c}
+                        type="button"
+                        className={cn(
+                          "w-full text-left px-3 py-2 hover:bg-accent/10 transition-colors text-sm",
+                          i > 0 && "border-t border-border/50"
+                        )}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          field.onChange(c);
+                          setShowCitySuggestions(false);
+                        }}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </FormControl>
             <FormMessage />
           </FormItem>
         )} />
