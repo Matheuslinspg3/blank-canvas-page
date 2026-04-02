@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
   // Get all configs with followup enabled
   const { data: configs, error: cfgErr } = await sb
     .from("whatsapp_agent_config")
-    .select("organization_id, instance_name, followup_enabled, followup_intervals, followup_max_attempts, followup_business_hours, followup_template_1, followup_template_3, followup_ai_prompt")
+    .select("organization_id, instance_name, followup_enabled, followup_intervals, followup_max_attempts, followup_business_hours, followup_template_1, followup_template_3, followup_ai_prompt, followup_templates")
     .eq("followup_enabled", true);
 
   if (cfgErr) return errorResponse(cfgErr.message, 500);
