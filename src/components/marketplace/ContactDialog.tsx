@@ -170,7 +170,7 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
                     {copiedField === "Tel. Imobiliária" ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
-                <Button className="w-full gap-2" variant="outline" onClick={() => openWhatsApp(orgPhone)}>
+                <Button className="w-full gap-2" variant="outline" onClick={() => openWhatsApp(orgPhone, "org")}>
                   <MessageCircle className="h-4 w-4" />
                   WhatsApp da Imobiliária
                 </Button>
