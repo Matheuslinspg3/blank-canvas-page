@@ -6327,7 +6327,10 @@ export type Database = {
       }
       whatsapp_messages: {
         Row: {
+          ai_model: string | null
+          ai_provider: string | null
           created_at: string
+          estimated_cost_usd: number | null
           from_me: boolean
           id: string
           instance_name: string
@@ -6339,9 +6342,15 @@ export type Database = {
           remote_jid: string
           sender_type: string
           timestamp: string
+          tokens_input: number | null
+          tokens_output: number | null
+          tokens_total: number | null
         }
         Insert: {
+          ai_model?: string | null
+          ai_provider?: string | null
           created_at?: string
+          estimated_cost_usd?: number | null
           from_me?: boolean
           id?: string
           instance_name: string
@@ -6353,9 +6362,15 @@ export type Database = {
           remote_jid: string
           sender_type?: string
           timestamp?: string
+          tokens_input?: number | null
+          tokens_output?: number | null
+          tokens_total?: number | null
         }
         Update: {
+          ai_model?: string | null
+          ai_provider?: string | null
           created_at?: string
+          estimated_cost_usd?: number | null
           from_me?: boolean
           id?: string
           instance_name?: string
@@ -6367,6 +6382,9 @@ export type Database = {
           remote_jid?: string
           sender_type?: string
           timestamp?: string
+          tokens_input?: number | null
+          tokens_output?: number | null
+          tokens_total?: number | null
         }
         Relationships: [
           {
@@ -6699,6 +6717,48 @@ export type Database = {
           },
         ]
       }
+      whatsapp_ai_cost_per_conversation: {
+        Row: {
+          ai_messages: number | null
+          first_message: string | null
+          last_message: string | null
+          organization_id: string | null
+          remote_jid: string | null
+          total_cost_usd: number | null
+          total_tokens: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_ai_cost_summary: {
+        Row: {
+          ai_messages: number | null
+          ai_model: string | null
+          ai_provider: string | null
+          month: string | null
+          organization_id: string | null
+          total_cost_usd: number | null
+          total_tokens: number | null
+          total_tokens_input: number | null
+          total_tokens_output: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_contacts_followup_view: {
         Row: {
           attempt_count: number | null
@@ -6769,6 +6829,15 @@ export type Database = {
       assert_import_run_access: {
         Args: { p_run_id: string; p_user_id: string }
         Returns: boolean
+      }
+      calculate_ai_cost: {
+        Args: {
+          p_model: string
+          p_provider: string
+          p_tokens_input: number
+          p_tokens_output: number
+        }
+        Returns: number
       }
       can_access_marketplace: { Args: { org_id: string }; Returns: boolean }
       can_access_partnerships: { Args: { org_id: string }; Returns: boolean }
