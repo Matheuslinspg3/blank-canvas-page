@@ -1,21 +1,19 @@
 /**
- * whatsapp-track-batch — Recebe dados brutos de IA do N8N e calcula custos server-side.
+ * whatsapp-track-batch — Recebe custos de IA agregados por mensagem do N8N.
  * Insere na tabela whatsapp_ai_usage (granular) E na ai_token_usage_events (billing geral).
  *
  * Auth: X-Webhook-Secret (WHATSAPP_AGENT_SECRET)
  *
- * Payload do N8N (Set node simples):
+ * Payload esperado do N8N (Code node "CALCULAR-CUSTOS-IA"):
  * {
  *   instance_name: string,
  *   remote_jid: string,
  *   message_id?: string,
- *   message_type: "conversation" | "audioMessage" | "imageMessage",
- *   agent_output: string,      // output do ATENDENTEPORTOCAICARA
- *   system_prompt: string,     // system prompt completo
- *   user_message: string       // mensagem do usuário
+ *   message_type: "text" | "audio" | "image",
+ *   voice_enabled: boolean,
+ *   steps: [{ step, provider, model, input_tokens, output_tokens, cost_usd }],
+ *   totals: { input_tokens, output_tokens, cost_usd, cost_brl }
  * }
- *
- * OU o formato legado com steps/totals pré-calculados.
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -26,120 +24,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-webhook-secret",
 };
-
-// Pricing per 1K tokens (USD)
-const RATES: Record<string, { input: number; output: number }> = {
-  "gpt-4o": { input: 2.50, output: 10.00 },
-  "gemini-2.5-flash": { input: 0.15, output: 0.60 },
-  "gemini-2.0-flash": { input: 0.10, output: 0.40 },
-};
-const TTS_PER_CHAR = 0.00030;
-const BRL_RATE = 5.70;
-
-interface Step {
-  step: string;
-  provider: string;
-  model: string;
-  input_tokens: number;
-  output_tokens: number;
-  cost_usd: number;
-}
-
-function calculateCosts(body: any): { steps: Step[]; totals: any; message_type: string; voice_enabled: boolean } {
-  const agentOutput = String(body.agent_output || "");
-  const systemPrompt = String(body.system_prompt || "");
-  const userMsg = String(body.user_message || "");
-  const rawType = String(body.message_type || "conversation");
-
-  // Normalize message type
-  const msgType = rawType.replace("Message", "").toLowerCase();
-  const isAudio = msgType === "audio" || rawType === "audioMessage";
-  const isImage = msgType === "image" || rawType === "imageMessage";
-  const hasVoice = agentOutput.includes("#VOZAI");
-  const cleanOutput = agentOutput.replaceAll("#VOZAI", "");
-
-  const steps: Step[] = [];
-
-  // 1. Agent GPT-4o (always runs)
-  const agentIn = Math.ceil((systemPrompt.length + userMsg.length) / 3.5);
-  const agentOut = Math.ceil(cleanOutput.length / 3.5);
-  steps.push({
-    step: "agent",
-    provider: "openai",
-    model: "gpt-4o",
-    input_tokens: agentIn,
-    output_tokens: agentOut,
-    cost_usd: (agentIn / 1000) * RATES["gpt-4o"].input + (agentOut / 1000) * RATES["gpt-4o"].output,
-  });
-
-  // 2. Transcritor (audio only)
-  if (isAudio) {
-    const tIn = 500;
-    const tOut = 100;
-    steps.push({
-      step: "transcritor",
-      provider: "google",
-      model: "gemini-2.5-flash",
-      input_tokens: tIn,
-      output_tokens: tOut,
-      cost_usd: (tIn / 1000) * RATES["gemini-2.5-flash"].input + (tOut / 1000) * RATES["gemini-2.5-flash"].output,
-    });
-  }
-
-  // 3. Descrever (image only)
-  if (isImage) {
-    const dIn = 258;
-    const dOut = 200;
-    steps.push({
-      step: "descrever",
-      provider: "google",
-      model: "gemini-2.0-flash",
-      input_tokens: dIn,
-      output_tokens: dOut,
-      cost_usd: (dIn / 1000) * RATES["gemini-2.0-flash"].input + (dOut / 1000) * RATES["gemini-2.0-flash"].output,
-    });
-  }
-
-  // 4. Parser (always runs after agent)
-  const parserIn = Math.ceil(cleanOutput.length / 3.5);
-  const parserOut = Math.ceil(cleanOutput.length / 4);
-  steps.push({
-    step: "parser",
-    provider: "google",
-    model: "gemini-2.0-flash",
-    input_tokens: parserIn,
-    output_tokens: parserOut,
-    cost_usd: (parserIn / 1000) * RATES["gemini-2.0-flash"].input + (parserOut / 1000) * RATES["gemini-2.0-flash"].output,
-  });
-
-  // 5. TTS ElevenLabs (only if #VOZAI tag present)
-  if (hasVoice && cleanOutput.length > 0) {
-    steps.push({
-      step: "tts",
-      provider: "elevenlabs",
-      model: "eleven_multilingual_v2",
-      input_tokens: cleanOutput.length,
-      output_tokens: 0,
-      cost_usd: cleanOutput.length * TTS_PER_CHAR,
-    });
-  }
-
-  const totalIn = steps.reduce((s, x) => s + x.input_tokens, 0);
-  const totalOut = steps.reduce((s, x) => s + x.output_tokens, 0);
-  const totalUsd = steps.reduce((s, x) => s + x.cost_usd, 0);
-
-  return {
-    steps,
-    totals: {
-      input_tokens: totalIn,
-      output_tokens: totalOut,
-      cost_usd: totalUsd,
-      cost_brl: totalUsd * BRL_RATE,
-    },
-    message_type: isAudio ? "audio" : isImage ? "image" : "text",
-    voice_enabled: hasVoice,
-  };
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -158,34 +42,21 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { instance_name, remote_jid, message_id } = body;
+    const {
+      instance_name,
+      remote_jid,
+      message_id,
+      message_type = "text",
+      voice_enabled = false,
+      steps = [],
+      totals,
+    } = body;
 
-    if (!instance_name || !remote_jid) {
+    if (!instance_name || !remote_jid || !totals) {
       return new Response(
-        JSON.stringify({ error: "Missing: instance_name, remote_jid" }),
+        JSON.stringify({ error: "Missing: instance_name, remote_jid, totals" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
-    }
-
-    // Determine if payload has pre-calculated steps or raw data
-    let steps: Step[];
-    let totals: any;
-    let message_type: string;
-    let voice_enabled: boolean;
-
-    if (body.steps && body.totals) {
-      // Legacy format: steps/totals already calculated by N8N
-      steps = body.steps;
-      totals = body.totals;
-      message_type = body.message_type || "text";
-      voice_enabled = body.voice_enabled || false;
-    } else {
-      // New format: raw data — calculate server-side
-      const calculated = calculateCosts(body);
-      steps = calculated.steps;
-      totals = calculated.totals;
-      message_type = calculated.message_type;
-      voice_enabled = calculated.voice_enabled;
     }
 
     const supabase = createClient(
@@ -228,8 +99,8 @@ Deno.serve(async (req) => {
       console.error("[whatsapp-track-batch] Insert error:", insertErr);
     }
 
-    // 2. Track each step in billing system
-    const billingPromises = steps.map((s: Step) =>
+    // 2. Also track each step in billing system for budget enforcement
+    const billingPromises = steps.map((s: any) =>
       trackAiBilling(supabase, {
         userId: "system",
         organizationId: orgId,
@@ -277,7 +148,6 @@ Deno.serve(async (req) => {
         organization_id: orgId,
         tracked_steps: steps.length,
         total_cost_usd: totals.cost_usd,
-        total_cost_brl: totals.cost_brl,
         budget_warning: budgetWarning,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
