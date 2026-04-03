@@ -6243,6 +6243,65 @@ export type Database = {
           },
         ]
       }
+      whatsapp_ai_usage: {
+        Row: {
+          created_at: string
+          id: string
+          instance_name: string
+          message_id: string | null
+          message_type: string
+          organization_id: string
+          processed_at: string
+          remote_jid: string
+          steps: Json
+          total_cost_brl: number
+          total_cost_usd: number
+          total_input_tokens: number
+          total_output_tokens: number
+          voice_enabled: boolean
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          instance_name: string
+          message_id?: string | null
+          message_type?: string
+          organization_id: string
+          processed_at?: string
+          remote_jid: string
+          steps?: Json
+          total_cost_brl?: number
+          total_cost_usd?: number
+          total_input_tokens?: number
+          total_output_tokens?: number
+          voice_enabled?: boolean
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          instance_name?: string
+          message_id?: string | null
+          message_type?: string
+          organization_id?: string
+          processed_at?: string
+          remote_jid?: string
+          steps?: Json
+          total_cost_brl?: number
+          total_cost_usd?: number
+          total_input_tokens?: number
+          total_output_tokens?: number
+          voice_enabled?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_ai_usage_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_audit_log: {
         Row: {
           action: string
@@ -6717,6 +6776,145 @@ export type Database = {
           },
         ]
       }
+      v_whatsapp_ai_costs_daily: {
+        Row: {
+          audio_messages: number | null
+          date: string | null
+          image_messages: number | null
+          organization_id: string | null
+          total_cost_brl: number | null
+          total_cost_usd: number | null
+          total_input_tokens: number | null
+          total_messages: number | null
+          total_output_tokens: number | null
+          voice_messages: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_ai_usage_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_whatsapp_ai_costs_monthly: {
+        Row: {
+          avg_cost_per_message: number | null
+          month: string | null
+          organization_id: string | null
+          total_cost_brl: number | null
+          total_cost_usd: number | null
+          total_messages: number | null
+          unique_contacts: number | null
+          voice_messages: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_ai_usage_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_whatsapp_ai_costs_per_conversation: {
+        Row: {
+          first_message_at: string | null
+          instance_name: string | null
+          last_message_at: string | null
+          organization_id: string | null
+          remote_jid: string | null
+          total_cost_brl: number | null
+          total_cost_usd: number | null
+          total_input_tokens: number | null
+          total_messages: number | null
+          total_output_tokens: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_ai_usage_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_whatsapp_ai_costs_per_message: {
+        Row: {
+          id: string | null
+          instance_name: string | null
+          message_type: string | null
+          organization_id: string | null
+          processed_at: string | null
+          remote_jid: string | null
+          steps: Json | null
+          total_cost_brl: number | null
+          total_cost_usd: number | null
+          total_input_tokens: number | null
+          total_output_tokens: number | null
+          voice_enabled: boolean | null
+        }
+        Insert: {
+          id?: string | null
+          instance_name?: string | null
+          message_type?: string | null
+          organization_id?: string | null
+          processed_at?: string | null
+          remote_jid?: string | null
+          steps?: Json | null
+          total_cost_brl?: number | null
+          total_cost_usd?: number | null
+          total_input_tokens?: number | null
+          total_output_tokens?: number | null
+          voice_enabled?: boolean | null
+        }
+        Update: {
+          id?: string | null
+          instance_name?: string | null
+          message_type?: string | null
+          organization_id?: string | null
+          processed_at?: string | null
+          remote_jid?: string | null
+          steps?: Json | null
+          total_cost_brl?: number | null
+          total_cost_usd?: number | null
+          total_input_tokens?: number | null
+          total_output_tokens?: number | null
+          voice_enabled?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_ai_usage_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_whatsapp_ai_top_conversations: {
+        Row: {
+          last_activity: string | null
+          organization_id: string | null
+          remote_jid: string | null
+          total_cost_brl: number | null
+          total_cost_usd: number | null
+          total_messages: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_ai_usage_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_ai_cost_per_conversation: {
         Row: {
           ai_messages: number | null
@@ -7170,6 +7368,10 @@ export type Database = {
       get_user_role: {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
+      }
+      get_whatsapp_ai_cost_summary: {
+        Args: { p_organization_id: string; p_period?: string }
+        Returns: Json
       }
       has_active_subscription: { Args: { org_id: string }; Returns: boolean }
       has_role: {
