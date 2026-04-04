@@ -32,7 +32,7 @@ export interface ChatConversation {
 export function useWhatsAppChat() {
   const { user, profile } = useAuth();
   const { config } = useWhatsAppAgentConfig();
-  const { isAdminOrAbove } = useUserRoles();
+  const { isAdminOrAbove, isLoading: rolesLoading } = useUserRoles();
   const queryClient = useQueryClient();
   const orgId = profile?.organization_id;
   const [selectedJid, setSelectedJid] = useState<string | null>(null);
