@@ -179,9 +179,10 @@ export function WhatsAppChatPanel() {
     return num;
   };
 
-  const formatCost = (cost: number) => {
-    if (cost < 0.01) return `$${cost.toFixed(6)}`;
-    return `$${cost.toFixed(4)}`;
+  const formatCost = (costUsd: number) => {
+    const brl = costUsd * 5.5; // USD → BRL aproximado
+    if (brl < 0.01) return `R$ ${brl.toFixed(6)}`;
+    return `R$ ${brl.toFixed(4)}`;
   };
 
   if (isLoading) {
