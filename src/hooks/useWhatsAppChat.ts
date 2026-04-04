@@ -1,8 +1,9 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWhatsAppAgentConfig } from "./useWhatsAppAgentConfig";
+import { useUserRoles } from "./useUserRole";
 import { toast } from "sonner";
 
 export interface ChatMessage {
@@ -18,6 +19,7 @@ export interface ChatMessage {
   timestamp: string;
   created_at: string;
   sender_type: "customer" | "agent" | "human";
+  estimated_cost_usd: number | null;
 }
 
 export interface ChatConversation {
@@ -28,11 +30,32 @@ export interface ChatConversation {
 }
 
 export function useWhatsAppChat() {
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const { config } = useWhatsAppAgentConfig();
+  const { isAdminOrAbove } = useUserRoles();
   const queryClient = useQueryClient();
   const orgId = profile?.organization_id;
   const [selectedJid, setSelectedJid] = useState<string | null>(null);
+
+  // Fetch broker's lead phones for filtering
+  const { data: brokerPhones } = useQuery({
+    queryKey: ["broker-lead-phones", user?.id, orgId],
+    queryFn: async () => {
+      if (!user?.id || !orgId) return null;
+      const { data } = await supabase
+        .from("leads")
+        .select("phone")
+        .eq("organization_id", orgId)
+        .eq("broker_id", user.id)
+        .eq("is_active", true);
+      return (data || []).map((l: any) => {
+        const p = (l.phone || "").replace(/\D/g, "");
+        return p.slice(-8);
+      }).filter(Boolean);
+    },
+    enabled: !!user?.id && !!orgId && !isAdminOrAbove,
+    staleTime: 30000,
+  });
 
   // Fetch all messages for the org
   const { data: allMessages = [], isLoading } = useQuery({
@@ -49,13 +72,20 @@ export function useWhatsAppChat() {
       return (data as any[]) as ChatMessage[];
     },
     enabled: !!orgId,
-    refetchInterval: 10000, // poll every 10s
+    refetchInterval: 10000,
   });
 
-  // Group into conversations
-  const conversations: ChatConversation[] = (() => {
+  // Group into conversations, filtered by broker if needed
+  const conversations: ChatConversation[] = useMemo(() => {
     const map = new Map<string, ChatConversation>();
     for (const msg of allMessages) {
+      // Filter for brokers: only show conversations matching their leads
+      if (!isAdminOrAbove && brokerPhones) {
+        const jidPhone = msg.remote_jid.replace("@s.whatsapp.net", "").replace("@c.us", "");
+        const last8 = jidPhone.slice(-8);
+        if (!brokerPhones.includes(last8)) continue;
+      }
+
       const existing = map.get(msg.remote_jid);
       if (!existing || msg.timestamp > existing.last_timestamp) {
         map.set(msg.remote_jid, {
@@ -69,7 +99,7 @@ export function useWhatsAppChat() {
     return Array.from(map.values()).sort(
       (a, b) => new Date(b.last_timestamp).getTime() - new Date(a.last_timestamp).getTime()
     );
-  })();
+  }, [allMessages, isAdminOrAbove, brokerPhones]);
 
   // Messages for selected conversation
   const selectedMessages = selectedJid
@@ -87,7 +117,6 @@ export function useWhatsAppChat() {
       return data;
     },
     onMutate: async ({ phone, message }) => {
-      // Optimistic update: add message to cache immediately
       const remoteJid = phone.includes("@") ? phone : `${phone}@s.whatsapp.net`;
       const optimisticMsg: ChatMessage = {
         id: `optimistic-${Date.now()}`,
@@ -102,6 +131,7 @@ export function useWhatsAppChat() {
         timestamp: new Date().toISOString(),
         created_at: new Date().toISOString(),
         sender_type: "human",
+        estimated_cost_usd: null,
       };
 
       await queryClient.cancelQueries({ queryKey: ["whatsapp-messages", orgId] });
@@ -113,7 +143,6 @@ export function useWhatsAppChat() {
       return { previous };
     },
     onError: (err: Error, _vars, context) => {
-      // Rollback on error
       if (context?.previous) {
         queryClient.setQueryData(["whatsapp-messages", orgId], context.previous);
       }
@@ -127,12 +156,10 @@ export function useWhatsAppChat() {
   const sendMessage = useCallback(
     (message: string) => {
       if (!selectedJid) {
-        console.warn("[WhatsAppChat] No selectedJid, cannot send");
         toast.error("Selecione uma conversa antes de enviar.");
         return;
       }
       const phone = selectedJid.replace("@s.whatsapp.net", "").replace("@c.us", "");
-      console.log("[WhatsAppChat] sendMessage calling mutate", { phone, message, selectedJid });
       sendMutation.mutate({ phone, message });
     },
     [selectedJid, sendMutation]
@@ -165,7 +192,6 @@ export function useWhatsAppChat() {
   const sendToPhone = useCallback(
     (phone: string, message: string) => {
       const cleanPhone = phone.replace(/\D/g, "");
-      console.log("[WhatsAppChat] sendToPhone", { cleanPhone, message });
       sendMutation.mutate({ phone: cleanPhone, message });
     },
     [sendMutation]
