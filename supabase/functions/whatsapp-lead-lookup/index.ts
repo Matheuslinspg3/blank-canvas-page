@@ -26,40 +26,50 @@ Deno.serve(async (req) => {
       });
     }
 
-    let body: Record<string, unknown>;
-    try {
-      const raw = await req.text();
-      if (!raw || !raw.trim()) {
-        return new Response(
-          JSON.stringify({ error: "Empty request body" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
-      let cleaned = raw.trim().replace(/```json\s*/gi, "").replace(/```\s*/g, "");
-      const jsonStart = cleaned.search(/\{/);
-      const jsonEnd = cleaned.lastIndexOf("}");
-      if (jsonStart === -1 || jsonEnd === -1) {
-        return new Response(
-          JSON.stringify({ error: "No valid JSON found in body" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
-      cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
-      try {
-        body = JSON.parse(cleaned);
-      } catch {
-        cleaned = cleaned.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]").replace(/[\x00-\x1F\x7F]/g, "");
-        body = JSON.parse(cleaned);
-      }
-    } catch (parseErr: any) {
-      console.error("[whatsapp-lead-lookup] JSON parse error:", parseErr.message);
-      return new Response(
-        JSON.stringify({ error: "Invalid JSON body", detail: parseErr.message }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
+    // Accept params from body (POST) OR query string (GET)
+    let instance_name: string | null = null;
+    let phone: string | null = null;
+    let email: string | null = null;
 
-    const { instance_name, phone, email } = body as any;
+    const url = new URL(req.url);
+
+    if (req.method === "GET" || req.method === "HEAD") {
+      instance_name = url.searchParams.get("instance_name");
+      phone = url.searchParams.get("phone");
+      email = url.searchParams.get("email");
+    } else {
+      // Try to parse body, fallback to query params
+      try {
+        const raw = await req.text();
+        if (raw && raw.trim()) {
+          let cleaned = raw.trim().replace(/```json\s*/gi, "").replace(/```\s*/g, "");
+          const jsonStart = cleaned.search(/\{/);
+          const jsonEnd = cleaned.lastIndexOf("}");
+          if (jsonStart !== -1 && jsonEnd !== -1) {
+            cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+            try {
+              const body = JSON.parse(cleaned);
+              instance_name = body.instance_name || null;
+              phone = body.phone || null;
+              email = body.email || null;
+            } catch {
+              cleaned = cleaned.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]").replace(/[\x00-\x1F\x7F]/g, "");
+              const body = JSON.parse(cleaned);
+              instance_name = body.instance_name || null;
+              phone = body.phone || null;
+              email = body.email || null;
+            }
+          }
+        }
+      } catch (parseErr: any) {
+        console.warn("[whatsapp-lead-lookup] Body parse failed, trying query params:", parseErr.message);
+      }
+
+      // Fallback to query params if body parsing yielded nothing
+      if (!instance_name) instance_name = url.searchParams.get("instance_name");
+      if (!phone) phone = url.searchParams.get("phone");
+      if (!email) email = url.searchParams.get("email");
+    }
 
     if (!instance_name) {
       return new Response(
