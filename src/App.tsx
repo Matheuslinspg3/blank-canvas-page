@@ -189,6 +189,7 @@ const App = () => (
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/imoveis" element={<Properties />} />
                         <Route path="/proprietarios" element={<Owners />} />
+                        <Route path="/edificios" element={<Buildings />} />
                         <Route path="/imoveis/pendencias" element={<ImportPendencies />} />
                         <Route path="/imoveis/codigo/:codeOrId" element={<PropertyByCode />} />
                         <Route path="/imoveis/:id" element={<PropertyDetails />} />

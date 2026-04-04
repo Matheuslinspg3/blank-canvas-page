@@ -49,6 +49,7 @@ const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Imóveis", url: "/imoveis", icon: Home },
   { title: "Proprietários", url: "/proprietarios", icon: Building2 },
+  { title: "Edifícios", url: "/edificios", icon: Building },
   { title: "CRM", url: "/crm", icon: Users },
   { title: "Agenda", url: "/agenda", icon: Calendar },
   { title: "Marketplace", url: "/marketplace", icon: Store },
