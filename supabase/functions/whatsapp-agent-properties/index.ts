@@ -4,12 +4,24 @@ import { createServiceClient } from "../_shared/auth.ts";
 
 const WEBHOOK_SECRET = Deno.env.get("WHATSAPP_AGENT_SECRET");
 
+function parseBody(raw: string): Record<string, unknown> {
+  let cleaned = raw.trim().replace(/```json\s*/gi, "").replace(/```\s*/g, "");
+  const s = cleaned.search(/\{/);
+  const e = cleaned.lastIndexOf("}");
+  if (s === -1 || e === -1) throw new Error("No JSON object");
+  cleaned = cleaned.substring(s, e + 1);
+  try { return JSON.parse(cleaned); } catch {
+    cleaned = cleaned.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]").replace(/[\x00-\x1F\x7F]/g, "");
+    return JSON.parse(cleaned);
+  }
+}
+
 serve(async (req) => {
   const cors = handleCors(req);
   if (cors) return cors;
 
   try {
-    const requestSecret = req.headers.get("X-Webhook-Secret");
+    const requestSecret = req.headers.get("x-webhook-secret") || req.headers.get("X-Webhook-Secret");
     if (!WEBHOOK_SECRET || requestSecret !== WEBHOOK_SECRET) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -17,8 +29,31 @@ serve(async (req) => {
       });
     }
 
-    const body = await req.json();
-    const { organization_id, instance_name, filters } = body;
+    let body: Record<string, unknown>;
+    try {
+      const raw = await req.text();
+      if (!raw || !raw.trim()) {
+        return new Response(JSON.stringify({ error: "Empty request body" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      body = parseBody(raw);
+    } catch (err: any) {
+      return new Response(JSON.stringify({ error: "Invalid JSON", detail: err.message }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { organization_id, instance_name } = body as any;
+
+    // Support both nested `filters` object AND flat params
+    const filters = (body.filters as Record<string, unknown>) || {};
+    const property_type = filters.property_type || body.property_type;
+    const neighborhood = filters.neighborhood || body.neighborhood;
+    const max_price = filters.max_price || body.max_price;
+    const city = filters.city || body.city;
+    const transaction_type = filters.transaction_type || body.transaction_type;
+    const bedrooms = filters.bedrooms || body.bedrooms;
 
     if (!organization_id && !instance_name) {
       return new Response(JSON.stringify({ error: "organization_id ou instance_name obrigatório" }), {
@@ -29,7 +64,6 @@ serve(async (req) => {
 
     const sb = createServiceClient();
 
-    // Single query to resolve config
     let config: any = null;
     if (organization_id) {
       const { data } = await sb
@@ -49,8 +83,7 @@ serve(async (req) => {
 
     if (!config) {
       return new Response(JSON.stringify({ error: "Configuração não encontrada" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -89,30 +122,28 @@ serve(async (req) => {
       .eq("status", "disponivel")
       .eq("ai_blacklist", false);
 
-    if (filters?.bedrooms) query = query.gte("bedrooms", filters.bedrooms);
-    if (filters?.max_price) {
-      query = query.or(`sale_price.lte.${filters.max_price},rent_price.lte.${filters.max_price}`);
+    if (bedrooms) query = query.gte("bedrooms", Number(bedrooms));
+    if (max_price) {
+      query = query.or(`sale_price.lte.${max_price},rent_price.lte.${max_price}`);
     }
-    if (filters?.neighborhood) {
-      query = query.ilike("address_neighborhood", `%${filters.neighborhood}%`);
+    if (neighborhood) {
+      query = query.ilike("address_neighborhood", `%${neighborhood}%`);
     }
-    if (filters?.city) {
-      query = query.ilike("address_city", `%${filters.city}%`);
+    if (city) {
+      query = query.ilike("address_city", `%${city}%`);
     }
-    if (filters?.transaction_type) {
-      query = query.eq("transaction_type", filters.transaction_type);
+    if (transaction_type) {
+      query = query.eq("transaction_type", transaction_type);
     }
-    // Resolve property_type by name (text) → UUID
-    if (filters?.property_type) {
-      const searchName = filters.property_type.toLowerCase().trim();
+    if (property_type) {
+      const searchName = String(property_type).toLowerCase().trim();
       const matchedId = Object.entries(propertyTypeMap).find(
         ([, name]) => name.toLowerCase().trim() === searchName
       )?.[0];
       if (matchedId) {
         query = query.eq("property_type_id", matchedId);
       } else {
-        // No match found — return empty to avoid wrong results
-        return new Response(JSON.stringify({ properties: [], total: 0, property_types: propertyTypeMap, message: `Tipo "${filters.property_type}" não encontrado` }), {
+        return new Response(JSON.stringify({ properties: [], total: 0, property_types: propertyTypeMap, message: `Tipo "${property_type}" não encontrado` }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -140,8 +171,7 @@ serve(async (req) => {
   } catch (err) {
     console.error("whatsapp-agent-properties error:", err);
     return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
