@@ -268,11 +268,23 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Step 2: Connect instance to get QR code / current state
-    const connectRes = await fetch(`${baseUrl}/instance/connect/${instanceName}`, {
-      method: "GET",
-      headers: { apikey: EVOLUTION_API_KEY },
-    });
+    // Step 2: Connect instance — pairing code (POST with phone) or QR code (GET)
+    let connectRes: Response;
+    if (phoneNumber) {
+      // Pairing code mode: POST with phone number
+      const cleanPhone = phoneNumber.replace(/\D/g, "");
+      connectRes = await fetch(`${baseUrl}/instance/connect/${instanceName}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
+        body: JSON.stringify({ number: cleanPhone }),
+      });
+    } else {
+      // QR code mode: GET
+      connectRes = await fetch(`${baseUrl}/instance/connect/${instanceName}`, {
+        method: "GET",
+        headers: { apikey: EVOLUTION_API_KEY },
+      });
+    }
 
     const connectRaw = await connectRes.text();
     console.log("Evolution connect response:", connectRes.status, connectRaw.substring(0, 500));
@@ -280,12 +292,13 @@ Deno.serve(async (req) => {
     let connectData: any = {};
     try { connectData = JSON.parse(connectRaw); } catch { /* raw text */ }
 
+    const pairingCode = connectData?.pairingCode ?? connectData?.data?.pairingCode ?? null;
     const qrBase64 = connectData?.base64 ?? connectData?.data?.base64 ?? null;
     const evoState = String(connectData?.instance?.state ?? connectData?.state ?? "").toLowerCase();
     const isConnected = evoState === "open" || evoState === "connected";
     const instanceStatus = isConnected
       ? "connected"
-      : (qrBase64 ? "connecting" : "provisioning");
+      : ((qrBase64 || pairingCode) ? "connecting" : "provisioning");
 
     // Update DB
     const { data: currentConfig } = await sb
