@@ -339,7 +339,7 @@ export function WhatsAppChatPanel() {
                           ) : (
                             <p className="whitespace-pre-wrap break-words">{msg.message_text}</p>
                           )}
-                          <div className="flex items-center gap-1.5 mt-1">
+                          <div className="flex items-center justify-between gap-2 mt-1">
                             <p
                               className={cn(
                                 "text-[10px]",
@@ -351,7 +351,7 @@ export function WhatsAppChatPanel() {
                             {canSeeCosts && msg.estimated_cost_usd != null && msg.estimated_cost_usd > 0 && (
                               <span
                                 className={cn(
-                                  "text-[9px] font-mono",
+                                  "text-[10px] font-mono",
                                   msg.from_me ? "text-primary-foreground/50" : "text-muted-foreground/60"
                                 )}
                               >
