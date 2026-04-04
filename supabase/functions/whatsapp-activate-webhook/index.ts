@@ -63,6 +63,13 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Parse optional phone_number from request body
+    let phoneNumber: string | null = null;
+    try {
+      const body = await req.json();
+      phoneNumber = body?.phone_number ?? null;
+    } catch { /* no body or invalid json — QR mode */ }
+
     const { data: org } = await sb
       .from("organizations")
       .select("id, name, slug")
