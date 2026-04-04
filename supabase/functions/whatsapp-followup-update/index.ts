@@ -10,15 +10,17 @@ Deno.serve(async (req) => {
     return errorResponse("Method not allowed", 405);
   }
 
-  // Auth: require webhook secret or service_role key
+  // Auth: accept webhook secret OR service_role key
   const authHeader = req.headers.get("Authorization") ?? "";
-  const webhookSecret = req.headers.get("X-Webhook-Secret") ?? "";
+  const webhookSecret = req.headers.get("X-Webhook-Secret") ?? req.headers.get("x-webhook-secret") ?? "";
   const expectedSecret = Deno.env.get("WHATSAPP_AGENT_SECRET") ?? "";
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
-  if (!webhookSecret && !authHeader.includes(Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "__none__")) {
-    if (!expectedSecret || webhookSecret !== expectedSecret) {
-      return errorResponse("Unauthorized", 401);
-    }
+  const hasValidSecret = expectedSecret && webhookSecret === expectedSecret;
+  const hasServiceKey = serviceRoleKey && authHeader.includes(serviceRoleKey);
+
+  if (!hasValidSecret && !hasServiceKey) {
+    return errorResponse("Unauthorized", 401);
   }
 
   let body: {
