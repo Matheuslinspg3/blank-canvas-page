@@ -179,9 +179,10 @@ export function WhatsAppChatPanel() {
     return num;
   };
 
-  const formatCost = (cost: number) => {
-    if (cost < 0.01) return `$${cost.toFixed(6)}`;
-    return `$${cost.toFixed(4)}`;
+  const formatCost = (costUsd: number) => {
+    const brl = costUsd * 5.5; // USD → BRL aproximado
+    if (brl < 0.01) return `R$ ${brl.toFixed(6)}`;
+    return `R$ ${brl.toFixed(4)}`;
   };
 
   if (isLoading) {
@@ -338,7 +339,7 @@ export function WhatsAppChatPanel() {
                           ) : (
                             <p className="whitespace-pre-wrap break-words">{msg.message_text}</p>
                           )}
-                          <div className="flex items-center gap-1.5 mt-1">
+                          <div className="flex items-center justify-between gap-2 mt-1">
                             <p
                               className={cn(
                                 "text-[10px]",
@@ -350,7 +351,7 @@ export function WhatsAppChatPanel() {
                             {canSeeCosts && msg.estimated_cost_usd != null && msg.estimated_cost_usd > 0 && (
                               <span
                                 className={cn(
-                                  "text-[9px] font-mono",
+                                  "text-[10px] font-mono",
                                   msg.from_me ? "text-primary-foreground/50" : "text-muted-foreground/60"
                                 )}
                               >
