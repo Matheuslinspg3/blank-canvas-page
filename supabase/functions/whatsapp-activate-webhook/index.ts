@@ -314,6 +314,7 @@ Deno.serve(async (req) => {
       };
       if (instanceToken) updatePayload.instance_token = instanceToken;
       if (qrBase64) updatePayload.qr_code = qrBase64;
+      if (phoneNumber) updatePayload.phone_number = phoneNumber.replace(/\D/g, "");
 
       await sb.from("whatsapp_agent_config").update(updatePayload).eq("id", currentConfig.id);
     }
@@ -322,6 +323,7 @@ Deno.serve(async (req) => {
       instanceName,
       hasToken: !!instanceToken,
       hasQr: !!qrBase64,
+      hasPairingCode: !!pairingCode,
       state: evoState,
       isConnected,
       isReconnection: !!existing,
@@ -330,6 +332,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       qrCode: qrBase64,
+      pairingCode,
       connected: isConnected,
       status: instanceStatus,
       instanceCreated: !instanceExists,
