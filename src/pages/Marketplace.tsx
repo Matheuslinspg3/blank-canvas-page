@@ -210,6 +210,26 @@ export default function Marketplace() {
                 viewMode={viewMode}
               />
             ))}
+
+            {/* External portal listings */}
+            {externalListings.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-semibold">Imóveis de Portais Externos</h2>
+                  <span className="text-xs text-muted-foreground">({externalListings.length} encontrados)</span>
+                </div>
+                <div className={viewMode === "grid" ? "grid gap-4 md:grid-cols-2 lg:grid-cols-3" : "space-y-3"}>
+                  {externalListings.map((listing) => (
+                    <ExternalPropertyCard key={listing.id} listing={listing} viewMode={viewMode} />
+                  ))}
+                </div>
+              </div>
+            )}
+            {externalLoading && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                <Loader2 className="h-4 w-4 animate-spin" /> Buscando imóveis em portais externos...
+              </div>
+            )}
           </div>
         )}
       </div>
