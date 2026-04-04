@@ -99,7 +99,7 @@ export function useWhatsAppChat() {
     return Array.from(map.values()).sort(
       (a, b) => new Date(b.last_timestamp).getTime() - new Date(a.last_timestamp).getTime()
     );
-  }, [allMessages, isAdminOrAbove, brokerPhones]);
+  }, [allMessages, isAdminOrAbove, rolesLoading, brokerPhones]);
 
   // Messages for selected conversation
   const selectedMessages = selectedJid
