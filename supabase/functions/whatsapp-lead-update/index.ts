@@ -2,27 +2,25 @@
  * whatsapp-lead-update — Atualiza campos de um lead existente.
  * Auth: X-Webhook-Secret (WHATSAPP_AGENT_SECRET)
  *
- * Payload:
- * {
- *   instance_name: string,
- *   phone: string,           // identifica o lead (últimos 8 dígitos)
- *   lead_id?: string,        // alternativa: ID direto
- *   updates: {
- *     name?: string,
- *     email?: string,
- *     phone?: string,
- *     temperature?: string,
- *     notes?: string,
- *     transaction_interest?: string,
- *     preferred_neighborhoods?: string[],
- *   }
- * }
+ * Aceita tanto formato nested { updates: { ... } } quanto flat { name, email, ... }
  */
 
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { createServiceClient } from "../_shared/auth.ts";
 
 const WEBHOOK_SECRET = Deno.env.get("WHATSAPP_AGENT_SECRET");
+
+function parseBody(raw: string): Record<string, unknown> {
+  let cleaned = raw.trim().replace(/```json\s*/gi, "").replace(/```\s*/g, "");
+  const s = cleaned.search(/\{/);
+  const e = cleaned.lastIndexOf("}");
+  if (s === -1 || e === -1) throw new Error("No JSON object");
+  cleaned = cleaned.substring(s, e + 1);
+  try { return JSON.parse(cleaned); } catch {
+    cleaned = cleaned.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]").replace(/[\x00-\x1F\x7F]/g, "");
+    return JSON.parse(cleaned);
+  }
+}
 
 Deno.serve(async (req) => {
   const cors = handleCors(req);
@@ -37,8 +35,22 @@ Deno.serve(async (req) => {
       });
     }
 
-    const body = await req.json();
-    const { instance_name, phone, lead_id, updates } = body;
+    let body: Record<string, unknown>;
+    try {
+      const raw = await req.text();
+      if (!raw || !raw.trim()) {
+        return new Response(JSON.stringify({ error: "Empty request body" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      body = parseBody(raw);
+    } catch (err: any) {
+      return new Response(JSON.stringify({ error: "Invalid JSON", detail: err.message }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { instance_name, phone, lead_id } = body as any;
 
     if (!instance_name) {
       return new Response(
@@ -54,9 +66,27 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!updates || typeof updates !== "object" || Object.keys(updates).length === 0) {
+    // Support both nested `updates` object AND flat params
+    const ALLOWED_FIELDS = [
+      "name", "email", "phone", "temperature", "notes",
+      "transaction_interest", "preferred_neighborhoods",
+    ];
+
+    let updates: Record<string, unknown> = {};
+    if (body.updates && typeof body.updates === "object") {
+      updates = body.updates as Record<string, unknown>;
+    } else {
+      // Flat params — extract allowed fields from top level
+      for (const key of ALLOWED_FIELDS) {
+        if (body[key] !== undefined && body[key] !== null && body[key] !== "") {
+          updates[key] = body[key];
+        }
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
       return new Response(
-        JSON.stringify({ error: "updates object is required with at least one field" }),
+        JSON.stringify({ error: "No update fields provided" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -111,16 +141,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Whitelist of allowed update fields
-    const ALLOWED_FIELDS = [
-      "name", "email", "phone", "temperature", "notes",
-      "transaction_interest", "preferred_neighborhoods",
-    ];
-
+    // Build safe updates
     const safeUpdates: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(updates)) {
       if (ALLOWED_FIELDS.includes(key)) {
-        // Append notes instead of replacing
         if (key === "notes" && value) {
           safeUpdates.notes = leadRecord.notes
             ? `${leadRecord.notes}\n[WhatsApp IA] ${value}`

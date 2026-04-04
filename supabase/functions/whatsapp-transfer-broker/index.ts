@@ -3,8 +3,20 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-webhook-secret",
 };
+
+function parseBody(raw: string): Record<string, unknown> {
+  let cleaned = raw.trim().replace(/```json\s*/gi, "").replace(/```\s*/g, "");
+  const s = cleaned.search(/\{/);
+  const e = cleaned.lastIndexOf("}");
+  if (s === -1 || e === -1) throw new Error("No JSON object");
+  cleaned = cleaned.substring(s, e + 1);
+  try { return JSON.parse(cleaned); } catch {
+    cleaned = cleaned.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]").replace(/[\x00-\x1F\x7F]/g, "");
+    return JSON.parse(cleaned);
+  }
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -13,7 +25,7 @@ serve(async (req) => {
 
   try {
     const secret = Deno.env.get("WHATSAPP_AGENT_SECRET");
-    const headerSecret = req.headers.get("x-webhook-secret");
+    const headerSecret = req.headers.get("x-webhook-secret") || req.headers.get("X-Webhook-Secret");
     if (!secret || headerSecret !== secret) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -25,8 +37,22 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, supabaseKey);
 
-    const body = await req.json();
-    const { instance_name, remote_jid, summary } = body;
+    let body: Record<string, unknown>;
+    try {
+      const raw = await req.text();
+      if (!raw || !raw.trim()) {
+        return new Response(JSON.stringify({ error: "Empty request body" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      body = parseBody(raw);
+    } catch (err: any) {
+      return new Response(JSON.stringify({ error: "Invalid JSON", detail: err.message }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { instance_name, remote_jid, summary } = body as any;
 
     if (!instance_name || !remote_jid) {
       return new Response(
@@ -55,7 +81,7 @@ serve(async (req) => {
     const customerPhone = remote_jid.replace("@s.whatsapp.net", "").replace("@g.us", "");
     const waMeLink = `https://wa.me/${customerPhone}`;
 
-    // 3. Find available brokers (profiles with phone in this org, not removed)
+    // 3. Find available brokers
     const { data: brokers } = await sb
       .from("profiles")
       .select("user_id, full_name, phone")
@@ -83,13 +109,10 @@ serve(async (req) => {
       .single();
 
     const mode = qualConfig?.broker_assignment_mode || "round_robin";
-
     let selectedBroker = brokers[0];
 
     if (mode === "round_robin") {
-      // Simple round-robin: pick broker with fewest recent transfers (last 24h)
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
       const counts = await Promise.all(
         brokers.map(async (b) => {
           const { count } = await sb
@@ -102,7 +125,6 @@ serve(async (req) => {
           return { broker: b, count: count || 0 };
         })
       );
-
       counts.sort((a, b) => a.count - b.count);
       selectedBroker = counts[0].broker;
     }
@@ -127,30 +149,18 @@ serve(async (req) => {
     // 6. Send WhatsApp message to broker via Evolution API
     const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
     const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
-
     let messageSent = false;
 
     if (EVOLUTION_API_URL && EVOLUTION_API_KEY) {
       const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
       const endpoint = `${baseUrl}/message/sendText/${instance_name}`;
-
       const evoRes = await fetch(endpoint, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: EVOLUTION_API_KEY,
-        },
-        body: JSON.stringify({
-          number: brokerPhone,
-          text: notificationText,
-        }),
+        headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
+        body: JSON.stringify({ number: brokerPhone, text: notificationText }),
       });
-
       messageSent = evoRes.ok;
-
-      if (!evoRes.ok) {
-        console.warn("Failed to send broker notification:", await evoRes.text());
-      }
+      if (!evoRes.ok) console.warn("Failed to send broker notification:", await evoRes.text());
     }
 
     // 7. Audit log
@@ -174,10 +184,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        broker: {
-          name: selectedBroker.full_name,
-          phone: brokerPhone,
-        },
+        broker: { name: selectedBroker.full_name, phone: brokerPhone },
         wa_me_link: waMeLink,
         summary: conversationSummary,
         message_sent: messageSent,
