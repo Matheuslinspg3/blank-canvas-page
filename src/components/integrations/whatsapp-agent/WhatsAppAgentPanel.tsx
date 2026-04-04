@@ -12,9 +12,9 @@ import { useUserRoles } from "@/hooks/useUserRole";
 
 export function WhatsAppAgentPanel() {
   const { instance } = useWhatsAppInstance();
-  const { isAdmin, isSubAdmin, isDeveloper } = useUserRoles();
+  const { isAdmin, isSubAdmin, isDeveloper, isLoading: rolesLoading } = useUserRoles();
   const isConnected = instance?.status === "connected";
-  const canConfigureAgent = isAdmin || isSubAdmin || isDeveloper;
+  const canConfigureAgent = rolesLoading ? true : (isAdmin || isSubAdmin || isDeveloper);
 
   return (
     <Tabs defaultValue="conexao" className="space-y-4">

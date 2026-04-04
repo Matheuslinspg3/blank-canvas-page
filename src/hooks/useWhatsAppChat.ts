@@ -32,7 +32,7 @@ export interface ChatConversation {
 export function useWhatsAppChat() {
   const { user, profile } = useAuth();
   const { config } = useWhatsAppAgentConfig();
-  const { isAdminOrAbove } = useUserRoles();
+  const { isAdminOrAbove, isLoading: rolesLoading } = useUserRoles();
   const queryClient = useQueryClient();
   const orgId = profile?.organization_id;
   const [selectedJid, setSelectedJid] = useState<string | null>(null);
@@ -53,7 +53,7 @@ export function useWhatsAppChat() {
         return p.slice(-8);
       }).filter(Boolean);
     },
-    enabled: !!user?.id && !!orgId && !isAdminOrAbove,
+    enabled: !!user?.id && !!orgId && !rolesLoading && !isAdminOrAbove,
     staleTime: 30000,
   });
 
@@ -80,7 +80,7 @@ export function useWhatsAppChat() {
     const map = new Map<string, ChatConversation>();
     for (const msg of allMessages) {
       // Filter for brokers: only show conversations matching their leads
-      if (!isAdminOrAbove && brokerPhones) {
+      if (!rolesLoading && !isAdminOrAbove && brokerPhones) {
         const jidPhone = msg.remote_jid.replace("@s.whatsapp.net", "").replace("@c.us", "");
         const last8 = jidPhone.slice(-8);
         if (!brokerPhones.includes(last8)) continue;
@@ -99,7 +99,7 @@ export function useWhatsAppChat() {
     return Array.from(map.values()).sort(
       (a, b) => new Date(b.last_timestamp).getTime() - new Date(a.last_timestamp).getTime()
     );
-  }, [allMessages, isAdminOrAbove, brokerPhones]);
+  }, [allMessages, isAdminOrAbove, rolesLoading, brokerPhones]);
 
   // Messages for selected conversation
   const selectedMessages = selectedJid
