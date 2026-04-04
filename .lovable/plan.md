@@ -1,89 +1,79 @@
 
 
-# Plano: Custos por Mensagem, Lead Inteligente e Controle de Acesso no Chat WhatsApp
+## Plano: Cache de Listagens Externas no Marketplace
 
-## Resumo
+### Conceito
+Em vez de buscar nos portais (OLX, Viva Real) a cada pesquisa, o sistema salva os resultados em uma tabela `external_listings` que funciona como cache. Quando outro usuário faz a mesma busca, o sistema primeiro verifica o cache. Só busca nos portais novamente se o cache estiver expirado.
 
-Quatro mudanças no painel de chat WhatsApp:
-1. Exibir custo por mensagem (da coluna `estimated_cost_usd` em `whatsapp_messages`) e custo total por chat — visível apenas para admin/sub_admin
-2. Botão "Cadastrar Lead" verifica se o lead já existe e mostra "Lead Cadastrado" quando já existir
-3. Abas de configuração do agente IA (Comportamento, Imóveis, Qualificação, Transferência, Voz) visíveis apenas para admin/sub_admin
-4. Corretores veem apenas conversas de leads designados a eles (`leads.broker_id`)
+### Implementação
 
----
+**1. Tabela `external_listings` (migração)**
+- Campos: `id`, `source` (olx/vivareal/chavesnamao), `source_url`, `title`, `description`, `address_city`, `address_neighborhood`, `address_state`, `transaction_type`, `sale_price`, `rent_price`, `bedrooms`, `bathrooms`, `parking_spots`, `area_total`, `images` (text[]), `contact_phone`, `contact_name`, `created_at`, `updated_at`, `expires_at` (timestamp para controle de validade do cache)
+- Índices em `address_city`, `transaction_type`, `expires_at`
+- RLS: leitura pública para usuários autenticados
 
-## Detalhes Técnicos
+**2. Tabela `external_search_cache` (migração)**
+- Campos: `id`, `search_hash` (hash MD5 dos filtros usados), `filters_json` (jsonb com os filtros originais), `listing_ids` (uuid[] referenciando external_listings), `fetched_at`, `expires_at`
+- Lógica: ao pesquisar, gera hash dos filtros → se existe cache válido (ex: 6h), retorna direto. Senão, aciona o n8n.
 
-### 1. Custo por mensagem e por chat
+**3. Edge Function `external-listings-sync`**
+- Recebe filtros (cidade, tipo, quartos, etc.)
+- Gera hash dos filtros e verifica `external_search_cache`
+- Se cache válido: retorna listings do cache
+- Se expirado/inexistente: chama webhook n8n passando os filtros → n8n scrapa os portais → insere em `external_listings` → atualiza `external_search_cache`
+- Retorna os resultados
 
-**Arquivo**: `src/components/integrations/whatsapp-agent/WhatsAppChatPanel.tsx`
+**4. Webhook n8n (configurado pelo usuário)**
+- Recebe filtros da Edge Function
+- Faz scraping nos portais
+- Chama de volta a Edge Function ou insere direto no Supabase via API
 
-- Importar `useUserRoles` e verificar `isAdmin || isSubAdmin`
-- Para cada mensagem com `estimated_cost_usd > 0`, exibir abaixo do horário: `R$ 0,0012` (convertido ou em USD)
-- No header do chat, exibir o custo total da conversa somando `estimated_cost_usd` de todas as `selectedMessages`
-- Atualizar a interface `ChatMessage` em `useWhatsAppChat.ts` para incluir `estimated_cost_usd`
+**5. Frontend — Marketplace**
+- Após carregar imóveis internos, chama `external-listings-sync` com os mesmos filtros
+- Exibe resultados externos com badge do portal (OLX, Viva Real, etc.)
+- Card externo mostra botão "Ver no portal" com link direto (`source_url`)
+- Sem botão de contato interno — redireciona para o portal original
 
-**Arquivo**: `src/hooks/useWhatsAppChat.ts`
-- Adicionar `estimated_cost_usd` ao tipo `ChatMessage`
-- Incluir o campo no select da query (já vem com `select("*")`)
+### Fluxo de Cache
 
-### 2. Botão de Lead inteligente
-
-**Arquivo**: `src/components/integrations/whatsapp-agent/WhatsAppChatPanel.tsx`
-
-- Ao selecionar uma conversa (`selectedJid` muda), fazer lookup do lead pelo telefone via query à tabela `leads`
-- Estado: `existingLead: Lead | null`
-- Se lead existe: botão mostra "Lead Cadastrado ✓" (desabilitado ou abre detalhes)
-- Se não existe: botão mostra "Cadastrar Lead" (comportamento atual)
-
-Query:
-```ts
-const phone = selectedJid.replace("@s.whatsapp.net", "").replace("@c.us", "");
-const { data } = await supabase
-  .from("leads")
-  .select("id, name")
-  .eq("organization_id", orgId)
-  .eq("is_active", true)
-  .ilike("phone", `%${phone.slice(-8)}`)
-  .limit(1);
+```text
+Usuário filtra "Praia Grande, 2 quartos, venda"
+        │
+        ▼
+  Hash dos filtros → "abc123"
+        │
+        ▼
+  external_search_cache tem "abc123" válido?
+     ┌──YES──┐       ┌──NO──┐
+     ▼       │       ▼      │
+  Retorna    │   Chama n8n  │
+  do cache   │   webhook    │
+             │       │      │
+             │       ▼      │
+             │   Scrapa     │
+             │   portais    │
+             │       │      │
+             │       ▼      │
+             │   Salva em   │
+             │   external_  │
+             │   listings + │
+             │   cache      │
+             │       │      │
+             └───────┴──────┘
+                     │
+                     ▼
+            Exibe no Marketplace
+            com badge do portal
 ```
 
-### 3. Abas do agente IA restritas a admin/sub_admin
+### TTL do Cache
+- Padrão: **6 horas** — configurável
+- Job pg_cron opcional para limpar listings expirados (> 7 dias sem acesso)
 
-**Arquivo**: `src/components/integrations/whatsapp-agent/WhatsAppAgentPanel.tsx`
-
-- Importar `useUserRoles`
-- Condicionalmente renderizar as abas de configuração (Comportamento, Imóveis, Qualificação, Transferência, Voz) apenas quando `isAdmin || isSubAdmin || isDeveloper`
-- A aba **Chat** e **Conexão** permanecem visíveis para todos
-
-### 4. Corretores veem apenas seus chats
-
-**Arquivo**: `src/hooks/useWhatsAppChat.ts`
-
-- Importar `useUserRoles`
-- Se o usuário **não** for admin/sub_admin/developer/leader:
-  - Buscar leads atribuídos ao corretor: `leads.broker_id = user.id`
-  - Extrair os telefones desses leads
-  - Filtrar `conversations` para mostrar apenas `remote_jid` que correspondem aos telefones dos leads do corretor
-- Admins continuam vendo todas as conversas
-
-Query adicional:
-```ts
-const { data: myLeads } = await supabase
-  .from("leads")
-  .select("phone")
-  .eq("organization_id", orgId)
-  .eq("broker_id", user.id)
-  .eq("is_active", true);
-```
-
-### Arquivos modificados
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/hooks/useWhatsAppChat.ts` | Adicionar `estimated_cost_usd` ao tipo, filtro de conversas por broker |
-| `src/components/integrations/whatsapp-agent/WhatsAppChatPanel.tsx` | Custo por msg, custo por chat, botão lead inteligente |
-| `src/components/integrations/whatsapp-agent/WhatsAppAgentPanel.tsx` | Restringir abas de config por role |
-
-Nenhuma migração de banco necessária — os campos `estimated_cost_usd` e `broker_id` já existem.
+### Arquivos a criar/editar
+1. **Migração SQL** — tabelas `external_listings` + `external_search_cache` + RLS
+2. **`supabase/functions/external-listings-sync/index.ts`** — Edge Function
+3. **`src/hooks/useExternalListings.ts`** — hook React Query
+4. **`src/components/marketplace/ExternalPropertyCard.tsx`** — card com badge do portal
+5. **`src/pages/Marketplace.tsx`** — integrar resultados externos na listagem
 
