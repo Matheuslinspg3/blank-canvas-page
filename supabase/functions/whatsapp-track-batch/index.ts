@@ -99,6 +99,17 @@ Deno.serve(async (req) => {
       console.error("[whatsapp-track-batch] Insert error:", insertErr);
     }
 
+    // 1b. Update estimated_cost_usd on the whatsapp_messages row
+    if (message_id && totals.cost_usd > 0) {
+      const { error: updateErr } = await supabase
+        .from("whatsapp_messages")
+        .update({ estimated_cost_usd: totals.cost_usd })
+        .eq("message_id", message_id);
+      if (updateErr) {
+        console.error("[whatsapp-track-batch] Message cost update error:", updateErr);
+      }
+    }
+
     // 2. Also track each step in billing system for budget enforcement
     const billingPromises = steps.map((s: any) =>
       trackAiBilling(supabase, {
