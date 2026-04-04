@@ -288,7 +288,7 @@ export function WhatsAppChatPanel() {
 
                   {/* Smart Lead Button */}
                   {existingLead ? (
-                    <Badge variant="outline" className="gap-1.5 text-xs text-green-600 border-green-300">
+                    <Badge variant="secondary" className="gap-1.5 text-xs">
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       Lead Cadastrado
                     </Badge>
