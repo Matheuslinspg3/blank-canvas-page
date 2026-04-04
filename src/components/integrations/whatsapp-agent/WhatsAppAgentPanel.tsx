@@ -1,4 +1,3 @@
-
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Wifi, Bot, Building2, UserCheck, ArrowRightLeft, MessageCircle, Volume2 } from "lucide-react";
 import { WhatsAppIntegrationCard } from "@/components/integrations/WhatsAppIntegrationCard";
@@ -9,10 +8,13 @@ import { AgentTransferTab } from "./AgentTransferTab";
 import { WhatsAppChatPanel } from "./WhatsAppChatPanel";
 import { VoiceChatWidget } from "./VoiceChatWidget";
 import { useWhatsAppInstance } from "@/hooks/useWhatsAppInstance";
+import { useUserRoles } from "@/hooks/useUserRole";
 
 export function WhatsAppAgentPanel() {
   const { instance } = useWhatsAppInstance();
+  const { isAdmin, isSubAdmin, isDeveloper } = useUserRoles();
   const isConnected = instance?.status === "connected";
+  const canConfigureAgent = isAdmin || isSubAdmin || isDeveloper;
 
   return (
     <Tabs defaultValue="conexao" className="space-y-4">
@@ -22,24 +24,30 @@ export function WhatsAppAgentPanel() {
         </TabsTrigger>
         {isConnected && (
           <>
-            <TabsTrigger value="comportamento" className="gap-1.5 text-xs sm:text-sm shrink-0">
-              <Bot className="h-3.5 w-3.5" /> Comportamento
-            </TabsTrigger>
-            <TabsTrigger value="imoveis" className="gap-1.5 text-xs sm:text-sm shrink-0">
-              <Building2 className="h-3.5 w-3.5" /> Imóveis
-            </TabsTrigger>
-            <TabsTrigger value="qualificacao" className="gap-1.5 text-xs sm:text-sm shrink-0">
-              <UserCheck className="h-3.5 w-3.5" /> Qualificação
-            </TabsTrigger>
-            <TabsTrigger value="transferencia" className="gap-1.5 text-xs sm:text-sm shrink-0">
-              <ArrowRightLeft className="h-3.5 w-3.5" /> Transferência
-            </TabsTrigger>
+            {canConfigureAgent && (
+              <>
+                <TabsTrigger value="comportamento" className="gap-1.5 text-xs sm:text-sm shrink-0">
+                  <Bot className="h-3.5 w-3.5" /> Comportamento
+                </TabsTrigger>
+                <TabsTrigger value="imoveis" className="gap-1.5 text-xs sm:text-sm shrink-0">
+                  <Building2 className="h-3.5 w-3.5" /> Imóveis
+                </TabsTrigger>
+                <TabsTrigger value="qualificacao" className="gap-1.5 text-xs sm:text-sm shrink-0">
+                  <UserCheck className="h-3.5 w-3.5" /> Qualificação
+                </TabsTrigger>
+                <TabsTrigger value="transferencia" className="gap-1.5 text-xs sm:text-sm shrink-0">
+                  <ArrowRightLeft className="h-3.5 w-3.5" /> Transferência
+                </TabsTrigger>
+              </>
+            )}
             <TabsTrigger value="chat" className="gap-1.5 text-xs sm:text-sm shrink-0">
               <MessageCircle className="h-3.5 w-3.5" /> Chat
             </TabsTrigger>
-            <TabsTrigger value="voz" className="gap-1.5 text-xs sm:text-sm shrink-0">
-              <Volume2 className="h-3.5 w-3.5" /> Voz
-            </TabsTrigger>
+            {canConfigureAgent && (
+              <TabsTrigger value="voz" className="gap-1.5 text-xs sm:text-sm shrink-0">
+                <Volume2 className="h-3.5 w-3.5" /> Voz
+              </TabsTrigger>
+            )}
           </>
         )}
       </TabsList>
@@ -50,29 +58,32 @@ export function WhatsAppAgentPanel() {
 
       {isConnected && (
         <>
-          <TabsContent value="comportamento">
-            <AgentBehaviorTab />
-          </TabsContent>
-
-          <TabsContent value="imoveis">
-            <AgentPropertiesTab />
-          </TabsContent>
-
-          <TabsContent value="qualificacao">
-            <AgentQualificationTab />
-          </TabsContent>
-
-          <TabsContent value="transferencia">
-            <AgentTransferTab />
-          </TabsContent>
+          {canConfigureAgent && (
+            <>
+              <TabsContent value="comportamento">
+                <AgentBehaviorTab />
+              </TabsContent>
+              <TabsContent value="imoveis">
+                <AgentPropertiesTab />
+              </TabsContent>
+              <TabsContent value="qualificacao">
+                <AgentQualificationTab />
+              </TabsContent>
+              <TabsContent value="transferencia">
+                <AgentTransferTab />
+              </TabsContent>
+            </>
+          )}
 
           <TabsContent value="chat">
             <WhatsAppChatPanel />
           </TabsContent>
 
-          <TabsContent value="voz">
-            <VoiceChatWidget />
-          </TabsContent>
+          {canConfigureAgent && (
+            <TabsContent value="voz">
+              <VoiceChatWidget />
+            </TabsContent>
+          )}
         </>
       )}
     </Tabs>

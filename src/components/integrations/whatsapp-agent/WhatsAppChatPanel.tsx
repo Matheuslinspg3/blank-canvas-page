@@ -1,22 +1,32 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { MessageCircle, Send, ArrowLeft, User, Plus, Bot, UserPlus, Loader2 } from "lucide-react";
+import { MessageCircle, Send, ArrowLeft, User, Plus, Bot, UserPlus, Loader2, CheckCircle2, DollarSign } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useWhatsAppChat } from "@/hooks/useWhatsAppChat";
 import { useWhatsAppInstance } from "@/hooks/useWhatsAppInstance";
+import { useUserRoles } from "@/hooks/useUserRole";
+import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { AudioMessageBubble } from "./AudioMessageBubble";
 import { AudioRecorder } from "./AudioRecorder";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+
+// Sub-components
+import { WhatsAppConversationList } from "./WhatsAppConversationList";
+import { WhatsAppChatHeader } from "./WhatsAppChatHeader";
+import { WhatsAppMessageBubble } from "./WhatsAppMessageBubble";
+import { WhatsAppNewChatDialog } from "./WhatsAppNewChatDialog";
+import { WhatsAppCreateLeadDialog } from "./WhatsAppCreateLeadDialog";
 
 export function WhatsAppChatPanel() {
   const {
@@ -30,6 +40,11 @@ export function WhatsAppChatPanel() {
     isLoading,
   } = useWhatsAppChat();
 
+  const { isAdmin, isSubAdmin, isDeveloper } = useUserRoles();
+  const { profile } = useAuth();
+  const canSeeCosts = isAdmin || isSubAdmin || isDeveloper;
+  const orgId = profile?.organization_id;
+
   const [draft, setDraft] = useState("");
   const [showNewChat, setShowNewChat] = useState(false);
   const [newPhone, setNewPhone] = useState("");
@@ -40,6 +55,35 @@ export function WhatsAppChatPanel() {
   const [leadForm, setLeadForm] = useState({ name: "", email: "", notes: "", temperature: "morno" });
   const [creatingLead, setCreatingLead] = useState(false);
   const { instance } = useWhatsAppInstance();
+
+  // Lead lookup for selected conversation
+  const selectedPhone = selectedJid
+    ? selectedJid.replace("@s.whatsapp.net", "").replace("@c.us", "")
+    : null;
+
+  const { data: existingLead, isLoading: leadLookupLoading } = useQuery({
+    queryKey: ["lead-lookup", selectedPhone, orgId],
+    queryFn: async () => {
+      if (!selectedPhone || !orgId) return null;
+      const last8 = selectedPhone.slice(-8);
+      const { data } = await supabase
+        .from("leads")
+        .select("id, name")
+        .eq("organization_id", orgId)
+        .eq("is_active", true)
+        .ilike("phone", `%${last8}`)
+        .limit(1);
+      return data && data.length > 0 ? data[0] : null;
+    },
+    enabled: !!selectedPhone && !!orgId,
+    staleTime: 15000,
+  });
+
+  // Total cost for the selected chat
+  const totalChatCost = useMemo(() => {
+    if (!canSeeCosts) return 0;
+    return selectedMessages.reduce((sum, m) => sum + (m.estimated_cost_usd || 0), 0);
+  }, [selectedMessages, canSeeCosts]);
 
   const handleCreateLead = useCallback(async () => {
     if (!selectedJid) return;
@@ -67,7 +111,7 @@ export function WhatsAppChatPanel() {
     } finally {
       setCreatingLead(false);
     }
-  }, [selectedJid, leadForm, instance]);
+  }, [selectedJid, leadForm]);
 
   const handleAudioRecorded = useCallback(async (blob: Blob) => {
     if (!selectedJid) return;
@@ -129,7 +173,6 @@ export function WhatsAppChatPanel() {
     setShowNewChat(false);
     setNewPhone("");
     setNewMessage("");
-    // Select the new conversation
     const jid = `${phone}@s.whatsapp.net`;
     setSelectedJid(jid);
   };
@@ -140,6 +183,11 @@ export function WhatsAppChatPanel() {
       return `+${num.slice(0, 2)} (${num.slice(2, 4)}) ${num.slice(4, 9)}-${num.slice(9)}`;
     }
     return num;
+  };
+
+  const formatCost = (cost: number) => {
+    if (cost < 0.01) return `$${cost.toFixed(6)}`;
+    return `$${cost.toFixed(4)}`;
   };
 
   if (isLoading) {
@@ -235,14 +283,37 @@ export function WhatsAppChatPanel() {
                     <User className="h-4 w-4 text-primary" />
                   </div>
                   <span className="font-medium text-sm flex-1">{formatJid(selectedJid)}</span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 text-xs"
-                    onClick={() => setShowCreateLead(true)}
-                  >
-                    <UserPlus className="h-3.5 w-3.5" /> Cadastrar Lead
-                  </Button>
+
+                  {/* Cost total for chat - admin only */}
+                  {canSeeCosts && totalChatCost > 0 && (
+                    <Badge variant="secondary" className="text-[10px] gap-1">
+                      <DollarSign className="h-3 w-3" />
+                      {formatCost(totalChatCost)}
+                    </Badge>
+                  )}
+
+                  {/* Smart Lead Button */}
+                  {existingLead ? (
+                    <Badge variant="outline" className="gap-1.5 text-xs text-green-600 border-green-300">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Lead Cadastrado
+                    </Badge>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs"
+                      onClick={() => setShowCreateLead(true)}
+                      disabled={leadLookupLoading}
+                    >
+                      {leadLookupLoading ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <UserPlus className="h-3.5 w-3.5" />
+                      )}
+                      Cadastrar Lead
+                    </Button>
+                  )}
                 </div>
 
                 <ScrollArea className="flex-1 px-4 py-3">
@@ -273,14 +344,26 @@ export function WhatsAppChatPanel() {
                           ) : (
                             <p className="whitespace-pre-wrap break-words">{msg.message_text}</p>
                           )}
-                          <p
-                            className={cn(
-                              "text-[10px] mt-1",
-                              msg.from_me ? "text-primary-foreground/70" : "text-muted-foreground"
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <p
+                              className={cn(
+                                "text-[10px]",
+                                msg.from_me ? "text-primary-foreground/70" : "text-muted-foreground"
+                              )}
+                            >
+                              {format(new Date(msg.timestamp), "HH:mm")}
+                            </p>
+                            {canSeeCosts && msg.estimated_cost_usd != null && msg.estimated_cost_usd > 0 && (
+                              <span
+                                className={cn(
+                                  "text-[9px] font-mono",
+                                  msg.from_me ? "text-primary-foreground/50" : "text-muted-foreground/60"
+                                )}
+                              >
+                                {formatCost(msg.estimated_cost_usd)}
+                              </span>
                             )}
-                          >
-                            {format(new Date(msg.timestamp), "HH:mm")}
-                          </p>
+                          </div>
                         </div>
                       </div>
                     ))}
