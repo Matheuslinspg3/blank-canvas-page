@@ -1626,6 +1626,92 @@ export type Database = {
           },
         ]
       }
+      buildings: {
+        Row: {
+          address_city: string | null
+          address_neighborhood: string | null
+          address_number: string | null
+          address_state: string | null
+          address_street: string | null
+          address_zip: string | null
+          amenities: string[] | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          developer_name: string | null
+          id: string
+          images: string[] | null
+          is_public: boolean
+          latitude: number | null
+          longitude: number | null
+          name: string
+          organization_id: string
+          status: string
+          total_floors: number | null
+          total_units: number | null
+          updated_at: string
+          year_built: number | null
+        }
+        Insert: {
+          address_city?: string | null
+          address_neighborhood?: string | null
+          address_number?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
+          amenities?: string[] | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          developer_name?: string | null
+          id?: string
+          images?: string[] | null
+          is_public?: boolean
+          latitude?: number | null
+          longitude?: number | null
+          name: string
+          organization_id: string
+          status?: string
+          total_floors?: number | null
+          total_units?: number | null
+          updated_at?: string
+          year_built?: number | null
+        }
+        Update: {
+          address_city?: string | null
+          address_neighborhood?: string | null
+          address_number?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
+          amenities?: string[] | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          developer_name?: string | null
+          id?: string
+          images?: string[] | null
+          is_public?: boolean
+          latitude?: number | null
+          longitude?: number | null
+          name?: string
+          organization_id?: string
+          status?: string
+          total_floors?: number | null
+          total_units?: number | null
+          updated_at?: string
+          year_built?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "buildings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       city_codes: {
         Row: {
           code: string
@@ -4153,6 +4239,7 @@ export type Database = {
           bathrooms: number | null
           beach_distance_meters: number | null
           bedrooms: number | null
+          building_id: string | null
           captador_id: string | null
           commission_type: Database["public"]["Enums"]["commission_type"] | null
           commission_value: number | null
@@ -4222,6 +4309,7 @@ export type Database = {
           bathrooms?: number | null
           beach_distance_meters?: number | null
           bedrooms?: number | null
+          building_id?: string | null
           captador_id?: string | null
           commission_type?:
             | Database["public"]["Enums"]["commission_type"]
@@ -4293,6 +4381,7 @@ export type Database = {
           bathrooms?: number | null
           beach_distance_meters?: number | null
           bedrooms?: number | null
+          building_id?: string | null
           captador_id?: string | null
           commission_type?:
             | Database["public"]["Enums"]["commission_type"]
@@ -4347,6 +4436,13 @@ export type Database = {
           youtube_url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "properties_building_id_fkey"
+            columns: ["building_id"]
+            isOneToOne: false
+            referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "properties_organization_id_fkey"
             columns: ["organization_id"]
