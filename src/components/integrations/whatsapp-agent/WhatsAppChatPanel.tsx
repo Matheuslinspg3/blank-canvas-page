@@ -21,12 +21,6 @@ import { AudioRecorder } from "./AudioRecorder";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 
-// Sub-components
-import { WhatsAppConversationList } from "./WhatsAppConversationList";
-import { WhatsAppChatHeader } from "./WhatsAppChatHeader";
-import { WhatsAppMessageBubble } from "./WhatsAppMessageBubble";
-import { WhatsAppNewChatDialog } from "./WhatsAppNewChatDialog";
-import { WhatsAppCreateLeadDialog } from "./WhatsAppCreateLeadDialog";
 
 export function WhatsAppChatPanel() {
   const {
