@@ -26,8 +26,40 @@ Deno.serve(async (req) => {
       });
     }
 
-    const body = await req.json();
-    const { instance_name, phone, email } = body;
+    let body: Record<string, unknown>;
+    try {
+      const raw = await req.text();
+      if (!raw || !raw.trim()) {
+        return new Response(
+          JSON.stringify({ error: "Empty request body" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      let cleaned = raw.trim().replace(/```json\s*/gi, "").replace(/```\s*/g, "");
+      const jsonStart = cleaned.search(/\{/);
+      const jsonEnd = cleaned.lastIndexOf("}");
+      if (jsonStart === -1 || jsonEnd === -1) {
+        return new Response(
+          JSON.stringify({ error: "No valid JSON found in body" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+      try {
+        body = JSON.parse(cleaned);
+      } catch {
+        cleaned = cleaned.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]").replace(/[\x00-\x1F\x7F]/g, "");
+        body = JSON.parse(cleaned);
+      }
+    } catch (parseErr: any) {
+      console.error("[whatsapp-lead-lookup] JSON parse error:", parseErr.message);
+      return new Response(
+        JSON.stringify({ error: "Invalid JSON body", detail: parseErr.message }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const { instance_name, phone, email } = body as any;
 
     if (!instance_name) {
       return new Response(
