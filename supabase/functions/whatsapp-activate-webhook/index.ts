@@ -63,6 +63,13 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Parse optional phone_number from request body
+    let phoneNumber: string | null = null;
+    try {
+      const body = await req.json();
+      phoneNumber = body?.phone_number ?? null;
+    } catch { /* no body or invalid json — QR mode */ }
+
     const { data: org } = await sb
       .from("organizations")
       .select("id, name, slug")
@@ -261,11 +268,23 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Step 2: Connect instance to get QR code / current state
-    const connectRes = await fetch(`${baseUrl}/instance/connect/${instanceName}`, {
-      method: "GET",
-      headers: { apikey: EVOLUTION_API_KEY },
-    });
+    // Step 2: Connect instance — pairing code (POST with phone) or QR code (GET)
+    let connectRes: Response;
+    if (phoneNumber) {
+      // Pairing code mode: POST with phone number
+      const cleanPhone = phoneNumber.replace(/\D/g, "");
+      connectRes = await fetch(`${baseUrl}/instance/connect/${instanceName}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
+        body: JSON.stringify({ number: cleanPhone }),
+      });
+    } else {
+      // QR code mode: GET
+      connectRes = await fetch(`${baseUrl}/instance/connect/${instanceName}`, {
+        method: "GET",
+        headers: { apikey: EVOLUTION_API_KEY },
+      });
+    }
 
     const connectRaw = await connectRes.text();
     console.log("Evolution connect response:", connectRes.status, connectRaw.substring(0, 500));
@@ -273,12 +292,13 @@ Deno.serve(async (req) => {
     let connectData: any = {};
     try { connectData = JSON.parse(connectRaw); } catch { /* raw text */ }
 
+    const pairingCode = connectData?.pairingCode ?? connectData?.data?.pairingCode ?? null;
     const qrBase64 = connectData?.base64 ?? connectData?.data?.base64 ?? null;
     const evoState = String(connectData?.instance?.state ?? connectData?.state ?? "").toLowerCase();
     const isConnected = evoState === "open" || evoState === "connected";
     const instanceStatus = isConnected
       ? "connected"
-      : (qrBase64 ? "connecting" : "provisioning");
+      : ((qrBase64 || pairingCode) ? "connecting" : "provisioning");
 
     // Update DB
     const { data: currentConfig } = await sb
@@ -294,6 +314,7 @@ Deno.serve(async (req) => {
       };
       if (instanceToken) updatePayload.instance_token = instanceToken;
       if (qrBase64) updatePayload.qr_code = qrBase64;
+      if (phoneNumber) updatePayload.phone_number = phoneNumber.replace(/\D/g, "");
 
       await sb.from("whatsapp_agent_config").update(updatePayload).eq("id", currentConfig.id);
     }
@@ -302,6 +323,7 @@ Deno.serve(async (req) => {
       instanceName,
       hasToken: !!instanceToken,
       hasQr: !!qrBase64,
+      hasPairingCode: !!pairingCode,
       state: evoState,
       isConnected,
       isReconnection: !!existing,
@@ -310,6 +332,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       qrCode: qrBase64,
+      pairingCode,
       connected: isConnected,
       status: instanceStatus,
       instanceCreated: !instanceExists,
