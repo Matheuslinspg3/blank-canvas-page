@@ -53,7 +53,7 @@ export function useWhatsAppChat() {
         return p.slice(-8);
       }).filter(Boolean);
     },
-    enabled: !!user?.id && !!orgId && !isAdminOrAbove,
+    enabled: !!user?.id && !!orgId && !rolesLoading && !isAdminOrAbove,
     staleTime: 30000,
   });
 
