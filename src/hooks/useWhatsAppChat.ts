@@ -80,7 +80,7 @@ export function useWhatsAppChat() {
     const map = new Map<string, ChatConversation>();
     for (const msg of allMessages) {
       // Filter for brokers: only show conversations matching their leads
-      if (!isAdminOrAbove && brokerPhones) {
+      if (!rolesLoading && !isAdminOrAbove && brokerPhones) {
         const jidPhone = msg.remote_jid.replace("@s.whatsapp.net", "").replace("@c.us", "");
         const last8 = jidPhone.slice(-8);
         if (!brokerPhones.includes(last8)) continue;
