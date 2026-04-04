@@ -1,9 +1,9 @@
 import React, { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { 
-  Users, 
-  DollarSign, 
-  Calendar, 
+import {
+  Users,
+  DollarSign,
+  Calendar,
   LayoutDashboard,
   LogOut,
   Settings,
@@ -45,8 +45,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-// ── Sidebar Items ────────────────────────────────────────────
-
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Imóveis", url: "/imoveis", icon: Home },
@@ -59,30 +57,23 @@ const mainItems = [
   { title: "Marketing", url: "/marketing", icon: Megaphone, badge: true },
 ];
 
-// ── Component ────────────────────────────────────────────────
-
 export function AppSidebar() {
   const { state, setOpenMobile, isMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { signOut, user, profile, organizationType } = useAuth();
-  const { isDeveloperOrLeader, isDeveloper, isAdminOrAbove } = useUserRoles();
+  const { isDeveloper, isAdminOrAbove } = useUserRoles();
   const currentPath = location.pathname;
   const { data: newAdLeadsCount = 0 } = useAdLeadsCount();
   const setupPending = useSetupPendingCount();
   const qc = useQueryClient();
 
-  // PERF: Warm query cache on hover so data is ready when user navigates.
-  // We only call prefetchQuery when the query is already in the cache (i.e. has a
-  // queryFn registered from a previous mount). This avoids "Missing queryFn" errors
-  // that happen when prefetchQuery is called without a queryFn for a cache-cold key.
   const prefetchRoute = useCallback((url: string) => {
     const orgId = profile?.organization_id;
     if (!orgId) return;
 
     const safePrefetch = (...keys: unknown[][]) => {
       keys.forEach((queryKey) => {
-        // Only prefetch if the query already exists in cache (has a queryFn)
         const existing = qc.getQueryState(queryKey);
         if (existing) {
           qc.prefetchQuery({ queryKey, staleTime: 60_000 });
@@ -90,40 +81,43 @@ export function AppSidebar() {
       });
     };
 
-    if (url === '/imoveis') {
-      safePrefetch(['properties', orgId]);
-    } else if (url === '/crm') {
-      safePrefetch(['leads', orgId]);
-    } else if (url === '/financeiro') {
-      safePrefetch(['transactions', orgId]);
-    } else if (url === '/agenda') {
-      safePrefetch(['appointments', orgId]);
-    } else if (url === '/dashboard') {
-      safePrefetch(['dashboard-stats', orgId], ['dashboard-pipeline', orgId]);
-    } else if (url === '/marketplace') {
-      safePrefetch(['marketplace-properties', {}, 0]);
-    } else if (url === '/marketing') {
-      safePrefetch(['ad-entities', orgId]);
+    if (url === "/imoveis") {
+      safePrefetch(["properties", orgId]);
+    } else if (url === "/crm") {
+      safePrefetch(["leads", orgId]);
+    } else if (url === "/financeiro") {
+      safePrefetch(["transactions", orgId]);
+    } else if (url === "/agenda") {
+      safePrefetch(["appointments", orgId]);
+    } else if (url === "/dashboard") {
+      safePrefetch(["dashboard-stats", orgId], ["dashboard-pipeline", orgId]);
+    } else if (url === "/marketplace") {
+      safePrefetch(["marketplace-properties", {}, 0]);
+    } else if (url === "/marketing") {
+      safePrefetch(["ad-entities", orgId]);
     }
   }, [qc, profile?.organization_id]);
 
   const [orgName, setOrgName] = React.useState<string>("");
+
   React.useEffect(() => {
     if (!profile?.organization_id) return;
+
     const load = async () => {
       const { data } = await (await import("@/integrations/supabase/client")).supabase
         .from("organizations")
         .select("name")
         .eq("id", profile.organization_id!)
         .maybeSingle();
+
       if (data?.name) setOrgName(data.name);
     };
+
     load();
   }, [profile?.organization_id]);
 
   const isActive = (path: string) => currentPath.startsWith(path);
 
-  // Auto-close sidebar on mobile when route changes
   const prevPath = React.useRef(currentPath);
   React.useEffect(() => {
     if (isMobile && currentPath !== prevPath.current) {
@@ -132,19 +126,26 @@ export function AppSidebar() {
     prevPath.current = currentPath;
   }, [currentPath, isMobile, setOpenMobile]);
 
-  const renderMenuItem = (item: { title: string; url: string; icon: React.ElementType; badge?: boolean; badgeCount?: number }) => {
+  const renderMenuItem = (item: {
+    title: string;
+    url: string;
+    icon: React.ElementType;
+    badge?: boolean;
+    badgeCount?: number;
+  }) => {
     const active = isActive(item.url);
     const count = item.badgeCount ?? (item.badge ? newAdLeadsCount : 0);
+
     return (
       <SidebarMenuItem key={item.title}>
-        <SidebarMenuButton 
-          asChild 
+        <SidebarMenuButton
+          asChild
           isActive={active}
           tooltip={item.title}
           className={active ? "bg-sidebar-accent border-l-2 border-primary" : ""}
         >
-          <NavLink 
-            to={item.url} 
+          <NavLink
+            to={item.url}
             className="flex items-center gap-3"
             activeClassName="text-primary font-medium"
             onMouseEnter={() => prefetchRoute(item.url)}
@@ -173,13 +174,16 @@ export function AppSidebar() {
             <HabitaeLogo variant="horizontal" size="md" />
           )}
         </a>
+
         {!collapsed && (
           <Button
             variant="outline"
             size="sm"
             className="w-full justify-start gap-2 text-muted-foreground font-normal h-9"
             onClick={() => {
-              window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }));
+              window.dispatchEvent(
+                new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true })
+              );
             }}
           >
             <Search className="h-3.5 w-3.5" />
@@ -190,7 +194,6 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {/* ── Menu Principal ── */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-muted-foreground/70 uppercase text-xs tracking-wider">
             Menu
@@ -198,12 +201,11 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {mainItems.map(renderMenuItem)}
-              {isDeveloperOrLeader && renderMenuItem({ title: "Automações", url: "/automacoes", icon: Zap })}
+              {isAdminOrAbove && renderMenuItem({ title: "Automações", url: "/automacoes", icon: Zap })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* ── Gestão (admin+) ── */}
         {isAdminOrAbove && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-muted-foreground/70 uppercase text-xs tracking-wider">
@@ -218,7 +220,6 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        {/* ── Sistema ── */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-muted-foreground/70 uppercase text-xs tracking-wider">
             Sistema
@@ -231,7 +232,6 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* ── Developer ── */}
         {isDeveloper && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-muted-foreground/70 uppercase text-xs tracking-wider">
@@ -253,14 +253,14 @@ export function AppSidebar() {
               {user.user_metadata?.full_name || user.email}
             </p>
             <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-             {organizationType && (
+            {organizationType && (
               <PillBadge
                 size="sm"
-                variant={organizationType === 'imobiliaria' ? 'warning' : 'muted'}
-                icon={organizationType === 'imobiliaria' ? <Building2 className="h-3 w-3" /> : <User className="h-3 w-3" />}
+                variant={organizationType === "imobiliaria" ? "warning" : "muted"}
+                icon={organizationType === "imobiliaria" ? <Building2 className="h-3 w-3" /> : <User className="h-3 w-3" />}
                 className="mt-2"
               >
-                {organizationType === 'imobiliaria' ? 'Imobiliária' : 'Corretor Individual'}
+                {organizationType === "imobiliaria" ? "Imobiliária" : "Corretor Individual"}
               </PillBadge>
             )}
             {orgName && (
@@ -268,20 +268,22 @@ export function AppSidebar() {
             )}
           </div>
         )}
+
         {collapsed && organizationType && (
           <div className="flex justify-center mb-2">
-            {organizationType === 'imobiliaria' ? (
+            {organizationType === "imobiliaria" ? (
               <Building2 className="h-4 w-4 text-accent" />
             ) : (
               <User className="h-4 w-4 text-muted-foreground" />
             )}
           </div>
         )}
+
         <div className="flex items-center gap-2">
           <NotificationBell />
           <ThemeToggle />
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             className="flex-1 justify-start gap-3 text-muted-foreground hover:text-destructive"
             onClick={signOut}
             aria-label="Sair da conta"
