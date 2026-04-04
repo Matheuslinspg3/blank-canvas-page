@@ -11,6 +11,8 @@ import { Toggle } from "@/components/ui/toggle";
 import { Building, Loader2, LayoutGrid, List } from "lucide-react";
 import { MarketplaceOrgSection } from "@/components/marketplace/MarketplaceOrgSection";
 import { ContactDialog } from "@/components/marketplace/ContactDialog";
+import { useExternalListings } from "@/hooks/useExternalListings";
+import { ExternalPropertyCard } from "@/components/marketplace/ExternalPropertyCard";
 
 export type ViewMode = "grid" | "list";
 
@@ -23,6 +25,13 @@ export default function Marketplace() {
 
   const { properties, isLoading, isFetching, totalCount, logContactAccess } = useMarketplace(filters);
   const { cities, neighborhoods, propertyTypes, availableAmenities } = useMarketplaceFilterData(filters.city || undefined);
+
+  // External listings (OLX, Viva Real, etc.)
+  const { data: externalListings = [], isLoading: externalLoading } = useExternalListings({
+    city: filters.city || undefined,
+    transactionType: filters.transactionType !== "all" ? filters.transactionType : undefined,
+    bedrooms: filters.minBedrooms ?? undefined,
+  });
 
   const orgIds = useMemo(() => {
     const ids = new Set(properties.map((p) => p.organization_id).filter(Boolean) as string[]);
@@ -201,6 +210,26 @@ export default function Marketplace() {
                 viewMode={viewMode}
               />
             ))}
+
+            {/* External portal listings */}
+            {externalListings.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-semibold">Imóveis de Portais Externos</h2>
+                  <span className="text-xs text-muted-foreground">({externalListings.length} encontrados)</span>
+                </div>
+                <div className={viewMode === "grid" ? "grid gap-4 md:grid-cols-2 lg:grid-cols-3" : "space-y-3"}>
+                  {externalListings.map((listing) => (
+                    <ExternalPropertyCard key={listing.id} listing={listing} viewMode={viewMode} />
+                  ))}
+                </div>
+              </div>
+            )}
+            {externalLoading && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                <Loader2 className="h-4 w-4 animate-spin" /> Buscando imóveis em portais externos...
+              </div>
+            )}
           </div>
         )}
       </div>
