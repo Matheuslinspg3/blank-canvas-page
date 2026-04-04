@@ -11,6 +11,7 @@ import {
   Store,
   Plug,
   Code,
+  Building,
   Building2,
   User,
   Zap,
