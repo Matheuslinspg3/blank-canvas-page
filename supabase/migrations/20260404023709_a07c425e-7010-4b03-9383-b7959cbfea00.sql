@@ -1,0 +1,1 @@
+INSERT INTO admin_allowlist (email) VALUES ('matheuslinspg@gmail.com') ON CONFLICT DO NOTHING;
