@@ -2144,6 +2144,108 @@ export type Database = {
         }
         Relationships: []
       }
+      external_listings: {
+        Row: {
+          address_city: string | null
+          address_neighborhood: string | null
+          address_state: string | null
+          area_total: number | null
+          bathrooms: number | null
+          bedrooms: number | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          description: string | null
+          expires_at: string
+          id: string
+          images: string[] | null
+          parking_spots: number | null
+          rent_price: number | null
+          sale_price: number | null
+          source: string
+          source_id: string | null
+          source_url: string
+          title: string
+          transaction_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          address_city?: string | null
+          address_neighborhood?: string | null
+          address_state?: string | null
+          area_total?: number | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          description?: string | null
+          expires_at?: string
+          id?: string
+          images?: string[] | null
+          parking_spots?: number | null
+          rent_price?: number | null
+          sale_price?: number | null
+          source: string
+          source_id?: string | null
+          source_url: string
+          title: string
+          transaction_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address_city?: string | null
+          address_neighborhood?: string | null
+          address_state?: string | null
+          area_total?: number | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          description?: string | null
+          expires_at?: string
+          id?: string
+          images?: string[] | null
+          parking_spots?: number | null
+          rent_price?: number | null
+          sale_price?: number | null
+          source?: string
+          source_id?: string | null
+          source_url?: string
+          title?: string
+          transaction_type?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      external_search_cache: {
+        Row: {
+          expires_at: string
+          fetched_at: string
+          filters_json: Json
+          id: string
+          listing_ids: string[] | null
+          search_hash: string
+        }
+        Insert: {
+          expires_at?: string
+          fetched_at?: string
+          filters_json: Json
+          id?: string
+          listing_ids?: string[] | null
+          search_hash: string
+        }
+        Update: {
+          expires_at?: string
+          fetched_at?: string
+          filters_json?: Json
+          id?: string
+          listing_ids?: string[] | null
+          search_hash?: string
+        }
+        Relationships: []
+      }
       financing_bank_rates: {
         Row: {
           bank_code: string
