@@ -34,9 +34,9 @@ export function WhatsAppChatPanel() {
     isLoading,
   } = useWhatsAppChat();
 
-  const { isAdmin, isSubAdmin, isDeveloper } = useUserRoles();
+  const { isAdmin, isSubAdmin, isDeveloper, isLoading: rolesLoading } = useUserRoles();
   const { profile } = useAuth();
-  const canSeeCosts = isAdmin || isSubAdmin || isDeveloper;
+  const canSeeCosts = rolesLoading ? false : (isAdmin || isSubAdmin || isDeveloper);
   const orgId = profile?.organization_id;
 
   const [draft, setDraft] = useState("");
