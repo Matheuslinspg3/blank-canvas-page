@@ -54,7 +54,46 @@ serve(async (req) => {
       });
     }
 
-    const body = await req.json();
+    let body: Record<string, unknown>;
+    try {
+      const raw = await req.text();
+      if (!raw || !raw.trim()) {
+        return new Response(
+          JSON.stringify({ error: "Empty request body" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      // Clean potential LLM artifacts
+      let cleaned = raw.trim()
+        .replace(/```json\s*/gi, "")
+        .replace(/```\s*/g, "");
+      const jsonStart = cleaned.search(/\{/);
+      const jsonEnd = cleaned.lastIndexOf("}");
+      if (jsonStart === -1 || jsonEnd === -1) {
+        return new Response(
+          JSON.stringify({ error: "No valid JSON object found in body" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+      try {
+        body = JSON.parse(cleaned);
+      } catch {
+        // Fix trailing commas and control chars
+        cleaned = cleaned
+          .replace(/,\s*}/g, "}")
+          .replace(/,\s*]/g, "]")
+          .replace(/[\x00-\x1F\x7F]/g, "");
+        body = JSON.parse(cleaned);
+      }
+    } catch (parseErr: any) {
+      console.error("JSON parse error:", parseErr.message);
+      return new Response(
+        JSON.stringify({ error: "Invalid JSON body", detail: parseErr.message }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const {
       instance_name,
       name,
@@ -66,7 +105,7 @@ serve(async (req) => {
       interested_property_type,
       preferred_neighborhoods,
       transaction_interest,
-    } = body;
+    } = body as any;
 
     if (!instance_name && !jwtOrgId) {
       return new Response(
