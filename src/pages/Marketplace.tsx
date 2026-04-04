@@ -11,6 +11,8 @@ import { Toggle } from "@/components/ui/toggle";
 import { Building, Loader2, LayoutGrid, List } from "lucide-react";
 import { MarketplaceOrgSection } from "@/components/marketplace/MarketplaceOrgSection";
 import { ContactDialog } from "@/components/marketplace/ContactDialog";
+import { useExternalListings } from "@/hooks/useExternalListings";
+import { ExternalPropertyCard } from "@/components/marketplace/ExternalPropertyCard";
 
 export type ViewMode = "grid" | "list";
 
