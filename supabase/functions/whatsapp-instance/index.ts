@@ -140,8 +140,11 @@ serve(async (req) => {
         });
       }
 
-      let newStatus = "disconnected";
+      const persistedStatus = normalizePersistedStatus(config.status);
+      let newStatus = persistedStatus;
       let phone = config.phone_number || null;
+      let n8nStatus: "connected" | "connecting" | "disconnected" | "unknown" = "unknown";
+      let evoStatus: "connected" | "connecting" | "disconnected" | "unknown" = "unknown";
 
       try {
         const verificaRes = await fetch(N8N_VERIFICA, {
@@ -151,50 +154,87 @@ serve(async (req) => {
         });
 
         const verificaRaw = await verificaRes.text();
-        console.log("N8N VERIFICA response:", verificaRes.status, verificaRaw.substring(0, 300));
-
+        const verificaData = parseJsonSafely(verificaRaw);
         if (verificaRes.ok) {
-          const statusText = asLowerText(verificaRaw);
-          if (/open|connected|online|ready/.test(statusText) && !/disconnected|closed/.test(statusText)) {
-            newStatus = "connected";
-          }
+          n8nStatus = classifyConnectionStatus(
+            verificaRaw,
+            verificaData ? JSON.stringify(verificaData) : "",
+            verificaData?.status,
+            verificaData?.state,
+            verificaData?.connectionStatus,
+            verificaData?.instance?.state,
+          );
+          phone = extractPhoneNumber(verificaData) ?? phone;
         }
-      } catch (e) {
-        console.warn("N8N VERIFICA failed, trying Evolution API:", e);
 
-        if (config.instance_token) {
-          try {
-            const evoRes = await fetch(`${baseUrl}/instance/connectionState/${config.instance_name}`, {
-              method: "GET",
-              headers: { apikey: EVOLUTION_API_KEY },
-            });
-            const evoData = await evoRes.json().catch(() => ({}));
-            const evoStatus = asLowerText(evoData?.state ?? evoData?.instance?.state ?? "");
-            if (/open|connected/.test(evoStatus)) {
-              newStatus = "connected";
-            }
-            phone = evoData?.phone || evoData?.data?.phone || phone;
-          } catch { /* ignore */ }
+        console.log("N8N VERIFICA response:", JSON.stringify({
+          status: verificaRes.status,
+          interpretedStatus: n8nStatus,
+          raw: verificaRaw.substring(0, 300),
+        }));
+      } catch (e) {
+        console.warn("N8N VERIFICA failed:", e);
+      }
+
+      try {
+        const evoRes = await fetch(`${baseUrl}/instance/connectionState/${config.instance_name}`, {
+          method: "GET",
+          headers: { apikey: EVOLUTION_API_KEY },
+        });
+        const evoRaw = await evoRes.text();
+        const evoData = parseJsonSafely(evoRaw);
+
+        if (evoRes.ok) {
+          evoStatus = classifyConnectionStatus(
+            evoRaw,
+            evoData ? JSON.stringify(evoData) : "",
+            evoData?.state,
+            evoData?.instance?.state,
+            evoData?.connectionStatus,
+          );
+          phone = extractPhoneNumber(evoData) ?? phone;
         }
+
+        console.log("Evolution connectionState response:", JSON.stringify({
+          status: evoRes.status,
+          interpretedStatus: evoStatus,
+          raw: evoRaw.substring(0, 300),
+        }));
+      } catch (e) {
+        console.warn("Evolution connectionState failed:", e);
+      }
+
+      const providerStatus = evoStatus !== "unknown" ? evoStatus : n8nStatus;
+      if (providerStatus === "connected") {
+        newStatus = "connected";
+      } else if (providerStatus === "connecting") {
+        newStatus = "connecting";
+      } else if (providerStatus === "disconnected") {
+        newStatus = "disconnected";
       }
 
       const updatePayload: Record<string, any> = { status: newStatus };
-      if (newStatus === "connected") {
+      if (newStatus === "connected" || newStatus === "disconnected") {
         updatePayload.qr_code = null;
-        if (phone) updatePayload.phone_number = phone;
       }
+      if (phone) updatePayload.phone_number = phone;
 
       await supabaseClient
         .from("whatsapp_agent_config")
         .update(updatePayload)
         .eq("id", config.id);
 
-      await auditLog(supabaseClient, orgId, "status_check", user.id, { newStatus });
+      await auditLog(supabaseClient, orgId, "status_check", user.id, {
+        newStatus,
+        persistedStatus,
+        n8nStatus,
+        evoStatus,
+      });
 
       return new Response(JSON.stringify({
         status: newStatus,
-        phone: phone,
-        qr_code: newStatus === "connected" ? null : config.qr_code ?? null,
+        phone,
+        qr_code: newStatus === "connected" || newStatus === "disconnected" ? null : config.qr_code ?? null,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

@@ -111,7 +111,6 @@ export function WhatsAppIntegrationCard() {
           isActiveRef.current = false;
           toast.success("WhatsApp conectado com sucesso!");
           queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
-          checkStatus().catch(() => {});
         }
       } catch { /* silent */ }
     }, STATUS_POLL_INTERVAL);
