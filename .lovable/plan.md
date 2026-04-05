@@ -1,55 +1,32 @@
 
 
-## Plano: Conexão WhatsApp via Pairing Code
+# Plano: Corrigir exibição de External Listings no Marketplace
 
-### Resumo
-Adicionar uma segunda opção de conexão — por código de pareamento (8 dígitos) — como alternativa ao QR Code. O usuário digita o número de telefone com DDI, a Evolution API retorna um `pairingCode`, e ele insere esse código no WhatsApp do celular.
+## Problemas identificados
 
-### 1. Edge Function `whatsapp-activate-webhook`
+**Problema 1 — External listings ficam escondidos quando não há imóveis internos**
+Na linha 201 do `Marketplace.tsx`, a seção de external listings (linha 214-227) está **dentro** do bloco `properties.length > 0`. Se nenhum imóvel interno do marketplace corresponder aos filtros, o bloco inteiro não renderiza — incluindo os externos.
 
-**Alteração**: Aceitar parâmetro opcional `phone_number` no body da requisição.
+**Problema 2 — Padrão assíncrono sem re-fetch**
+O fluxo é assíncrono: a Edge Function retorna imediatamente os listings existentes no banco (provavelmente vazio na primeira busca), e o n8n faz o scraping e chama o callback depois. Mas o hook tem `staleTime: 5min` e `refetchOnWindowFocus: false`, então o frontend nunca re-busca para ver os dados inseridos pelo callback.
 
-- Se `phone_number` presente: chamar `POST /instance/connect/{instanceName}` com body `{ "number": "5511..." }` — a Evolution API retorna `pairingCode` em vez de QR base64.
-- Se `phone_number` ausente: manter fluxo atual (QR Code via GET).
-- Retornar campo `pairingCode` na resposta quando aplicável.
-- Salvar `phone_number` na tabela `whatsapp_agent_config`.
+## Solução
 
-### 2. Frontend `WhatsAppIntegrationCard.tsx`
+### Etapa 1 — Reestruturar layout do Marketplace.tsx
+Mover a seção de external listings para **fora** do bloco condicional `properties.length > 0`, garantindo que apareçam independentemente de haver imóveis internos.
 
-**Adicionar toggle entre dois modos de conexão**:
+### Etapa 2 — Adicionar refetch automático no hook
+Alterar `useExternalListings` para usar `refetchInterval` quando a primeira resposta vier com `n8n_triggered: true` (indicando que o scraping está em andamento). Isso fará o frontend re-buscar a cada ~10 segundos até os dados aparecerem.
 
-- **Modo QR Code** (atual, padrão): Escaneie o QR com o celular.
-- **Modo Código de Pareamento**: Campo de input para telefone (com máscara `+55 (XX) XXXXX-XXXX`), botão "Gerar Código", exibição do código de 8 dígitos em formato OTP (usando `InputOTP` já existente no projeto) com instruções de como inserir no WhatsApp.
+Mudanças no hook:
+- Armazenar `n8n_triggered` da resposta
+- Usar `refetchInterval: 10000` quando n8n foi triggado e listings ainda estão vazios
+- Parar o polling quando listings chegarem ou após 60 segundos
 
-**UI flow**:
-1. Tabs ou botões "QR Code" / "Código de Pareamento" no card de conexão.
-2. No modo pareamento: input de telefone → clica "Gerar Código" → chama Edge Function com `phone_number` → exibe o código de 8 dígitos → polling de status idêntico ao fluxo QR.
-3. Instruções: "Abra WhatsApp > Dispositivos Conectados > Conectar Dispositivo > Conectar com número de telefone > Insira o código abaixo".
+### Etapa 3 — Exibir loading de portais externos mesmo sem imóveis internos
+Mover o indicador `externalLoading` / spinner para fora do bloco condicional também.
 
-### 3. Arquivos a editar
-
-| Arquivo | Mudança |
-|---|---|
-| `supabase/functions/whatsapp-activate-webhook/index.ts` | Aceitar `phone_number`, usar POST com body `{ number }` para obter `pairingCode` |
-| `src/components/integrations/WhatsAppIntegrationCard.tsx` | Adicionar toggle QR/Pairing, input de telefone, exibição do código OTP |
-
-### Detalhes técnicos
-
-**Evolution API — Pairing Code endpoint**:
-```
-POST /instance/connect/{instanceName}
-Body: { "number": "5511999999999" }
-Response: { "pairingCode": "ABCD-EFGH", "code": "...", "count": 1 }
-```
-
-**Resposta da Edge Function** (campo adicional):
-```json
-{
-  "success": true,
-  "pairingCode": "ABCD-EFGH",
-  "qrCode": null,
-  "connected": false,
-  "status": "connecting"
-}
-```
+## Arquivos alterados
+- `src/pages/Marketplace.tsx` — reestruturar layout
+- `src/hooks/useExternalListings.ts` — adicionar polling inteligente
 
