@@ -345,7 +345,7 @@ export function MarketplaceFilters({
           </div>
 
           <div className="p-4 border-t bg-muted/30">
-            <Button className="w-full" onClick={() => setIsOpen(false)}>
+            <Button className="w-full" onClick={() => { onApplyFilters?.(); setIsOpen(false); }}>
               Aplicar Filtros
             </Button>
           </div>
