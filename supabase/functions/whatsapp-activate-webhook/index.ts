@@ -120,25 +120,38 @@ Deno.serve(async (req) => {
       await sb.from("whatsapp_agent_config").update({ status: "connecting" }).eq("id", existing.id);
 
       try {
-        const connectRes = await fetch(`${baseUrl}/instance/connect/${existing.instance_name}`, {
-          method: "GET",
-          headers: { apikey: EVOLUTION_API_KEY },
-        });
+        let connectRes: Response;
+        if (phoneNumber) {
+          const cleanPhone = phoneNumber.replace(/\D/g, "");
+          connectRes = await fetch(`${baseUrl}/instance/connect/${existing.instance_name}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
+            body: JSON.stringify({ number: cleanPhone }),
+          });
+        } else {
+          connectRes = await fetch(`${baseUrl}/instance/connect/${existing.instance_name}`, {
+            method: "GET",
+            headers: { apikey: EVOLUTION_API_KEY },
+          });
+        }
         const connectData = await connectRes.json().catch(() => ({}));
         console.log("Reconnect response:", connectRes.status, JSON.stringify(connectData).substring(0, 500));
 
+        const pairingCode = connectData?.pairingCode ?? connectData?.data?.pairingCode ?? null;
         const qrBase64 = connectData?.base64 ?? connectData?.data?.base64 ?? null;
-        if (qrBase64) {
-          await sb.from("whatsapp_agent_config").update({
-            qr_code: qrBase64,
-            status: "connecting",
-          }).eq("id", existing.id);
 
-          await auditLog(sb, orgId, "reconnect_evo", user.id, { hasQr: true });
+        if (pairingCode || qrBase64) {
+          const updatePayload: Record<string, any> = { status: "connecting" };
+          if (qrBase64) updatePayload.qr_code = qrBase64;
+          if (phoneNumber) updatePayload.phone_number = phoneNumber.replace(/\D/g, "");
+          await sb.from("whatsapp_agent_config").update(updatePayload).eq("id", existing.id);
+
+          await auditLog(sb, orgId, "reconnect_evo", user.id, { hasQr: !!qrBase64, hasPairingCode: !!pairingCode });
 
           return new Response(JSON.stringify({
             success: true,
             qrCode: qrBase64,
+            pairingCode,
             connected: false,
             status: "connecting",
             instanceCreated: false,
