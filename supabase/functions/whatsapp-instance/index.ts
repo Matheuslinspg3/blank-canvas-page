@@ -6,7 +6,58 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const asLowerText = (value: unknown) => String(value ?? "").toLowerCase();
+const asLowerText = (value: unknown) => String(value ?? "").trim().toLowerCase();
+
+const parseJsonSafely = (value: string) => {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+};
+
+const normalizePersistedStatus = (
+  value: unknown,
+): "connected" | "connecting" | "provisioning" | "disconnected" => {
+  const text = asLowerText(value);
+  if (text === "connected") return "connected";
+  if (text === "connecting") return "connecting";
+  if (text === "provisioning") return "provisioning";
+  return "disconnected";
+};
+
+const classifyConnectionStatus = (
+  ...values: unknown[]
+): "connected" | "connecting" | "disconnected" | "unknown" => {
+  const text = values.map((value) => asLowerText(value)).filter(Boolean).join(" ");
+  if (!text) return "unknown";
+  if (/(^|[^a-z])(open|connected|online|ready)([^a-z]|$)/.test(text)) return "connected";
+  if (/(connecting|pairing|pair|qr|qrcode|scan|await|starting|sync|opening)/.test(text)) return "connecting";
+  if (/(disconnected|close|closed|logout|logged.?out|offline|removed|delete)/.test(text)) return "disconnected";
+  return "unknown";
+};
+
+const extractPhoneNumber = (payload: any): string | null => {
+  const candidates = [
+    payload?.phone,
+    payload?.number,
+    payload?.phoneNumber,
+    payload?.instance?.phone,
+    payload?.instance?.number,
+    payload?.instance?.phoneNumber,
+    payload?.data?.phone,
+    payload?.data?.number,
+    payload?.data?.phoneNumber,
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate == null) continue;
+    const digits = String(candidate).replace(/\D/g, "");
+    if (digits.length >= 10) return digits;
+  }
+
+  return null;
+};
 
 const auditLog = async (
   sb: any,
