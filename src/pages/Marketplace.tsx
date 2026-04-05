@@ -114,6 +114,7 @@ export default function Marketplace() {
           filters={filters}
           onUpdateFilter={updateFilter}
           onClearFilters={clearFilters}
+          onApplyFilters={handleApplyFilters}
           activeFilterCount={activeFilterCount}
           cities={cities}
           neighborhoods={neighborhoods}
