@@ -162,7 +162,16 @@ export function WhatsAppIntegrationCard() {
 
   // Unified activation handler
   const handleActivate = async (phoneNumber?: string) => {
+    const isPairingRequest = Boolean(phoneNumber);
     setIsActivating(true);
+
+    if (isPairingRequest) {
+      setQrCode(null);
+      stopRefresh();
+    } else {
+      setPairingCode(null);
+    }
+
     try {
       const body: Record<string, any> = {};
       if (phoneNumber) {
@@ -194,6 +203,12 @@ export function WhatsAppIntegrationCard() {
         setPairingCode(code);
         setQrCode(null);
         toast.success("Código de pareamento gerado! Insira no WhatsApp.");
+        return;
+      }
+
+      if (isPairingRequest) {
+        setQrCode(null);
+        toast.info("Solicitação enviada. Aguarde alguns segundos e toque em Gerar novamente se o código ainda não aparecer.");
         return;
       }
 
@@ -235,12 +250,14 @@ export function WhatsAppIntegrationCard() {
         handleConnected();
         return;
       }
-      if (result?.qr_code) {
+      if (result?.qr_code && connectionMode !== "pairing") {
         setQrCode(result.qr_code);
         startStatusPolling();
         return;
       }
-      toast.info("Ainda sem QR Code disponível. Aguarde.");
+      toast.info(connectionMode === "pairing"
+        ? "Ainda aguardando a conexão pelo código de pareamento."
+        : "Ainda sem QR Code disponível. Aguarde.");
     } catch { /* toast shown by hook */ }
   };
 
@@ -251,7 +268,9 @@ export function WhatsAppIntegrationCard() {
     return `data:image/png;base64,${t}`;
   };
 
-  const displayedQr = normalizeQrSrc(qrCode || instance?.qr_code || null);
+  const displayedQr = connectionMode === "pairing"
+    ? null
+    : normalizeQrSrc(qrCode || instance?.qr_code || null);
 
   const statusBadge = () => {
     if (!instance) return null;
@@ -266,7 +285,7 @@ export function WhatsAppIntegrationCard() {
     }
   };
 
-  const isDisconnected = instance && instance.status !== "connected" && instance.status !== "connecting" && instance.status !== "provisioning";
+  const shouldShowConnectionOptions = !!instance && !displayedQr && !pairingCode && instance.status !== "connected";
 
   const formatPhone = (value: string) => {
     const digits = value.replace(/\D/g, "");
@@ -435,7 +454,7 @@ export function WhatsAppIntegrationCard() {
             {/* Actions */}
             <div className="flex flex-wrap gap-2">
               {/* Reconnect — shown when disconnected */}
-              {isDisconnected && !pairingCode && !displayedQr && renderConnectionOptions()}
+              {shouldShowConnectionOptions && renderConnectionOptions()}
 
               {instance?.status === "connected" && (
                 <Button variant="outline" size="sm" onClick={() => disconnectInstance()} disabled={isDisconnecting}>
