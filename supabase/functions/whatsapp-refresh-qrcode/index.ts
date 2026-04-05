@@ -73,11 +73,19 @@ Deno.serve(async (req) => {
 
     const qrBase64 =
       connectData?.base64 ??
+      connectData?.data?.base64 ??
       connectData?.qrcode?.base64 ??
-      connectData?.code ??
+      connectData?.data?.qrcode?.base64 ??
       null;
 
-    const pairingCode = connectData?.pairingCode ?? connectData?.qrcode?.pairingCode ?? null;
+    const pairingCode =
+      connectData?.pairingCode ??
+      connectData?.data?.pairingCode ??
+      connectData?.qrcode?.pairingCode ??
+      connectData?.data?.qrcode?.pairingCode ??
+      connectData?.code ??
+      connectData?.data?.code ??
+      null;
 
     const state = String(connectData?.state ?? connectData?.instance?.state ?? "").toLowerCase();
     if (state === "open" || state === "connected") {
