@@ -75,6 +75,7 @@ export default function Marketplace() {
       city: filters.city || undefined,
       transactionType: filters.transactionType !== "all" ? filters.transactionType : undefined,
       bedrooms: filters.minBedrooms ?? undefined,
+      appliedAt: Date.now(),
     });
   }, [filters.city, filters.transactionType, filters.minBedrooms]);
 
