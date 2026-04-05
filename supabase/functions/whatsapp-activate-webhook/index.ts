@@ -87,33 +87,78 @@ const connectEvolutionInstance = async (
   retries = 0,
 ) => {
   let attempt = 0;
+  const cleanPhone = phoneNumber?.replace(/\D/g, "") ?? null;
 
   while (true) {
-    let connectRes: Response;
+    const requestVariants = cleanPhone
+      ? [
+          {
+            label: "get_query_number",
+            request: () => fetch(`${baseUrl}/instance/connect/${instanceName}?number=${encodeURIComponent(cleanPhone)}`, {
+              method: "GET",
+              headers: { apikey: apiKey },
+            }),
+          },
+          {
+            label: "post_body_number",
+            request: () => fetch(`${baseUrl}/instance/connect/${instanceName}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", apikey: apiKey },
+              body: JSON.stringify({ number: cleanPhone }),
+            }),
+          },
+          {
+            label: "post_request_code",
+            request: () => fetch(`${baseUrl}/instance/${instanceName}/requestCode`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", apikey: apiKey },
+              body: JSON.stringify({ phone: cleanPhone, number: cleanPhone }),
+            }),
+          },
+        ]
+      : [
+          {
+            label: "get_qr",
+            request: () => fetch(`${baseUrl}/instance/connect/${instanceName}`, {
+              method: "GET",
+              headers: { apikey: apiKey },
+            }),
+          },
+        ];
 
-    if (phoneNumber) {
-      const cleanPhone = phoneNumber.replace(/\D/g, "");
-      connectRes = await fetch(`${baseUrl}/instance/connect/${instanceName}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", apikey: apiKey },
-        body: JSON.stringify({ number: cleanPhone }),
-      });
-    } else {
-      connectRes = await fetch(`${baseUrl}/instance/connect/${instanceName}`, {
-        method: "GET",
-        headers: { apikey: apiKey },
-      });
+    let bestResult: any = null;
+
+    for (const variant of requestVariants) {
+      const connectRes = await variant.request();
+      const connectRaw = await connectRes.text();
+      const connectData = parseJsonSafely(connectRaw);
+      const pairingCode = cleanPhone ? extractPairingCode(connectData) : null;
+      const qrBase64 = extractQrBase64(connectData);
+      const evoState = String(connectData?.instance?.state ?? connectData?.state ?? "").toLowerCase();
+      const isConnected = evoState === "open" || evoState === "connected";
+
+      bestResult = {
+        method: variant.label,
+        status: connectRes.status,
+        connectRaw,
+        connectData,
+        pairingCode,
+        qrBase64,
+        evoState,
+        isConnected,
+      };
+
+      if (cleanPhone) {
+        if (isConnected || pairingCode) {
+          return bestResult;
+        }
+      } else if (isConnected || qrBase64) {
+        return bestResult;
+      }
     }
 
-    const connectRaw = await connectRes.text();
-    const connectData = parseJsonSafely(connectRaw);
-    const pairingCode = phoneNumber ? extractPairingCode(connectData) : null;
-    const qrBase64 = extractQrBase64(connectData);
-    const evoState = String(connectData?.instance?.state ?? connectData?.state ?? "").toLowerCase();
-    const isConnected = evoState === "open" || evoState === "connected";
-
-    if (isConnected || pairingCode || qrBase64 || attempt >= retries) {
-      return { connectRaw, connectData, pairingCode, qrBase64, evoState, isConnected };
+    if (attempt >= retries) {
+      return bestResult;
     }
 
     attempt += 1;
@@ -223,6 +268,8 @@ Deno.serve(async (req) => {
         );
 
         console.log("Reconnect response:", JSON.stringify({
+          method: connectResult.method,
+          status: connectResult.status,
           state: connectResult.evoState,
           hasQr: !!connectResult.qrBase64,
           hasPairingCode: !!connectResult.pairingCode,
@@ -387,6 +434,8 @@ Deno.serve(async (req) => {
     );
 
     console.log("Evolution connect response:", JSON.stringify({
+      method: connectResult.method,
+      status: connectResult.status,
       state: connectResult.evoState,
       hasQr: !!connectResult.qrBase64,
       hasPairingCode: !!connectResult.pairingCode,
