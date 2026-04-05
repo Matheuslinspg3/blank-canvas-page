@@ -27,13 +27,14 @@ interface ExternalFilters {
   city?: string;
   transactionType?: string;
   bedrooms?: number;
+  appliedAt?: number;
 }
 
 export function useExternalListings(filters: ExternalFilters) {
   const [n8nTriggered, setN8nTriggered] = useState(false);
   const [pollingStart, setPollingStart] = useState<number | null>(null);
 
-  const enabled = !!(filters.city || filters.transactionType || filters.bedrooms);
+  const enabled = typeof filters.appliedAt === "number";
 
   const query = useQuery({
     queryKey: ["external-listings", filters],
@@ -69,17 +70,15 @@ export function useExternalListings(filters: ExternalFilters) {
     refetchOnWindowFocus: false,
     refetchInterval: () => {
       if (!n8nTriggered || !pollingStart) return false;
-      // Stop polling after 60 seconds
       if (Date.now() - pollingStart > 60_000) return false;
       return 10_000;
     },
   });
 
-  // Reset polling state when filters change
   useEffect(() => {
     setN8nTriggered(false);
     setPollingStart(null);
-  }, [filters.city, filters.transactionType, filters.bedrooms]);
+  }, [filters.appliedAt]);
 
   const isPolling = n8nTriggered && !!pollingStart && (Date.now() - pollingStart <= 60_000);
 
