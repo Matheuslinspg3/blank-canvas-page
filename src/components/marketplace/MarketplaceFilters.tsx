@@ -69,7 +69,7 @@ interface MarketplaceFiltersProps {
 }
 
 export function MarketplaceFilters({
-  filters, onUpdateFilter, onClearFilters, activeFilterCount,
+  filters, onUpdateFilter, onClearFilters, onApplyFilters, activeFilterCount,
   cities, neighborhoods, propertyTypes, availableAmenities, className,
 }: MarketplaceFiltersProps) {
   const [isOpen, setIsOpen] = useState(false);
