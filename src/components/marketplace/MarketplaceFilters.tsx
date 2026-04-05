@@ -59,6 +59,7 @@ interface MarketplaceFiltersProps {
   filters: MarketplaceFiltersState;
   onUpdateFilter: <K extends keyof MarketplaceFiltersState>(key: K, value: MarketplaceFiltersState[K]) => void;
   onClearFilters: () => void;
+  onApplyFilters?: () => void;
   activeFilterCount: number;
   cities: { city: string; count: number }[];
   neighborhoods: { neighborhood: string; count: number }[];
