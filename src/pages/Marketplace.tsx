@@ -19,6 +19,7 @@ export type ViewMode = "grid" | "list";
 export default function Marketplace() {
   const navigate = useNavigate();
   const [filters, setFilters] = useState<MarketplaceFiltersState>(defaultMarketplaceFilters);
+  const [appliedExternalFilters, setAppliedExternalFilters] = useState<{ city?: string; transactionType?: string; bedrooms?: number } | null>(null);
   const [contactProperty, setContactProperty] = useState<MarketplaceProperty | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [orgPageSize, setOrgPageSize] = useState<number>(10);
@@ -26,12 +27,10 @@ export default function Marketplace() {
   const { properties, isLoading, isFetching, totalCount, logContactAccess } = useMarketplace(filters);
   const { cities, neighborhoods, propertyTypes, availableAmenities } = useMarketplaceFilterData(filters.city || undefined);
 
-  // External listings (OLX, Viva Real, etc.)
-  const { data: externalListings = [], isLoading: externalLoading, isPolling: externalPolling } = useExternalListings({
-    city: filters.city || undefined,
-    transactionType: filters.transactionType !== "all" ? filters.transactionType : undefined,
-    bedrooms: filters.minBedrooms ?? undefined,
-  });
+  // External listings — only triggered when user clicks "Aplicar Filtros"
+  const { data: externalListings = [], isLoading: externalLoading, isPolling: externalPolling } = useExternalListings(
+    appliedExternalFilters ?? {}
+  );
 
   const orgIds = useMemo(() => {
     const ids = new Set(properties.map((p) => p.organization_id).filter(Boolean) as string[]);
@@ -68,7 +67,16 @@ export default function Marketplace() {
 
   const clearFilters = useCallback(() => {
     setFilters(defaultMarketplaceFilters);
+    setAppliedExternalFilters(null);
   }, []);
+
+  const handleApplyFilters = useCallback(() => {
+    setAppliedExternalFilters({
+      city: filters.city || undefined,
+      transactionType: filters.transactionType !== "all" ? filters.transactionType : undefined,
+      bedrooms: filters.minBedrooms ?? undefined,
+    });
+  }, [filters.city, filters.transactionType, filters.minBedrooms]);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -106,6 +114,7 @@ export default function Marketplace() {
           filters={filters}
           onUpdateFilter={updateFilter}
           onClearFilters={clearFilters}
+          onApplyFilters={handleApplyFilters}
           activeFilterCount={activeFilterCount}
           cities={cities}
           neighborhoods={neighborhoods}

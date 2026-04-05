@@ -59,6 +59,7 @@ interface MarketplaceFiltersProps {
   filters: MarketplaceFiltersState;
   onUpdateFilter: <K extends keyof MarketplaceFiltersState>(key: K, value: MarketplaceFiltersState[K]) => void;
   onClearFilters: () => void;
+  onApplyFilters?: () => void;
   activeFilterCount: number;
   cities: { city: string; count: number }[];
   neighborhoods: { neighborhood: string; count: number }[];
@@ -68,7 +69,7 @@ interface MarketplaceFiltersProps {
 }
 
 export function MarketplaceFilters({
-  filters, onUpdateFilter, onClearFilters, activeFilterCount,
+  filters, onUpdateFilter, onClearFilters, onApplyFilters, activeFilterCount,
   cities, neighborhoods, propertyTypes, availableAmenities, className,
 }: MarketplaceFiltersProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -344,7 +345,7 @@ export function MarketplaceFilters({
           </div>
 
           <div className="p-4 border-t bg-muted/30">
-            <Button className="w-full" onClick={() => setIsOpen(false)}>
+            <Button className="w-full" onClick={() => { onApplyFilters?.(); setIsOpen(false); }}>
               Aplicar Filtros
             </Button>
           </div>
