@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect, useCallback } from "react";
 
 export interface ExternalListing {
   id: string;
@@ -29,7 +30,12 @@ interface ExternalFilters {
 }
 
 export function useExternalListings(filters: ExternalFilters) {
-  return useQuery({
+  const [n8nTriggered, setN8nTriggered] = useState(false);
+  const [pollingStart, setPollingStart] = useState<number | null>(null);
+
+  const enabled = !!(filters.city || filters.transactionType || filters.bedrooms);
+
+  const query = useQuery({
     queryKey: ["external-listings", filters],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke(
@@ -44,10 +50,38 @@ export function useExternalListings(filters: ExternalFilters) {
       );
 
       if (error) throw error;
-      return (data?.listings ?? []) as ExternalListing[];
+
+      const listings = (data?.listings ?? []) as ExternalListing[];
+      const triggered = data?.n8n_triggered === true;
+
+      if (triggered && listings.length === 0) {
+        setN8nTriggered(true);
+        setPollingStart((prev) => prev ?? Date.now());
+      } else {
+        setN8nTriggered(false);
+        setPollingStart(null);
+      }
+
+      return listings;
     },
-    enabled: !!(filters.city || filters.transactionType || filters.bedrooms),
-    staleTime: 5 * 60 * 1000, // 5 min
+    enabled,
+    staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
+    refetchInterval: () => {
+      if (!n8nTriggered || !pollingStart) return false;
+      // Stop polling after 60 seconds
+      if (Date.now() - pollingStart > 60_000) return false;
+      return 10_000;
+    },
   });
+
+  // Reset polling state when filters change
+  useEffect(() => {
+    setN8nTriggered(false);
+    setPollingStart(null);
+  }, [filters.city, filters.transactionType, filters.bedrooms]);
+
+  const isPolling = n8nTriggered && !!pollingStart && (Date.now() - pollingStart <= 60_000);
+
+  return { ...query, isPolling };
 }

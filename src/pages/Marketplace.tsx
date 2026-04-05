@@ -27,7 +27,7 @@ export default function Marketplace() {
   const { cities, neighborhoods, propertyTypes, availableAmenities } = useMarketplaceFilterData(filters.city || undefined);
 
   // External listings (OLX, Viva Real, etc.)
-  const { data: externalListings = [], isLoading: externalLoading } = useExternalListings({
+  const { data: externalListings = [], isLoading: externalLoading, isPolling: externalPolling } = useExternalListings({
     city: filters.city || undefined,
     transactionType: filters.transactionType !== "all" ? filters.transactionType : undefined,
     bedrooms: filters.minBedrooms ?? undefined,
