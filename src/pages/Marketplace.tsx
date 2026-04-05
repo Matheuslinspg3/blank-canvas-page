@@ -67,7 +67,16 @@ export default function Marketplace() {
 
   const clearFilters = useCallback(() => {
     setFilters(defaultMarketplaceFilters);
+    setAppliedExternalFilters(null);
   }, []);
+
+  const handleApplyFilters = useCallback(() => {
+    setAppliedExternalFilters({
+      city: filters.city || undefined,
+      transactionType: filters.transactionType !== "all" ? filters.transactionType : undefined,
+      bedrooms: filters.minBedrooms ?? undefined,
+    });
+  }, [filters.city, filters.transactionType, filters.minBedrooms]);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
