@@ -123,7 +123,7 @@ serve(async (req) => {
       };
 
       const hashInput = buildSearchHash(filters);
-      const searchHash = await md5Hash(hashInput);
+      const searchHash = await sha256Hash(hashInput);
 
       // Check cache
       const { data: cached } = await supabase
