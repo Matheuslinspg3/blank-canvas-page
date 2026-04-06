@@ -2,6 +2,15 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
 const CF_API = "https://api.cloudflare.com/client/v4";
+const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
+
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), { status, headers: jsonHeaders });
+}
+
+function errorJson(message: string, status = 400, extra?: Record<string, unknown>) {
+  return new Response(JSON.stringify({ error: message, ...extra }), { status, headers: jsonHeaders });
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -11,58 +20,57 @@ Deno.serve(async (req) => {
   try {
     const authHeader = req.headers.get("authorization") ?? "";
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      console.error("No authorization header");
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+      return errorJson("Unauthorized", 401);
     }
 
-    // User-context client for RLS
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    // Validate user via getUser
     const { data: { user }, error: userErr } = await supabase.auth.getUser();
     if (userErr || !user) {
       console.error("Auth getUser error:", userErr?.message || "no user");
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+      return errorJson("Unauthorized", 401);
     }
     const userId = user.id;
 
-    // Service-role client for admin ops
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Check manager role
     const { data: isManager } = await adminClient.rpc("is_org_manager_or_above", { _user_id: userId });
     if (!isManager) {
-      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
+      return errorJson("Forbidden", 403);
     }
 
-    // Get user's org
     const { data: profile } = await adminClient
       .from("profiles")
       .select("organization_id")
       .eq("user_id", userId)
       .single();
     if (!profile?.organization_id) {
-      return new Response(JSON.stringify({ error: "No organization" }), { status: 400, headers: corsHeaders });
+      return errorJson("No organization", 400);
     }
 
-    const body = await req.json();
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch {
+      return errorJson("Invalid or empty request body", 400);
+    }
+
     const action = body.action as string;
 
     // ─── Update Slug ───────────────────────────────────────────────
     if (action === "update_slug") {
       const newSlug = (body.slug as string || "").toLowerCase().trim().replace(/[^a-z0-9-]/g, "");
       if (!newSlug || newSlug.length < 3) {
-        return new Response(JSON.stringify({ error: "Slug deve ter ao menos 3 caracteres (letras, números e hífens)" }), { status: 400, headers: corsHeaders });
+        return errorJson("Slug deve ter ao menos 3 caracteres (letras, números e hífens)", 400);
       }
 
-      // Check uniqueness
       const { data: existing } = await adminClient
         .from("organizations")
         .select("id")
@@ -70,7 +78,7 @@ Deno.serve(async (req) => {
         .neq("id", profile.organization_id)
         .maybeSingle();
       if (existing) {
-        return new Response(JSON.stringify({ error: "Este slug já está em uso por outra organização" }), { status: 409, headers: corsHeaders });
+        return errorJson("Este slug já está em uso por outra organização", 409);
       }
 
       const { error: updateErr } = await adminClient
@@ -79,22 +87,25 @@ Deno.serve(async (req) => {
         .eq("id", profile.organization_id);
       if (updateErr) {
         console.error("Slug update error:", updateErr);
-        return new Response(JSON.stringify({ error: "Erro ao atualizar slug" }), { status: 500, headers: corsHeaders });
+        return errorJson("Erro ao atualizar slug", 500);
       }
 
-      return new Response(JSON.stringify({ success: true, slug: newSlug }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ success: true, slug: newSlug });
     }
 
     // ─── Cloudflare Domain Actions ─────────────────────────────────
-    const CF_TOKEN = Deno.env.get("CLOUDFLARE_API_TOKEN")!;
-    const CF_ZONE = Deno.env.get("CLOUDFLARE_ZONE_ID")!;
+    const CF_TOKEN = Deno.env.get("CLOUDFLARE_API_TOKEN");
+    const CF_ZONE = Deno.env.get("CLOUDFLARE_ZONE_ID");
+
+    if (!CF_TOKEN || !CF_ZONE) {
+      console.error("Missing Cloudflare secrets. CF_TOKEN set:", !!CF_TOKEN, "CF_ZONE set:", !!CF_ZONE);
+      return errorJson("Server configuration error: Missing Cloudflare credentials", 500);
+    }
 
     if (action === "create") {
       const hostname = (body.hostname as string || "").toLowerCase().trim();
       if (!hostname || !hostname.includes(".")) {
-        return new Response(JSON.stringify({ error: "Hostname inválido" }), { status: 400, headers: corsHeaders });
+        return errorJson("Hostname inválido", 400);
       }
 
       const { data: existing } = await adminClient
@@ -103,7 +114,7 @@ Deno.serve(async (req) => {
         .eq("hostname", hostname)
         .maybeSingle();
       if (existing) {
-        return new Response(JSON.stringify({ error: "Domínio já cadastrado" }), { status: 409, headers: corsHeaders });
+        return errorJson("Domínio já cadastrado", 409);
       }
 
       const cfRes = await fetch(`${CF_API}/zones/${CF_ZONE}/custom_hostnames`, {
@@ -117,13 +128,19 @@ Deno.serve(async (req) => {
           ssl: { method: "http", type: "dv", settings: { min_tls_version: "1.2" } },
         }),
       });
-      const cfData = await cfRes.json();
+      const cfText = await cfRes.text();
+      console.log("Cloudflare create response:", cfRes.status, cfText);
+
+      let cfData: any;
+      try {
+        cfData = JSON.parse(cfText);
+      } catch {
+        return errorJson("Cloudflare returned invalid JSON", 502, { cf_status: cfRes.status });
+      }
 
       if (!cfData.success) {
-        console.error("Cloudflare error:", JSON.stringify(cfData.errors));
-        return new Response(JSON.stringify({ error: "Erro no Cloudflare", details: cfData.errors }), {
-          status: 502, headers: corsHeaders,
-        });
+        console.error("Cloudflare create error:", JSON.stringify(cfData.errors));
+        return errorJson("Erro no Cloudflare", 502, { details: cfData.errors });
       }
 
       const cfHostname = cfData.result;
@@ -143,13 +160,13 @@ Deno.serve(async (req) => {
 
       if (insertErr) {
         console.error("DB insert error:", insertErr);
-        return new Response(JSON.stringify({ error: "Erro ao salvar domínio" }), { status: 500, headers: corsHeaders });
+        return errorJson("Erro ao salvar domínio", 500);
       }
 
-      return new Response(JSON.stringify({
+      return json({
         domain,
         instructions: `Aponte o CNAME do domínio ${hostname} para portadocorretor.com.br`,
-      }), { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }, 201);
     }
 
     if (action === "check_status") {
@@ -162,16 +179,24 @@ Deno.serve(async (req) => {
         .single();
 
       if (!domain || !domain.cloudflare_hostname_id) {
-        return new Response(JSON.stringify({ error: "Domínio não encontrado" }), { status: 404, headers: corsHeaders });
+        return errorJson("Domínio não encontrado", 404);
       }
 
       const cfRes = await fetch(`${CF_API}/zones/${CF_ZONE}/custom_hostnames/${domain.cloudflare_hostname_id}`, {
         headers: { Authorization: `Bearer ${CF_TOKEN}` },
       });
-      const cfData = await cfRes.json();
+      const cfText = await cfRes.text();
+      console.log("Cloudflare check_status response:", cfRes.status, cfText);
+
+      let cfData: any;
+      try {
+        cfData = JSON.parse(cfText);
+      } catch {
+        return errorJson("Cloudflare returned invalid JSON", 502, { cf_status: cfRes.status });
+      }
 
       if (!cfData.success) {
-        return new Response(JSON.stringify({ error: "Erro ao consultar Cloudflare" }), { status: 502, headers: corsHeaders });
+        return errorJson("Erro ao consultar Cloudflare", 502, { details: cfData.errors });
       }
 
       const cfHostname = cfData.result;
@@ -184,9 +209,7 @@ Deno.serve(async (req) => {
         .update({ ssl_status: sslStatus, verification_status: verificationStatus, is_active: isActive, updated_at: new Date().toISOString() })
         .eq("id", domainId);
 
-      return new Response(JSON.stringify({ ssl_status: sslStatus, verification_status: verificationStatus, is_active: isActive }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ ssl_status: sslStatus, verification_status: verificationStatus, is_active: isActive });
     }
 
     if (action === "delete") {
@@ -199,23 +222,24 @@ Deno.serve(async (req) => {
         .single();
 
       if (!domain) {
-        return new Response(JSON.stringify({ error: "Domínio não encontrado" }), { status: 404, headers: corsHeaders });
+        return errorJson("Domínio não encontrado", 404);
       }
 
       if (domain.cloudflare_hostname_id) {
-        await fetch(`${CF_API}/zones/${CF_ZONE}/custom_hostnames/${domain.cloudflare_hostname_id}`, {
+        const delRes = await fetch(`${CF_API}/zones/${CF_ZONE}/custom_hostnames/${domain.cloudflare_hostname_id}`, {
           method: "DELETE",
           headers: { Authorization: `Bearer ${CF_TOKEN}` },
         });
+        console.log("Cloudflare delete response:", delRes.status, await delRes.text());
       }
 
       await adminClient.from("tenant_domains").delete().eq("id", domainId);
-      return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return json({ success: true });
     }
 
-    return new Response(JSON.stringify({ error: "Ação inválida" }), { status: 400, headers: corsHeaders });
+    return errorJson("Ação inválida", 400);
   } catch (err) {
     console.error("manage-custom-domain error:", err);
-    return new Response(JSON.stringify({ error: "Internal server error" }), { status: 500, headers: corsHeaders });
+    return errorJson("Internal server error", 500);
   }
 });
