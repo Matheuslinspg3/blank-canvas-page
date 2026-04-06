@@ -81,7 +81,11 @@ export function usePropertyCRUD() {
 
         const processed = (data as unknown as PropertyWithDetails[]).map(p => ({
           ...p,
-          images: (p.images || []).filter((img: any) => img.is_cover).slice(0, 1),
+          images: (p.images || []).sort((a: any, b: any) => {
+            if (a.is_cover && !b.is_cover) return -1;
+            if (!a.is_cover && b.is_cover) return 1;
+            return (a.display_order || 0) - (b.display_order || 0);
+          }),
         }));
 
         allData.push(...processed);
