@@ -1,35 +1,32 @@
 
 
 ## Problem
+When a new organization slug is created/updated, there's no automatic DNS record in Cloudflare for the subdomain (`{slug}.portadocorretor.com.br`). Currently this requires manual wildcard CNAME setup. With the new DNS Edit permission on the token, we can automate this.
 
-The `manage-custom-domain` Edge Function is returning **502** errors. Based on the Sentry breadcrumbs (response body size 106 bytes), the function IS executing but the **Cloudflare API call is failing** and the function returns 502 at line 124 or 174.
+## Approach
+Instead of creating individual DNS records per slug (which doesn't scale and clutters the zone), the best approach is to **create a single wildcard CNAME record** (`*.portadocorretor.com.br → portadocorretor.com.br`) once, which covers all current and future subdomains automatically.
 
-Two issues found:
+We'll add a new action `ensure_wildcard_dns` to the existing `manage-custom-domain` Edge Function that:
+1. Checks if a `*` CNAME record already exists in the zone
+2. If not, creates it pointing to `portadocorretor.com.br` (proxied)
+3. If it exists, returns success without duplicating
 
-1. **Missing `config.toml` entry**: `manage-custom-domain` is NOT listed in `supabase/config.toml`, meaning it defaults to `verify_jwt = true`. While the function does its own auth, adding it explicitly with `verify_jwt = false` ensures consistency with the project pattern and avoids potential gateway-level JWT issues.
+Additionally, we'll call this automatically during `update_slug` so that whenever a slug is saved, the wildcard DNS is guaranteed to exist.
 
-2. **Poor error logging**: When Cloudflare returns an error, the function logs it but the response body doesn't include enough detail for debugging. The `corsHeaders` are also missing `Content-Type` in some response paths.
+## Changes
 
-## Plan
+### 1. Update `manage-custom-domain` Edge Function
+Add `ensure_wildcard_dns` action:
+- `GET /zones/{zone}/dns_records?type=CNAME&name=*.portadocorretor.com.br` to check existence
+- If missing, `POST /zones/{zone}/dns_records` with `{ type: "CNAME", name: "*", content: "portadocorretor.com.br", proxied: true }`
+- Auto-invoke this logic inside the `update_slug` action after successful slug update
 
-### 1. Add `manage-custom-domain` to `config.toml`
-
-Add `verify_jwt = false` entry so the function handles its own auth (matching the project pattern for all other functions).
-
-### 2. Improve error handling in the Edge Function
-
-- Add `Content-Type: application/json` header to ALL responses (some paths are missing it)
-- Log the full Cloudflare response status and body when it fails
-- Add a guard for undefined `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ZONE_ID` before making API calls (return 500 with clear message instead of crashing)
-- Wrap the `req.json()` call to handle cases where the body is empty or invalid
-
-### 3. Redeploy the function
-
-Deploy the updated function to apply the fixes.
+### 2. Add UI trigger (optional)
+Add a button in `SiteSettingsTab` or call automatically when the site is first activated, so admins can manually trigger if needed.
 
 ## Technical Details
-
-- The Sentry trace confirms the function returns 502 (not a boot crash), meaning auth succeeds but the Cloudflare API call fails
-- `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ZONE_ID` secrets exist but may have incorrect values
-- Adding the config.toml entry and better logging will help diagnose whether it's a token permission issue, wrong zone ID, or hostname conflict in Cloudflare
+- The wildcard CNAME is a single record that routes ALL `*.portadocorretor.com.br` subdomains — no per-slug records needed
+- Cloudflare proxied mode ensures DDoS protection and SSL termination
+- The function checks for existing records first to be idempotent (safe to call multiple times)
+- The `update_slug` action will silently ensure the wildcard exists as a side effect
 
