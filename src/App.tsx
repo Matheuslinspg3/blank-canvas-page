@@ -240,6 +240,7 @@ const App = () => (
                 </TooltipProvider>
               </DemoProvider>
               </ErrorBoundary>
+              </TenantRouter>
             </BrowserRouter>
         </ImportProgressProvider>
     </AuthProvider>
