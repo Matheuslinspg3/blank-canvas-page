@@ -138,6 +138,7 @@ const App = () => (
       <AuthProvider>
         <ImportProgressProvider>
             <BrowserRouter>
+              <TenantRouter>
               <ErrorBoundary>
               <DemoProvider>
                 <TooltipProvider>
