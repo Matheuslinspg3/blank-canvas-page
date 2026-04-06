@@ -134,13 +134,6 @@ export default function Settings() {
             </div>
           </TabsContent>
 
-          {isAdminOrAbove && (
-            <TabsContent value="site">
-              <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
-                <SiteSettingsTab />
-              </Suspense>
-            </TabsContent>
-          )}
         </Tabs>
       </div>
     </div>
