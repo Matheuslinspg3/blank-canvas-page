@@ -8,6 +8,7 @@ const CACHE_TTL_HOURS = 6;
 
 interface ExternalFilters {
   city?: string;
+  neighborhood?: string;
   transaction_type?: string;
   bedrooms?: number;
   source?: string;

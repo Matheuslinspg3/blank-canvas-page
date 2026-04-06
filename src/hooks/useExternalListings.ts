@@ -45,6 +45,7 @@ export function useExternalListings(filters: ExternalFilters) {
         {
           body: {
             city: filters.city || undefined,
+            neighborhood: filters.neighborhood || undefined,
             transaction_type: filters.transactionType || undefined,
             bedrooms: filters.bedrooms || undefined,
           },
