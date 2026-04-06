@@ -435,25 +435,54 @@ function DomainSection() {
 
   return (
     <div className="space-y-6">
-      {/* Current site URL */}
-      {siteUrl && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">URL Padrão do Site</CardTitle>
-          </CardHeader>
-          <CardContent>
+      {/* Current site URL with slug editor */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium">URL Padrão do Site</CardTitle>
+          <CardDescription>Este é o endereço gratuito do seu site. Você pode personalizar o slug.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {!editingSlug ? (
             <div className="flex items-center gap-2">
-              <code className="flex-1 text-sm bg-muted px-3 py-2 rounded-md truncate">{siteUrl}</code>
-              <Button variant="outline" size="sm" className="gap-1.5 shrink-0" asChild>
-                <a href={siteUrl} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  Abrir
-                </a>
+              <code className="flex-1 text-sm bg-muted px-3 py-2 rounded-md truncate">
+                {orgSlug ? `https://${orgSlug}.portadocorretor.com.br` : "Carregando..."}
+              </code>
+              <Button variant="outline" size="sm" className="gap-1.5 shrink-0" onClick={() => { setSlugValue(orgSlug || ""); setEditingSlug(true); }}>
+                <Save className="h-3.5 w-3.5" />
+                Editar
               </Button>
+              {orgSlug && (
+                <Button variant="outline" size="sm" className="gap-1.5 shrink-0" asChild>
+                  <a href={`https://${orgSlug}.portadocorretor.com.br`} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Abrir
+                  </a>
+                </Button>
+              )}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center gap-1">
+                <span className="text-sm text-muted-foreground">https://</span>
+                <Input
+                  value={slugValue}
+                  onChange={(e) => setSlugValue(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                  className="flex-1"
+                  placeholder="meu-site"
+                />
+                <span className="text-sm text-muted-foreground">.portadocorretor.com.br</span>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => slugMutation.mutate(slugValue)} disabled={slugMutation.isPending || !slugValue || slugValue.length < 3}>
+                  {slugMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                  Salvar
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setEditingSlug(false)}>Cancelar</Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Add domain */}
       <Card>
