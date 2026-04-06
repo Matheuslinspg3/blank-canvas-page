@@ -125,28 +125,7 @@ serve(async (req) => {
       const hashInput = buildSearchHash(filters);
       const searchHash = await sha256Hash(hashInput);
 
-      // Check cache
-      const { data: cached } = await supabase
-        .from("external_search_cache")
-        .select("listing_ids, expires_at")
-        .eq("search_hash", searchHash)
-        .single();
-
-      if (cached && new Date(cached.expires_at) > new Date()) {
-        // Cache hit — fetch listings
-        if (cached.listing_ids && cached.listing_ids.length > 0) {
-          const { data: listings } = await supabase
-            .from("external_listings")
-            .select("*")
-            .in("id", cached.listing_ids)
-            .gt("expires_at", new Date().toISOString());
-
-          return json({ source: "cache", listings: listings || [], search_hash: searchHash });
-        }
-        return json({ source: "cache", listings: [], search_hash: searchHash });
-      }
-
-      // Cache miss — also query existing listings that match filters directly
+      // Query existing listings that match filters
       let query = supabase
         .from("external_listings")
         .select("*")
@@ -159,7 +138,8 @@ serve(async (req) => {
 
       const { data: existingListings } = await query.limit(50);
 
-      // Trigger n8n webhook in background (fire and forget)
+      // ALWAYS trigger n8n webhook to refresh data (fire and forget)
+      let n8nTriggered = false;
       if (N8N_EXTERNAL_LISTINGS_WEBHOOK) {
         const edgeFunctionUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/external-listings-sync`;
         
@@ -173,13 +153,17 @@ serve(async (req) => {
             callback_secret: Deno.env.get("WHATSAPP_AGENT_SECRET"),
           }),
         }).catch((err) => console.error("[external-listings-sync] n8n trigger failed:", err));
+        n8nTriggered = true;
+        console.log("[external-listings-sync] n8n triggered for hash:", searchHash, "filters:", JSON.stringify(filters));
+      } else {
+        console.warn("[external-listings-sync] N8N_EXTERNAL_LISTINGS_WEBHOOK not configured");
       }
 
       return json({
         source: "live",
         listings: existingListings || [],
         search_hash: searchHash,
-        n8n_triggered: !!N8N_EXTERNAL_LISTINGS_WEBHOOK,
+        n8n_triggered: n8nTriggered,
       });
     }
 
