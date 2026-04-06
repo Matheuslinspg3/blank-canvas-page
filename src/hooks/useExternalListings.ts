@@ -29,7 +29,10 @@ interface ExternalFilters {
   transactionType?: string;
   bedrooms?: number;
   suites?: number;
+  bathrooms?: number;
   parkingSpots?: number;
+  minPrice?: number;
+  maxPrice?: number;
   appliedAt?: number;
 }
 
