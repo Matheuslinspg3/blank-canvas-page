@@ -19,7 +19,7 @@ export type ViewMode = "grid" | "list";
 export default function Marketplace() {
   const navigate = useNavigate();
   const [filters, setFilters] = useState<MarketplaceFiltersState>(defaultMarketplaceFilters);
-  const [appliedExternalFilters, setAppliedExternalFilters] = useState<{ city?: string; transactionType?: string; bedrooms?: number; appliedAt: number } | null>(null);
+  const [appliedExternalFilters, setAppliedExternalFilters] = useState<{ city?: string; neighborhood?: string; transactionType?: string; bedrooms?: number; appliedAt: number } | null>(null);
   const [contactProperty, setContactProperty] = useState<MarketplaceProperty | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [orgPageSize, setOrgPageSize] = useState<number>(10);
@@ -73,11 +73,12 @@ export default function Marketplace() {
   const handleApplyFilters = useCallback(() => {
     setAppliedExternalFilters({
       city: filters.city || undefined,
+      neighborhood: filters.neighborhood || undefined,
       transactionType: filters.transactionType !== "all" ? filters.transactionType : undefined,
       bedrooms: filters.minBedrooms ?? undefined,
       appliedAt: Date.now(),
     });
-  }, [filters.city, filters.transactionType, filters.minBedrooms]);
+  }, [filters.city, filters.neighborhood, filters.transactionType, filters.minBedrooms]);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
