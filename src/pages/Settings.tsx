@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserRoles } from "@/hooks/useUserRole";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
-import { Building2, User, Bell, Users, Palette, Sun, Moon, Monitor, Megaphone, CreditCard, History, MessageSquare, Bug, Loader2, Globe, LayoutDashboard } from "lucide-react";
+import { Building2, User, Bell, Users, Palette, Sun, Moon, Monitor, Megaphone, CreditCard, History, MessageSquare, Bug, Loader2 } from "lucide-react";
 import { SupportTicketDialog } from "@/components/settings/SupportTicketDialog";
 import { UserTicketsSection } from "@/components/settings/UserTicketsSection";
 import { PlatformInviteSection } from "@/components/settings/PlatformInviteSection";
