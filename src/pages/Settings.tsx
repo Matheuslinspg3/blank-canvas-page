@@ -139,9 +139,9 @@ export default function Settings() {
           </TabsContent>
 
           {isAdminOrAbove && (
-            <TabsContent value="domains">
+            <TabsContent value="site">
               <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
-                <CustomDomainsManager />
+                <SiteSettingsTab />
               </Suspense>
             </TabsContent>
           )}
