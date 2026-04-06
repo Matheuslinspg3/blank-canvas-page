@@ -104,13 +104,18 @@ export default function Settings() {
                 </CardContent>
               </Card>
               <PushNotificationCard />
-
-              {/* White-Label / Personalização */}
-              <Suspense fallback={<div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}>
-                <WhiteLabelSettings />
-              </Suspense>
             </div>
           </TabsContent>
+
+          {isAdminOrAbove && (
+            <TabsContent value="brand">
+              <div className="grid gap-6 max-w-2xl">
+                <Suspense fallback={<div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}>
+                  <WhiteLabelSettings />
+                </Suspense>
+              </div>
+            </TabsContent>
+          )}
 
           <TabsContent value="changelog"><ChangelogSection /></TabsContent>
 
