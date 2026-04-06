@@ -45,13 +45,12 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const { data: { user }, error: userErr } = await authClient.auth.getUser();
+    if (userErr || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const rateLimited = await checkAiRateLimitRedis(claimsData.claims.sub as string, "generate-landing-content", corsHeaders);
+    const rateLimited = await checkAiRateLimitRedis(user.id, "generate-landing-content", corsHeaders);
     if (rateLimited) return rateLimited;
 
     const { propertyId, forceRegenerate = false } = await req.json();
