@@ -68,7 +68,7 @@ export default function Settings() {
               )}
               <TabsTrigger value="support" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><MessageSquare className="h-4 w-4 shrink-0" /><span>Suporte</span></TabsTrigger>
               {isAdminOrAbove && (
-                <TabsTrigger value="domains" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><Globe className="h-4 w-4 shrink-0" /><span>Domínios</span></TabsTrigger>
+                <TabsTrigger value="site" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><LayoutDashboard className="h-4 w-4 shrink-0" /><span>Site</span></TabsTrigger>
               )}
             </TabsList>
           </div>
