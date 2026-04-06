@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
   try {
     // Auth — only managers+
     const authHeader = req.headers.get("authorization") ?? "";
-    if (!authHeader) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       console.error("No authorization header");
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
@@ -19,15 +19,16 @@ Deno.serve(async (req) => {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { authorization: authHeader } } }
+      { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { data: { user }, error: authErr } = await supabase.auth.getUser();
-    if (authErr || !user) {
-      console.error("Auth error:", authErr?.message || "no user returned");
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsErr } = await supabase.auth.getClaims(token);
+    if (claimsErr || !claimsData?.claims?.sub) {
+      console.error("Auth error:", claimsErr?.message || "no claims returned");
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
-    const userId = user.id;
+    const userId = claimsData.claims.sub as string;
 
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
