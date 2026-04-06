@@ -28,6 +28,8 @@ interface ExternalFilters {
   neighborhood?: string;
   transactionType?: string;
   bedrooms?: number;
+  suites?: number;
+  parkingSpots?: number;
   appliedAt?: number;
 }
 
@@ -44,10 +46,12 @@ export function useExternalListings(filters: ExternalFilters) {
         "external-listings-sync",
         {
           body: {
-            city: filters.city || undefined,
-            neighborhood: filters.neighborhood || undefined,
-            transaction_type: filters.transactionType || undefined,
-            bedrooms: filters.bedrooms || undefined,
+            city: filters.city || "",
+            neighborhood: filters.neighborhood || "",
+            transaction_type: filters.transactionType || "",
+            bedrooms: filters.bedrooms || 0,
+            suites: filters.suites || 0,
+            parking_spots: filters.parkingSpots || 0,
           },
         },
       );
