@@ -322,6 +322,8 @@ function DomainSection() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const [newHostname, setNewHostname] = useState("");
+  const [editingSlug, setEditingSlug] = useState(false);
+  const [slugValue, setSlugValue] = useState("");
   const orgId = profile?.organization_id;
 
   const { data: orgSlug } = useQuery({
@@ -332,6 +334,23 @@ function DomainSection() {
       const { data } = await supabase.from("organizations").select("slug").eq("id", orgId!).single();
       return data?.slug ?? null;
     },
+  });
+
+  const slugMutation = useMutation({
+    mutationFn: async (slug: string) => {
+      const { data, error } = await supabase.functions.invoke("manage-custom-domain", {
+        body: { action: "update_slug", slug },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success("Slug atualizado!");
+      setEditingSlug(false);
+      queryClient.invalidateQueries({ queryKey: ["org-slug"] });
+    },
+    onError: (err: Error) => toast.error(err.message || "Erro ao atualizar slug"),
   });
 
   const { data: domains, isLoading } = useQuery({
