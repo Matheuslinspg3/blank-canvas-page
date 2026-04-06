@@ -5,6 +5,7 @@ const KNOWN_APP_HOSTS = [
   "localhost",
   "lovable.app",
   "lovable.dev",
+  "lovableproject.com",
   "webcontainer.io",
 ];
 
