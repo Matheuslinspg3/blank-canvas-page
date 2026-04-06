@@ -77,7 +77,10 @@ export default function Marketplace() {
       transactionType: filters.transactionType !== "all" ? filters.transactionType : undefined,
       bedrooms: filters.minBedrooms ?? undefined,
       suites: filters.minSuites ?? undefined,
+      bathrooms: filters.minBathrooms ?? undefined,
       parkingSpots: filters.minParking ?? undefined,
+      minPrice: filters.minPrice ?? undefined,
+      maxPrice: filters.maxPrice ?? undefined,
       appliedAt: Date.now(),
     });
   }, [filters.city, filters.neighborhood, filters.transactionType, filters.minBedrooms, filters.minSuites, filters.minParking]);

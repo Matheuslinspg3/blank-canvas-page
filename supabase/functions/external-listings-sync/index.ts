@@ -12,7 +12,10 @@ interface ExternalFilters {
   transaction_type: string;
   bedrooms: number;
   suites: number;
+  bathrooms: number;
   parking_spots: number;
+  min_price: number;
+  max_price: number;
   source?: string;
 }
 
