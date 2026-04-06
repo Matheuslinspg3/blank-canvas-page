@@ -57,6 +57,9 @@ export default function Settings() {
               )}
               <TabsTrigger value="appearance" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><Palette className="h-4 w-4 shrink-0" /><span>Aparência</span></TabsTrigger>
               {isAdminOrAbove && (
+                <TabsTrigger value="brand" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><Crown className="h-4 w-4 shrink-0" /><span>Marca</span></TabsTrigger>
+              )}
+              {isAdminOrAbove && (
                 <TabsTrigger value="changelog" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><History className="h-4 w-4 shrink-0" /><span>Histórico</span></TabsTrigger>
               )}
               {isDeveloperOrLeader && (
