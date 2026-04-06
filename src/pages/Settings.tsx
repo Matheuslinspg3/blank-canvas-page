@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserRoles } from "@/hooks/useUserRole";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
-import { Building2, User, Bell, Users, Palette, Sun, Moon, Monitor, Megaphone, CreditCard, History, MessageSquare, Bug, Loader2 } from "lucide-react";
+import { Building2, User, Bell, Users, Palette, Sun, Moon, Monitor, Megaphone, CreditCard, History, MessageSquare, Bug, Loader2, Crown } from "lucide-react";
 import { SupportTicketDialog } from "@/components/settings/SupportTicketDialog";
 import { UserTicketsSection } from "@/components/settings/UserTicketsSection";
 import { PlatformInviteSection } from "@/components/settings/PlatformInviteSection";
@@ -57,6 +57,9 @@ export default function Settings() {
               )}
               <TabsTrigger value="appearance" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><Palette className="h-4 w-4 shrink-0" /><span>Aparência</span></TabsTrigger>
               {isAdminOrAbove && (
+                <TabsTrigger value="brand" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><Crown className="h-4 w-4 shrink-0" /><span>Marca</span></TabsTrigger>
+              )}
+              {isAdminOrAbove && (
                 <TabsTrigger value="changelog" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><History className="h-4 w-4 shrink-0" /><span>Histórico</span></TabsTrigger>
               )}
               {isDeveloperOrLeader && (
@@ -101,13 +104,18 @@ export default function Settings() {
                 </CardContent>
               </Card>
               <PushNotificationCard />
-
-              {/* White-Label / Personalização */}
-              <Suspense fallback={<div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}>
-                <WhiteLabelSettings />
-              </Suspense>
             </div>
           </TabsContent>
+
+          {isAdminOrAbove && (
+            <TabsContent value="brand">
+              <div className="grid gap-6 max-w-2xl">
+                <Suspense fallback={<div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}>
+                  <WhiteLabelSettings />
+                </Suspense>
+              </div>
+            </TabsContent>
+          )}
 
           <TabsContent value="changelog"><ChangelogSection /></TabsContent>
 
