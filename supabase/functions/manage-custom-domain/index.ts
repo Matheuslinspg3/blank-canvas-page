@@ -22,20 +22,12 @@ Deno.serve(async (req) => {
       { global: { headers: { authorization: authHeader } } }
     );
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsErr } = await supabase.auth.getClaims(token);
-    if (claimsErr || !claimsData?.claims?.sub) {
-      console.error("Auth claims error:", claimsErr?.message || "no claims");
-      // Fallback to getUser
-      const { data: { user: fallbackUser }, error: fallbackErr } = await supabase.auth.getUser();
-      if (fallbackErr || !fallbackUser) {
-        console.error("Auth getUser fallback error:", fallbackErr?.message || "no user");
-        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
-      }
-      var userId = fallbackUser.id;
-    } else {
-      var userId = claimsData.claims.sub as string;
+    const { data: { user }, error: authErr } = await supabase.auth.getUser();
+    if (authErr || !user) {
+      console.error("Auth error:", authErr?.message || "no user returned");
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
+    const userId = user.id;
 
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
