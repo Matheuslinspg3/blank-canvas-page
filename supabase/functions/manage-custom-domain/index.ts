@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
 const CF_API = "https://api.cloudflare.com/client/v4";
+const PLATFORM_DOMAIN = "portadocorretor.com.br";
 const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
 
 function json(data: unknown, status = 200) {
@@ -10,6 +11,49 @@ function json(data: unknown, status = 200) {
 
 function errorJson(message: string, status = 400, extra?: Record<string, unknown>) {
   return new Response(JSON.stringify({ error: message, ...extra }), { status, headers: jsonHeaders });
+}
+
+// ─── Wildcard DNS helper ────────────────────────────────────────
+async function ensureWildcardDns(cfToken: string, cfZone: string): Promise<{ already_exists: boolean; record_id?: string; error?: string }> {
+  const wildcard = `*.${PLATFORM_DOMAIN}`;
+
+  // Check if wildcard CNAME already exists
+  const searchRes = await fetch(
+    `${CF_API}/zones/${cfZone}/dns_records?type=CNAME&name=${encodeURIComponent(wildcard)}`,
+    { headers: { Authorization: `Bearer ${cfToken}` } }
+  );
+  const searchData = await searchRes.json();
+
+  if (!searchData.success) {
+    console.error("Cloudflare DNS search error:", JSON.stringify(searchData.errors));
+    return { already_exists: false, error: "Failed to query DNS records" };
+  }
+
+  if (searchData.result && searchData.result.length > 0) {
+    console.log("Wildcard CNAME already exists:", searchData.result[0].id);
+    return { already_exists: true, record_id: searchData.result[0].id };
+  }
+
+  // Create wildcard CNAME
+  const createRes = await fetch(`${CF_API}/zones/${cfZone}/dns_records`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${cfToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      type: "CNAME",
+      name: "*",
+      content: PLATFORM_DOMAIN,
+      proxied: true,
+      comment: "Auto-created wildcard for tenant subdomains",
+    }),
+  });
+  const createData = await createRes.json();
+  console.log("Cloudflare wildcard create response:", createRes.status, JSON.stringify(createData));
+
+  if (!createData.success) {
+    return { already_exists: false, error: createData.errors?.[0]?.message || "Failed to create wildcard DNS" };
+  }
+
+  return { already_exists: false, record_id: createData.result.id };
 }
 
 Deno.serve(async (req) => {
@@ -90,10 +134,18 @@ Deno.serve(async (req) => {
         return errorJson("Erro ao atualizar slug", 500);
       }
 
+      // Ensure wildcard DNS exists (fire-and-forget, don't block slug update)
+      const CF_TOKEN = Deno.env.get("CLOUDFLARE_API_TOKEN");
+      const CF_ZONE = Deno.env.get("CLOUDFLARE_ZONE_ID");
+      if (CF_TOKEN && CF_ZONE) {
+        const dnsResult = await ensureWildcardDns(CF_TOKEN, CF_ZONE);
+        console.log("Wildcard DNS check during slug update:", JSON.stringify(dnsResult));
+      }
+
       return json({ success: true, slug: newSlug });
     }
 
-    // ─── Cloudflare Domain Actions ─────────────────────────────────
+    // ─── Cloudflare secrets check ──────────────────────────────────
     const CF_TOKEN = Deno.env.get("CLOUDFLARE_API_TOKEN");
     const CF_ZONE = Deno.env.get("CLOUDFLARE_ZONE_ID");
 
@@ -102,6 +154,23 @@ Deno.serve(async (req) => {
       return errorJson("Server configuration error: Missing Cloudflare credentials", 500);
     }
 
+    // ─── Ensure Wildcard DNS ───────────────────────────────────────
+    if (action === "ensure_wildcard_dns") {
+      const result = await ensureWildcardDns(CF_TOKEN, CF_ZONE);
+      if (result.error) {
+        return errorJson(result.error, 502);
+      }
+      return json({
+        success: true,
+        already_exists: result.already_exists,
+        record_id: result.record_id,
+        message: result.already_exists
+          ? "Wildcard CNAME already exists"
+          : "Wildcard CNAME created successfully",
+      });
+    }
+
+    // ─── Create Custom Hostname ────────────────────────────────────
     if (action === "create") {
       const hostname = (body.hostname as string || "").toLowerCase().trim();
       if (!hostname || !hostname.includes(".")) {
@@ -165,10 +234,11 @@ Deno.serve(async (req) => {
 
       return json({
         domain,
-        instructions: `Aponte o CNAME do domínio ${hostname} para portadocorretor.com.br`,
+        instructions: `Aponte o CNAME do domínio ${hostname} para ${PLATFORM_DOMAIN}`,
       }, 201);
     }
 
+    // ─── Check Status ──────────────────────────────────────────────
     if (action === "check_status") {
       const domainId = body.domain_id as string;
       const { data: domain } = await adminClient
@@ -212,6 +282,7 @@ Deno.serve(async (req) => {
       return json({ ssl_status: sslStatus, verification_status: verificationStatus, is_active: isActive });
     }
 
+    // ─── Delete ────────────────────────────────────────────────────
     if (action === "delete") {
       const domainId = body.domain_id as string;
       const { data: domain } = await adminClient
