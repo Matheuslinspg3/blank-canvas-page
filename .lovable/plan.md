@@ -2,50 +2,34 @@
 
 ## Problem
 
-Two edge functions are using `authClient.auth.getClaims(token)`, which is **not a standard method** in the Supabase JS client library. This causes them to crash with 401 errors.
+The `manage-custom-domain` Edge Function is returning **502** errors. Based on the Sentry breadcrumbs (response body size 106 bytes), the function IS executing but the **Cloudflare API call is failing** and the function returns 502 at line 124 or 174.
 
-**Affected functions:**
-1. `manage-custom-domain/index.ts` (line 26 uses `getUser()` in current code, but may not be deployed)
-2. `generate-landing-content/index.ts` (line 49 still uses `getClaims(token)`)
+Two issues found:
 
-The landing page at `/imovel/:id` calls `generate-landing-content` to generate AI content. When this edge function crashes, the page still renders but without AI-generated headlines/descriptions. However, the 401 error is also preventing domain management from working.
+1. **Missing `config.toml` entry**: `manage-custom-domain` is NOT listed in `supabase/config.toml`, meaning it defaults to `verify_jwt = true`. While the function does its own auth, adding it explicitly with `verify_jwt = false` ensures consistency with the project pattern and avoids potential gateway-level JWT issues.
 
-Additionally, the `generate-landing-content` function requires authentication, but the property landing page is **public** — unauthenticated visitors can't generate new content. The function should:
-- Serve cached content without auth (already handled client-side via direct DB read)
-- Only require auth for content **generation**
+2. **Poor error logging**: When Cloudflare returns an error, the function logs it but the response body doesn't include enough detail for debugging. The `corsHeaders` are also missing `Content-Type` in some response paths.
 
 ## Plan
 
-### 1. Fix `generate-landing-content` auth (replace `getClaims`)
+### 1. Add `manage-custom-domain` to `config.toml`
 
-**File:** `supabase/functions/generate-landing-content/index.ts`
+Add `verify_jwt = false` entry so the function handles its own auth (matching the project pattern for all other functions).
 
-Replace `getClaims(token)` with `getUser()` using a user-context client:
+### 2. Improve error handling in the Edge Function
 
-```typescript
-const authClient = createClient(supabaseUrl, supabaseAnonKey, {
-  global: { headers: { Authorization: authHeader } },
-});
-const { data: { user }, error: userErr } = await authClient.auth.getUser();
-if (userErr || !user) {
-  return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, ... });
-}
-// Use user.id instead of claimsData.claims.sub
-```
+- Add `Content-Type: application/json` header to ALL responses (some paths are missing it)
+- Log the full Cloudflare response status and body when it fails
+- Add a guard for undefined `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ZONE_ID` before making API calls (return 500 with clear message instead of crashing)
+- Wrap the `req.json()` call to handle cases where the body is empty or invalid
 
-Update the `checkAiRateLimitRedis` call and `ai-router` call to use `user.id` instead of `claimsData.claims.sub`.
+### 3. Redeploy the function
 
-### 2. Redeploy `manage-custom-domain`
-
-Ensure the current code (which already uses `getUser()`) is properly deployed. The import path also needs to be checked — it uses `https://esm.sh/@supabase/supabase-js@2.49.4` while other functions use `npm:@supabase/supabase-js@2`. Standardize to `npm:` format.
-
-### 3. Redeploy both edge functions
-
-Trigger redeployment of both functions to ensure the latest code is live.
+Deploy the updated function to apply the fixes.
 
 ## Technical Details
 
-- `getClaims()` was never a public API method in `@supabase/supabase-js` v2
-- `getUser()` validates the JWT against the Supabase Auth server and returns user data
-- The user-context client pattern (passing `Authorization` header to `createClient`) is the correct approach for edge functions
+- The Sentry trace confirms the function returns 502 (not a boot crash), meaning auth succeeds but the Cloudflare API call fails
+- `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ZONE_ID` secrets exist but may have incorrect values
+- Adding the config.toml entry and better logging will help diagnose whether it's a token permission issue, wrong zone ID, or hostname conflict in Cloudflare
 
