@@ -1,41 +1,51 @@
 
 
-## Problema Identificado
+## Problem
 
-Na listagem de imóveis (`usePropertyCRUD.ts`, linha 84), o código filtra intencionalmente as imagens para manter **apenas a imagem de capa**:
+Two edge functions are using `authClient.auth.getClaims(token)`, which is **not a standard method** in the Supabase JS client library. This causes them to crash with 401 errors.
 
-```typescript
-images: (p.images || []).filter((img: any) => img.is_cover).slice(0, 1),
-```
+**Affected functions:**
+1. `manage-custom-domain/index.ts` (line 26 uses `getUser()` in current code, but may not be deployed)
+2. `generate-landing-content/index.ts` (line 49 still uses `getClaims(token)`)
 
-Isso significa que na aba de imóveis, cada imóvel mostra no maximo 1 foto (a capa). Se nenhuma imagem tiver `is_cover = true`, mostra 0 fotos.
+The landing page at `/imovel/:id` calls `generate-landing-content` to generate AI content. When this edge function crashes, the page still renders but without AI-generated headlines/descriptions. However, the 401 error is also preventing domain management from working.
 
-Na landing page, a RPC `get_public_property_by_slug` busca **todas** as imagens, por isso funciona corretamente.
+Additionally, the `generate-landing-content` function requires authentication, but the property landing page is **public** — unauthenticated visitors can't generate new content. The function should:
+- Serve cached content without auth (already handled client-side via direct DB read)
+- Only require auth for content **generation**
 
-## Análise
+## Plan
 
-Esse filtro foi provavelmente adicionado como otimização para a listagem (grid/tabela), onde só a capa é exibida. Porém, quando o usuario abre os detalhes do imóvel a partir da listagem, provavelmente reutiliza esses dados em cache, resultando em apenas 1 imagem visível.
+### 1. Fix `generate-landing-content` auth (replace `getClaims`)
 
-## Plano
+**File:** `supabase/functions/generate-landing-content/index.ts`
 
-### 1. Alterar a query de listagem para manter todas as imagens
-
-**Arquivo**: `src/hooks/usePropertyCRUD.ts` (linha 82-85)
-
-Remover o filtro que descarta imagens non-cover. Manter todas as imagens ordenadas por `display_order`, com a capa primeiro:
+Replace `getClaims(token)` with `getUser()` using a user-context client:
 
 ```typescript
-const processed = (data as unknown as PropertyWithDetails[]).map(p => ({
-  ...p,
-  images: (p.images || []).sort((a: any, b: any) => {
-    if (a.is_cover && !b.is_cover) return -1;
-    if (!a.is_cover && b.is_cover) return 1;
-    return (a.display_order || 0) - (b.display_order || 0);
-  }),
-}));
+const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+  global: { headers: { Authorization: authHeader } },
+});
+const { data: { user }, error: userErr } = await authClient.auth.getUser();
+if (userErr || !user) {
+  return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, ... });
+}
+// Use user.id instead of claimsData.claims.sub
 ```
 
-Isso garante que:
-- A listagem em grid/tabela continua usando `images[0]` como capa
-- A tela de detalhes terá acesso a todas as imagens do imóvel
+Update the `checkAiRateLimitRedis` call and `ai-router` call to use `user.id` instead of `claimsData.claims.sub`.
+
+### 2. Redeploy `manage-custom-domain`
+
+Ensure the current code (which already uses `getUser()`) is properly deployed. The import path also needs to be checked — it uses `https://esm.sh/@supabase/supabase-js@2.49.4` while other functions use `npm:@supabase/supabase-js@2`. Standardize to `npm:` format.
+
+### 3. Redeploy both edge functions
+
+Trigger redeployment of both functions to ensure the latest code is live.
+
+## Technical Details
+
+- `getClaims()` was never a public API method in `@supabase/supabase-js` v2
+- `getUser()` validates the JWT against the Supabase Auth server and returns user data
+- The user-context client pattern (passing `Authorization` header to `createClient`) is the correct approach for edge functions
 
