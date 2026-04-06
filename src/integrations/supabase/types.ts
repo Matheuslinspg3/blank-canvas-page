@@ -5963,6 +5963,53 @@ export type Database = {
           },
         ]
       }
+      tenant_domains: {
+        Row: {
+          cloudflare_hostname_id: string | null
+          created_at: string
+          created_by: string | null
+          hostname: string
+          id: string
+          is_active: boolean
+          organization_id: string
+          ssl_status: string
+          updated_at: string
+          verification_status: string
+        }
+        Insert: {
+          cloudflare_hostname_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          hostname: string
+          id?: string
+          is_active?: boolean
+          organization_id: string
+          ssl_status?: string
+          updated_at?: string
+          verification_status?: string
+        }
+        Update: {
+          cloudflare_hostname_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          hostname?: string
+          id?: string
+          is_active?: boolean
+          organization_id?: string
+          ssl_status?: string
+          updated_at?: string
+          verification_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_domains_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticket_messages: {
         Row: {
           attachments: Json | null
