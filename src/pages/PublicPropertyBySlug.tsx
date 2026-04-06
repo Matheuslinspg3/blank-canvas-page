@@ -49,12 +49,20 @@ interface PublicPropertyData {
 }
 
 function resolveImageUrl(img: PublicPropertyData["images"][0]): string {
-  // If it has R2 fields, use the imageUrl resolver
-  if (img.storage_provider === "r2" && (img.r2_key_full || img.r2_key_thumb)) {
-    return getImageUrl(img as ImageRecord, "full");
+  const imageRecord: ImageRecord = {
+    url: img.url,
+    r2_key_full: img.r2_key_full,
+    r2_key_thumb: img.r2_key_thumb,
+    storage_provider: img.storage_provider,
+    cached_thumbnail_url: img.cached_thumbnail_url,
+  };
+  // Use unified resolver for R2, Cloudinary, etc.
+  const resolved = getImageUrl(imageRecord, "full");
+  // Drive proxy fallback for legacy images without a known provider
+  if (resolved === img.url && !img.cached_thumbnail_url && !img.storage_provider) {
+    return proxyDriveImageUrl(img.url, "w1600");
   }
-  // Otherwise proxy Drive URLs or pass through
-  return proxyDriveImageUrl(img.url, "w1600");
+  return resolved;
 }
 
 export default function PublicPropertyBySlug() {

@@ -305,7 +305,7 @@ export default function PropertyDetails() {
         description_generated: false,
       };
 
-      // Fetch ALL images with full metadata (list query only has covers)
+      // Fetch ALL images with full metadata for duplication
       const { data: fullImages } = await supabase
         .from('property_images')
         .select('id, url, is_cover, display_order, phash, r2_key_full, r2_key_thumb, storage_provider')
@@ -313,7 +313,7 @@ export default function PropertyDetails() {
         .order('display_order');
 
       const images = (fullImages || []).map((img: any, i: number) => ({
-        url: getImageUrl(img, 'full'),
+        url: img.url,
         is_cover: img.is_cover || i === 0,
         display_order: img.display_order ?? i,
         phash: img.phash || undefined,
