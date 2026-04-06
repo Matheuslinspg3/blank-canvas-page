@@ -11,15 +11,23 @@ Deno.serve(async (req) => {
   try {
     // Auth — only managers+
     const authHeader = req.headers.get("authorization") ?? "";
+    if (!authHeader) {
+      console.error("No authorization header");
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { authorization: authHeader } } }
     );
+
     const { data: { user }, error: authErr } = await supabase.auth.getUser();
     if (authErr || !user) {
+      console.error("Auth error:", authErr?.message || "no user returned");
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
+    const userId = user.id;
 
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -27,7 +35,7 @@ Deno.serve(async (req) => {
     );
 
     // Check manager role
-    const { data: isManager } = await adminClient.rpc("is_org_manager_or_above", { _user_id: user.id });
+    const { data: isManager } = await adminClient.rpc("is_org_manager_or_above", { _user_id: userId });
     if (!isManager) {
       return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
     }
@@ -36,7 +44,7 @@ Deno.serve(async (req) => {
     const { data: profile } = await adminClient
       .from("profiles")
       .select("organization_id")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .single();
     if (!profile?.organization_id) {
       return new Response(JSON.stringify({ error: "No organization" }), { status: 400, headers: corsHeaders });
@@ -103,7 +111,7 @@ Deno.serve(async (req) => {
           ssl_status: cfHostname.ssl?.status || "pending",
           verification_status: cfHostname.status || "pending",
           is_active: false,
-          created_by: user.id,
+          created_by: userId,
         })
         .select()
         .single();
