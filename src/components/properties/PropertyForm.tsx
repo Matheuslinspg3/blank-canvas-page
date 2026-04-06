@@ -181,7 +181,7 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
           // ignore – owner fields will remain empty
         }
 
-        // Fetch ALL images (list query only includes covers)
+        // Fetch ALL images for the edit form
         let allImages: { id: string; url: string; is_cover: boolean; display_order: number }[] = [];
         try {
           const { data: imgRows } = await supabase
