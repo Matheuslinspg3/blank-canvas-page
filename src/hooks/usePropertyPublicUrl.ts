@@ -3,36 +3,42 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { buildOrgSubdomainUrl } from "@/config/platform";
 
-/** Caches the org slug for the current session and builds public URLs */
+/** Caches the org slug + site active status and builds public URLs */
 export function usePropertyPublicUrl() {
   const { profile } = useAuth();
   const orgId = profile?.organization_id;
 
-  const { data: orgSlug = null } = useQuery({
-    queryKey: ["org-slug", orgId],
+  const { data: orgData = null } = useQuery({
+    queryKey: ["org-site-info", orgId],
     enabled: !!orgId,
-    staleTime: 30 * 60_000,
-    gcTime: 60 * 60_000,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
     queryFn: async () => {
-      const { data } = await supabase
-        .from("organizations")
-        .select("slug")
-        .eq("id", orgId!)
-        .single();
-      return data?.slug ?? null;
+      const [orgRes, siteRes] = await Promise.all([
+        supabase.from("organizations").select("slug").eq("id", orgId!).single(),
+        supabase.from("website_settings").select("is_active").eq("organization_id", orgId!).maybeSingle(),
+      ]);
+      return {
+        slug: orgRes.data?.slug ?? null,
+        siteActive: siteRes.data?.is_active ?? false,
+      };
     },
   });
 
-  /** Returns the public URL using the platform subdomain or falls back to /imovel/:id */
+  const orgSlug = orgData?.slug ?? null;
+  const siteActive = orgData?.siteActive ?? false;
+
+  /** Returns the public URL — uses subdomain only when site is active */
   const buildPublicUrl = (propertyId: string, propertyCode?: string | null): string => {
-    if (orgSlug && propertyCode) {
+    if (siteActive && orgSlug && propertyCode) {
       return `${buildOrgSubdomainUrl(orgSlug)}/imovel/${propertyCode}`;
     }
-    if (orgSlug) {
+    if (siteActive && orgSlug) {
       return `${buildOrgSubdomainUrl(orgSlug)}/imovel/${propertyId}`;
     }
+    // Site inactive or no slug — use app-relative URL
     return `${window.location.origin}/imovel/${propertyId}`;
   };
 
-  return { buildPublicUrl, orgSlug };
+  return { buildPublicUrl, orgSlug, siteActive };
 }
