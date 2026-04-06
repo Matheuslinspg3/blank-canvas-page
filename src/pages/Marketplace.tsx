@@ -19,7 +19,7 @@ export type ViewMode = "grid" | "list";
 export default function Marketplace() {
   const navigate = useNavigate();
   const [filters, setFilters] = useState<MarketplaceFiltersState>(defaultMarketplaceFilters);
-  const [appliedExternalFilters, setAppliedExternalFilters] = useState<{ city?: string; neighborhood?: string; transactionType?: string; bedrooms?: number; suites?: number; parkingSpots?: number; appliedAt: number } | null>(null);
+  const [appliedExternalFilters, setAppliedExternalFilters] = useState<{ city?: string; neighborhood?: string; transactionType?: string; bedrooms?: number; suites?: number; bathrooms?: number; parkingSpots?: number; minPrice?: number; maxPrice?: number; appliedAt: number } | null>(null);
   const [contactProperty, setContactProperty] = useState<MarketplaceProperty | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [orgPageSize, setOrgPageSize] = useState<number>(10);
@@ -77,7 +77,10 @@ export default function Marketplace() {
       transactionType: filters.transactionType !== "all" ? filters.transactionType : undefined,
       bedrooms: filters.minBedrooms ?? undefined,
       suites: filters.minSuites ?? undefined,
+      bathrooms: filters.minBathrooms ?? undefined,
       parkingSpots: filters.minParking ?? undefined,
+      minPrice: filters.minPrice ?? undefined,
+      maxPrice: filters.maxPrice ?? undefined,
       appliedAt: Date.now(),
     });
   }, [filters.city, filters.neighborhood, filters.transactionType, filters.minBedrooms, filters.minSuites, filters.minParking]);

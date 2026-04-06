@@ -12,7 +12,10 @@ interface ExternalFilters {
   transaction_type: string;
   bedrooms: number;
   suites: number;
+  bathrooms: number;
   parking_spots: number;
+  min_price: number;
+  max_price: number;
   source?: string;
 }
 
@@ -126,7 +129,10 @@ serve(async (req) => {
         transaction_type: body.transaction_type || "",
         bedrooms: body.bedrooms || 0,
         suites: body.suites || 0,
+        bathrooms: body.bathrooms || 0,
         parking_spots: body.parking_spots || 0,
+        min_price: body.min_price || 0,
+        max_price: body.max_price || 0,
         source: body.source,
       };
 
@@ -143,8 +149,15 @@ serve(async (req) => {
       if (filters.neighborhood) query = query.ilike("address_neighborhood", `%${filters.neighborhood}%`);
       if (filters.transaction_type) query = query.eq("transaction_type", filters.transaction_type);
       if (filters.bedrooms) query = query.gte("bedrooms", filters.bedrooms);
+      if (filters.suites) query = query.gte("suites", filters.suites);
+      if (filters.bathrooms) query = query.gte("bathrooms", filters.bathrooms);
       if (filters.parking_spots) query = query.gte("parking_spots", filters.parking_spots);
       if (filters.source && filters.source !== "all") query = query.eq("source", filters.source);
+
+      // Price filters — use sale_price for "venda", rent_price for "aluguel"
+      const priceCol = filters.transaction_type === "aluguel" ? "rent_price" : "sale_price";
+      if (filters.min_price) query = query.gte(priceCol, filters.min_price);
+      if (filters.max_price) query = query.lte(priceCol, filters.max_price);
 
       const { data: existingListings } = await query.limit(50);
 

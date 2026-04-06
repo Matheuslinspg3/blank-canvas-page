@@ -29,7 +29,10 @@ interface ExternalFilters {
   transactionType?: string;
   bedrooms?: number;
   suites?: number;
+  bathrooms?: number;
   parkingSpots?: number;
+  minPrice?: number;
+  maxPrice?: number;
   appliedAt?: number;
 }
 
@@ -51,7 +54,10 @@ export function useExternalListings(filters: ExternalFilters) {
             transaction_type: filters.transactionType || "",
             bedrooms: filters.bedrooms || 0,
             suites: filters.suites || 0,
+            bathrooms: filters.bathrooms || 0,
             parking_spots: filters.parkingSpots || 0,
+            min_price: filters.minPrice || 0,
+            max_price: filters.maxPrice || 0,
           },
         },
       );
