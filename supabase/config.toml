@@ -122,3 +122,6 @@ verify_jwt = false
 
 [functions.whatsapp-webhook-config]
 verify_jwt = false
+
+[functions.manage-custom-domain]
+verify_jwt = false
