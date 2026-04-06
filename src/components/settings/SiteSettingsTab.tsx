@@ -431,7 +431,7 @@ function DomainSection() {
     createMutation.mutate(h);
   };
 
-  const siteUrl = orgSlug ? `https://${orgSlug}.portadocorretor.com.br` : null;
+  
 
   return (
     <div className="space-y-6">
