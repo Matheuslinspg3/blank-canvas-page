@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
           ssl_status: cfHostname.ssl?.status || "pending",
           verification_status: cfHostname.status || "pending",
           is_active: false,
-          created_by: user.id,
+          created_by: userId,
         })
         .select()
         .single();
