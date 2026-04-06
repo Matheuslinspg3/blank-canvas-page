@@ -1,32 +1,41 @@
 
 
-# Plano: Corrigir exibição de External Listings no Marketplace
+## Problema Identificado
 
-## Problemas identificados
+Na listagem de imóveis (`usePropertyCRUD.ts`, linha 84), o código filtra intencionalmente as imagens para manter **apenas a imagem de capa**:
 
-**Problema 1 — External listings ficam escondidos quando não há imóveis internos**
-Na linha 201 do `Marketplace.tsx`, a seção de external listings (linha 214-227) está **dentro** do bloco `properties.length > 0`. Se nenhum imóvel interno do marketplace corresponder aos filtros, o bloco inteiro não renderiza — incluindo os externos.
+```typescript
+images: (p.images || []).filter((img: any) => img.is_cover).slice(0, 1),
+```
 
-**Problema 2 — Padrão assíncrono sem re-fetch**
-O fluxo é assíncrono: a Edge Function retorna imediatamente os listings existentes no banco (provavelmente vazio na primeira busca), e o n8n faz o scraping e chama o callback depois. Mas o hook tem `staleTime: 5min` e `refetchOnWindowFocus: false`, então o frontend nunca re-busca para ver os dados inseridos pelo callback.
+Isso significa que na aba de imóveis, cada imóvel mostra no maximo 1 foto (a capa). Se nenhuma imagem tiver `is_cover = true`, mostra 0 fotos.
 
-## Solução
+Na landing page, a RPC `get_public_property_by_slug` busca **todas** as imagens, por isso funciona corretamente.
 
-### Etapa 1 — Reestruturar layout do Marketplace.tsx
-Mover a seção de external listings para **fora** do bloco condicional `properties.length > 0`, garantindo que apareçam independentemente de haver imóveis internos.
+## Análise
 
-### Etapa 2 — Adicionar refetch automático no hook
-Alterar `useExternalListings` para usar `refetchInterval` quando a primeira resposta vier com `n8n_triggered: true` (indicando que o scraping está em andamento). Isso fará o frontend re-buscar a cada ~10 segundos até os dados aparecerem.
+Esse filtro foi provavelmente adicionado como otimização para a listagem (grid/tabela), onde só a capa é exibida. Porém, quando o usuario abre os detalhes do imóvel a partir da listagem, provavelmente reutiliza esses dados em cache, resultando em apenas 1 imagem visível.
 
-Mudanças no hook:
-- Armazenar `n8n_triggered` da resposta
-- Usar `refetchInterval: 10000` quando n8n foi triggado e listings ainda estão vazios
-- Parar o polling quando listings chegarem ou após 60 segundos
+## Plano
 
-### Etapa 3 — Exibir loading de portais externos mesmo sem imóveis internos
-Mover o indicador `externalLoading` / spinner para fora do bloco condicional também.
+### 1. Alterar a query de listagem para manter todas as imagens
 
-## Arquivos alterados
-- `src/pages/Marketplace.tsx` — reestruturar layout
-- `src/hooks/useExternalListings.ts` — adicionar polling inteligente
+**Arquivo**: `src/hooks/usePropertyCRUD.ts` (linha 82-85)
+
+Remover o filtro que descarta imagens non-cover. Manter todas as imagens ordenadas por `display_order`, com a capa primeiro:
+
+```typescript
+const processed = (data as unknown as PropertyWithDetails[]).map(p => ({
+  ...p,
+  images: (p.images || []).sort((a: any, b: any) => {
+    if (a.is_cover && !b.is_cover) return -1;
+    if (!a.is_cover && b.is_cover) return 1;
+    return (a.display_order || 0) - (b.display_order || 0);
+  }),
+}));
+```
+
+Isso garante que:
+- A listagem em grid/tabela continua usando `images[0]` como capa
+- A tela de detalhes terá acesso a todas as imagens do imóvel
 
