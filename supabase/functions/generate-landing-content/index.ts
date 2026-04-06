@@ -117,7 +117,7 @@ Responda APENAS com JSON válido (sem markdown): {
         task_type: "landing_page",
         prompt: propertyContext,
         system_prompt: systemPrompt,
-        user_id: claimsData.claims.sub,
+        user_id: user.id,
       }),
     });
 
