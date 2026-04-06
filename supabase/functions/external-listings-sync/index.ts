@@ -7,10 +7,12 @@ const N8N_EXTERNAL_LISTINGS_WEBHOOK = Deno.env.get("N8N_EXTERNAL_LISTINGS_WEBHOO
 const CACHE_TTL_HOURS = 6;
 
 interface ExternalFilters {
-  city?: string;
-  neighborhood?: string;
-  transaction_type?: string;
-  bedrooms?: number;
+  city: string;
+  neighborhood: string;
+  transaction_type: string;
+  bedrooms: number;
+  suites: number;
+  parking_spots: number;
   source?: string;
 }
 
@@ -20,6 +22,8 @@ function buildSearchHash(filters: ExternalFilters): string {
     neighborhood: (filters.neighborhood || "").toLowerCase().trim(),
     transaction_type: filters.transaction_type || "",
     bedrooms: filters.bedrooms || 0,
+    suites: filters.suites || 0,
+    parking_spots: filters.parking_spots || 0,
     source: filters.source || "all",
   });
   return normalized;
@@ -115,12 +119,14 @@ serve(async (req) => {
         return json({ success: true, count: listingIds.length });
       }
 
-      // ACTION: search — cache-first, then trigger n8n
+      // ACTION: search — query + trigger n8n
       const filters: ExternalFilters = {
-        city: body.city,
-        neighborhood: body.neighborhood,
-        transaction_type: body.transaction_type,
-        bedrooms: body.bedrooms,
+        city: body.city || "",
+        neighborhood: body.neighborhood || "",
+        transaction_type: body.transaction_type || "",
+        bedrooms: body.bedrooms || 0,
+        suites: body.suites || 0,
+        parking_spots: body.parking_spots || 0,
         source: body.source,
       };
 
@@ -137,27 +143,36 @@ serve(async (req) => {
       if (filters.neighborhood) query = query.ilike("address_neighborhood", `%${filters.neighborhood}%`);
       if (filters.transaction_type) query = query.eq("transaction_type", filters.transaction_type);
       if (filters.bedrooms) query = query.gte("bedrooms", filters.bedrooms);
+      if (filters.parking_spots) query = query.gte("parking_spots", filters.parking_spots);
       if (filters.source && filters.source !== "all") query = query.eq("source", filters.source);
 
       const { data: existingListings } = await query.limit(50);
 
-      // ALWAYS trigger n8n webhook to refresh data (fire and forget)
+      // Build the consistent payload for n8n
+      const n8nPayload = {
+        search_hash: searchHash,
+        filters: {
+          city: filters.city,
+          neighborhood: filters.neighborhood,
+          transaction_type: filters.transaction_type,
+          bedrooms: filters.bedrooms,
+          suites: filters.suites,
+          parking_spots: filters.parking_spots,
+        },
+        callback_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/external-listings-sync`,
+        callback_secret: Deno.env.get("WHATSAPP_AGENT_SECRET"),
+      };
+
+      // ALWAYS trigger n8n webhook (fire and forget)
       let n8nTriggered = false;
       if (N8N_EXTERNAL_LISTINGS_WEBHOOK) {
-        const edgeFunctionUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/external-listings-sync`;
-        
         fetch(N8N_EXTERNAL_LISTINGS_WEBHOOK, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            search_hash: searchHash,
-            filters,
-            callback_url: edgeFunctionUrl,
-            callback_secret: Deno.env.get("WHATSAPP_AGENT_SECRET"),
-          }),
+          body: JSON.stringify(n8nPayload),
         }).catch((err) => console.error("[external-listings-sync] n8n trigger failed:", err));
         n8nTriggered = true;
-        console.log("[external-listings-sync] n8n triggered for hash:", searchHash, "filters:", JSON.stringify(filters));
+        console.log("[external-listings-sync] n8n triggered with payload:", JSON.stringify(n8nPayload));
       } else {
         console.warn("[external-listings-sync] N8N_EXTERNAL_LISTINGS_WEBHOOK not configured");
       }

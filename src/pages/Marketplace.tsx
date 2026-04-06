@@ -76,9 +76,11 @@ export default function Marketplace() {
       neighborhood: filters.neighborhood || undefined,
       transactionType: filters.transactionType !== "all" ? filters.transactionType : undefined,
       bedrooms: filters.minBedrooms ?? undefined,
+      suites: filters.minSuites ?? undefined,
+      parkingSpots: filters.minParking ?? undefined,
       appliedAt: Date.now(),
     });
-  }, [filters.city, filters.neighborhood, filters.transactionType, filters.minBedrooms]);
+  }, [filters.city, filters.neighborhood, filters.transactionType, filters.minBedrooms, filters.minSuites, filters.minParking]);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
