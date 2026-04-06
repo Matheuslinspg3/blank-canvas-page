@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserRoles } from "@/hooks/useUserRole";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
-import { Building2, User, Bell, Users, Palette, Sun, Moon, Monitor, Megaphone, CreditCard, History, MessageSquare, Bug, Loader2 } from "lucide-react";
+import { Building2, User, Bell, Users, Palette, Sun, Moon, Monitor, Megaphone, CreditCard, History, MessageSquare, Bug, Loader2, Globe } from "lucide-react";
 import { SupportTicketDialog } from "@/components/settings/SupportTicketDialog";
 import { UserTicketsSection } from "@/components/settings/UserTicketsSection";
 import { PlatformInviteSection } from "@/components/settings/PlatformInviteSection";
@@ -20,6 +20,7 @@ import { SettingsTeamTab } from "@/components/settings/SettingsTeamTab";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const WhiteLabelSettings = lazy(() => import("@/components/settings/WhiteLabelSettings"));
+const CustomDomainsManager = lazy(() => import("@/components/settings/CustomDomainsManager").then(m => ({ default: m.CustomDomainsManager })));
 
 
 export default function Settings() {
@@ -65,6 +66,9 @@ export default function Settings() {
                 <TabsTrigger value="billing" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><CreditCard className="h-4 w-4 shrink-0" /><span>Assinatura</span></TabsTrigger>
               )}
               <TabsTrigger value="support" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><MessageSquare className="h-4 w-4 shrink-0" /><span>Suporte</span></TabsTrigger>
+              {isAdminOrAbove && (
+                <TabsTrigger value="domains" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><Globe className="h-4 w-4 shrink-0" /><span>Domínios</span></TabsTrigger>
+              )}
             </TabsList>
           </div>
 
@@ -132,6 +136,14 @@ export default function Settings() {
               <UserTicketsSection />
             </div>
           </TabsContent>
+
+          {isAdminOrAbove && (
+            <TabsContent value="domains">
+              <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
+                <CustomDomainsManager />
+              </Suspense>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </div>
