@@ -20,6 +20,7 @@ import { SettingsTeamTab } from "@/components/settings/SettingsTeamTab";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const WhiteLabelSettings = lazy(() => import("@/components/settings/WhiteLabelSettings"));
+const CustomDomainsManager = lazy(() => import("@/components/settings/CustomDomainsManager").then(m => ({ default: m.CustomDomainsManager })));
 
 
 export default function Settings() {
