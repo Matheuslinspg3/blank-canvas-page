@@ -467,9 +467,12 @@ function DomainSection() {
             <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
               <li>Adicione o domínio acima</li>
               <li>No painel DNS do seu domínio, crie um <strong>CNAME</strong> apontando para <code className="bg-muted px-1 rounded">portadocorretor.com.br</code></li>
-              <li>Aguarde a verificação e emissão do SSL (pode levar alguns minutos)</li>
-              <li>Clique em "Verificar" para atualizar o status</li>
+              <li>Aguarde — o sistema verifica automaticamente a cada 5 minutos e ativa o SSL quando o DNS propagar</li>
             </ol>
+            <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5">
+              <RefreshCw className="h-3 w-3" />
+              Verificação automática ativa — você será notificado quando o domínio estiver pronto.
+            </p>
           </div>
 
           {/* Domain list */}
