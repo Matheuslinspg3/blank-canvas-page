@@ -312,7 +312,7 @@ function WebsiteContentSection() {
 // ─── Domain Management Section ───────────────────────────────────────────────
 
 function statusBadge(ssl: string, verification: string, isActive: boolean) {
-  if (isActive) return <Badge className="bg-green-600 text-white gap-1"><CheckCircle2 className="h-3 w-3" />Ativo</Badge>;
+  if (isActive) return <Badge className="bg-primary text-primary-foreground gap-1"><CheckCircle2 className="h-3 w-3" />Ativo</Badge>;
   if (verification === "pending" || ssl === "pending") return <Badge variant="secondary" className="gap-1"><Clock className="h-3 w-3" />Pendente</Badge>;
   return <Badge variant="destructive" className="gap-1"><AlertCircle className="h-3 w-3" />{verification}</Badge>;
 }
