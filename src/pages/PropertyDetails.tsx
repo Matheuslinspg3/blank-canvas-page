@@ -432,11 +432,25 @@ export default function PropertyDetails() {
 
         {/* Image gallery */}
         <ImageGallery
-          images={property.images?.map((img) => ({
-            url: proxyDriveImageUrl(img.url, "w1600"),
-            alt: property.title,
-            is_cover: img.is_cover || false,
-          })) || []}
+          images={property.images?.map((img) => {
+            const imageRecord = {
+              url: img.url,
+              r2_key_full: (img as any).r2_key_full || null,
+              r2_key_thumb: (img as any).r2_key_thumb || null,
+              storage_provider: (img as any).storage_provider || null,
+              cached_thumbnail_url: (img as any).cached_thumbnail_url || null,
+            };
+            let resolvedUrl = getImageUrl(imageRecord, 'full');
+            // Drive proxy fallback for legacy images without provider
+            if (resolvedUrl === img.url && !imageRecord.cached_thumbnail_url && !imageRecord.storage_provider) {
+              resolvedUrl = proxyDriveImageUrl(img.url, "w1600");
+            }
+            return {
+              url: resolvedUrl,
+              alt: property.title,
+              is_cover: img.is_cover || false,
+            };
+          }) || []}
         />
 
         {/* YouTube Video */}
