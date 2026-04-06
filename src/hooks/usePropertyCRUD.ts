@@ -70,7 +70,7 @@ export function usePropertyCRUD() {
             featured, amenities, property_condition, launch_stage, development_name,
             beach_distance_meters, captador_id, payment_options, youtube_url,
             property_type:property_types(id, name),
-            images:property_images!left(id, url, is_cover, display_order, r2_key_thumb, cached_thumbnail_url)
+            images:property_images!left(id, url, is_cover, display_order, r2_key_full, r2_key_thumb, storage_provider, cached_thumbnail_url)
           `)
           .eq('organization_id', profile.organization_id)
           .order('created_at', { ascending: false })
