@@ -99,12 +99,18 @@ export function parseCurrencyInput(value: string): number {
  */
 export function proxyDriveImageUrl(url: string, size: string = "w800"): string {
   if (!url) return url;
+
+  const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+  // Cloudinary URLs need proxying to avoid 401 errors
+  if (url.includes('res.cloudinary.com') && baseUrl) {
+    return `${baseUrl}/functions/v1/cloudinary-image-proxy?url=${encodeURIComponent(url)}`;
+  }
   
   // Handle Drive thumbnail URLs (drive.google.com/thumbnail?id=...)
   const thumbMatch = url.match(/drive\.google\.com\/thumbnail\?id=([a-zA-Z0-9_-]+)/);
   if (thumbMatch) {
     const fileId = thumbMatch[1];
-    const baseUrl = import.meta.env.VITE_SUPABASE_URL;
     return `${baseUrl}/functions/v1/drive-image-proxy?id=${fileId}&sz=${size}`;
   }
 
@@ -113,14 +119,10 @@ export function proxyDriveImageUrl(url: string, size: string = "w800"): string {
   const lh3Match = url.match(/lh3\.googleusercontent\.com\/d\/([a-zA-Z0-9_-]{10,})/);
   if (lh3Match) {
     const fileId = lh3Match[1];
-    const baseUrl = import.meta.env.VITE_SUPABASE_URL;
     return `${baseUrl}/functions/v1/drive-image-proxy?id=${fileId}&sz=${size}`;
   }
   // Pattern 2: /drive-storage/ format - these are temporary signed URLs that expire
-  // We can't extract a file ID from them, so we pass the full URL as a fallback
   if (url.includes("lh3.googleusercontent.com/drive-storage/")) {
-    // These URLs expire - return as-is but the onError fallback in the component will handle it
-    // The real fix is to cache them via R2 using the drive_file_id from the database
     return url;
   }
   // Other lh3 URLs pass through
@@ -132,7 +134,6 @@ export function proxyDriveImageUrl(url: string, size: string = "w800"): string {
   const driveFileMatch = url.match(/drive\.google\.com\/(?:file\/d\/|uc\?.*?id=)([a-zA-Z0-9_-]+)/);
   if (driveFileMatch) {
     const fileId = driveFileMatch[1];
-    const baseUrl = import.meta.env.VITE_SUPABASE_URL;
     return `${baseUrl}/functions/v1/drive-image-proxy?id=${fileId}&sz=${size}`;
   }
 
