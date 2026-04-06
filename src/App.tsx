@@ -55,6 +55,7 @@ const Install = lazy(() => lazyRetry(() => import("./pages/Install")));
 const Automations = lazy(() => lazyRetry(() => import("./pages/Automations")));
 const _Activities = lazy(() => lazyRetry(() => import("./pages/Activities")));
 const Administration = lazy(() => lazyRetry(() => import("./pages/Administration")));
+const SitePage = lazy(() => lazyRetry(() => import("./pages/Site")));
 const Anuncios = lazy(() => lazyRetry(() => import("./pages/Anuncios")));
 const _RDStation = lazy(() => lazyRetry(() => import("./pages/RDStation")));
 const MetaAdDetail = lazy(() => lazyRetry(() => import("./pages/ads/MetaAdDetail")));
