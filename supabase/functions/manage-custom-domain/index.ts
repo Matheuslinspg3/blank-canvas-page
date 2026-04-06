@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
     );
 
     // Check manager role
-    const { data: isManager } = await adminClient.rpc("is_org_manager_or_above", { _user_id: user.id });
+    const { data: isManager } = await adminClient.rpc("is_org_manager_or_above", { _user_id: userId });
     if (!isManager) {
       return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
     }
