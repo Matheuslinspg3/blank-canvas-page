@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { HelmetProvider } from "react-helmet-async";
+import { TenantRouter } from "@/components/TenantRouter";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
