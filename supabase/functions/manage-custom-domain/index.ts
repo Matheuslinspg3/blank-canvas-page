@@ -11,14 +11,30 @@ Deno.serve(async (req) => {
   try {
     // Auth — only managers+
     const authHeader = req.headers.get("authorization") ?? "";
+    if (!authHeader) {
+      console.error("No authorization header");
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { authorization: authHeader } } }
     );
-    const { data: { user }, error: authErr } = await supabase.auth.getUser();
-    if (authErr || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsErr } = await supabase.auth.getClaims(token);
+    if (claimsErr || !claimsData?.claims?.sub) {
+      console.error("Auth claims error:", claimsErr?.message || "no claims");
+      // Fallback to getUser
+      const { data: { user: fallbackUser }, error: fallbackErr } = await supabase.auth.getUser();
+      if (fallbackErr || !fallbackUser) {
+        console.error("Auth getUser fallback error:", fallbackErr?.message || "no user");
+        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+      }
+      var userId = fallbackUser.id;
+    } else {
+      var userId = claimsData.claims.sub as string;
     }
 
     const adminClient = createClient(
