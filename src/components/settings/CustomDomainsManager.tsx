@@ -131,7 +131,7 @@ export function CustomDomainsManager() {
           <p className="font-medium">Como configurar:</p>
           <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
             <li>Adicione o domínio acima</li>
-            <li>No painel DNS do seu domínio, crie um <strong>CNAME</strong> apontando para <code className="bg-muted px-1 rounded">portocaicaraimoveis.lovable.app</code></li>
+            <li>No painel DNS do seu domínio, crie um <strong>CNAME</strong> apontando para <code className="bg-muted px-1 rounded">portadocorretor.com.br</code></li>
             <li>Aguarde a verificação e emissão do SSL (pode levar alguns minutos)</li>
             <li>Clique em "Verificar" para atualizar o status</li>
           </ol>

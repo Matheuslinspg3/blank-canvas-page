@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { extractPlatformSlug, PLATFORM_DOMAIN } from "@/config/platform";
 
 const KNOWN_APP_HOSTS = [
   "localhost",
@@ -14,17 +15,41 @@ function isAppHost(hostname: string): boolean {
 }
 
 /**
- * Resolves the current hostname to an organization_id via tenant_domains.
- * Returns null quickly for known app hostnames (no DB query).
+ * Resolves the current hostname to an organization_id.
+ *
+ * 1. Platform subdomains ({slug}.portadocorretor.com.br) → lookup by slug
+ * 2. Custom domains (www.clientsite.com.br) → lookup in tenant_domains
+ * 3. Known app hosts → skip (render normal app)
  */
 export function useTenantByHostname() {
   const hostname = typeof window !== "undefined" ? window.location.hostname : "";
-  const isExternal = !!hostname && !isAppHost(hostname);
+  const platformSlug = extractPlatformSlug(hostname);
+  const isCustomDomain = !!hostname && !isAppHost(hostname) && !platformSlug && hostname !== PLATFORM_DOMAIN;
+  const isExternalDomain = !!platformSlug || isCustomDomain;
 
-  const query = useQuery({
+  // Resolve platform subdomain by slug
+  const slugQuery = useQuery({
+    queryKey: ["tenant-slug", platformSlug],
+    enabled: !!platformSlug,
+    staleTime: 30 * 60_000,
+    gcTime: 60 * 60_000,
+    retry: 1,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("id")
+        .eq("slug", platformSlug!)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.id as string | null;
+    },
+  });
+
+  // Resolve custom domain via tenant_domains
+  const domainQuery = useQuery({
     queryKey: ["tenant-domain", hostname],
-    enabled: isExternal,
-    staleTime: 30 * 60_000, // 30 min — domains don't change often
+    enabled: isCustomDomain,
+    staleTime: 30 * 60_000,
     gcTime: 60 * 60_000,
     retry: 1,
     queryFn: async () => {
@@ -34,16 +59,18 @@ export function useTenantByHostname() {
         .eq("hostname", hostname)
         .eq("is_active", true)
         .maybeSingle();
-
       if (error) throw error;
       return data?.organization_id as string | null;
     },
   });
 
+  const activeQuery = platformSlug ? slugQuery : domainQuery;
+  const orgId = isExternalDomain ? (activeQuery.data ?? null) : null;
+
   return {
-    isExternalDomain: isExternal,
-    organizationId: isExternal ? (query.data ?? null) : null,
-    isLoading: isExternal && query.isLoading,
-    notFound: isExternal && query.isFetched && !query.data,
+    isExternalDomain,
+    organizationId: orgId,
+    isLoading: isExternalDomain && activeQuery.isLoading,
+    notFound: isExternalDomain && activeQuery.isFetched && !activeQuery.data,
   };
 }

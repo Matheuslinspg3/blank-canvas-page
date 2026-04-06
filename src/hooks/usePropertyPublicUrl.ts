@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { buildOrgSubdomainUrl } from "@/config/platform";
 
-/** Caches the org slug for the current session and builds /i/:orgSlug/:code URLs */
+/** Caches the org slug for the current session and builds public URLs */
 export function usePropertyPublicUrl() {
   const { profile } = useAuth();
   const orgId = profile?.organization_id;
@@ -10,7 +11,7 @@ export function usePropertyPublicUrl() {
   const { data: orgSlug = null } = useQuery({
     queryKey: ["org-slug", orgId],
     enabled: !!orgId,
-    staleTime: 30 * 60_000, // 30 min — slug rarely changes
+    staleTime: 30 * 60_000,
     gcTime: 60 * 60_000,
     queryFn: async () => {
       const { data } = await supabase
@@ -22,10 +23,13 @@ export function usePropertyPublicUrl() {
     },
   });
 
-  /** Returns the short public URL or falls back to /imovel/:id */
+  /** Returns the public URL using the platform subdomain or falls back to /imovel/:id */
   const buildPublicUrl = (propertyId: string, propertyCode?: string | null): string => {
     if (orgSlug && propertyCode) {
-      return `${window.location.origin}/i/${orgSlug}/${propertyCode}`;
+      return `${buildOrgSubdomainUrl(orgSlug)}/imovel/${propertyCode}`;
+    }
+    if (orgSlug) {
+      return `${buildOrgSubdomainUrl(orgSlug)}/imovel/${propertyId}`;
     }
     return `${window.location.origin}/imovel/${propertyId}`;
   };
