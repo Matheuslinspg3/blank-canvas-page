@@ -11,7 +11,6 @@ import {
   Store,
   Plug,
   Code,
-  
   Building2,
   User,
   Zap,
@@ -20,6 +19,7 @@ import {
   Search,
   CreditCard,
   Landmark,
+  Globe,
 } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { NavLink } from "@/components/NavLink";
