@@ -66,6 +66,9 @@ export default function Settings() {
                 <TabsTrigger value="billing" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><CreditCard className="h-4 w-4 shrink-0" /><span>Assinatura</span></TabsTrigger>
               )}
               <TabsTrigger value="support" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><MessageSquare className="h-4 w-4 shrink-0" /><span>Suporte</span></TabsTrigger>
+              {isAdminOrAbove && (
+                <TabsTrigger value="domains" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><Globe className="h-4 w-4 shrink-0" /><span>Domínios</span></TabsTrigger>
+              )}
             </TabsList>
           </div>
 
