@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,15 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Globe, Layout, Phone, Search, Trash2, RefreshCw, Plus,
   CheckCircle2, Clock, AlertCircle, Loader2, ExternalLink, Save,
-  MessageSquare, Mail, FileText
+  MessageSquare, Mail, FileText, Palette, Upload, X, Pipette, Crown
 } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
+import { extractColorsFromImage } from "@/lib/extractColors";
 
 // ─── Website Settings Section ────────────────────────────────────────────────
 
