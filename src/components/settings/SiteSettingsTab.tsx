@@ -290,8 +290,8 @@ function WebsiteContentSection() {
           <div className="rounded-lg border bg-muted/50 p-4">
             <p className="text-xs text-muted-foreground mb-2">Pré-visualização no Google:</p>
             <div className="space-y-0.5">
-              <p className="text-sm text-blue-600 font-medium truncate">{form.meta_title || "Título do site"}</p>
-              <p className="text-xs text-green-700 truncate">www.seusite.com.br</p>
+              <p className="text-sm text-primary font-medium truncate">{form.meta_title || "Título do site"}</p>
+              <p className="text-xs text-muted-foreground truncate">www.seusite.com.br</p>
               <p className="text-xs text-muted-foreground line-clamp-2">{form.meta_description || "Descrição do site..."}</p>
             </div>
           </div>
