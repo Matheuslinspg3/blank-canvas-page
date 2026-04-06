@@ -136,6 +136,14 @@ export default function Settings() {
               <UserTicketsSection />
             </div>
           </TabsContent>
+
+          {isAdminOrAbove && (
+            <TabsContent value="domains">
+              <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
+                <CustomDomainsManager />
+              </Suspense>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </div>
