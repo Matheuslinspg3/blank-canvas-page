@@ -17,11 +17,11 @@ interface ExternalFilters {
 function buildSearchHash(filters: ExternalFilters): string {
   const normalized = JSON.stringify({
     city: (filters.city || "").toLowerCase().trim(),
+    neighborhood: (filters.neighborhood || "").toLowerCase().trim(),
     transaction_type: filters.transaction_type || "",
     bedrooms: filters.bedrooms || 0,
     source: filters.source || "all",
   });
-  // Simple hash using Web Crypto
   return normalized;
 }
 
