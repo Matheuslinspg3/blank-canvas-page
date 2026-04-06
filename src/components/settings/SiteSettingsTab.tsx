@@ -322,6 +322,8 @@ function DomainSection() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const [newHostname, setNewHostname] = useState("");
+  const [editingSlug, setEditingSlug] = useState(false);
+  const [slugValue, setSlugValue] = useState("");
   const orgId = profile?.organization_id;
 
   const { data: orgSlug } = useQuery({
@@ -332,6 +334,23 @@ function DomainSection() {
       const { data } = await supabase.from("organizations").select("slug").eq("id", orgId!).single();
       return data?.slug ?? null;
     },
+  });
+
+  const slugMutation = useMutation({
+    mutationFn: async (slug: string) => {
+      const { data, error } = await supabase.functions.invoke("manage-custom-domain", {
+        body: { action: "update_slug", slug },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success("Slug atualizado!");
+      setEditingSlug(false);
+      queryClient.invalidateQueries({ queryKey: ["org-slug"] });
+    },
+    onError: (err: Error) => toast.error(err.message || "Erro ao atualizar slug"),
   });
 
   const { data: domains, isLoading } = useQuery({
@@ -412,29 +431,58 @@ function DomainSection() {
     createMutation.mutate(h);
   };
 
-  const siteUrl = orgSlug ? `https://${orgSlug}.portadocorretor.com.br` : null;
+  
 
   return (
     <div className="space-y-6">
-      {/* Current site URL */}
-      {siteUrl && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">URL Padrão do Site</CardTitle>
-          </CardHeader>
-          <CardContent>
+      {/* Current site URL with slug editor */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium">URL Padrão do Site</CardTitle>
+          <CardDescription>Este é o endereço gratuito do seu site. Você pode personalizar o slug.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {!editingSlug ? (
             <div className="flex items-center gap-2">
-              <code className="flex-1 text-sm bg-muted px-3 py-2 rounded-md truncate">{siteUrl}</code>
-              <Button variant="outline" size="sm" className="gap-1.5 shrink-0" asChild>
-                <a href={siteUrl} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  Abrir
-                </a>
+              <code className="flex-1 text-sm bg-muted px-3 py-2 rounded-md truncate">
+                {orgSlug ? `https://${orgSlug}.portadocorretor.com.br` : "Carregando..."}
+              </code>
+              <Button variant="outline" size="sm" className="gap-1.5 shrink-0" onClick={() => { setSlugValue(orgSlug || ""); setEditingSlug(true); }}>
+                <Save className="h-3.5 w-3.5" />
+                Editar
               </Button>
+              {orgSlug && (
+                <Button variant="outline" size="sm" className="gap-1.5 shrink-0" asChild>
+                  <a href={`https://${orgSlug}.portadocorretor.com.br`} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Abrir
+                  </a>
+                </Button>
+              )}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center gap-1">
+                <span className="text-sm text-muted-foreground">https://</span>
+                <Input
+                  value={slugValue}
+                  onChange={(e) => setSlugValue(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                  className="flex-1"
+                  placeholder="meu-site"
+                />
+                <span className="text-sm text-muted-foreground">.portadocorretor.com.br</span>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => slugMutation.mutate(slugValue)} disabled={slugMutation.isPending || !slugValue || slugValue.length < 3}>
+                  {slugMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                  Salvar
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setEditingSlug(false)}>Cancelar</Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Add domain */}
       <Card>

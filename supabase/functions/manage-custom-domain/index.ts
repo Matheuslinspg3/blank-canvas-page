@@ -9,27 +9,28 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Auth — only managers+
     const authHeader = req.headers.get("authorization") ?? "";
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       console.error("No authorization header");
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
+    // User-context client for RLS
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsErr } = await supabase.auth.getClaims(token);
-    if (claimsErr || !claimsData?.claims?.sub) {
-      console.error("Auth error:", claimsErr?.message || "no claims returned");
+    // Validate user via getUser
+    const { data: { user }, error: userErr } = await supabase.auth.getUser();
+    if (userErr || !user) {
+      console.error("Auth getUser error:", userErr?.message || "no user");
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
-    const userId = claimsData.claims.sub as string;
+    const userId = user.id;
 
+    // Service-role client for admin ops
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -54,6 +55,39 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const action = body.action as string;
 
+    // ─── Update Slug ───────────────────────────────────────────────
+    if (action === "update_slug") {
+      const newSlug = (body.slug as string || "").toLowerCase().trim().replace(/[^a-z0-9-]/g, "");
+      if (!newSlug || newSlug.length < 3) {
+        return new Response(JSON.stringify({ error: "Slug deve ter ao menos 3 caracteres (letras, números e hífens)" }), { status: 400, headers: corsHeaders });
+      }
+
+      // Check uniqueness
+      const { data: existing } = await adminClient
+        .from("organizations")
+        .select("id")
+        .eq("slug", newSlug)
+        .neq("id", profile.organization_id)
+        .maybeSingle();
+      if (existing) {
+        return new Response(JSON.stringify({ error: "Este slug já está em uso por outra organização" }), { status: 409, headers: corsHeaders });
+      }
+
+      const { error: updateErr } = await adminClient
+        .from("organizations")
+        .update({ slug: newSlug })
+        .eq("id", profile.organization_id);
+      if (updateErr) {
+        console.error("Slug update error:", updateErr);
+        return new Response(JSON.stringify({ error: "Erro ao atualizar slug" }), { status: 500, headers: corsHeaders });
+      }
+
+      return new Response(JSON.stringify({ success: true, slug: newSlug }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── Cloudflare Domain Actions ─────────────────────────────────
     const CF_TOKEN = Deno.env.get("CLOUDFLARE_API_TOKEN")!;
     const CF_ZONE = Deno.env.get("CLOUDFLARE_ZONE_ID")!;
 
@@ -63,7 +97,6 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: "Hostname inválido" }), { status: 400, headers: corsHeaders });
       }
 
-      // Check if already exists
       const { data: existing } = await adminClient
         .from("tenant_domains")
         .select("id")
@@ -73,7 +106,6 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: "Domínio já cadastrado" }), { status: 409, headers: corsHeaders });
       }
 
-      // Provision on Cloudflare
       const cfRes = await fetch(`${CF_API}/zones/${CF_ZONE}/custom_hostnames`, {
         method: "POST",
         headers: {
@@ -82,13 +114,7 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           hostname,
-          ssl: {
-            method: "http",
-            type: "dv",
-            settings: {
-              min_tls_version: "1.2",
-            },
-          },
+          ssl: { method: "http", type: "dv", settings: { min_tls_version: "1.2" } },
         }),
       });
       const cfData = await cfRes.json();
@@ -96,13 +122,11 @@ Deno.serve(async (req) => {
       if (!cfData.success) {
         console.error("Cloudflare error:", JSON.stringify(cfData.errors));
         return new Response(JSON.stringify({ error: "Erro no Cloudflare", details: cfData.errors }), {
-          status: 502, headers: corsHeaders
+          status: 502, headers: corsHeaders,
         });
       }
 
       const cfHostname = cfData.result;
-
-      // Save to DB
       const { data: domain, error: insertErr } = await adminClient
         .from("tenant_domains")
         .insert({
@@ -124,10 +148,7 @@ Deno.serve(async (req) => {
 
       return new Response(JSON.stringify({
         domain,
-        cname_target: cfHostname.ownership_verification?.name
-          ? `${cfHostname.ownership_verification.name} → ${cfHostname.ownership_verification.value}`
-          : null,
-        instructions: `Aponte o CNAME do domínio ${hostname} para ${cfHostname.ownership_verification_http?.http_url || 'o fallback origin configurado no Cloudflare'}`,
+        instructions: `Aponte o CNAME do domínio ${hostname} para portadocorretor.com.br`,
       }), { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -144,7 +165,6 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: "Domínio não encontrado" }), { status: 404, headers: corsHeaders });
       }
 
-      // Check status on Cloudflare
       const cfRes = await fetch(`${CF_API}/zones/${CF_ZONE}/custom_hostnames/${domain.cloudflare_hostname_id}`, {
         headers: { Authorization: `Bearer ${CF_TOKEN}` },
       });
@@ -159,23 +179,14 @@ Deno.serve(async (req) => {
       const verificationStatus = cfHostname.status || "unknown";
       const isActive = verificationStatus === "active" && sslStatus === "active";
 
-      // Update DB
       await adminClient
         .from("tenant_domains")
-        .update({
-          ssl_status: sslStatus,
-          verification_status: verificationStatus,
-          is_active: isActive,
-          updated_at: new Date().toISOString(),
-        })
+        .update({ ssl_status: sslStatus, verification_status: verificationStatus, is_active: isActive, updated_at: new Date().toISOString() })
         .eq("id", domainId);
 
-      return new Response(JSON.stringify({
-        ssl_status: sslStatus,
-        verification_status: verificationStatus,
-        is_active: isActive,
-        ownership_verification: cfHostname.ownership_verification || null,
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ ssl_status: sslStatus, verification_status: verificationStatus, is_active: isActive }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     if (action === "delete") {
@@ -191,7 +202,6 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: "Domínio não encontrado" }), { status: 404, headers: corsHeaders });
       }
 
-      // Remove from Cloudflare
       if (domain.cloudflare_hostname_id) {
         await fetch(`${CF_API}/zones/${CF_ZONE}/custom_hostnames/${domain.cloudflare_hostname_id}`, {
           method: "DELETE",
@@ -199,9 +209,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Remove from DB
       await adminClient.from("tenant_domains").delete().eq("id", domainId);
-
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
