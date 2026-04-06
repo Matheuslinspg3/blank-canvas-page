@@ -25,6 +25,7 @@ export interface ExternalListing {
 
 interface ExternalFilters {
   city?: string;
+  neighborhood?: string;
   transactionType?: string;
   bedrooms?: number;
   appliedAt?: number;
