@@ -55,6 +55,7 @@ const Install = lazy(() => lazyRetry(() => import("./pages/Install")));
 const Automations = lazy(() => lazyRetry(() => import("./pages/Automations")));
 const _Activities = lazy(() => lazyRetry(() => import("./pages/Activities")));
 const Administration = lazy(() => lazyRetry(() => import("./pages/Administration")));
+const SitePage = lazy(() => lazyRetry(() => import("./pages/Site")));
 const Anuncios = lazy(() => lazyRetry(() => import("./pages/Anuncios")));
 const _RDStation = lazy(() => lazyRetry(() => import("./pages/RDStation")));
 const MetaAdDetail = lazy(() => lazyRetry(() => import("./pages/ads/MetaAdDetail")));
@@ -206,6 +207,7 @@ const App = () => (
                         <Route path="/automacoes" element={<Automations />} />
                         <Route path="/atividades" element={<Navigate to="/administracao?tab=activities" replace />} />
                         <Route path="/administracao" element={<Administration />} />
+                        <Route path="/site" element={<SitePage />} />
                         <Route path="/integracoes" element={<Integrations />} />
                         <Route path="/configuracoes" element={<Settings />} />
                         <Route path="/meu-plano" element={<MyPlan />} />
