@@ -118,6 +118,7 @@ serve(async (req) => {
       // ACTION: search — cache-first, then trigger n8n
       const filters: ExternalFilters = {
         city: body.city,
+        neighborhood: body.neighborhood,
         transaction_type: body.transaction_type,
         bedrooms: body.bedrooms,
         source: body.source,
@@ -133,6 +134,7 @@ serve(async (req) => {
         .gt("expires_at", new Date().toISOString());
 
       if (filters.city) query = query.ilike("address_city", `%${filters.city}%`);
+      if (filters.neighborhood) query = query.ilike("address_neighborhood", `%${filters.neighborhood}%`);
       if (filters.transaction_type) query = query.eq("transaction_type", filters.transaction_type);
       if (filters.bedrooms) query = query.gte("bedrooms", filters.bedrooms);
       if (filters.source && filters.source !== "all") query = query.eq("source", filters.source);
