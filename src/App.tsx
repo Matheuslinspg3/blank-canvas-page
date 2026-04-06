@@ -58,7 +58,7 @@ const Anuncios = lazy(() => lazyRetry(() => import("./pages/Anuncios")));
 const _RDStation = lazy(() => lazyRetry(() => import("./pages/RDStation")));
 const MetaAdDetail = lazy(() => lazyRetry(() => import("./pages/ads/MetaAdDetail")));
 const Owners = lazy(() => lazyRetry(() => import("./pages/Owners")));
-const Buildings = lazy(() => lazyRetry(() => import("./pages/Buildings")));
+
 const _GeradorAnuncios = lazy(() => lazyRetry(() => import("./pages/GeradorAnuncios")));
 const PublicPropertyBySlug = lazy(() => lazyRetry(() => import("./pages/PublicPropertyBySlug")));
 const Storefront = lazy(() => lazyRetry(() => import("./pages/Storefront")));
@@ -189,7 +189,7 @@ const App = () => (
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/imoveis" element={<Properties />} />
                         <Route path="/proprietarios" element={<Owners />} />
-                        <Route path="/edificios" element={<Buildings />} />
+                        
                         <Route path="/imoveis/pendencias" element={<ImportPendencies />} />
                         <Route path="/imoveis/codigo/:codeOrId" element={<PropertyByCode />} />
                         <Route path="/imoveis/:id" element={<PropertyDetails />} />
