@@ -12,55 +12,54 @@ serve(async (req) => {
     const { image_url } = await req.json();
     if (!image_url) throw new Error("image_url is required");
 
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
+    const cloudName = Deno.env.get("CLOUDINARY_CLOUD_NAME");
+    const apiKey = Deno.env.get("CLOUDINARY_API_KEY");
+    const apiSecret = Deno.env.get("CLOUDINARY_API_SECRET");
 
-    // Fetch the original image and convert to base64
-    const imgRes = await fetch(image_url);
-    if (!imgRes.ok) throw new Error("Failed to fetch image");
+    if (!cloudName || !apiKey || !apiSecret) {
+      throw new Error("Cloudinary credentials not configured");
+    }
+
+    // Upload to Cloudinary with background_removal effect
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const paramsToSign = `background_removal=cloudinary_ai&folder=remove-bg&timestamp=${timestamp}`;
+
+    // Generate SHA-1 signature
+    const encoder = new TextEncoder();
+    const data = encoder.encode(paramsToSign + apiSecret);
+    const hashBuffer = await crypto.subtle.digest("SHA-1", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const signature = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+
+    const formData = new FormData();
+    formData.append("file", image_url);
+    formData.append("background_removal", "cloudinary_ai");
+    formData.append("folder", "remove-bg");
+    formData.append("timestamp", timestamp);
+    formData.append("api_key", apiKey);
+    formData.append("signature", signature);
+
+    const uploadRes = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+      { method: "POST", body: formData }
+    );
+
+    if (!uploadRes.ok) {
+      const errText = await uploadRes.text();
+      console.error("Cloudinary upload error:", errText);
+      throw new Error(`Cloudinary error: ${uploadRes.status}`);
+    }
+
+    const uploadData = await uploadRes.json();
+    const processedUrl = uploadData.secure_url;
+
+    // Fetch the processed image and convert to base64
+    const imgRes = await fetch(processedUrl);
     const imgBuffer = await imgRes.arrayBuffer();
-    const imgBase64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)));
-    const mimeType = imgRes.headers.get("content-type") || "image/png";
-    const dataUrl = `data:${mimeType};base64,${imgBase64}`;
-
-    // Use Lovable AI Gateway to edit the image - remove background
-    const aiRes = await fetch("https://ai.lovable.dev/api/edit-image", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        image: dataUrl,
-        prompt: "Remove the background completely, making it fully transparent. Keep only the main subject/logo with clean edges. Output a PNG with transparent background.",
-        aspect_ratio: "1:1",
-      }),
-    });
-
-    if (!aiRes.ok) {
-      const errorText = await aiRes.text();
-      console.error("AI Gateway error:", aiRes.status, errorText);
-      throw new Error(`AI Gateway error: ${aiRes.status}`);
-    }
-
-    const aiData = await aiRes.json();
-
-    // The AI gateway returns the edited image - extract base64
-    let resultBase64 = "";
-    if (aiData.image) {
-      // If it returns a data URL, strip the prefix
-      resultBase64 = aiData.image.replace(/^data:image\/\w+;base64,/, "");
-    } else if (aiData.url) {
-      // If it returns a URL, fetch and convert
-      const resultRes = await fetch(aiData.url);
-      const resultBuffer = await resultRes.arrayBuffer();
-      resultBase64 = btoa(String.fromCharCode(...new Uint8Array(resultBuffer)));
-    } else {
-      throw new Error("Unexpected AI response format");
-    }
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)));
 
     return new Response(
-      JSON.stringify({ image_base64: resultBase64, content_type: "image/png" }),
+      JSON.stringify({ image_base64: base64, content_type: "image/png" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err: any) {
