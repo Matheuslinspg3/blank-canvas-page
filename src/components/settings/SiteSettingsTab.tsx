@@ -183,6 +183,15 @@ function WebsiteContentSection() {
           </div>
         </CardHeader>
       </Card>
+
+      {/* Template Selector */}
+      <SiteTemplateSelector
+        value={form.site_template}
+        onChange={(t) => update("site_template", t)}
+        onGenerateWithAI={handleGenerateWithAI}
+        isGenerating={isGeneratingAI}
+      />
+
       {/* Hero Section */}
       <Card>
         <CardHeader>
