@@ -1,12 +1,8 @@
 import { useParams } from "react-router-dom";
 import { useStorefront } from "@/hooks/useStorefront";
 import { SEOHead } from "@/components/SEOHead";
-import { StorefrontHero } from "@/components/storefront/StorefrontHero";
-import { StorefrontProperties } from "@/components/storefront/StorefrontProperties";
-import { StorefrontAbout } from "@/components/storefront/StorefrontAbout";
-import { StorefrontContact } from "@/components/storefront/StorefrontContact";
 import { StorefrontWhatsAppFloat } from "@/components/storefront/StorefrontWhatsAppFloat";
-import { StorefrontFooter } from "@/components/storefront/StorefrontFooter";
+import { StorefrontTemplateRenderer, type SiteTemplate } from "@/components/storefront/templates/StorefrontTemplateRenderer";
 import { Loader2 } from "lucide-react";
 
 export default function Storefront() {
@@ -36,6 +32,7 @@ export default function Storefront() {
   const secondaryColor = brand?.secondary_color || "#1E293B";
   const accentColor = brand?.accent_color || "#F59E0B";
   const fontFamily = brand?.font_family || "Montserrat";
+  const template = (website?.site_template as SiteTemplate) || "classic";
 
   const metaTitle = website?.meta_title || `${org.name} — Imóveis`;
   const metaDesc = website?.meta_description || `Confira os melhores imóveis da ${org.name}. Encontre seu imóvel ideal.`;
@@ -44,23 +41,14 @@ export default function Storefront() {
     <div style={{ fontFamily, "--sf-primary": primaryColor, "--sf-secondary": secondaryColor, "--sf-accent": accentColor } as React.CSSProperties} className="min-h-screen bg-white text-gray-900">
       <SEOHead title={metaTitle} description={metaDesc} noIndex={false} />
 
-      <StorefrontHero org={org} brand={brand} website={website} />
-
-      <StorefrontProperties
+      <StorefrontTemplateRenderer
+        template={template}
+        org={org}
+        brand={brand}
+        website={website}
         properties={properties}
         primaryColor={primaryColor}
-        orgSlug={org.slug}
       />
-
-      <StorefrontAbout org={org} brand={brand} website={website} />
-
-      <StorefrontContact
-        org={org}
-        website={website}
-        primaryColor={primaryColor}
-      />
-
-      <StorefrontFooter org={org} brand={brand} />
 
       {website?.show_whatsapp_float && website?.whatsapp_number && (
         <StorefrontWhatsAppFloat

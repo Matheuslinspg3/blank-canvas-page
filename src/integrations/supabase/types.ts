@@ -6296,6 +6296,7 @@ export type Database = {
           organization_id: string
           redirect_to_custom_domain: boolean
           show_whatsapp_float: boolean | null
+          site_template: string
           updated_at: string | null
           use_custom_domain_url: boolean
           use_subdomain_landing: boolean
@@ -6317,6 +6318,7 @@ export type Database = {
           organization_id: string
           redirect_to_custom_domain?: boolean
           show_whatsapp_float?: boolean | null
+          site_template?: string
           updated_at?: string | null
           use_custom_domain_url?: boolean
           use_subdomain_landing?: boolean
@@ -6338,6 +6340,7 @@ export type Database = {
           organization_id?: string
           redirect_to_custom_domain?: boolean
           show_whatsapp_float?: boolean | null
+          site_template?: string
           updated_at?: string | null
           use_custom_domain_url?: boolean
           use_subdomain_landing?: boolean

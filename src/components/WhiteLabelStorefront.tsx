@@ -1,11 +1,7 @@
 import { useStorefrontByOrgId } from "@/hooks/useStorefrontByOrgId";
 import { SEOHead } from "@/components/SEOHead";
-import { StorefrontHero } from "@/components/storefront/StorefrontHero";
-import { StorefrontProperties } from "@/components/storefront/StorefrontProperties";
-import { StorefrontAbout } from "@/components/storefront/StorefrontAbout";
-import { StorefrontContact } from "@/components/storefront/StorefrontContact";
 import { StorefrontWhatsAppFloat } from "@/components/storefront/StorefrontWhatsAppFloat";
-import { StorefrontFooter } from "@/components/storefront/StorefrontFooter";
+import { StorefrontTemplateRenderer, type SiteTemplate } from "@/components/storefront/templates/StorefrontTemplateRenderer";
 import { Loader2 } from "lucide-react";
 
 interface Props {
@@ -38,6 +34,7 @@ export function WhiteLabelStorefront({ organizationId }: Props) {
   const secondaryColor = brand?.secondary_color || "#1E293B";
   const accentColor = brand?.accent_color || "#F59E0B";
   const fontFamily = brand?.font_family || "Montserrat";
+  const template = (website?.site_template as SiteTemplate) || "classic";
 
   const metaTitle = website?.meta_title || `${org.name} — Imóveis`;
   const metaDesc = website?.meta_description || `Confira os melhores imóveis da ${org.name}.`;
@@ -49,11 +46,14 @@ export function WhiteLabelStorefront({ organizationId }: Props) {
     >
       <SEOHead title={metaTitle} description={metaDesc} noIndex={false} />
 
-      <StorefrontHero org={org} brand={brand} website={website} />
-      <StorefrontProperties properties={properties} primaryColor={primaryColor} orgSlug={org.slug} />
-      <StorefrontAbout org={org} brand={brand} website={website} />
-      <StorefrontContact org={org} website={website} primaryColor={primaryColor} />
-      <StorefrontFooter org={org} brand={brand} />
+      <StorefrontTemplateRenderer
+        template={template}
+        org={org}
+        brand={brand}
+        website={website}
+        properties={properties}
+        primaryColor={primaryColor}
+      />
 
       {website?.show_whatsapp_float && website?.whatsapp_number && (
         <StorefrontWhatsAppFloat
