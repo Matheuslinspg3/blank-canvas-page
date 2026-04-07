@@ -12,36 +12,55 @@ serve(async (req) => {
     const { image_url } = await req.json();
     if (!image_url) throw new Error("image_url is required");
 
-    // Fetch the image
+    const apiKey = Deno.env.get("LOVABLE_API_KEY");
+    if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
+
+    // Fetch the original image and convert to base64
     const imgRes = await fetch(image_url);
     if (!imgRes.ok) throw new Error("Failed to fetch image");
-    const imgBlob = await imgRes.blob();
+    const imgBuffer = await imgRes.arrayBuffer();
+    const imgBase64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)));
+    const mimeType = imgRes.headers.get("content-type") || "image/png";
+    const dataUrl = `data:${mimeType};base64,${imgBase64}`;
 
-    // Use remove.bg API
-    const apiKey = Deno.env.get("REMOVE_BG_API_KEY");
-    if (!apiKey) throw new Error("REMOVE_BG_API_KEY not configured");
-
-    const formData = new FormData();
-    formData.append("image_file", imgBlob, "logo.png");
-    formData.append("size", "auto");
-
-    const bgRes = await fetch("https://api.remove.bg/v1.0/removebg", {
+    // Use Lovable AI Gateway to edit the image - remove background
+    const aiRes = await fetch("https://ai.lovable.dev/api/edit-image", {
       method: "POST",
-      headers: { "X-Api-Key": apiKey },
-      body: formData,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        image: dataUrl,
+        prompt: "Remove the background completely, making it fully transparent. Keep only the main subject/logo with clean edges. Output a PNG with transparent background.",
+        aspect_ratio: "1:1",
+      }),
     });
 
-    if (!bgRes.ok) {
-      const errorText = await bgRes.text();
-      throw new Error(`remove.bg error: ${bgRes.status} - ${errorText}`);
+    if (!aiRes.ok) {
+      const errorText = await aiRes.text();
+      console.error("AI Gateway error:", aiRes.status, errorText);
+      throw new Error(`AI Gateway error: ${aiRes.status}`);
     }
 
-    const resultBlob = await bgRes.blob();
-    const arrayBuffer = await resultBlob.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const aiData = await aiRes.json();
+
+    // The AI gateway returns the edited image - extract base64
+    let resultBase64 = "";
+    if (aiData.image) {
+      // If it returns a data URL, strip the prefix
+      resultBase64 = aiData.image.replace(/^data:image\/\w+;base64,/, "");
+    } else if (aiData.url) {
+      // If it returns a URL, fetch and convert
+      const resultRes = await fetch(aiData.url);
+      const resultBuffer = await resultRes.arrayBuffer();
+      resultBase64 = btoa(String.fromCharCode(...new Uint8Array(resultBuffer)));
+    } else {
+      throw new Error("Unexpected AI response format");
+    }
 
     return new Response(
-      JSON.stringify({ image_base64: base64, content_type: "image/png" }),
+      JSON.stringify({ image_base64: resultBase64, content_type: "image/png" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err: any) {
