@@ -349,7 +349,7 @@ Deno.serve(async (req) => {
            body: JSON.stringify({
             type: "CNAME",
             name: hostname,
-            content: LOVABLE_ORIGIN,
+            content: PLATFORM_DOMAIN,
             proxied: true,
             comment: "Auto-created for platform site",
           }),
@@ -366,7 +366,7 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
               type: "CNAME",
               name: "@",
-              content: LOVABLE_ORIGIN,
+              content: PLATFORM_DOMAIN,
               proxied: true,
               comment: "Auto-created root for platform site",
             }),
