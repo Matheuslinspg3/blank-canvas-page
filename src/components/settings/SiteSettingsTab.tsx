@@ -58,7 +58,10 @@ function WebsiteContentSection() {
     meta_description: "",
     is_active: true,
     use_subdomain_landing: true,
+    site_template: "classic" as SiteTemplate,
   });
+
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
   useEffect(() => {
     if (settings) {
