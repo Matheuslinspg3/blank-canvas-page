@@ -15,7 +15,7 @@ import {
   Globe, Layout, Phone, Search, Trash2, RefreshCw, Plus,
   CheckCircle2, Clock, AlertCircle, Loader2, ExternalLink, Save,
   MessageSquare, Mail, FileText, Palette, Upload, X, Pipette, Crown,
-  Shield, Wifi, FileCheck, Cloud, Copy, Server, Sparkles
+  Shield, Wifi, FileCheck, Cloud, Copy, Server, Sparkles, Eraser
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
@@ -1035,6 +1035,33 @@ function BrandSection() {
   const [uploading, setUploading] = useState(false);
   const [extractedColors, setExtractedColors] = useState<string[]>([]);
   const [extracting, setExtracting] = useState(false);
+  const [removingBg, setRemovingBg] = useState(false);
+
+  const handleRemoveBg = async (field: "logo_url" | "logo_dark_url") => {
+    const url = config[field];
+    if (!url || !profile?.organization_id) return;
+    setRemovingBg(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("remove-bg", { body: { image_url: url } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const byteString = atob(data.image_base64);
+      const bytes = new Uint8Array(byteString.length);
+      for (let i = 0; i < byteString.length; i++) bytes[i] = byteString.charCodeAt(i);
+      const blob = new Blob([bytes], { type: "image/png" });
+      const path = `${profile.organization_id}/brand/${field}-nobg-${Date.now()}.png`;
+      const { error: upErr } = await supabase.storage.from("brand-assets").upload(path, blob, { upsert: true });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from("brand-assets").getPublicUrl(path);
+      setConfig((prev) => ({ ...prev, [field]: pub.publicUrl }));
+      toast.success("Fundo removido com sucesso!");
+    } catch (err: any) {
+      console.error("Remove bg error:", err);
+      toastError("Erro ao remover fundo. Verifique se a chave REMOVE_BG_API_KEY está configurada.");
+    } finally {
+      setRemovingBg(false);
+    }
+  };
 
   useEffect(() => {
     if (!profile?.organization_id) return;
@@ -1149,10 +1176,14 @@ function BrandSection() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <LogoField label="Logo principal" url={config.logo_url}
               onUpload={(f) => handleLogoUpload(f, "logo_url")}
-              onRemove={() => setConfig({ ...config, logo_url: "" })} />
+              onRemove={() => setConfig({ ...config, logo_url: "" })}
+              onRemoveBg={() => handleRemoveBg("logo_url")}
+              removingBg={removingBg} />
             <LogoField label="Logo (fundo escuro)" url={config.logo_dark_url}
               onUpload={(f) => handleLogoUpload(f, "logo_dark_url")}
-              onRemove={() => setConfig({ ...config, logo_dark_url: "" })} />
+              onRemove={() => setConfig({ ...config, logo_dark_url: "" })}
+              onRemoveBg={() => handleRemoveBg("logo_dark_url")}
+              removingBg={removingBg} />
           </div>
 
           {/* Extract colors from logo */}
