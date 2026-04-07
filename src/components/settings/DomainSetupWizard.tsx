@@ -309,10 +309,37 @@ export function DomainSetupWizard({ hostname = "www.meusite.com.br", cnameTarget
         <CardDescription>
           {detected
             ? `Detectamos que o DNS do seu domínio está na ${detected.name}`
-            : "O sistema detecta automaticamente onde está o DNS do seu domínio"}
+            : "Recomendamos usar o Cloudflare (automático). Se preferir, configure o CNAME manualmente."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
+        {/* Cloudflare recommendation banner */}
+        <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-4 space-y-2">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <p className="text-sm font-semibold text-primary">Recomendado: Usar Cloudflare</p>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            O modo Cloudflare configura tudo automaticamente (DNS, SSL, redirecionamentos).
+            Seu cliente só precisa trocar os <strong>nameservers</strong> no registrador de domínio (ex: Registro.br).
+          </p>
+          <div className="rounded-md bg-background border p-3 space-y-1.5 mt-1">
+            <p className="text-xs font-medium">Passo a passo:</p>
+            <ol className="list-decimal list-inside text-xs text-muted-foreground space-y-1">
+              <li>Selecione o modo <strong>"Cloudflare (automático)"</strong> acima e adicione o domínio</li>
+              <li>O sistema criará a zona e mostrará os <strong>nameservers</strong> do Cloudflare</li>
+              <li>No <strong>Registro.br</strong> (ou registrador), vá em <strong>"Alterar servidores DNS"</strong> e substitua pelos nameservers fornecidos</li>
+              <li>Aguarde a propagação — o sistema ativa automaticamente</li>
+            </ol>
+          </div>
+        </div>
+
+        {/* Divider for CNAME manual section */}
+        <div className="flex items-center gap-3 pt-2">
+          <div className="flex-1 border-t" />
+          <span className="text-xs text-muted-foreground font-medium">Ou configure manualmente via CNAME</span>
+          <div className="flex-1 border-t" />
+        </div>
         {/* Detection result banner */}
         {detecting && (
           <div className="flex items-center gap-2 p-3 rounded-md bg-primary/5 border border-primary/20 text-sm">
