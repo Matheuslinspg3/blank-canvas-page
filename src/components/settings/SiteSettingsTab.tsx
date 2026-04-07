@@ -759,17 +759,27 @@ function DomainSection() {
                   <div key={d.id} className="rounded-lg border bg-card p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3 min-w-0">
-                        <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+                        {isFullZone ? <Cloud className="h-4 w-4 text-orange-500 shrink-0" /> : <Globe className="h-4 w-4 text-muted-foreground shrink-0" />}
                         <div className="min-w-0">
-                          <p className="font-medium text-sm truncate">{d.hostname}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-sm truncate">{d.hostname}</p>
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                              {isFullZone ? "Cloudflare" : "CNAME"}
+                            </Badge>
+                          </div>
                           <p className="text-xs text-muted-foreground">
                             {d.is_active ? "Domínio ativo" : "Configuração em andamento..."}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
-                        <Button variant="ghost" size="icon" onClick={() => checkMutation.mutate(d.id)} disabled={checkMutation.isPending} title="Verificar agora">
-                          <RefreshCw className={`h-4 w-4 ${checkMutation.isPending ? "animate-spin" : ""}`} />
+                        {isFullZone && (
+                          <Button variant="ghost" size="icon" onClick={() => checkZoneMutation.mutate(d.id)} disabled={checkZoneMutation.isPending} title="Verificar zona">
+                            <Server className={`h-4 w-4 ${checkZoneMutation.isPending ? "animate-spin" : ""}`} />
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" onClick={() => isFullZone ? checkZoneMutation.mutate(d.id) : checkMutation.mutate(d.id)} disabled={checkMutation.isPending || checkZoneMutation.isPending} title="Verificar agora">
+                          <RefreshCw className={`h-4 w-4 ${(checkMutation.isPending || checkZoneMutation.isPending) ? "animate-spin" : ""}`} />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => { if (confirm("Remover este domínio?")) deleteMutation.mutate(d.id); }} disabled={deleteMutation.isPending} title="Remover">
                           <Trash2 className="h-4 w-4 text-destructive" />
