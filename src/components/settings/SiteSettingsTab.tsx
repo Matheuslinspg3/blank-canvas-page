@@ -15,8 +15,9 @@ import {
   Globe, Layout, Phone, Search, Trash2, RefreshCw, Plus,
   CheckCircle2, Clock, AlertCircle, Loader2, ExternalLink, Save,
   MessageSquare, Mail, FileText, Palette, Upload, X, Pipette, Crown,
-  Shield, Wifi, FileCheck
+  Shield, Wifi, FileCheck, Cloud, Copy, Server
 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
 import { extractColorsFromImage } from "@/lib/extractColors";
@@ -325,6 +326,7 @@ function DomainSection() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const [newHostname, setNewHostname] = useState("");
+  const [domainMode, setDomainMode] = useState<"custom_hostname" | "full_zone">("custom_hostname");
   const [editingSlug, setEditingSlug] = useState(false);
   const [slugValue, setSlugValue] = useState("");
   const orgId = profile?.organization_id;
@@ -461,6 +463,46 @@ function DomainSection() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const addZoneMutation = useMutation({
+    mutationFn: async (hostname: string) => {
+      const { data, error } = await supabase.functions.invoke("manage-custom-domain", {
+        body: { action: "add_zone", hostname },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success("Zona adicionada ao Cloudflare!", {
+        description: `Nameservers: ${data.nameservers?.join(", ")}`,
+        duration: 10000,
+      });
+      setNewHostname("");
+      queryClient.invalidateQueries({ queryKey: ["tenant-domains"] });
+    },
+    onError: (err: Error) => toast.error(err.message || "Erro ao adicionar zona"),
+  });
+
+  const checkZoneMutation = useMutation({
+    mutationFn: async (domainId: string) => {
+      const { data, error } = await supabase.functions.invoke("manage-custom-domain", {
+        body: { action: "check_zone_status", domain_id: domainId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["tenant-domains"] });
+      if (data.zone_status === "active") {
+        toast.success("Zona ativa! Nameservers configurados corretamente 🎉");
+      } else {
+        toast.info(`Status da zona: ${data.zone_status}`);
+      }
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     const h = newHostname.trim().toLowerCase();
@@ -468,10 +510,15 @@ function DomainSection() {
       toast.error("Digite um domínio válido (ex: www.meusite.com.br)");
       return;
     }
-    createMutation.mutate(h);
+    if (domainMode === "full_zone") {
+      addZoneMutation.mutate(h);
+    } else {
+      createMutation.mutate(h);
+    }
   };
 
   const activeDomain = domains?.find((d: any) => d.is_active);
+  const isSubmitting = createMutation.isPending || addZoneMutation.isPending;
 
   return (
     <div className="space-y-6">
@@ -593,6 +640,35 @@ function DomainSection() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Mode selector */}
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">Modo de configuração</Label>
+            <Select value={domainMode} onValueChange={(v) => setDomainMode(v as any)}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="custom_hostname">
+                  <div className="flex items-center gap-2">
+                    <Wifi className="h-3.5 w-3.5" />
+                    <span>CNAME Manual</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="full_zone">
+                  <div className="flex items-center gap-2">
+                    <Cloud className="h-3.5 w-3.5" />
+                    <span>Adicionar ao Cloudflare (controle total)</span>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {domainMode === "custom_hostname"
+                ? "O cliente configura o CNAME no painel DNS dele manualmente."
+                : "O domínio será adicionado à sua conta Cloudflare. O cliente só precisa trocar os nameservers no registrador."}
+            </p>
+          </div>
+
           <form onSubmit={handleCreate} className="flex gap-2">
             <Input
               placeholder="www.meusite.com.br"
@@ -600,9 +676,9 @@ function DomainSection() {
               onChange={(e) => setNewHostname(e.target.value)}
               className="flex-1"
             />
-            <Button type="submit" disabled={createMutation.isPending} className="gap-2">
-              {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              Adicionar
+            <Button type="submit" disabled={isSubmitting} className="gap-2">
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : domainMode === "full_zone" ? <Cloud className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              {domainMode === "full_zone" ? "Adicionar ao CF" : "Adicionar"}
             </Button>
           </form>
 
@@ -616,7 +692,37 @@ function DomainSection() {
           ) : (
             <div className="space-y-4">
               {domains.map((d: any) => {
-                const steps = [
+                const isFullZone = d.zone_mode === "full_zone";
+                const steps = isFullZone ? [
+                  {
+                    label: "Zona no Cloudflare",
+                    icon: Cloud,
+                    done: d.zone_status === "active",
+                    active: d.zone_status === "pending",
+                    detail: d.zone_status === "active" ? "Zona ativa ✓" : d.zone_status === "pending" ? "Aguardando NS" : d.zone_status || "Pendente",
+                  },
+                  {
+                    label: "Nameservers",
+                    icon: Server,
+                    done: d.zone_status === "active",
+                    active: d.zone_status === "pending",
+                    detail: d.zone_status === "active" ? "NS configurados ✓" : "Cliente precisa trocar NS",
+                  },
+                  {
+                    label: "SSL / HTTPS",
+                    icon: Shield,
+                    done: d.ssl_status === "active",
+                    active: d.zone_status === "active" && d.ssl_status !== "active",
+                    detail: d.ssl_status === "active" ? "Certificado ativo ✓" : "Aguardando zona ativa",
+                  },
+                  {
+                    label: "Ativo",
+                    icon: CheckCircle2,
+                    done: d.is_active,
+                    active: false,
+                    detail: d.is_active ? "Site no ar! 🎉" : "Aguardando",
+                  },
+                ] : [
                   {
                     label: "CNAME configurado",
                     icon: Wifi,
@@ -653,17 +759,27 @@ function DomainSection() {
                   <div key={d.id} className="rounded-lg border bg-card p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3 min-w-0">
-                        <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+                        {isFullZone ? <Cloud className="h-4 w-4 text-orange-500 shrink-0" /> : <Globe className="h-4 w-4 text-muted-foreground shrink-0" />}
                         <div className="min-w-0">
-                          <p className="font-medium text-sm truncate">{d.hostname}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-sm truncate">{d.hostname}</p>
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                              {isFullZone ? "Cloudflare" : "CNAME"}
+                            </Badge>
+                          </div>
                           <p className="text-xs text-muted-foreground">
                             {d.is_active ? "Domínio ativo" : "Configuração em andamento..."}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
-                        <Button variant="ghost" size="icon" onClick={() => checkMutation.mutate(d.id)} disabled={checkMutation.isPending} title="Verificar agora">
-                          <RefreshCw className={`h-4 w-4 ${checkMutation.isPending ? "animate-spin" : ""}`} />
+                        {isFullZone && (
+                          <Button variant="ghost" size="icon" onClick={() => checkZoneMutation.mutate(d.id)} disabled={checkZoneMutation.isPending} title="Verificar zona">
+                            <Server className={`h-4 w-4 ${checkZoneMutation.isPending ? "animate-spin" : ""}`} />
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" onClick={() => isFullZone ? checkZoneMutation.mutate(d.id) : checkMutation.mutate(d.id)} disabled={checkMutation.isPending || checkZoneMutation.isPending} title="Verificar agora">
+                          <RefreshCw className={`h-4 w-4 ${(checkMutation.isPending || checkZoneMutation.isPending) ? "animate-spin" : ""}`} />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => { if (confirm("Remover este domínio?")) deleteMutation.mutate(d.id); }} disabled={deleteMutation.isPending} title="Remover">
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -705,6 +821,32 @@ function DomainSection() {
                             );
                           })}
                         </div>
+                      </div>
+                    )}
+
+                    {/* Nameserver info for full_zone */}
+                    {isFullZone && d.nameservers?.length > 0 && !d.is_active && (
+                      <div className="rounded-md border border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-950 p-3 space-y-2">
+                        <p className="text-xs font-medium flex items-center gap-1.5">
+                          <Server className="h-3.5 w-3.5" />
+                          Nameservers para configurar no registrador:
+                        </p>
+                        <div className="space-y-1">
+                          {d.nameservers.map((ns: string) => (
+                            <div key={ns} className="flex items-center justify-between bg-background rounded px-2 py-1">
+                              <code className="text-xs font-mono">{ns}</code>
+                              <Button
+                                variant="ghost" size="icon" className="h-6 w-6"
+                                onClick={() => { navigator.clipboard.writeText(ns); toast.success("Copiado!"); }}
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Acesse o Registro.br (ou registrador do domínio) e substitua os nameservers atuais por estes acima.
+                        </p>
                       </div>
                     )}
                   </div>

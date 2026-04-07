@@ -5966,39 +5966,51 @@ export type Database = {
       tenant_domains: {
         Row: {
           cloudflare_hostname_id: string | null
+          cloudflare_zone_id: string | null
           created_at: string
           created_by: string | null
           hostname: string
           id: string
           is_active: boolean
+          nameservers: string[] | null
           organization_id: string
           ssl_status: string
           updated_at: string
           verification_status: string
+          zone_mode: string
+          zone_status: string | null
         }
         Insert: {
           cloudflare_hostname_id?: string | null
+          cloudflare_zone_id?: string | null
           created_at?: string
           created_by?: string | null
           hostname: string
           id?: string
           is_active?: boolean
+          nameservers?: string[] | null
           organization_id: string
           ssl_status?: string
           updated_at?: string
           verification_status?: string
+          zone_mode?: string
+          zone_status?: string | null
         }
         Update: {
           cloudflare_hostname_id?: string | null
+          cloudflare_zone_id?: string | null
           created_at?: string
           created_by?: string | null
           hostname?: string
           id?: string
           is_active?: boolean
+          nameservers?: string[] | null
           organization_id?: string
           ssl_status?: string
           updated_at?: string
           verification_status?: string
+          zone_mode?: string
+          zone_status?: string | null
         }
         Relationships: [
           {
