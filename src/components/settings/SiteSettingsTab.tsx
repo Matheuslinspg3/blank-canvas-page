@@ -129,6 +129,7 @@ function WebsiteContentSection() {
     onSuccess: () => {
       toast.success("Configurações do site salvas!");
       queryClient.invalidateQueries({ queryKey: ["website-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["storefront-website"] });
     },
     onError: (err: Error) => toast.error(err.message),
   });
