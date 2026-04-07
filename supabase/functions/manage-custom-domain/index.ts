@@ -351,10 +351,11 @@ Deno.serve(async (req) => {
       if (updateErr) return errorJson("Erro ao atualizar slug", 500);
 
       if (env.cloudflareToken && env.cloudflareZoneId) {
-        const dnsResult = await ensureWildcardDns(env.cloudflareToken, env.cloudflareZoneId);
+        // First ensure DNS points to Lovable IP (safe fallback, DNS-only)
+        const dnsResult = await ensureWildcardDns(env.cloudflareToken, env.cloudflareZoneId, LOVABLE_ORIGIN_IP, false);
         console.log("Wildcard DNS check:", JSON.stringify(dnsResult));
 
-        // Auto-setup Worker proxy if account ID is available
+        // Then try to upgrade to Worker proxy (only changes DNS if Worker succeeds)
         if (env.cloudflareAccountId) {
           const proxyResult = await setupPlatformWorker(env.cloudflareToken, env.cloudflareZoneId, env.cloudflareAccountId);
           console.log("Auto proxy setup on slug update:", JSON.stringify(proxyResult));
@@ -378,10 +379,11 @@ Deno.serve(async (req) => {
 
     // ─── Ensure Wildcard DNS ───────────────────────────────────────
     if (action === "ensure_wildcard_dns") {
-      const result = await ensureWildcardDns(env.cloudflareToken!, env.cloudflareZoneId!);
+      // Safe default: Lovable IP, DNS-only (no proxy)
+      const result = await ensureWildcardDns(env.cloudflareToken!, env.cloudflareZoneId!, LOVABLE_ORIGIN_IP, false);
       if (result.error) return errorJson(result.error, 502);
 
-      // Auto-setup Worker proxy if account ID is available
+      // Try to upgrade to Worker proxy (only changes DNS if Worker succeeds)
       let proxyResult = null;
       if (env.cloudflareAccountId) {
         proxyResult = await setupPlatformWorker(env.cloudflareToken!, env.cloudflareZoneId!, env.cloudflareAccountId);
