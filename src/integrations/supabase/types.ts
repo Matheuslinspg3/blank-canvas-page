@@ -7495,6 +7495,35 @@ export type Database = {
         }[]
       }
       get_property_type_name: { Args: { p_type_id: string }; Returns: string }
+      get_public_brand_settings: {
+        Args: { p_org_id: string }
+        Returns: {
+          accent_color: string
+          font_family: string
+          logo_dark_url: string
+          logo_url: string
+          primary_color: string
+          secondary_color: string
+          slogan: string
+          tagline: string
+        }[]
+      }
+      get_public_org_by_id: {
+        Args: { p_org_id: string }
+        Returns: {
+          id: string
+          name: string
+          slug: string
+        }[]
+      }
+      get_public_org_by_slug: {
+        Args: { p_slug: string }
+        Returns: {
+          id: string
+          name: string
+          slug: string
+        }[]
+      }
       get_public_property: {
         Args: { p_id: string }
         Returns: {
