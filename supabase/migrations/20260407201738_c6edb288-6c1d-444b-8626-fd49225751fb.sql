@@ -1,0 +1,1 @@
+UPDATE organizations SET slug = 'portocaicaraimoveis' WHERE id = 'cdf3f0e6-da64-4090-bc76-1758796bea28' AND slug = 'portocaicarassimoveis';
