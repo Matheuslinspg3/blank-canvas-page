@@ -40,7 +40,7 @@ const menuGroups: MenuGroup[] = [
   {
     title: "Gestão",
     items: [
-      { icon: Globe, label: "Meu Site", path: "/site", adminOnly: true },
+      { icon: Globe, label: "Meu Site", path: "/site" },
       { icon: UserCog, label: "Administração", path: "/administracao", adminOnly: true },
       { icon: Plug, label: "Integrações", path: "/integracoes", adminOnly: true },
     ],
