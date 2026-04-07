@@ -78,9 +78,37 @@ function WebsiteContentSection() {
         meta_description: settings.meta_description || "",
         is_active: settings.is_active ?? true,
         use_subdomain_landing: (settings as any).use_subdomain_landing ?? true,
+        site_template: ((settings as any).site_template || "classic") as SiteTemplate,
       });
     }
   }, [settings]);
+
+  const handleGenerateWithAI = async () => {
+    setIsGeneratingAI(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-site-content");
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setForm((prev) => ({
+        ...prev,
+        hero_title: data.hero_title || prev.hero_title,
+        hero_subtitle: data.hero_subtitle || prev.hero_subtitle,
+        about_text: data.about_text || prev.about_text,
+        meta_title: data.meta_title || prev.meta_title,
+        meta_description: data.meta_description || prev.meta_description,
+        whatsapp_message: data.whatsapp_message || prev.whatsapp_message,
+      }));
+      toast.success("Conteúdo gerado com IA! Revise e salve.", {
+        description: "Os campos foram preenchidos automaticamente.",
+        icon: <Sparkles className="h-4 w-4" />,
+      });
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao gerar conteúdo com IA");
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
 
   const saveMutation = useMutation({
     mutationFn: async () => {
