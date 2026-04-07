@@ -76,15 +76,14 @@ function buildCloudflareZoneCreateMessage(responseStatus: number, data: any, has
 }
 
 // ─── Wildcard DNS helper ────────────────────────────────────────
-// The wildcard CNAME must point to the actual origin (Lovable app),
-// NOT to the platform domain itself — otherwise Cloudflare creates
-// a prohibited loop (Error 1000: DNS points to prohibited IP).
-const LOVABLE_ORIGIN = "portocaicaraimoveis.lovable.app";
+// Platform subdomains must resolve directly to Lovable's IP/origin layer.
+// Using a proxied CNAME here can trigger Cloudflare 1000/1014 depending on account boundaries.
+const LOVABLE_EDGE_IP = "185.158.133.1";
 
 async function ensureWildcardDns(cfToken: string, cfZone: string): Promise<{ already_exists: boolean; record_id?: string; error?: string; updated?: boolean }> {
   const wildcard = `*.${PLATFORM_DOMAIN}`;
   const searchRes = await fetch(
-    `${CF_API}/zones/${cfZone}/dns_records?type=CNAME&name=${encodeURIComponent(wildcard)}`,
+    `${CF_API}/zones/${cfZone}/dns_records?name=${encodeURIComponent(wildcard)}`,
     { headers: { Authorization: `Bearer ${cfToken}` } }
   );
   const { data: searchData } = await readJsonResponse(searchRes);
@@ -94,41 +93,49 @@ async function ensureWildcardDns(cfToken: string, cfZone: string): Promise<{ alr
     return { already_exists: false, error: "Failed to query DNS records" };
   }
 
-  if (searchData.result && searchData.result.length > 0) {
-    const existing = searchData.result[0];
-    // Fix: if the existing record points to the platform domain (loop), update it
-    if (existing.content === PLATFORM_DOMAIN || existing.content === `${PLATFORM_DOMAIN}.`) {
-      console.log("Fixing wildcard CNAME loop: changing target from", existing.content, "to", LOVABLE_ORIGIN);
-      const updateRes = await fetch(`${CF_API}/zones/${cfZone}/dns_records/${existing.id}`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${cfToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "CNAME",
-          name: "*",
-          content: LOVABLE_ORIGIN,
-          proxied: true,
-          comment: "Auto-fixed wildcard for tenant subdomains (origin: Lovable)",
-        }),
-      });
-      const { data: updateData } = await readJsonResponse(updateRes);
-      if (!updateData?.success) {
-        return { already_exists: true, error: updateData?.errors?.[0]?.message || "Failed to fix wildcard DNS" };
-      }
-      return { already_exists: true, record_id: existing.id, updated: true };
+  const existing = searchData?.result?.[0];
+  const desiredPayload = {
+    type: "A",
+    name: "*",
+    content: LOVABLE_EDGE_IP,
+    proxied: false,
+    comment: "Auto-managed wildcard for tenant subdomains",
+  };
+
+  if (existing) {
+    const needsUpdate =
+      existing.type !== desiredPayload.type ||
+      existing.content !== desiredPayload.content ||
+      existing.proxied !== desiredPayload.proxied;
+
+    if (!needsUpdate) {
+      return { already_exists: true, record_id: existing.id };
     }
-    return { already_exists: true, record_id: existing.id };
+
+    console.log("Fixing wildcard DNS record", JSON.stringify({
+      previous_type: existing.type,
+      previous_content: existing.content,
+      previous_proxied: existing.proxied,
+    }));
+
+    const updateRes = await fetch(`${CF_API}/zones/${cfZone}/dns_records/${existing.id}`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${cfToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify(desiredPayload),
+    });
+    const { data: updateData } = await readJsonResponse(updateRes);
+
+    if (!updateData?.success) {
+      return { already_exists: true, error: updateData?.errors?.[0]?.message || "Failed to fix wildcard DNS" };
+    }
+
+    return { already_exists: true, record_id: existing.id, updated: true };
   }
 
   const createRes = await fetch(`${CF_API}/zones/${cfZone}/dns_records`, {
     method: "POST",
     headers: { Authorization: `Bearer ${cfToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      type: "CNAME",
-      name: "*",
-      content: LOVABLE_ORIGIN,
-      proxied: true,
-      comment: "Auto-created wildcard for tenant subdomains (origin: Lovable)",
-    }),
+    body: JSON.stringify(desiredPayload),
   });
   const { data: createData } = await readJsonResponse(createRes);
 
