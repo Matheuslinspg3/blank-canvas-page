@@ -339,10 +339,10 @@ Deno.serve(async (req) => {
             Authorization: `Bearer ${env.cloudflareToken!}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
+           body: JSON.stringify({
             type: "CNAME",
             name: hostname,
-            content: PLATFORM_DOMAIN,
+            content: LOVABLE_ORIGIN,
             proxied: true,
             comment: "Auto-created for platform site",
           }),
