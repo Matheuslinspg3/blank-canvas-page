@@ -246,8 +246,9 @@ async function setupPlatformWorker(cfToken: string, cfZone: string, accountId: s
     console.log("Worker route already exists:", existingRoute.id);
   }
 
-  // 3. Update wildcard DNS
-  const dnsResult = await ensureWildcardDns(cfToken, cfZone);
+  // 3. Only NOW switch DNS to dummy+proxy (Worker is confirmed active)
+  console.log("Worker + route OK. Switching wildcard DNS to dummy IP with proxy for Worker interception.");
+  const dnsResult = await ensureWildcardDns(cfToken, cfZone, DUMMY_ORIGIN_IP, true, "Wildcard for tenant subdomains – proxied to Worker");
   if (dnsResult.error) {
     return {
       success: false,
