@@ -89,25 +89,45 @@ addEventListener("fetch", (event) => {
 
 async function handleRequest(request) {
   const url = new URL(request.url);
-  // Rewrite the host to the Lovable app so it accepts the request
-  url.hostname = "${LOVABLE_APP_HOST}";
+  const originalHost = request.headers.get("host") || url.hostname;
 
-  // Forward the request, keeping the original Host in X-Forwarded-Host
+  // Rewrite to Lovable origin
+  url.hostname = "${LOVABLE_APP_HOST}";
+  url.port = "";
+
+  // Build new headers, explicitly setting Host to match the target
+  const newHeaders = new Headers(request.headers);
+  newHeaders.set("Host", "${LOVABLE_APP_HOST}");
+  newHeaders.set("X-Forwarded-Host", originalHost);
+  newHeaders.set("X-Original-Host", originalHost);
+
   const modifiedRequest = new Request(url.toString(), {
     method: request.method,
-    headers: request.headers,
+    headers: newHeaders,
     body: request.body,
     redirect: "manual",
   });
-  modifiedRequest.headers.set("X-Forwarded-Host", request.headers.get("host") || "");
 
   const response = await fetch(modifiedRequest);
 
-  // Return the response with CORS headers preserved
+  // Clone response headers so we can modify them
+  const respHeaders = new Headers(response.headers);
+  // Remove any location header that would redirect to the lovable.app domain
+  const location = respHeaders.get("location");
+  if (location) {
+    try {
+      const locUrl = new URL(location);
+      if (locUrl.hostname === "${LOVABLE_APP_HOST}") {
+        locUrl.hostname = originalHost.split(":")[0];
+        respHeaders.set("location", locUrl.toString());
+      }
+    } catch(e) {}
+  }
+
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
-    headers: response.headers,
+    headers: respHeaders,
   });
 }
 `.trim();
