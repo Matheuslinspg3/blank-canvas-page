@@ -692,7 +692,37 @@ function DomainSection() {
           ) : (
             <div className="space-y-4">
               {domains.map((d: any) => {
-                const steps = [
+                const isFullZone = d.zone_mode === "full_zone";
+                const steps = isFullZone ? [
+                  {
+                    label: "Zona no Cloudflare",
+                    icon: Cloud,
+                    done: d.zone_status === "active",
+                    active: d.zone_status === "pending",
+                    detail: d.zone_status === "active" ? "Zona ativa ✓" : d.zone_status === "pending" ? "Aguardando NS" : d.zone_status || "Pendente",
+                  },
+                  {
+                    label: "Nameservers",
+                    icon: Server,
+                    done: d.zone_status === "active",
+                    active: d.zone_status === "pending",
+                    detail: d.zone_status === "active" ? "NS configurados ✓" : "Cliente precisa trocar NS",
+                  },
+                  {
+                    label: "SSL / HTTPS",
+                    icon: Shield,
+                    done: d.ssl_status === "active",
+                    active: d.zone_status === "active" && d.ssl_status !== "active",
+                    detail: d.ssl_status === "active" ? "Certificado ativo ✓" : "Aguardando zona ativa",
+                  },
+                  {
+                    label: "Ativo",
+                    icon: CheckCircle2,
+                    done: d.is_active,
+                    active: false,
+                    detail: d.is_active ? "Site no ar! 🎉" : "Aguardando",
+                  },
+                ] : [
                   {
                     label: "CNAME configurado",
                     icon: Wifi,
