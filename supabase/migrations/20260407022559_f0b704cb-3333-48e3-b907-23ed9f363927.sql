@@ -1,0 +1,1 @@
+UPDATE website_settings SET is_active = true WHERE organization_id = (SELECT id FROM organizations WHERE slug = 'porto-caicara-imoveis-ltda');
