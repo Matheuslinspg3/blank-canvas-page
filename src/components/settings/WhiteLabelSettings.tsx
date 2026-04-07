@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
-import { Crown, Sparkles, Save, Loader2, Upload, X, Palette, Pipette } from "lucide-react";
+import { Crown, Sparkles, Save, Loader2, Upload, X, Palette, Pipette, Eraser } from "lucide-react";
 import { extractColorsFromImage } from "@/lib/extractColors";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -45,18 +45,26 @@ function MiniColorPicker({ label, value, onChange }: { label: string; value: str
   );
 }
 
-function LogoField({ label, url, onUpload, onRemove }: { label: string; url: string; onUpload: (f: File) => void; onRemove: () => void }) {
+function LogoField({ label, url, onUpload, onRemove, onRemoveBg, removingBg }: { label: string; url: string; onUpload: (f: File) => void; onRemove: () => void; onRemoveBg?: () => void; removingBg?: boolean }) {
   const ref = useRef<HTMLInputElement>(null);
   return (
     <div className="space-y-1.5">
       <Label className="text-xs">{label}</Label>
       {url ? (
-        <div className="relative inline-block">
-          <img src={url} alt={label} className="h-12 max-w-[140px] object-contain rounded border p-1 bg-muted/30" />
-          <button type="button" onClick={onRemove}
-            className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-[10px]">
-            <X className="h-2.5 w-2.5" />
-          </button>
+        <div className="space-y-1.5">
+          <div className="relative inline-block">
+            <img src={url} alt={label} className="h-12 max-w-[140px] object-contain rounded border p-1 bg-muted/30" />
+            <button type="button" onClick={onRemove}
+              className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-[10px]">
+              <X className="h-2.5 w-2.5" />
+            </button>
+          </div>
+          {onRemoveBg && (
+            <Button variant="outline" size="sm" onClick={onRemoveBg} disabled={removingBg} className="gap-1.5 h-7 text-[10px]">
+              {removingBg ? <Loader2 className="h-3 w-3 animate-spin" /> : <Eraser className="h-3 w-3" />}
+              {removingBg ? "Removendo..." : "Remover fundo"}
+            </Button>
+          )}
         </div>
       ) : (
         <Button variant="outline" size="sm" onClick={() => ref.current?.click()} className="gap-1.5 h-8 text-xs">
@@ -79,6 +87,34 @@ export default function WhiteLabelSettings() {
   const [uploading, setUploading] = useState(false);
   const [extractedColors, setExtractedColors] = useState<string[]>([]);
   const [extracting, setExtracting] = useState(false);
+  const [removingBg, setRemovingBg] = useState(false);
+
+  const handleRemoveBg = async (field: "logo_url" | "logo_dark_url") => {
+    const url = config[field];
+    if (!url || !profile?.organization_id) return;
+    setRemovingBg(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("remove-bg", { body: { image_url: url } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      // Upload the result to storage
+      const byteString = atob(data.image_base64);
+      const bytes = new Uint8Array(byteString.length);
+      for (let i = 0; i < byteString.length; i++) bytes[i] = byteString.charCodeAt(i);
+      const blob = new Blob([bytes], { type: "image/png" });
+      const path = `${profile.organization_id}/brand/${field}-nobg-${Date.now()}.png`;
+      const { error: upErr } = await supabase.storage.from("brand-assets").upload(path, blob, { upsert: true });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from("brand-assets").getPublicUrl(path);
+      setConfig((prev) => ({ ...prev, [field]: pub.publicUrl }));
+      toast.success("Fundo removido com sucesso!");
+    } catch (err: any) {
+      console.error("Remove bg error:", err);
+      toastError("Erro ao remover fundo. Verifique se a chave REMOVE_BG_API_KEY está configurada.");
+    } finally {
+      setRemovingBg(false);
+    }
+  };
 
   useEffect(() => {
     if (!profile?.organization_id) return;
@@ -246,10 +282,14 @@ export default function WhiteLabelSettings() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <LogoField label="Logo principal" url={config.logo_url}
                 onUpload={(f) => handleLogoUpload(f, "logo_url")}
-                onRemove={() => setConfig({ ...config, logo_url: "" })} />
+                onRemove={() => setConfig({ ...config, logo_url: "" })}
+                onRemoveBg={() => handleRemoveBg("logo_url")}
+                removingBg={removingBg} />
               <LogoField label="Logo (fundo escuro)" url={config.logo_dark_url}
                 onUpload={(f) => handleLogoUpload(f, "logo_dark_url")}
-                onRemove={() => setConfig({ ...config, logo_dark_url: "" })} />
+                onRemove={() => setConfig({ ...config, logo_dark_url: "" })}
+                onRemoveBg={() => handleRemoveBg("logo_dark_url")}
+                removingBg={removingBg} />
             </div>
 
             <div className="rounded-md border border-primary/20 bg-primary/5 p-3 flex items-start gap-2">
