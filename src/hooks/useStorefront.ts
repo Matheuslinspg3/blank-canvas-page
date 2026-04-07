@@ -141,7 +141,7 @@ export function useStorefront(orgSlug: string | undefined) {
         .eq("status", "disponivel")
         .order("is_featured", { ascending: false })
         .order("created_at", { ascending: false })
-        .limit(100);
+        .limit(1000);
       if (error) throw error;
       return (data || []) as StorefrontProperty[];
     },
