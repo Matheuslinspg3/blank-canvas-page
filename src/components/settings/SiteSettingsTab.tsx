@@ -23,6 +23,7 @@ import { toastError } from "@/lib/toastError";
 import { extractColorsFromImage } from "@/lib/extractColors";
 import { DomainSetupWizard } from "./DomainSetupWizard";
 import { SiteTemplateSelector, type SiteTemplate } from "./SiteTemplateSelector";
+import { AIContentDialog, type AIContentAnswers } from "./AIContentDialog";
 
 // ─── Website Settings Section ────────────────────────────────────────────────
 

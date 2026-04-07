@@ -17,6 +17,13 @@ Deno.serve(async (req) => {
     const rl = await checkAiRateLimitRedis(user.id, "generate-site-content", corsHeaders, 10, 3600);
     if (rl) return rl;
 
+    // Parse optional body with user answers
+    let userAnswers: Record<string, string> = {};
+    try {
+      const body = await req.json();
+      if (body) userAnswers = body;
+    } catch { /* no body is fine */ }
+
     const supabase = createServiceClient();
 
     // Get user's org
@@ -58,22 +65,40 @@ Deno.serve(async (req) => {
     }, { min: Infinity, max: 0 });
     const totalCount = (properties || []).length;
 
+    // Build extra context from user answers
+    const extraContext = [];
+    if (userAnswers.target_audience) extraContext.push(`- Público-alvo: ${userAnswers.target_audience}`);
+    if (userAnswers.differentials) extraContext.push(`- Diferenciais: ${userAnswers.differentials}`);
+    if (userAnswers.tone) {
+      const toneMap: Record<string, string> = {
+        profissional: "profissional e confiável",
+        acolhedor: "acolhedor e próximo do cliente",
+        luxo: "sofisticado e premium",
+        jovem: "moderno, jovem e dinâmico",
+        tecnico: "técnico e informativo",
+      };
+      extraContext.push(`- Tom de comunicação: ${toneMap[userAnswers.tone] || userAnswers.tone}`);
+    }
+    if (userAnswers.region_focus) extraContext.push(`- Região de atuação principal: ${userAnswers.region_focus}`);
+    if (userAnswers.extra_info) extraContext.push(`- Informações adicionais: ${userAnswers.extra_info}`);
+
     const prompt = `Você é um copywriter especialista em marketing imobiliário brasileiro. 
 Gere conteúdo completo para o site da imobiliária "${org?.name || 'Imobiliária'}".
 
-Contexto:
+Contexto dos imóveis:
 - Nome: ${org?.name}
 - Total de imóveis disponíveis: ${totalCount}
 - Cidades: ${cities.join(", ") || "não informado"}
 - Bairros: ${neighborhoods.join(", ") || "não informado"}
 - Tipos de transação: ${types.join(", ") || "venda e aluguel"}
 - Faixa de preço: ${priceRange.min < Infinity ? `R$ ${priceRange.min.toLocaleString()} a R$ ${priceRange.max.toLocaleString()}` : "variada"}
+${extraContext.length > 0 ? `\nInformações do cliente:\n${extraContext.join("\n")}` : ""}
 
-Gere um JSON com EXATAMENTE estas chaves (em português do Brasil, tom profissional e persuasivo):
+Gere um JSON com EXATAMENTE estas chaves (em português do Brasil, tom ${userAnswers.tone ? (userAnswers.tone === "luxo" ? "sofisticado e premium" : userAnswers.tone === "acolhedor" ? "acolhedor e próximo" : userAnswers.tone === "jovem" ? "moderno e dinâmico" : userAnswers.tone === "tecnico" ? "técnico e informativo" : "profissional e persuasivo") : "profissional e persuasivo"}):
 {
   "hero_title": "título impactante para o hero (max 60 chars)",
   "hero_subtitle": "subtítulo complementar (max 120 chars)",
-  "about_text": "texto de 3-4 parágrafos sobre a imobiliária (profissional, destacando experiência e diferenciais)",
+  "about_text": "texto de 3-4 parágrafos sobre a imobiliária (profissional, destacando experiência e diferenciais do cliente)",
   "meta_title": "título SEO otimizado (max 60 chars)",
   "meta_description": "descrição SEO otimizada (max 155 chars)",
   "whatsapp_message": "mensagem padrão curta e convidativa para WhatsApp"
