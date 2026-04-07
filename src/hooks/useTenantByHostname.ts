@@ -42,7 +42,8 @@ export function useTenantByHostname() {
         p_slug: platformSlug!,
       });
       if (error) throw error;
-      return data?.id as string | null;
+      const org = Array.isArray(data) ? data[0] : data;
+      return org?.id as string | null;
     },
   });
 
