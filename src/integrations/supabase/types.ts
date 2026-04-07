@@ -6282,8 +6282,10 @@ export type Database = {
           meta_description: string | null
           meta_title: string | null
           organization_id: string
+          redirect_to_custom_domain: boolean
           show_whatsapp_float: boolean | null
           updated_at: string | null
+          use_custom_domain_url: boolean
           whatsapp_message: string | null
           whatsapp_number: string | null
         }
@@ -6300,8 +6302,10 @@ export type Database = {
           meta_description?: string | null
           meta_title?: string | null
           organization_id: string
+          redirect_to_custom_domain?: boolean
           show_whatsapp_float?: boolean | null
           updated_at?: string | null
+          use_custom_domain_url?: boolean
           whatsapp_message?: string | null
           whatsapp_number?: string | null
         }
@@ -6318,8 +6322,10 @@ export type Database = {
           meta_description?: string | null
           meta_title?: string | null
           organization_id?: string
+          redirect_to_custom_domain?: boolean
           show_whatsapp_float?: boolean | null
           updated_at?: string | null
+          use_custom_domain_url?: boolean
           whatsapp_message?: string | null
           whatsapp_number?: string | null
         }
