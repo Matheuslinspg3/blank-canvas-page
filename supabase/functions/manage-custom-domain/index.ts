@@ -351,6 +351,12 @@ Deno.serve(async (req) => {
       if (env.cloudflareToken && env.cloudflareZoneId) {
         const dnsResult = await ensureWildcardDns(env.cloudflareToken, env.cloudflareZoneId);
         console.log("Wildcard DNS check:", JSON.stringify(dnsResult));
+
+        // Auto-setup Worker proxy if account ID is available
+        if (env.cloudflareAccountId) {
+          const proxyResult = await setupPlatformWorker(env.cloudflareToken, env.cloudflareZoneId, env.cloudflareAccountId);
+          console.log("Auto proxy setup on slug update:", JSON.stringify(proxyResult));
+        }
       }
 
       return json({ success: true, slug: newSlug });
@@ -372,7 +378,15 @@ Deno.serve(async (req) => {
     if (action === "ensure_wildcard_dns") {
       const result = await ensureWildcardDns(env.cloudflareToken!, env.cloudflareZoneId!);
       if (result.error) return errorJson(result.error, 502);
-      return json({ success: true, already_exists: result.already_exists, record_id: result.record_id });
+
+      // Auto-setup Worker proxy if account ID is available
+      let proxyResult = null;
+      if (env.cloudflareAccountId) {
+        proxyResult = await setupPlatformWorker(env.cloudflareToken!, env.cloudflareZoneId!, env.cloudflareAccountId);
+        console.log("Auto proxy setup on wildcard DNS:", JSON.stringify(proxyResult));
+      }
+
+      return json({ success: true, already_exists: result.already_exists, record_id: result.record_id, proxy: proxyResult });
     }
 
     // ─── Setup Platform Worker Proxy ───────────────────────────────
