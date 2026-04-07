@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -6,13 +6,129 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Globe, Trash2, RefreshCw, Plus, CheckCircle2, Clock, AlertCircle, Loader2 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Globe, Trash2, RefreshCw, Plus, CheckCircle2, Clock, AlertCircle, Loader2, Shield, Wifi, FileCheck } from "lucide-react";
 import { toast } from "sonner";
 
-function statusBadge(ssl: string, verification: string, isActive: boolean) {
-  if (isActive) return <Badge className="bg-green-600 text-white gap-1"><CheckCircle2 className="h-3 w-3" />Ativo</Badge>;
-  if (verification === "pending" || ssl === "pending") return <Badge variant="secondary" className="gap-1"><Clock className="h-3 w-3" />Pendente</Badge>;
-  return <Badge variant="destructive" className="gap-1"><AlertCircle className="h-3 w-3" />{verification}</Badge>;
+interface DomainRecord {
+  id: string;
+  hostname: string;
+  ssl_status: string;
+  verification_status: string;
+  is_active: boolean;
+  created_at: string;
+  cloudflare_hostname_id: string | null;
+}
+
+function getProvisioningSteps(d: DomainRecord) {
+  const steps = [
+    {
+      label: "CNAME configurado",
+      icon: Wifi,
+      done: d.verification_status === "active" || d.verification_status === "active_redeploying",
+      active: d.verification_status === "pending" || d.verification_status === "moved",
+      detail: d.verification_status === "pending"
+        ? "Aguardando você apontar o CNAME no DNS"
+        : d.verification_status === "active"
+        ? "DNS verificado ✓"
+        : d.verification_status,
+    },
+    {
+      label: "Verificação",
+      icon: FileCheck,
+      done: d.verification_status === "active" || d.verification_status === "active_redeploying",
+      active: d.verification_status !== "pending" && d.verification_status !== "active",
+      detail: d.verification_status === "active"
+        ? "Domínio verificado ✓"
+        : d.verification_status === "pending"
+        ? "Aguardando DNS"
+        : `Status: ${d.verification_status}`,
+    },
+    {
+      label: "SSL / HTTPS",
+      icon: Shield,
+      done: d.ssl_status === "active",
+      active: d.verification_status === "active" && d.ssl_status !== "active",
+      detail: d.ssl_status === "active"
+        ? "Certificado emitido ✓"
+        : d.ssl_status === "pending_validation" || d.ssl_status === "pending_issuance"
+        ? "Emitindo certificado..."
+        : d.ssl_status === "initializing"
+        ? "Inicializando SSL..."
+        : `SSL: ${d.ssl_status}`,
+    },
+    {
+      label: "Ativo",
+      icon: CheckCircle2,
+      done: d.is_active,
+      active: false,
+      detail: d.is_active ? "Site no ar! 🎉" : "Aguardando etapas anteriores",
+    },
+  ];
+
+  const doneCount = steps.filter((s) => s.done).length;
+  const progress = Math.round((doneCount / steps.length) * 100);
+
+  return { steps, progress, doneCount };
+}
+
+function getTimeSinceCreation(createdAt: string) {
+  const diff = Date.now() - new Date(createdAt).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "agora";
+  if (mins < 60) return `${mins}min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+}
+
+function StatusStepper({ domain }: { domain: DomainRecord }) {
+  const { steps, progress } = getProvisioningSteps(domain);
+
+  if (domain.is_active) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-green-600">
+        <CheckCircle2 className="h-4 w-4" />
+        <span className="font-medium">Domínio ativo e funcionando</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 mt-2">
+      <div className="flex items-center gap-3">
+        <Progress value={progress} className="flex-1 h-2" />
+        <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">{progress}%</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {steps.map((step, i) => {
+          const Icon = step.icon;
+          return (
+            <div
+              key={i}
+              className={`flex items-start gap-2 rounded-md border p-2 text-xs transition-colors ${
+                step.done
+                  ? "border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950"
+                  : step.active
+                  ? "border-primary/30 bg-primary/5 animate-pulse"
+                  : "border-border bg-muted/30"
+              }`}
+            >
+              <Icon
+                className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${
+                  step.done ? "text-green-600" : step.active ? "text-primary" : "text-muted-foreground"
+                }`}
+              />
+              <div className="min-w-0">
+                <p className={`font-medium ${step.done ? "text-green-700 dark:text-green-400" : ""}`}>{step.label}</p>
+                <p className="text-muted-foreground truncate">{step.detail}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export function CustomDomainsManager() {
@@ -25,13 +141,18 @@ export function CustomDomainsManager() {
   const { data: domains, isLoading } = useQuery({
     queryKey: ["tenant-domains", orgId],
     enabled: !!orgId,
+    refetchInterval: (query) => {
+      const data = query.state.data as DomainRecord[] | undefined;
+      const hasPending = data?.some((d) => !d.is_active);
+      return hasPending ? 15_000 : false;
+    },
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tenant_domains")
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+      return data as DomainRecord[];
     },
   });
 
@@ -66,7 +187,7 @@ export function CustomDomainsManager() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["tenant-domains"] });
       if (data.is_active) {
-        toast.success("Domínio ativo! SSL configurado.");
+        toast.success("Domínio ativo! SSL configurado. 🎉");
       } else {
         toast.info(`SSL: ${data.ssl_status} | Verificação: ${data.verification_status}`);
       }
@@ -99,6 +220,9 @@ export function CustomDomainsManager() {
     }
     createMutation.mutate(h);
   };
+
+  // Auto-check pending domains periodically
+  const pendingDomains = domains?.filter((d) => !d.is_active) ?? [];
 
   return (
     <Card>
@@ -133,7 +257,7 @@ export function CustomDomainsManager() {
             <li>Adicione o domínio acima</li>
             <li>No painel DNS do seu domínio, crie um <strong>CNAME</strong> apontando para <code className="bg-muted px-1 rounded">portadocorretor.com.br</code></li>
             <li>Aguarde a verificação e emissão do SSL (pode levar alguns minutos)</li>
-            <li>Clique em "Verificar" para atualizar o status</li>
+            <li>O status atualiza automaticamente a cada 15 segundos</li>
           </ol>
         </div>
 
@@ -145,42 +269,55 @@ export function CustomDomainsManager() {
         ) : !domains?.length ? (
           <p className="text-sm text-muted-foreground text-center py-4">Nenhum domínio cadastrado.</p>
         ) : (
-          <div className="space-y-3">
-            {domains.map((d: any) => (
-              <div key={d.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
-                <div className="flex items-center gap-3 min-w-0">
-                  <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <div className="min-w-0">
-                    <p className="font-medium text-sm truncate">{d.hostname}</p>
-                    <p className="text-xs text-muted-foreground">SSL: {d.ssl_status} | Verificação: {d.verification_status}</p>
+          <div className="space-y-4">
+            {domains.map((d) => (
+              <div key={d.id} className="rounded-lg border bg-card p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm truncate">{d.hostname}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Criado há {getTimeSinceCreation(d.created_at)}
+                        {!d.is_active && " • Atualiza automaticamente"}
+                      </p>
+                    </div>
                   </div>
-                  {statusBadge(d.ssl_status, d.verification_status, d.is_active)}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => checkMutation.mutate(d.id)}
+                      disabled={checkMutation.isPending}
+                      title="Verificar agora"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${checkMutation.isPending ? "animate-spin" : ""}`} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        if (confirm("Remover este domínio?")) deleteMutation.mutate(d.id);
+                      }}
+                      disabled={deleteMutation.isPending}
+                      title="Remover domínio"
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => checkMutation.mutate(d.id)}
-                    disabled={checkMutation.isPending}
-                    title="Verificar status"
-                  >
-                    <RefreshCw className={`h-4 w-4 ${checkMutation.isPending ? "animate-spin" : ""}`} />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      if (confirm("Remover este domínio?")) deleteMutation.mutate(d.id);
-                    }}
-                    disabled={deleteMutation.isPending}
-                    title="Remover domínio"
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
+
+                {/* Progress stepper */}
+                <StatusStepper domain={d} />
               </div>
             ))}
           </div>
+        )}
+
+        {pendingDomains.length > 0 && (
+          <p className="text-xs text-muted-foreground text-center">
+            ⏱️ Domínios pendentes atualizam automaticamente a cada 15 segundos
+          </p>
         )}
       </CardContent>
     </Card>
