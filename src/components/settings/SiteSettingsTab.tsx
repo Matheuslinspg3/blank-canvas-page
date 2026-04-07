@@ -56,6 +56,7 @@ function WebsiteContentSection() {
     meta_title: "",
     meta_description: "",
     is_active: true,
+    use_subdomain_landing: true,
   });
 
   useEffect(() => {
@@ -72,6 +73,7 @@ function WebsiteContentSection() {
         meta_title: settings.meta_title || "",
         meta_description: settings.meta_description || "",
         is_active: settings.is_active ?? true,
+        use_subdomain_landing: (settings as any).use_subdomain_landing ?? true,
       });
     }
   }, [settings]);
@@ -127,6 +129,28 @@ function WebsiteContentSection() {
         </CardHeader>
       </Card>
 
+      {/* Landing Page URL Format */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <ExternalLink className="h-5 w-5" />
+                URL das Landing Pages
+              </CardTitle>
+              <CardDescription>
+                {form.use_subdomain_landing
+                  ? "As landing pages usarão o subdomínio do seu site (ex: seunome.portadocorretor.com.br/imovel/123)"
+                  : "As landing pages usarão o caminho padrão (ex: portadocorretor.com.br/imovel/123)"}
+              </CardDescription>
+            </div>
+            <Switch
+              checked={form.use_subdomain_landing}
+              onCheckedChange={(v) => update("use_subdomain_landing", v)}
+            />
+          </div>
+        </CardHeader>
+      </Card>
       {/* Hero Section */}
       <Card>
         <CardHeader>

@@ -6298,6 +6298,7 @@ export type Database = {
           show_whatsapp_float: boolean | null
           updated_at: string | null
           use_custom_domain_url: boolean
+          use_subdomain_landing: boolean
           whatsapp_message: string | null
           whatsapp_number: string | null
         }
@@ -6318,6 +6319,7 @@ export type Database = {
           show_whatsapp_float?: boolean | null
           updated_at?: string | null
           use_custom_domain_url?: boolean
+          use_subdomain_landing?: boolean
           whatsapp_message?: string | null
           whatsapp_number?: string | null
         }
@@ -6338,6 +6340,7 @@ export type Database = {
           show_whatsapp_float?: boolean | null
           updated_at?: string | null
           use_custom_domain_url?: boolean
+          use_subdomain_landing?: boolean
           whatsapp_message?: string | null
           whatsapp_number?: string | null
         }
