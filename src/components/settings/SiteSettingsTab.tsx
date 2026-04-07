@@ -326,6 +326,8 @@ function DomainSection() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const [newHostname, setNewHostname] = useState("");
+  const [domainMode, setDomainMode] = useState<"custom_hostname" | "full_zone">("custom_hostname");
+  const [editingSlug, setEditingSlug] = useState(false);
   const [editingSlug, setEditingSlug] = useState(false);
   const [slugValue, setSlugValue] = useState("");
   const orgId = profile?.organization_id;
