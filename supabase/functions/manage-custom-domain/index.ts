@@ -77,8 +77,9 @@ function buildCloudflareZoneCreateMessage(responseStatus: number, data: any, has
 
 // ─── Constants ──────────────────────────────────────────────────
 const LOVABLE_APP_HOST = "portocaicaraimoveis.lovable.app";
+const LOVABLE_ORIGIN_IP = "185.158.133.1"; // Lovable's edge IP
 const WORKER_SCRIPT_NAME = "platform-subdomain-proxy";
-const DUMMY_ORIGIN_IP = "192.0.2.1"; // RFC 5737 – never routed; Worker intercepts before origin
+const DUMMY_ORIGIN_IP = "192.0.2.1"; // RFC 5737 – only used when Worker is active
 
 // ─── Worker script (reverse proxy for *.portadocorretor.com.br) ─
 const WORKER_SOURCE = `
