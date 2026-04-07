@@ -2,10 +2,12 @@
  * MINIMAL template — Floating bottom nav, clean white hero with just text,
  * list-style properties (no cards), minimal about, simple contact, ultra-clean footer.
  */
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import type { StorefrontOrg, StorefrontBrand, StorefrontWebsite, StorefrontProperty } from "@/hooks/useStorefront";
-import { Building, Search, Send, Loader2 } from "lucide-react";
+import { Building, Send, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { useStorefrontFilters } from "@/hooks/useStorefrontFilters";
+import { StorefrontFilters } from "@/components/storefront/StorefrontFilters";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -21,21 +23,9 @@ interface TemplateProps {
 }
 
 export function TemplateMinimal({ org, brand, website, properties, primaryColor }: TemplateProps) {
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | "venda" | "aluguel">("all");
+  const { filters, updateFilter, clearFilters, hasActiveFilters, activeFilterCount, filtered, availableCities, availableNeighborhoods } = useStorefrontFilters(properties);
   const [contactForm, setContactForm] = useState({ name: "", email: "", phone: "", message: "" });
   const [sending, setSending] = useState(false);
-
-  const filtered = useMemo(() => {
-    return properties.filter((p) => {
-      if (filter !== "all" && p.transaction_type !== filter && p.transaction_type !== "ambos") return false;
-      if (search) {
-        const s = search.toLowerCase();
-        return p.title?.toLowerCase().includes(s) || p.address_city?.toLowerCase().includes(s) || p.address_neighborhood?.toLowerCase().includes(s);
-      }
-      return true;
-    });
-  }, [properties, search, filter]);
 
   const handleContact = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,19 +67,8 @@ export function TemplateMinimal({ org, brand, website, properties, primaryColor 
       {/* ─── PROPERTIES: list style (vertical minimal cards) ─── */}
       <section id="imoveis" className="py-12 px-6">
         <div className="max-w-2xl mx-auto">
-          <div className="flex flex-col sm:flex-row gap-3 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
-              <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 border-gray-100 bg-white text-sm" />
-            </div>
-            <div className="flex gap-0.5 border border-gray-100 rounded-lg p-0.5">
-              {(["all", "venda", "aluguel"] as const).map((f) => (
-                <button key={f} onClick={() => setFilter(f)} className="px-3 py-1.5 text-xs rounded font-medium transition-colors"
-                  style={{ backgroundColor: filter === f ? primaryColor : "transparent", color: filter === f ? "#fff" : "#9ca3af" }}>
-                  {f === "all" ? "Todos" : f === "venda" ? "Venda" : "Aluguel"}
-                </button>
-              ))}
-            </div>
+          <div className="mb-6">
+            <StorefrontFilters filters={filters} onUpdateFilter={updateFilter} onClearFilters={clearFilters} hasActiveFilters={hasActiveFilters} activeFilterCount={activeFilterCount} availableCities={availableCities} availableNeighborhoods={availableNeighborhoods} primaryColor={primaryColor} />
           </div>
           {filtered.length === 0 ? (
             <div className="text-center py-12"><Building className="h-10 w-10 mx-auto text-gray-200 mb-3" /><p className="text-gray-400 text-sm">Nenhum imóvel encontrado</p></div>
