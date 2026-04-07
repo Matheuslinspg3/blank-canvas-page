@@ -7596,6 +7596,11 @@ export type Database = {
           stored_url: string
         }[]
       }
+      get_public_tenant_by_domain: {
+        Args: { p_hostname: string }
+        Returns: Json
+      }
+      get_public_tenant_redirect: { Args: { p_org_id: string }; Returns: Json }
       get_schema_column_types: {
         Args: never
         Returns: {
