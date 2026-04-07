@@ -1,17 +1,23 @@
+import { lazy, Suspense } from "react";
+import { useLocation } from "react-router-dom";
 import { useTenantByHostname } from "@/hooks/useTenantByHostname";
 import { WhiteLabelStorefront } from "@/components/WhiteLabelStorefront";
 import { Loader2 } from "lucide-react";
+
+const PropertyLandingPage = lazy(() => import("@/pages/PropertyLandingPage"));
 
 interface Props {
   children: React.ReactNode;
 }
 
 /**
- * If the current hostname matches a tenant domain, render their storefront.
+ * If the current hostname matches a tenant domain, render their storefront
+ * OR the property landing page if the path matches /imovel/:id.
  * Otherwise render the normal app routes.
  */
 export function TenantRouter({ children }: Props) {
   const { isExternalDomain, organizationId, isLoading, notFound } = useTenantByHostname();
+  const { pathname } = useLocation();
 
   // Not an external domain — render the normal app
   if (!isExternalDomain) {
@@ -34,6 +40,22 @@ export function TenantRouter({ children }: Props) {
           <p className="text-muted-foreground">Verifique o endereço e tente novamente.</p>
         </div>
       </div>
+    );
+  }
+
+  // Check if the path is a property landing page: /imovel/:id
+  const imovelMatch = pathname.match(/^\/imovel\/([^/]+)\/?$/);
+  if (imovelMatch) {
+    return (
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center min-h-screen">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        }
+      >
+        <PropertyLandingPage />
+      </Suspense>
     );
   }
 
