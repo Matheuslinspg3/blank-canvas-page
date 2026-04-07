@@ -585,6 +585,17 @@ function DomainSection() {
               </div>
             </div>
           )}
+          {/* Setup Worker Proxy button */}
+          <div className="flex items-center justify-between rounded-md border border-dashed p-3">
+            <div className="space-y-0.5">
+              <p className="text-xs font-medium">Proxy de subdomínios</p>
+              <p className="text-[11px] text-muted-foreground">Configura o Worker no Cloudflare para que os subdomínios *.portadocorretor.com.br funcionem.</p>
+            </div>
+            <Button size="sm" variant="outline" className="gap-1.5 shrink-0" onClick={() => setupProxyMutation.mutate()} disabled={setupProxyMutation.isPending}>
+              {setupProxyMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Cloud className="h-3.5 w-3.5" />}
+              Configurar Proxy
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
