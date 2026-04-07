@@ -336,6 +336,20 @@ function DomainSection() {
     },
   });
 
+  const { data: wsSettings, isLoading: wsLoading } = useQuery({
+    queryKey: ["website-settings-domain", orgId],
+    enabled: !!orgId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("website_settings")
+        .select("id, redirect_to_custom_domain, use_custom_domain_url")
+        .eq("organization_id", orgId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const slugMutation = useMutation({
     mutationFn: async (slug: string) => {
       const { data, error } = await supabase.functions.invoke("manage-custom-domain", {
@@ -345,7 +359,7 @@ function DomainSection() {
       if (data?.error) throw new Error(data.error);
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       toast.success("Slug atualizado!");
       setEditingSlug(false);
       queryClient.invalidateQueries({ queryKey: ["org-slug"] });
@@ -356,6 +370,11 @@ function DomainSection() {
   const { data: domains, isLoading } = useQuery({
     queryKey: ["tenant-domains", orgId],
     enabled: !!orgId,
+    refetchInterval: (query) => {
+      const data = query.state.data as any[] | undefined;
+      const hasPending = data?.some((d) => !d.is_active);
+      return hasPending ? 15_000 : false;
+    },
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tenant_domains")
@@ -364,6 +383,24 @@ function DomainSection() {
       if (error) throw error;
       return data;
     },
+  });
+
+  const hasActiveDomain = domains?.some((d: any) => d.is_active) ?? false;
+
+  const toggleMutation = useMutation({
+    mutationFn: async (payload: { redirect_to_custom_domain?: boolean; use_custom_domain_url?: boolean }) => {
+      if (!wsSettings?.id) throw new Error("Configurações não encontradas");
+      const { error } = await supabase
+        .from("website_settings")
+        .update(payload)
+        .eq("id", wsSettings.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Configuração salva!");
+      queryClient.invalidateQueries({ queryKey: ["website-settings-domain"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const createMutation = useMutation({
@@ -397,7 +434,7 @@ function DomainSection() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["tenant-domains"] });
       if (data.is_active) {
-        toast.success("Domínio ativo! SSL configurado.");
+        toast.success("Domínio ativo! SSL configurado. 🎉");
       } else {
         toast.info(`SSL: ${data.ssl_status} | Verificação: ${data.verification_status}`);
       }
@@ -431,7 +468,7 @@ function DomainSection() {
     createMutation.mutate(h);
   };
 
-  
+  const activeDomain = domains?.find((d: any) => d.is_active);
 
   return (
     <div className="space-y-6">
@@ -481,6 +518,63 @@ function DomainSection() {
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* URL Preferences */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-sm font-medium">
+            <Globe className="h-4 w-4" />
+            Preferências de URL
+          </CardTitle>
+          <CardDescription>Configure como os visitantes acessam seu site</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {/* Redirect toggle */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">Redirecionar para domínio próprio</Label>
+              <p className="text-xs text-muted-foreground">
+                Visitantes que acessarem pelo subdomínio padrão ({orgSlug}.portadocorretor.com.br) serão redirecionados automaticamente para o domínio próprio.
+              </p>
+              {!hasActiveDomain && (
+                <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                  <AlertCircle className="h-3 w-3" />
+                  Requer um domínio próprio ativo
+                </p>
+              )}
+            </div>
+            <Switch
+              checked={wsSettings?.redirect_to_custom_domain ?? false}
+              disabled={!hasActiveDomain || toggleMutation.isPending}
+              onCheckedChange={(v) => toggleMutation.mutate({ redirect_to_custom_domain: v })}
+            />
+          </div>
+
+          <div className="border-t" />
+
+          {/* Use custom domain for URLs */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">Usar domínio próprio nas URLs</Label>
+              <p className="text-xs text-muted-foreground">
+                URLs públicas de imóveis e links compartilhados usarão o domínio próprio
+                {activeDomain ? ` (${activeDomain.hostname})` : ""} ao invés do subdomínio padrão.
+              </p>
+              {!hasActiveDomain && (
+                <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                  <AlertCircle className="h-3 w-3" />
+                  Requer um domínio próprio ativo
+                </p>
+              )}
+            </div>
+            <Switch
+              checked={wsSettings?.use_custom_domain_url ?? false}
+              disabled={!hasActiveDomain || toggleMutation.isPending}
+              onCheckedChange={(v) => toggleMutation.mutate({ use_custom_domain_url: v })}
+            />
+          </div>
         </CardContent>
       </Card>
 
