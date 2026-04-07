@@ -76,7 +76,7 @@ function buildCloudflareZoneCreateMessage(responseStatus: number, data: any, has
 }
 
 // ─── Constants ──────────────────────────────────────────────────
-const LOVABLE_APP_HOST = "portocaicaraimoveis.lovable.app";
+const LOVABLE_APP_HOST = "portadocorretor.com.br";
 const LOVABLE_ORIGIN_IP = "185.158.133.1"; // Lovable's edge IP
 const WORKER_SCRIPT_NAME = "platform-subdomain-proxy";
 const DUMMY_ORIGIN_IP = "192.0.2.1"; // RFC 5737 – only used when Worker is active
@@ -91,7 +91,7 @@ async function handleRequest(request) {
   const url = new URL(request.url);
   const originalHost = request.headers.get("host") || url.hostname;
 
-  // Rewrite to Lovable origin
+  // Rewrite to the custom domain origin (serves 200, not redirect)
   url.hostname = "${LOVABLE_APP_HOST}";
   url.port = "";
 
