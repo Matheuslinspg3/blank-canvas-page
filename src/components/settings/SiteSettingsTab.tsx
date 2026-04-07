@@ -503,6 +503,23 @@ function DomainSection() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const setupProxyMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("manage-custom-domain", {
+        body: { action: "setup_platform_proxy" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Worker proxy configurado! 🎉", {
+        description: "Subdomínios *.portadocorretor.com.br agora funcionam.",
+      });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     const h = newHostname.trim().toLowerCase();
