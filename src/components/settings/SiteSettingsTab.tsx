@@ -640,6 +640,35 @@ function DomainSection() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Mode selector */}
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">Modo de configuração</Label>
+            <Select value={domainMode} onValueChange={(v) => setDomainMode(v as any)}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="custom_hostname">
+                  <div className="flex items-center gap-2">
+                    <Wifi className="h-3.5 w-3.5" />
+                    <span>CNAME Manual</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="full_zone">
+                  <div className="flex items-center gap-2">
+                    <Cloud className="h-3.5 w-3.5" />
+                    <span>Adicionar ao Cloudflare (controle total)</span>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {domainMode === "custom_hostname"
+                ? "O cliente configura o CNAME no painel DNS dele manualmente."
+                : "O domínio será adicionado à sua conta Cloudflare. O cliente só precisa trocar os nameservers no registrador."}
+            </p>
+          </div>
+
           <form onSubmit={handleCreate} className="flex gap-2">
             <Input
               placeholder="www.meusite.com.br"
@@ -647,9 +676,9 @@ function DomainSection() {
               onChange={(e) => setNewHostname(e.target.value)}
               className="flex-1"
             />
-            <Button type="submit" disabled={createMutation.isPending} className="gap-2">
-              {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              Adicionar
+            <Button type="submit" disabled={isSubmitting} className="gap-2">
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : domainMode === "full_zone" ? <Cloud className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              {domainMode === "full_zone" ? "Adicionar ao CF" : "Adicionar"}
             </Button>
           </form>
 
