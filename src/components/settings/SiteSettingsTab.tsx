@@ -63,6 +63,7 @@ function WebsiteContentSection() {
   });
 
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [showAIDialog, setShowAIDialog] = useState(false);
 
   useEffect(() => {
     if (settings) {
@@ -84,10 +85,12 @@ function WebsiteContentSection() {
     }
   }, [settings]);
 
-  const handleGenerateWithAI = async () => {
+  const handleGenerateWithAI = async (answers: AIContentAnswers) => {
     setIsGeneratingAI(true);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-site-content");
+      const { data, error } = await supabase.functions.invoke("generate-site-content", {
+        body: answers,
+      });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
@@ -100,6 +103,7 @@ function WebsiteContentSection() {
         meta_description: data.meta_description || prev.meta_description,
         whatsapp_message: data.whatsapp_message || prev.whatsapp_message,
       }));
+      setShowAIDialog(false);
       toast.success("Conteúdo gerado com IA! Revise e salve.", {
         description: "Os campos foram preenchidos automaticamente.",
         icon: <Sparkles className="h-4 w-4" />,
