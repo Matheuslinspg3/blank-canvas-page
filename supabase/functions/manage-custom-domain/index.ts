@@ -112,6 +112,7 @@ async function handleRequest(request) {
 `.trim();
 
 // ─── Wildcard DNS helper ────────────────────────────────────────
+// Uses a dummy origin IP (192.0.2.1) with proxy ON so the Worker can intercept.
 async function ensureWildcardDns(cfToken: string, cfZone: string): Promise<{ already_exists: boolean; record_id?: string; error?: string; updated?: boolean }> {
   const wildcard = `*.${PLATFORM_DOMAIN}`;
   const searchRes = await fetch(
@@ -129,9 +130,9 @@ async function ensureWildcardDns(cfToken: string, cfZone: string): Promise<{ alr
   const desiredPayload = {
     type: "A",
     name: "*",
-    content: LOVABLE_EDGE_IP,
-    proxied: false,
-    comment: "Auto-managed wildcard for tenant subdomains",
+    content: DUMMY_ORIGIN_IP,
+    proxied: true, // Must be proxied so the Worker route can intercept
+    comment: "Wildcard for tenant subdomains – proxied to Worker",
   };
 
   if (existing) {
@@ -145,9 +146,8 @@ async function ensureWildcardDns(cfToken: string, cfZone: string): Promise<{ alr
     }
 
     console.log("Fixing wildcard DNS record", JSON.stringify({
-      previous_type: existing.type,
-      previous_content: existing.content,
-      previous_proxied: existing.proxied,
+      previous: { type: existing.type, content: existing.content, proxied: existing.proxied },
+      desired: { type: desiredPayload.type, content: desiredPayload.content, proxied: desiredPayload.proxied },
     }));
 
     const updateRes = await fetch(`${CF_API}/zones/${cfZone}/dns_records/${existing.id}`, {
@@ -176,6 +176,92 @@ async function ensureWildcardDns(cfToken: string, cfZone: string): Promise<{ alr
   }
 
   return { already_exists: false, record_id: createData.result.id };
+}
+
+// ─── Worker setup helper ────────────────────────────────────────
+async function setupPlatformWorker(cfToken: string, cfZone: string, accountId: string): Promise<{
+  success: boolean;
+  worker_deployed?: boolean;
+  route_created?: boolean;
+  dns_updated?: boolean;
+  error?: string;
+  details?: unknown;
+}> {
+  // 1. Upload Worker script
+  console.log("Uploading Worker script:", WORKER_SCRIPT_NAME);
+  const uploadRes = await fetch(
+    `${CF_API}/accounts/${accountId}/workers/scripts/${WORKER_SCRIPT_NAME}`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${cfToken}`,
+        "Content-Type": "application/javascript",
+      },
+      body: WORKER_SOURCE,
+    }
+  );
+  const { text: uploadText, data: uploadData } = await readJsonResponse(uploadRes);
+  console.log("Worker upload:", uploadRes.status, uploadText);
+
+  if (!uploadRes.ok) {
+    return {
+      success: false,
+      error: "Falha ao criar o Worker. Verifique se o token tem permissão 'Workers Scripts:Edit' na conta.",
+      details: uploadData?.errors || uploadText,
+    };
+  }
+
+  // 2. Create Worker route
+  const routePattern = `*.${PLATFORM_DOMAIN}/*`;
+  console.log("Creating Worker route:", routePattern);
+
+  // Check if route already exists
+  const routesListRes = await fetch(`${CF_API}/zones/${cfZone}/workers/routes`, {
+    headers: { Authorization: `Bearer ${cfToken}` },
+  });
+  const { data: routesList } = await readJsonResponse(routesListRes);
+  const existingRoute = routesList?.result?.find((r: any) => r.pattern === routePattern);
+
+  let routeCreated = false;
+  if (!existingRoute) {
+    const routeRes = await fetch(`${CF_API}/zones/${cfZone}/workers/routes`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${cfToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ pattern: routePattern, script: WORKER_SCRIPT_NAME }),
+    });
+    const { text: routeText, data: routeData } = await readJsonResponse(routeRes);
+    console.log("Worker route create:", routeRes.status, routeText);
+
+    if (!routeRes.ok) {
+      return {
+        success: false,
+        worker_deployed: true,
+        error: "Worker criado, mas falha ao criar a rota. Verifique se o token tem 'Workers Routes:Edit' na zona.",
+        details: routeData?.errors || routeText,
+      };
+    }
+    routeCreated = true;
+  } else {
+    console.log("Worker route already exists:", existingRoute.id);
+  }
+
+  // 3. Update wildcard DNS
+  const dnsResult = await ensureWildcardDns(cfToken, cfZone);
+  if (dnsResult.error) {
+    return {
+      success: false,
+      worker_deployed: true,
+      route_created: routeCreated,
+      error: `Worker e rota OK, mas falha no DNS: ${dnsResult.error}`,
+    };
+  }
+
+  return {
+    success: true,
+    worker_deployed: true,
+    route_created: routeCreated || !!existingRoute,
+    dns_updated: dnsResult.updated || !dnsResult.already_exists,
+  };
 }
 
 // ─── Auth helper ────────────────────────────────────────────────
