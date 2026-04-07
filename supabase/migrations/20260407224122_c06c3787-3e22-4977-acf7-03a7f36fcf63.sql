@@ -1,0 +1,1 @@
+ALTER TABLE public.website_settings ADD COLUMN IF NOT EXISTS site_template TEXT NOT NULL DEFAULT 'classic';
