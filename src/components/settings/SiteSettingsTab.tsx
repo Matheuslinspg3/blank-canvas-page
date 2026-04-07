@@ -985,18 +985,26 @@ function MiniColorPicker({ label, value, onChange }: { label: string; value: str
   );
 }
 
-function LogoField({ label, url, onUpload, onRemove }: { label: string; url: string; onUpload: (f: File) => void; onRemove: () => void }) {
+function LogoField({ label, url, onUpload, onRemove, onRemoveBg, removingBg }: { label: string; url: string; onUpload: (f: File) => void; onRemove: () => void; onRemoveBg?: () => void; removingBg?: boolean }) {
   const ref = useRef<HTMLInputElement>(null);
   return (
     <div className="space-y-1.5">
       <Label className="text-xs">{label}</Label>
       {url ? (
-        <div className="relative inline-block">
-          <img src={url} alt={label} className="h-12 max-w-[140px] object-contain rounded border p-1 bg-muted/30" />
-          <button type="button" onClick={onRemove}
-            className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-[10px]">
-            <X className="h-2.5 w-2.5" />
-          </button>
+        <div className="space-y-1.5">
+          <div className="relative inline-block">
+            <img src={url} alt={label} className="h-12 max-w-[140px] object-contain rounded border p-1 bg-muted/30" />
+            <button type="button" onClick={onRemove}
+              className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-[10px]">
+              <X className="h-2.5 w-2.5" />
+            </button>
+          </div>
+          {onRemoveBg && (
+            <Button variant="outline" size="sm" onClick={onRemoveBg} disabled={removingBg} className="gap-1.5 h-7 text-[10px]">
+              {removingBg ? <Loader2 className="h-3 w-3 animate-spin" /> : <Eraser className="h-3 w-3" />}
+              {removingBg ? "Removendo..." : "Remover fundo"}
+            </Button>
+          )}
         </div>
       ) : (
         <Button variant="outline" size="sm" onClick={() => ref.current?.click()} className="gap-1.5 h-8 text-xs">
