@@ -375,6 +375,22 @@ Deno.serve(async (req) => {
       return json({ success: true, already_exists: result.already_exists, record_id: result.record_id });
     }
 
+    // ─── Setup Platform Worker Proxy ───────────────────────────────
+    if (action === "setup_platform_proxy") {
+      if (!env.cloudflareAccountId) {
+        return errorJson("CLOUDFLARE_ACCOUNT_ID é obrigatório para criar o Worker proxy. Configure no Supabase.", 400);
+      }
+      const result = await setupPlatformWorker(env.cloudflareToken!, env.cloudflareZoneId!, env.cloudflareAccountId);
+      if (!result.success) {
+        return errorJson(result.error || "Falha ao configurar proxy", 502, { details: result.details, ...result });
+      }
+      return json({
+        success: true,
+        message: "Worker proxy configurado! Subdomínios *.portadocorretor.com.br agora funcionam.",
+        ...result,
+      });
+    }
+
     // ─── Add Zone (Full DNS Control) ───────────────────────────────
     if (action === "add_zone") {
       const hostname = (body.hostname as string || "").toLowerCase().trim();
