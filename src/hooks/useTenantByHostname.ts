@@ -37,11 +37,10 @@ export function useTenantByHostname() {
     gcTime: 60 * 60_000,
     retry: 1,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("organizations")
-        .select("id")
-        .eq("slug", platformSlug!)
-        .maybeSingle();
+      // Use public RPC to bypass RLS for anonymous visitors
+      const { data, error } = await (supabase.rpc as any)("get_public_org_by_slug", {
+        p_slug: platformSlug!,
+      });
       if (error) throw error;
       return data?.id as string | null;
     },
