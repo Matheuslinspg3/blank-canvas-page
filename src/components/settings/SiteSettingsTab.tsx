@@ -823,6 +823,32 @@ function DomainSection() {
                         </div>
                       </div>
                     )}
+
+                    {/* Nameserver info for full_zone */}
+                    {isFullZone && d.nameservers?.length > 0 && !d.is_active && (
+                      <div className="rounded-md border border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-950 p-3 space-y-2">
+                        <p className="text-xs font-medium flex items-center gap-1.5">
+                          <Server className="h-3.5 w-3.5" />
+                          Nameservers para configurar no registrador:
+                        </p>
+                        <div className="space-y-1">
+                          {d.nameservers.map((ns: string) => (
+                            <div key={ns} className="flex items-center justify-between bg-background rounded px-2 py-1">
+                              <code className="text-xs font-mono">{ns}</code>
+                              <Button
+                                variant="ghost" size="icon" className="h-6 w-6"
+                                onClick={() => { navigator.clipboard.writeText(ns); toast.success("Copiado!"); }}
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Acesse o Registro.br (ou registrador do domínio) e substitua os nameservers atuais por estes acima.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 );
               })}
