@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Home, Users, Calendar, Menu, DollarSign, Store, Megaphone, Settings, Plug, UserCog, X, Building2, Zap, Terminal, ChevronDown, CreditCard, Landmark } from "lucide-react";
+import { LayoutDashboard, Home, Users, Calendar, Menu, DollarSign, Store, Megaphone, Settings, Plug, UserCog, X, Building2, Zap, Terminal, ChevronDown, CreditCard, Landmark, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -40,6 +40,7 @@ const menuGroups: MenuGroup[] = [
   {
     title: "Gestão",
     items: [
+      { icon: Globe, label: "Meu Site", path: "/site", adminOnly: true },
       { icon: UserCog, label: "Administração", path: "/administracao", adminOnly: true },
       { icon: Plug, label: "Integrações", path: "/integracoes", adminOnly: true },
     ],
