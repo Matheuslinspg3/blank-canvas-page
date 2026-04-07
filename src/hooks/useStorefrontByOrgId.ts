@@ -43,7 +43,7 @@ export function useStorefrontByOrgId(organizationId: string | null) {
     queryFn: async () => {
       const { data } = await supabase
         .from("website_settings")
-        .select("hero_title, hero_subtitle, whatsapp_number, whatsapp_message, show_whatsapp_float, contact_email, contact_phone, about_text, meta_title, meta_description")
+        .select("hero_title, hero_subtitle, whatsapp_number, whatsapp_message, show_whatsapp_float, contact_email, contact_phone, about_text, meta_title, meta_description, site_template")
         .eq("organization_id", orgId!)
         .single();
       return data as StorefrontWebsite | null;

@@ -29,6 +29,7 @@ export interface StorefrontWebsite {
   about_text: string | null;
   meta_title: string | null;
   meta_description: string | null;
+  site_template: string | null;
 }
 
 export interface StorefrontProperty {
@@ -96,7 +97,7 @@ export function useStorefront(orgSlug: string | undefined) {
     queryFn: async () => {
       const { data } = await supabase
         .from("website_settings")
-        .select("hero_title, hero_subtitle, whatsapp_number, whatsapp_message, show_whatsapp_float, contact_email, contact_phone, about_text, meta_title, meta_description")
+        .select("hero_title, hero_subtitle, whatsapp_number, whatsapp_message, show_whatsapp_float, contact_email, contact_phone, about_text, meta_title, meta_description, site_template")
         .eq("organization_id", orgId!)
         .single();
       return data as StorefrontWebsite | null;
