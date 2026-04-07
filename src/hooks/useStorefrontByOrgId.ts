@@ -12,13 +12,11 @@ export function useStorefrontByOrgId(organizationId: string | null) {
     enabled: !!organizationId,
     staleTime: 10 * 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("organizations")
-        .select("id, name, slug")
-        .eq("id", organizationId!)
-        .single();
+      const { data, error } = await (supabase.rpc as any)("get_public_org_by_id", { p_org_id: organizationId! });
       if (error) throw error;
-      return data as StorefrontOrg;
+      const org = data?.[0];
+      if (!org) throw new Error("Organization not found");
+      return org as StorefrontOrg;
     },
   });
 
@@ -29,12 +27,9 @@ export function useStorefrontByOrgId(organizationId: string | null) {
     enabled: !!orgId,
     staleTime: 10 * 60_000,
     queryFn: async () => {
-      const { data } = await supabase
-        .from("brand_settings")
-        .select("primary_color, secondary_color, accent_color, font_family, slogan, tagline, logo_url, logo_dark_url")
-        .eq("organization_id", orgId!)
-        .single();
-      return (data as StorefrontBrand | null) ?? {
+      const { data } = await (supabase.rpc as any)("get_public_brand_settings", { p_org_id: orgId! });
+      const brand = data?.[0];
+      return (brand as StorefrontBrand | null) ?? {
         primary_color: "#3B82F6", secondary_color: "#1E293B", accent_color: "#F59E0B",
         font_family: "Montserrat", slogan: null, tagline: null, logo_url: null, logo_dark_url: null,
       };
