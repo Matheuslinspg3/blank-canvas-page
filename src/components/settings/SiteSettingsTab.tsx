@@ -326,7 +326,7 @@ function DomainSection() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const [newHostname, setNewHostname] = useState("");
-  const [domainMode, setDomainMode] = useState<"custom_hostname" | "full_zone">("custom_hostname");
+  const [domainMode, setDomainMode] = useState<"custom_hostname" | "full_zone">("full_zone");
   const [editingSlug, setEditingSlug] = useState(false);
   const [slugValue, setSlugValue] = useState("");
   const orgId = profile?.organization_id;
@@ -648,24 +648,25 @@ function DomainSection() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="custom_hostname">
-                  <div className="flex items-center gap-2">
-                    <Wifi className="h-3.5 w-3.5" />
-                    <span>CNAME Manual</span>
-                  </div>
-                </SelectItem>
                 <SelectItem value="full_zone">
                   <div className="flex items-center gap-2">
                     <Cloud className="h-3.5 w-3.5" />
-                    <span>Adicionar ao Cloudflare (controle total)</span>
+                    <span>Cloudflare (automático)</span>
+                    <span className="ml-1 text-[10px] font-semibold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">Recomendado</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="custom_hostname">
+                  <div className="flex items-center gap-2">
+                    <Wifi className="h-3.5 w-3.5" />
+                    <span>CNAME Manual (avançado)</span>
                   </div>
                 </SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              {domainMode === "custom_hostname"
-                ? "O cliente configura o CNAME no painel DNS dele manualmente."
-                : "O domínio será adicionado à sua conta Cloudflare. O cliente só precisa trocar os nameservers no registrador."}
+              {domainMode === "full_zone"
+                ? "O domínio será adicionado à sua conta Cloudflare automaticamente. O cliente só precisa trocar os nameservers no registrador."
+                : "O cliente configura o CNAME no painel DNS dele manualmente. Use quando o cliente já tem infraestrutura própria."}
             </p>
           </div>
 
