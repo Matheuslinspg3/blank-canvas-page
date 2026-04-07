@@ -463,6 +463,46 @@ function DomainSection() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const addZoneMutation = useMutation({
+    mutationFn: async (hostname: string) => {
+      const { data, error } = await supabase.functions.invoke("manage-custom-domain", {
+        body: { action: "add_zone", hostname },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success("Zona adicionada ao Cloudflare!", {
+        description: `Nameservers: ${data.nameservers?.join(", ")}`,
+        duration: 10000,
+      });
+      setNewHostname("");
+      queryClient.invalidateQueries({ queryKey: ["tenant-domains"] });
+    },
+    onError: (err: Error) => toast.error(err.message || "Erro ao adicionar zona"),
+  });
+
+  const checkZoneMutation = useMutation({
+    mutationFn: async (domainId: string) => {
+      const { data, error } = await supabase.functions.invoke("manage-custom-domain", {
+        body: { action: "check_zone_status", domain_id: domainId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["tenant-domains"] });
+      if (data.zone_status === "active") {
+        toast.success("Zona ativa! Nameservers configurados corretamente 🎉");
+      } else {
+        toast.info(`Status da zona: ${data.zone_status}`);
+      }
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     const h = newHostname.trim().toLowerCase();
@@ -470,10 +510,12 @@ function DomainSection() {
       toast.error("Digite um domínio válido (ex: www.meusite.com.br)");
       return;
     }
-    createMutation.mutate(h);
+    if (domainMode === "full_zone") {
+      addZoneMutation.mutate(h);
+    } else {
+      createMutation.mutate(h);
+    }
   };
-
-  const activeDomain = domains?.find((d: any) => d.is_active);
 
   return (
     <div className="space-y-6">
