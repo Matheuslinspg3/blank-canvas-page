@@ -606,21 +606,7 @@ function DomainSection() {
             </Button>
           </form>
 
-          {/* Instructions */}
-          <div className="rounded-lg border bg-muted/50 p-4 text-sm space-y-2">
-            <p className="font-medium">Como configurar:</p>
-            <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-              <li>Adicione o domínio acima</li>
-              <li>No painel DNS do seu domínio, crie um <strong>CNAME</strong> apontando para <code className="bg-muted px-1 rounded">portadocorretor.com.br</code></li>
-              <li>Aguarde — o sistema verifica automaticamente a cada 5 minutos e ativa o SSL quando o DNS propagar</li>
-            </ol>
-            <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5">
-              <RefreshCw className="h-3 w-3" />
-              Verificação automática ativa — você será notificado quando o domínio estiver pronto.
-            </p>
-          </div>
-
-          {/* Domain list */}
+          {/* Domain list with progress stepper */}
           {isLoading ? (
             <div className="flex justify-center py-6">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -628,31 +614,120 @@ function DomainSection() {
           ) : !domains?.length ? (
             <p className="text-sm text-muted-foreground text-center py-4">Nenhum domínio customizado cadastrado.</p>
           ) : (
-            <div className="space-y-3">
-              {domains.map((d: any) => (
-                <div key={d.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <div className="min-w-0">
-                      <p className="font-medium text-sm truncate">{d.hostname}</p>
-                      <p className="text-xs text-muted-foreground">SSL: {d.ssl_status} | Verificação: {d.verification_status}</p>
+            <div className="space-y-4">
+              {domains.map((d: any) => {
+                const steps = [
+                  {
+                    label: "CNAME configurado",
+                    icon: Wifi,
+                    done: d.verification_status === "active",
+                    active: d.verification_status === "pending",
+                    detail: d.verification_status === "pending" ? "Aguardando CNAME" : d.verification_status === "active" ? "DNS verificado ✓" : d.verification_status,
+                  },
+                  {
+                    label: "Verificação",
+                    icon: FileCheck,
+                    done: d.verification_status === "active",
+                    active: d.verification_status !== "pending" && d.verification_status !== "active",
+                    detail: d.verification_status === "active" ? "Verificado ✓" : "Aguardando DNS",
+                  },
+                  {
+                    label: "SSL / HTTPS",
+                    icon: Shield,
+                    done: d.ssl_status === "active",
+                    active: d.verification_status === "active" && d.ssl_status !== "active",
+                    detail: d.ssl_status === "active" ? "Certificado ativo ✓" : d.ssl_status === "initializing" ? "Inicializando..." : `SSL: ${d.ssl_status}`,
+                  },
+                  {
+                    label: "Ativo",
+                    icon: CheckCircle2,
+                    done: d.is_active,
+                    active: false,
+                    detail: d.is_active ? "Site no ar! 🎉" : "Aguardando",
+                  },
+                ];
+                const doneCount = steps.filter((s) => s.done).length;
+                const progress = Math.round((doneCount / steps.length) * 100);
+
+                return (
+                  <div key={d.id} className="rounded-lg border bg-card p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm truncate">{d.hostname}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {d.is_active ? "Domínio ativo" : "Configuração em andamento..."}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button variant="ghost" size="icon" onClick={() => checkMutation.mutate(d.id)} disabled={checkMutation.isPending} title="Verificar agora">
+                          <RefreshCw className={`h-4 w-4 ${checkMutation.isPending ? "animate-spin" : ""}`} />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => { if (confirm("Remover este domínio?")) deleteMutation.mutate(d.id); }} disabled={deleteMutation.isPending} title="Remover">
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </div>
-                    {statusBadge(d.ssl_status, d.verification_status, d.is_active)}
+
+                    {d.is_active ? (
+                      <div className="flex items-center gap-2 text-sm text-green-600">
+                        <CheckCircle2 className="h-4 w-4" />
+                        <span className="font-medium">Domínio ativo e funcionando</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                          <Progress value={progress} className="flex-1 h-2" />
+                          <span className="text-xs text-muted-foreground font-medium">{progress}%</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {steps.map((step, i) => {
+                            const Icon = step.icon;
+                            return (
+                              <div
+                                key={i}
+                                className={`flex items-start gap-2 rounded-md border p-2 text-xs transition-colors ${
+                                  step.done
+                                    ? "border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950"
+                                    : step.active
+                                    ? "border-primary/30 bg-primary/5 animate-pulse"
+                                    : "border-border bg-muted/30"
+                                }`}
+                              >
+                                <Icon className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${step.done ? "text-green-600" : step.active ? "text-primary" : "text-muted-foreground"}`} />
+                                <div className="min-w-0">
+                                  <p className={`font-medium ${step.done ? "text-green-700 dark:text-green-400" : ""}`}>{step.label}</p>
+                                  <p className="text-muted-foreground truncate">{step.detail}</p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button variant="ghost" size="icon" onClick={() => checkMutation.mutate(d.id)} disabled={checkMutation.isPending} title="Verificar status">
-                      <RefreshCw className={`h-4 w-4 ${checkMutation.isPending ? "animate-spin" : ""}`} />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => { if (confirm("Remover este domínio?")) deleteMutation.mutate(d.id); }} disabled={deleteMutation.isPending} title="Remover">
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
+          )}
+
+          {/* Auto-refresh note for pending domains */}
+          {domains?.some((d: any) => !d.is_active) && (
+            <p className="text-xs text-muted-foreground text-center">
+              ⏱️ Domínios pendentes atualizam automaticamente a cada 15 segundos
+            </p>
           )}
         </CardContent>
       </Card>
+
+      {/* DNS Setup Wizard — only show when there are pending domains */}
+      {domains?.some((d: any) => !d.is_active) && (
+        <DomainSetupWizard
+          hostname={domains?.find((d: any) => !d.is_active)?.hostname || "www.meusite.com.br"}
+        />
+      )}
     </div>
   );
 }
