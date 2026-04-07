@@ -517,6 +517,9 @@ function DomainSection() {
     }
   };
 
+  const activeDomain = domains?.find((d: any) => d.is_active);
+  const isSubmitting = createMutation.isPending || addZoneMutation.isPending;
+
   return (
     <div className="space-y-6">
       {/* Current site URL with slug editor */}
