@@ -56,6 +56,7 @@ function WebsiteContentSection() {
     meta_title: "",
     meta_description: "",
     is_active: true,
+    use_subdomain_landing: true,
   });
 
   useEffect(() => {
@@ -72,6 +73,7 @@ function WebsiteContentSection() {
         meta_title: settings.meta_title || "",
         meta_description: settings.meta_description || "",
         is_active: settings.is_active ?? true,
+        use_subdomain_landing: (settings as any).use_subdomain_landing ?? true,
       });
     }
   }, [settings]);
