@@ -12,54 +12,77 @@ serve(async (req) => {
     const { image_url } = await req.json();
     if (!image_url) throw new Error("image_url is required");
 
-    const cloudName = Deno.env.get("CLOUDINARY_CLOUD_NAME");
-    const apiKey = Deno.env.get("CLOUDINARY_API_KEY");
-    const apiSecret = Deno.env.get("CLOUDINARY_API_SECRET");
+    const apiKey = Deno.env.get("GOOGLE_AI_KEY_1");
+    if (!apiKey) throw new Error("GOOGLE_AI_KEY_1 not configured");
 
-    if (!cloudName || !apiKey || !apiSecret) {
-      throw new Error("Cloudinary credentials not configured");
-    }
+    // Fetch image and convert to base64
+    const imgRes = await fetch(image_url);
+    if (!imgRes.ok) throw new Error("Failed to fetch image");
+    const imgBuffer = await imgRes.arrayBuffer();
+    const imgBytes = new Uint8Array(imgBuffer);
+    const imgBase64 = btoa(String.fromCharCode(...imgBytes));
+    const mimeType = imgRes.headers.get("content-type") || "image/png";
 
-    // Upload to Cloudinary with background_removal effect
-    const timestamp = Math.floor(Date.now() / 1000).toString();
-    const paramsToSign = `background_removal=cloudinary_ai&folder=remove-bg&timestamp=${timestamp}`;
-
-    // Generate SHA-1 signature
-    const encoder = new TextEncoder();
-    const data = encoder.encode(paramsToSign + apiSecret);
-    const hashBuffer = await crypto.subtle.digest("SHA-1", data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const signature = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
-
-    const formData = new FormData();
-    formData.append("file", image_url);
-    formData.append("background_removal", "cloudinary_ai");
-    formData.append("folder", "remove-bg");
-    formData.append("timestamp", timestamp);
-    formData.append("api_key", apiKey);
-    formData.append("signature", signature);
-
-    const uploadRes = await fetch(
-      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-      { method: "POST", body: formData }
+    // Call Gemini with image editing
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  inlineData: {
+                    mimeType,
+                    data: imgBase64,
+                  },
+                },
+                {
+                  text: "Remove the background from this image completely. Make the background fully transparent. Keep only the main subject/logo with clean, precise edges. Return only the resulting PNG image with transparent background.",
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            responseModalities: ["IMAGE", "TEXT"],
+            imageMimeType: "image/png",
+          },
+        }),
+      }
     );
 
-    if (!uploadRes.ok) {
-      const errText = await uploadRes.text();
-      console.error("Cloudinary upload error:", errText);
-      throw new Error(`Cloudinary error: ${uploadRes.status}`);
+    if (!geminiRes.ok) {
+      const errText = await geminiRes.text();
+      console.error("Gemini error:", geminiRes.status, errText);
+      throw new Error(`Gemini error: ${geminiRes.status}`);
     }
 
-    const uploadData = await uploadRes.json();
-    const processedUrl = uploadData.secure_url;
+    const geminiData = await geminiRes.json();
 
-    // Fetch the processed image and convert to base64
-    const imgRes = await fetch(processedUrl);
-    const imgBuffer = await imgRes.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)));
+    // Extract image from response
+    const candidates = geminiData.candidates || [];
+    let resultBase64 = "";
+
+    for (const candidate of candidates) {
+      const parts = candidate.content?.parts || [];
+      for (const part of parts) {
+        if (part.inlineData?.mimeType?.startsWith("image/")) {
+          resultBase64 = part.inlineData.data;
+          break;
+        }
+      }
+      if (resultBase64) break;
+    }
+
+    if (!resultBase64) {
+      console.error("Gemini response:", JSON.stringify(geminiData).slice(0, 500));
+      throw new Error("No image returned from Gemini");
+    }
 
     return new Response(
-      JSON.stringify({ image_base64: base64, content_type: "image/png" }),
+      JSON.stringify({ image_base64: resultBase64, content_type: "image/png" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err: any) {
