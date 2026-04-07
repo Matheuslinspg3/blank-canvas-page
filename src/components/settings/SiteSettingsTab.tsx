@@ -10,14 +10,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import {
   Globe, Layout, Phone, Search, Trash2, RefreshCw, Plus,
   CheckCircle2, Clock, AlertCircle, Loader2, ExternalLink, Save,
-  MessageSquare, Mail, FileText, Palette, Upload, X, Pipette, Crown
+  MessageSquare, Mail, FileText, Palette, Upload, X, Pipette, Crown,
+  Shield, Wifi, FileCheck
 } from "lucide-react";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
 import { extractColorsFromImage } from "@/lib/extractColors";
+import { DomainSetupWizard } from "./DomainSetupWizard";
 
 // ─── Website Settings Section ────────────────────────────────────────────────
 
