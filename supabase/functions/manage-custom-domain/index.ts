@@ -77,8 +77,9 @@ function buildCloudflareZoneCreateMessage(responseStatus: number, data: any, has
 
 // ─── Constants ──────────────────────────────────────────────────
 const LOVABLE_APP_HOST = "portocaicaraimoveis.lovable.app";
+const LOVABLE_ORIGIN_IP = "185.158.133.1"; // Lovable's edge IP
 const WORKER_SCRIPT_NAME = "platform-subdomain-proxy";
-const DUMMY_ORIGIN_IP = "192.0.2.1"; // RFC 5737 – never routed; Worker intercepts before origin
+const DUMMY_ORIGIN_IP = "192.0.2.1"; // RFC 5737 – only used when Worker is active
 
 // ─── Worker script (reverse proxy for *.portadocorretor.com.br) ─
 const WORKER_SOURCE = `
@@ -112,8 +113,14 @@ async function handleRequest(request) {
 `.trim();
 
 // ─── Wildcard DNS helper ────────────────────────────────────────
-// Uses a dummy origin IP (192.0.2.1) with proxy ON so the Worker can intercept.
-async function ensureWildcardDns(cfToken: string, cfZone: string): Promise<{ already_exists: boolean; record_id?: string; error?: string; updated?: boolean }> {
+// targetIp + proxied control whether the Worker or direct Lovable origin is used.
+async function ensureWildcardDns(
+  cfToken: string,
+  cfZone: string,
+  targetIp: string = LOVABLE_ORIGIN_IP,
+  proxied: boolean = false,
+  comment: string = "Wildcard for tenant subdomains – DNS only to Lovable"
+): Promise<{ already_exists: boolean; record_id?: string; error?: string; updated?: boolean }> {
   const wildcard = `*.${PLATFORM_DOMAIN}`;
   const searchRes = await fetch(
     `${CF_API}/zones/${cfZone}/dns_records?name=${encodeURIComponent(wildcard)}`,
@@ -127,13 +134,7 @@ async function ensureWildcardDns(cfToken: string, cfZone: string): Promise<{ alr
   }
 
   const existing = searchData?.result?.[0];
-  const desiredPayload = {
-    type: "A",
-    name: "*",
-    content: DUMMY_ORIGIN_IP,
-    proxied: true, // Must be proxied so the Worker route can intercept
-    comment: "Wildcard for tenant subdomains – proxied to Worker",
-  };
+  const desiredPayload = { type: "A" as const, name: "*", content: targetIp, proxied, comment };
 
   if (existing) {
     const needsUpdate =
@@ -245,8 +246,9 @@ async function setupPlatformWorker(cfToken: string, cfZone: string, accountId: s
     console.log("Worker route already exists:", existingRoute.id);
   }
 
-  // 3. Update wildcard DNS
-  const dnsResult = await ensureWildcardDns(cfToken, cfZone);
+  // 3. Only NOW switch DNS to dummy+proxy (Worker is confirmed active)
+  console.log("Worker + route OK. Switching wildcard DNS to dummy IP with proxy for Worker interception.");
+  const dnsResult = await ensureWildcardDns(cfToken, cfZone, DUMMY_ORIGIN_IP, true, "Wildcard for tenant subdomains – proxied to Worker");
   if (dnsResult.error) {
     return {
       success: false,
@@ -349,10 +351,11 @@ Deno.serve(async (req) => {
       if (updateErr) return errorJson("Erro ao atualizar slug", 500);
 
       if (env.cloudflareToken && env.cloudflareZoneId) {
-        const dnsResult = await ensureWildcardDns(env.cloudflareToken, env.cloudflareZoneId);
+        // First ensure DNS points to Lovable IP (safe fallback, DNS-only)
+        const dnsResult = await ensureWildcardDns(env.cloudflareToken, env.cloudflareZoneId, LOVABLE_ORIGIN_IP, false);
         console.log("Wildcard DNS check:", JSON.stringify(dnsResult));
 
-        // Auto-setup Worker proxy if account ID is available
+        // Then try to upgrade to Worker proxy (only changes DNS if Worker succeeds)
         if (env.cloudflareAccountId) {
           const proxyResult = await setupPlatformWorker(env.cloudflareToken, env.cloudflareZoneId, env.cloudflareAccountId);
           console.log("Auto proxy setup on slug update:", JSON.stringify(proxyResult));
@@ -376,10 +379,11 @@ Deno.serve(async (req) => {
 
     // ─── Ensure Wildcard DNS ───────────────────────────────────────
     if (action === "ensure_wildcard_dns") {
-      const result = await ensureWildcardDns(env.cloudflareToken!, env.cloudflareZoneId!);
+      // Safe default: Lovable IP, DNS-only (no proxy)
+      const result = await ensureWildcardDns(env.cloudflareToken!, env.cloudflareZoneId!, LOVABLE_ORIGIN_IP, false);
       if (result.error) return errorJson(result.error, 502);
 
-      // Auto-setup Worker proxy if account ID is available
+      // Try to upgrade to Worker proxy (only changes DNS if Worker succeeds)
       let proxyResult = null;
       if (env.cloudflareAccountId) {
         proxyResult = await setupPlatformWorker(env.cloudflareToken!, env.cloudflareZoneId!, env.cloudflareAccountId);
