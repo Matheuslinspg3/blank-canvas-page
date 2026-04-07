@@ -112,13 +112,19 @@ async function handleRequest(request) {
 
   // Clone response headers so we can modify them
   const respHeaders = new Headers(response.headers);
-  // Remove any location header that would redirect to the lovable.app domain
+  // Intercept any redirect that would send the user away from the subdomain
   const location = respHeaders.get("location");
   if (location) {
     try {
       const locUrl = new URL(location);
-      if (locUrl.hostname === "${LOVABLE_APP_HOST}") {
+      // Rewrite redirects to the origin domain OR any .lovable.app domain
+      if (
+        locUrl.hostname === "${LOVABLE_APP_HOST}" ||
+        locUrl.hostname.endsWith(".lovable.app") ||
+        locUrl.hostname.endsWith(".lovable.dev")
+      ) {
         locUrl.hostname = originalHost.split(":")[0];
+        locUrl.port = "";
         respHeaders.set("location", locUrl.toString());
       }
     } catch(e) {}
