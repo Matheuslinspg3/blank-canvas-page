@@ -75,11 +75,43 @@ function buildCloudflareZoneCreateMessage(responseStatus: number, data: any, has
   return errors[0]?.message || "Erro ao adicionar zona no Cloudflare";
 }
 
-// ─── Wildcard DNS helper ────────────────────────────────────────
-// Platform subdomains must resolve directly to Lovable's IP/origin layer.
-// Using a proxied CNAME here can trigger Cloudflare 1000/1014 depending on account boundaries.
-const LOVABLE_EDGE_IP = "185.158.133.1";
+// ─── Constants ──────────────────────────────────────────────────
+const LOVABLE_APP_HOST = "portocaicaraimoveis.lovable.app";
+const WORKER_SCRIPT_NAME = "platform-subdomain-proxy";
+const DUMMY_ORIGIN_IP = "192.0.2.1"; // RFC 5737 – never routed; Worker intercepts before origin
 
+// ─── Worker script (reverse proxy for *.portadocorretor.com.br) ─
+const WORKER_SOURCE = `
+addEventListener("fetch", (event) => {
+  event.respondWith(handleRequest(event.request));
+});
+
+async function handleRequest(request) {
+  const url = new URL(request.url);
+  // Rewrite the host to the Lovable app so it accepts the request
+  url.hostname = "${LOVABLE_APP_HOST}";
+
+  // Forward the request, keeping the original Host in X-Forwarded-Host
+  const modifiedRequest = new Request(url.toString(), {
+    method: request.method,
+    headers: request.headers,
+    body: request.body,
+    redirect: "manual",
+  });
+  modifiedRequest.headers.set("X-Forwarded-Host", request.headers.get("host") || "");
+
+  const response = await fetch(modifiedRequest);
+
+  // Return the response with CORS headers preserved
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
+}
+`.trim();
+
+// ─── Wildcard DNS helper ────────────────────────────────────────
 async function ensureWildcardDns(cfToken: string, cfZone: string): Promise<{ already_exists: boolean; record_id?: string; error?: string; updated?: boolean }> {
   const wildcard = `*.${PLATFORM_DOMAIN}`;
   const searchRes = await fetch(
