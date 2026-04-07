@@ -15,8 +15,9 @@ import {
   Globe, Layout, Phone, Search, Trash2, RefreshCw, Plus,
   CheckCircle2, Clock, AlertCircle, Loader2, ExternalLink, Save,
   MessageSquare, Mail, FileText, Palette, Upload, X, Pipette, Crown,
-  Shield, Wifi, FileCheck
+  Shield, Wifi, FileCheck, Cloud, Copy, Server
 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
 import { extractColorsFromImage } from "@/lib/extractColors";
