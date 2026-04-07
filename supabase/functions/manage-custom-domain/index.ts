@@ -113,8 +113,14 @@ async function handleRequest(request) {
 `.trim();
 
 // ─── Wildcard DNS helper ────────────────────────────────────────
-// Uses a dummy origin IP (192.0.2.1) with proxy ON so the Worker can intercept.
-async function ensureWildcardDns(cfToken: string, cfZone: string): Promise<{ already_exists: boolean; record_id?: string; error?: string; updated?: boolean }> {
+// targetIp + proxied control whether the Worker or direct Lovable origin is used.
+async function ensureWildcardDns(
+  cfToken: string,
+  cfZone: string,
+  targetIp: string = LOVABLE_ORIGIN_IP,
+  proxied: boolean = false,
+  comment: string = "Wildcard for tenant subdomains – DNS only to Lovable"
+): Promise<{ already_exists: boolean; record_id?: string; error?: string; updated?: boolean }> {
   const wildcard = `*.${PLATFORM_DOMAIN}`;
   const searchRes = await fetch(
     `${CF_API}/zones/${cfZone}/dns_records?name=${encodeURIComponent(wildcard)}`,
@@ -128,13 +134,7 @@ async function ensureWildcardDns(cfToken: string, cfZone: string): Promise<{ alr
   }
 
   const existing = searchData?.result?.[0];
-  const desiredPayload = {
-    type: "A",
-    name: "*",
-    content: DUMMY_ORIGIN_IP,
-    proxied: true, // Must be proxied so the Worker route can intercept
-    comment: "Wildcard for tenant subdomains – proxied to Worker",
-  };
+  const desiredPayload = { type: "A" as const, name: "*", content: targetIp, proxied, comment };
 
   if (existing) {
     const needsUpdate =
