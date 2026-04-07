@@ -1,32 +1,55 @@
 
 
-## Problem
-When a new organization slug is created/updated, there's no automatic DNS record in Cloudflare for the subdomain (`{slug}.portadocorretor.com.br`). Currently this requires manual wildcard CNAME setup. With the new DNS Edit permission on the token, we can automate this.
+## Plano: Templates de Site + Gerador com IA
 
-## Approach
-Instead of creating individual DNS records per slug (which doesn't scale and clutters the zone), the best approach is to **create a single wildcard CNAME record** (`*.portadocorretor.com.br → portadocorretor.com.br`) once, which covers all current and future subdomains automatically.
+### Contexto
+Atualmente o storefront tem um layout fixo (Hero → Imóveis → Sobre → Contato → Footer). O usuário quer poder escolher entre templates visuais diferentes e ter a opção de gerar o conteúdo com IA.
 
-We'll add a new action `ensure_wildcard_dns` to the existing `manage-custom-domain` Edge Function that:
-1. Checks if a `*` CNAME record already exists in the zone
-2. If not, creates it pointing to `portadocorretor.com.br` (proxied)
-3. If it exists, returns success without duplicating
+### O que será feito
 
-Additionally, we'll call this automatically during `update_slug` so that whenever a slug is saved, the wildcard DNS is guaranteed to exist.
+**1. Coluna `site_template` na tabela `website_settings`**
+- Migração adicionando `site_template TEXT DEFAULT 'classic'` na tabela `website_settings`
+- Valores possíveis: `classic`, `modern`, `elegant`, `bold`, `minimal`
 
-## Changes
+**2. 5 Templates de site (variações visuais no storefront)**
+Cada template define um estilo visual diferente para o Hero, cards de imóveis, About, Contact e Footer:
 
-### 1. Update `manage-custom-domain` Edge Function
-Add `ensure_wildcard_dns` action:
-- `GET /zones/{zone}/dns_records?type=CNAME&name=*.portadocorretor.com.br` to check existence
-- If missing, `POST /zones/{zone}/dns_records` with `{ type: "CNAME", name: "*", content: "portadocorretor.com.br", proxied: true }`
-- Auto-invoke this logic inside the `update_slug` action after successful slug update
+- **Classic** (atual) — Gradiente no hero, cards com sombra, layout centralizado
+- **Modern** — Hero com imagem de fundo e overlay escuro, cards arredondados com hover elevado, seções com fundo alternado
+- **Elegant** — Hero minimalista com tipografia serif grande, cards com bordas finas, paleta sofisticada com tons dourados
+- **Bold** — Hero com cor sólida vibrante e texto grande, cards com borda colorida lateral, seções com formas geométricas decorativas
+- **Minimal** — Hero clean com fundo branco e texto escuro, sem gradientes, cards flat com espaçamento generoso
 
-### 2. Add UI trigger (optional)
-Add a button in `SiteSettingsTab` or call automatically when the site is first activated, so admins can manually trigger if needed.
+**3. Componente `SiteTemplateSelector` em "Meu Site"**
+- Nova seção na aba **Conteúdo**, logo após "Status do Site"
+- Grid de 5 cards com miniatura/preview de cada template
+- Card selecionado com borda primária e checkmark
+- Salvamento junto com as demais configurações
+- Opção adicional: card "Criar com IA" (com ícone Sparkles)
 
-## Technical Details
-- The wildcard CNAME is a single record that routes ALL `*.portadocorretor.com.br` subdomains — no per-slug records needed
-- Cloudflare proxied mode ensures DDoS protection and SSL termination
-- The function checks for existing records first to be idempotent (safe to call multiple times)
-- The `update_slug` action will silently ensure the wildcard exists as a side effect
+**4. Card "Montar Template" (personalização manual)**
+- Um card extra que leva à aba de conteúdo/marca para edição manual dos textos e cores
+- Funciona como atalho para o fluxo manual já existente
+
+**5. Card "Criar com IA"**
+- Card com ícone Sparkles e badge "IA"
+- Ao clicar: chama edge function `generate-site-content` que analisa os dados da org e imóveis para gerar hero_title, hero_subtitle, about_text, meta_title, meta_description, whatsapp_message
+- Preenche os campos do formulário sem salvar automaticamente (o usuário revisa e salva)
+- A edge function usará a API de IA do provedor externo configurado (o Lovable AI Gateway está desabilitado; será necessária uma chave de API externa como OpenAI)
+
+**6. Renderização dinâmica no `WhiteLabelStorefront`**
+- Ler `website.site_template` e renderizar os componentes do storefront com as variações visuais correspondentes
+- Cada componente (Hero, Properties, About, Contact, Footer) recebe uma prop `template` e aplica os estilos condicionalmente
+- Alternativa mais limpa: criar variantes de componente por template (ex: `StorefrontHeroModern`, `StorefrontHeroBold`, etc.) e usar um map para selecionar
+
+### Arquivos a criar/modificar
+- **Migração SQL**: adicionar coluna `site_template`
+- **`src/components/settings/SiteTemplateSelector.tsx`**: novo componente de seleção de template
+- **`src/components/settings/SiteSettingsTab.tsx`**: integrar selector + botão IA na aba Conteúdo
+- **`src/components/storefront/templates/`**: pasta com variantes visuais dos componentes
+- **`src/components/WhiteLabelStorefront.tsx`**: renderizar template selecionado
+- **`supabase/functions/generate-site-content/index.ts`**: edge function para gerar conteúdo com IA
+
+### Nota sobre IA
+O Lovable AI Gateway está desabilitado. Para o "Criar com IA" funcionar, será necessário fornecer uma chave de API externa (ex: OpenAI) ou habilitar o Lovable AI nas configurações do projeto.
 
