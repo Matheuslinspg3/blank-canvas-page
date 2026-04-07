@@ -54,12 +54,10 @@ export function useTenantByHostname() {
     gcTime: 60 * 60_000,
     retry: 1,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("tenant_domains")
-        .select("organization_id")
-        .eq("hostname", hostname)
-        .eq("is_active", true)
-        .maybeSingle();
+      // Use public RPC to bypass RLS for anonymous visitors
+      const { data, error } = await (supabase.rpc as any)("get_public_tenant_by_domain", {
+        p_hostname: hostname,
+      });
       if (error) throw error;
       return data?.organization_id as string | null;
     },
@@ -76,22 +74,14 @@ export function useTenantByHostname() {
     staleTime: 5 * 60_000,
     retry: 0,
     queryFn: async () => {
-      const [settingsRes, domainRes] = await Promise.all([
-        supabase
-          .from("website_settings")
-          .select("redirect_to_custom_domain")
-          .eq("organization_id", orgId!)
-          .maybeSingle(),
-        supabase
-          .from("tenant_domains")
-          .select("hostname")
-          .eq("organization_id", orgId!)
-          .eq("is_active", true)
-          .limit(1),
-      ]);
+      // Use public RPC to bypass RLS for anonymous visitors
+      const { data, error } = await (supabase.rpc as any)("get_public_tenant_redirect", {
+        p_org_id: orgId!,
+      });
+      if (error) throw error;
 
-      const shouldRedirect = settingsRes.data?.redirect_to_custom_domain ?? false;
-      const customHostname = domainRes.data?.[0]?.hostname ?? null;
+      const shouldRedirect = data?.redirect_to_custom_domain ?? false;
+      const customHostname = data?.custom_hostname ?? null;
 
       if (shouldRedirect && customHostname) {
         const path = window.location.pathname + window.location.search + window.location.hash;
