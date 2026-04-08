@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
-import type { SiteDocument, SiteLayout } from '@/types/siteBuilder';
+import type { SiteLayout } from '@/types/siteBuilder';
+import type { SiteLayoutV2 } from '@/types/siteBuilderV2';
 
 const EMPTY_LAYOUT: SiteLayout = {
   version: 1,
@@ -12,6 +13,18 @@ const EMPTY_LAYOUT: SiteLayout = {
 
 const QUERY_KEY = 'site-document';
 
+export interface SiteDocument {
+  id: string;
+  organization_id: string;
+  editor_mode: 'simple' | 'advanced';
+  draft: SiteLayout | null;
+  published: SiteLayout | null;
+  draft_v2: SiteLayoutV2 | null;
+  published_v2: SiteLayoutV2 | null;
+  last_published_at: string | null;
+  last_saved_at: string;
+}
+
 // ── Read ──────────────────────────────────────────────────────
 export function useSiteDocument(organizationId: string | undefined) {
   return useQuery({
@@ -19,7 +32,6 @@ export function useSiteDocument(organizationId: string | undefined) {
     enabled: !!organizationId,
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<SiteDocument> => {
-      // Try to fetch existing
       const { data, error } = await supabase
         .from('site_documents')
         .select('*')
@@ -32,8 +44,11 @@ export function useSiteDocument(organizationId: string | undefined) {
         return {
           id: data.id,
           organization_id: data.organization_id,
-          draft: data.draft as unknown as SiteLayout,
+          editor_mode: (data as any).editor_mode ?? 'simple',
+          draft: data.draft as unknown as SiteLayout | null,
           published: data.published as unknown as SiteLayout | null,
+          draft_v2: (data as any).draft_v2 as SiteLayoutV2 | null,
+          published_v2: (data as any).published_v2 as SiteLayoutV2 | null,
           last_published_at: data.last_published_at,
           last_saved_at: data.last_saved_at,
         };
@@ -51,8 +66,11 @@ export function useSiteDocument(organizationId: string | undefined) {
       return {
         id: created.id,
         organization_id: created.organization_id,
+        editor_mode: 'simple',
         draft: created.draft as unknown as SiteLayout,
         published: created.published as unknown as SiteLayout | null,
+        draft_v2: null,
+        published_v2: null,
         last_published_at: created.last_published_at,
         last_saved_at: created.last_saved_at,
       };
@@ -60,7 +78,7 @@ export function useSiteDocument(organizationId: string | undefined) {
   });
 }
 
-// ── Save draft ────────────────────────────────────────────────
+// ── Save draft (v1 simple) ───────────────────────────────────
 export function useSaveDraft() {
   const qc = useQueryClient();
 
@@ -82,7 +100,7 @@ export function useSaveDraft() {
   });
 }
 
-// ── Publish ───────────────────────────────────────────────────
+// ── Publish (v1 simple) ──────────────────────────────────────
 export function usePublishSite() {
   const qc = useQueryClient();
 
@@ -96,6 +114,72 @@ export function usePublishSite() {
           last_published_at: now,
           updated_at: now,
         })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [QUERY_KEY] });
+    },
+  });
+}
+
+// ── Save draft v2 (advanced) ─────────────────────────────────
+export function useSaveDraftV2() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, draft_v2 }: { id: string; draft_v2: SiteLayoutV2 }) => {
+      const { error } = await supabase
+        .from('site_documents')
+        .update({
+          draft_v2: draft_v2 as unknown as Json,
+          last_saved_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [QUERY_KEY] });
+    },
+  });
+}
+
+// ── Publish v2 (advanced) ────────────────────────────────────
+export function usePublishSiteV2() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, draft_v2 }: { id: string; draft_v2: SiteLayoutV2 }) => {
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from('site_documents')
+        .update({
+          published_v2: draft_v2 as unknown as Json,
+          last_published_at: now,
+          updated_at: now,
+        } as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [QUERY_KEY] });
+    },
+  });
+}
+
+// ── Switch editor mode ───────────────────────────────────────
+export function useSwitchEditorMode() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, mode }: { id: string; mode: 'simple' | 'advanced' }) => {
+      const { error } = await supabase
+        .from('site_documents')
+        .update({
+          editor_mode: mode,
+          updated_at: new Date().toISOString(),
+        } as any)
         .eq('id', id);
       if (error) throw error;
     },
