@@ -307,12 +307,5 @@ export function useSiteBuilderProState() {
   return { state, dispatch };
 }
 
-export function buildSeedLayout(theme: SiteTheme): SiteLayoutV2 {
-  const templateIds = ['hero-split', 'about-with-image', 'properties-grid', 'cta-banner', 'footer-three-col'];
-  const sections: Section[] = [];
-  templateIds.forEach((tid, i) => {
-    const tmpl = SectionTemplateRegistry.find(t => t.id === tid);
-    if (tmpl) { const s = tmpl.build(theme); s.order = i; sections.push(s); }
-  });
-  return { version: 2, sections, theme, meta: { title: '', description: '' } };
-}
+// Re-export from shared helper for backward compatibility
+export { buildInitialSiteLayoutV2 as buildSeedLayout } from '@/lib/buildInitialSiteLayoutV2';

@@ -4,7 +4,8 @@ import { Topbar } from '@/components/siteBuilderPro/Topbar';
 import { SidebarLeft } from '@/components/siteBuilderPro/SidebarLeft';
 import { Canvas } from '@/components/siteBuilderPro/Canvas';
 import { InspectorRight } from '@/components/siteBuilderPro/InspectorRight';
-import { useSiteBuilderProState, buildSeedLayout, type BuilderAction } from '@/hooks/useSiteBuilderProState';
+import { useSiteBuilderProState, type BuilderAction } from '@/hooks/useSiteBuilderProState';
+import { buildInitialSiteLayoutV2 } from '@/lib/buildInitialSiteLayoutV2';
 import { DevQAPanel } from '@/components/siteBuilderPro/DevQAPanel';
 import { toast } from 'sonner';
 
@@ -59,7 +60,7 @@ export default function DevSiteBuilderPro() {
   useEffect(() => {
     if (loaded.current) return;
     loaded.current = true;
-    const seed = buildSeedLayout(MOCK_THEME);
+    const seed = buildInitialSiteLayoutV2(MOCK_THEME);
     dispatch({ type: 'LOAD_LAYOUT', layout: seed });
   }, []);
 
