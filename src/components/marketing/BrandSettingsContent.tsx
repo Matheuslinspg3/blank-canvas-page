@@ -157,7 +157,19 @@ export default function BrandSettingsContent() {
     }
   };
 
-  const handleSave = async () => {
+  const handleRemoveBg = (field: "logo_url" | "logo_dark_url") => {
+    const url = config[field];
+    if (!url) return;
+    if (!isCloudinaryUrl(url)) {
+      toast.error("Remoção de fundo funciona apenas com imagens do Cloudinary.");
+      return;
+    }
+    const transparentUrl = getTransparentLogoUrl(url);
+    setConfig((prev) => ({ ...prev, [field]: transparentUrl }));
+    toast.success("Fundo removido! Salve para aplicar.");
+  };
+
+
     if (!profile?.organization_id || !user) return;
     setSaving(true);
     try {
