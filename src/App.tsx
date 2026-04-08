@@ -31,6 +31,7 @@ const Auth = lazy(() => lazyRetry(() => import("./pages/Auth")));
 const AcceptInvite = lazy(() => lazyRetry(() => import("./pages/AcceptInvite")));
 const Demo = lazy(() => lazyRetry(() => import("./pages/Demo")));
 const DevBlocks = lazy(() => lazyRetry(() => import("./pages/DevBlocks")));
+const SiteBuilderPage = lazy(() => lazyRetry(() => import("./pages/SiteBuilder")));
 const Dashboard = lazy(() => lazyRetry(() => import("./pages/Dashboard")));
 const Properties = lazy(() => lazyRetry(() => import("./pages/Properties")));
 const PropertyDetails = lazy(() => lazyRetry(() => import("./pages/PropertyDetails")));
@@ -209,6 +210,7 @@ const App = () => (
                         <Route path="/atividades" element={<Navigate to="/administracao?tab=activities" replace />} />
                         <Route path="/administracao" element={<Administration />} />
                         <Route path="/site" element={<SitePage />} />
+                        <Route path="/site/builder" element={<Suspense fallback={<div className="h-screen flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin" /></div>}><SiteBuilderPage /></Suspense>} />
                         <Route path="/integracoes" element={<Integrations />} />
                         <Route path="/configuracoes" element={<Settings />} />
                         <Route path="/meu-plano" element={<MyPlan />} />
