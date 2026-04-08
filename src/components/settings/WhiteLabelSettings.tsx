@@ -9,7 +9,43 @@ import { toastError } from "@/lib/toastError";
 import { Crown, Sparkles, Save, Loader2, Upload, X, Palette, Pipette, Eraser } from "lucide-react";
 import { extractColorsFromImage } from "@/lib/extractColors";
 import { getLogoPreviewUrl, getTransparentLogoUrl, isCloudinaryUrl } from "@/lib/cloudinary/logoTransparency";
-...
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useWhiteLabel } from "@/hooks/useWhiteLabel";
+import { useQueryClient } from "@tanstack/react-query";
+
+interface WhiteLabelConfig {
+  primary_color: string;
+  secondary_color: string;
+  accent_color: string;
+  logo_url: string;
+  logo_dark_url: string;
+  white_label_enabled: boolean;
+}
+
+const DEFAULTS: WhiteLabelConfig = {
+  primary_color: "#D62828",
+  secondary_color: "#1E3A5F",
+  accent_color: "#F77F00",
+  logo_url: "",
+  logo_dark_url: "",
+  white_label_enabled: false,
+};
+
+function MiniColorPicker({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">{label}</Label>
+      <div className="flex items-center gap-2">
+        <input type="color" value={value} onChange={(e) => onChange(e.target.value)}
+          className="h-8 w-10 rounded border border-border cursor-pointer" />
+        <Input value={value} onChange={(e) => onChange(e.target.value)}
+          className="flex-1 font-mono text-xs h-8" maxLength={7} />
+      </div>
+    </div>
+  );
+}
+
 function LogoField({ label, url, onUpload, onRemove, onRemoveBg, removingBg }: { label: string; url: string; onUpload: (f: File) => void; onRemove: () => void; onRemoveBg?: () => void; removingBg?: boolean }) {
   const ref = useRef<HTMLInputElement>(null);
   return (
@@ -58,7 +94,7 @@ export default function WhiteLabelSettings() {
     const url = config[field];
     if (!url) return;
     if (!isCloudinaryUrl(url)) {
-      toast.error("Remoção de fundo funciona apenas com imagens do Cloudinary.");
+      toast.error("Faça upload da logo novamente para habilitar a remoção de fundo.");
       return;
     }
     const transparentUrl = getTransparentLogoUrl(url);
