@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
 import { Crown, Sparkles, Save, Loader2, Upload, X, Palette, Pipette, Eraser } from "lucide-react";
 import { extractColorsFromImage } from "@/lib/extractColors";
+import { getTransparentLogoUrl, isCloudinaryUrl } from "@/lib/cloudinary/logoTransparency";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWhiteLabel } from "@/hooks/useWhiteLabel";
@@ -89,25 +90,16 @@ export default function WhiteLabelSettings() {
   const [extracting, setExtracting] = useState(false);
   const [removingBg, setRemovingBg] = useState(false);
 
-  const handleRemoveBg = async (field: "logo_url" | "logo_dark_url") => {
+  const handleRemoveBg = (field: "logo_url" | "logo_dark_url") => {
     const url = config[field];
-    if (!url || !profile?.organization_id) return;
-    setRemovingBg(true);
-    try {
-      const { removeBackground } = await import("@/lib/removeBackground");
-      const blob = await removeBackground(url);
-      const path = `${profile.organization_id}/brand/${field}-nobg-${Date.now()}.png`;
-      const { error: upErr } = await supabase.storage.from("brand-assets").upload(path, blob, { upsert: true });
-      if (upErr) throw upErr;
-      const { data: pub } = supabase.storage.from("brand-assets").getPublicUrl(path);
-      setConfig((prev) => ({ ...prev, [field]: pub.publicUrl }));
-      toast.success("Fundo removido com sucesso!");
-    } catch (err: any) {
-      console.error("Remove bg error:", err);
-      toastError("Erro ao remover fundo. Tente novamente.");
-    } finally {
-      setRemovingBg(false);
+    if (!url) return;
+    if (!isCloudinaryUrl(url)) {
+      toast.error("Remoção de fundo funciona apenas com imagens do Cloudinary.");
+      return;
     }
+    const transparentUrl = getTransparentLogoUrl(url);
+    setConfig((prev) => ({ ...prev, [field]: transparentUrl }));
+    toast.success("Fundo removido! Salve para aplicar.");
   };
 
   useEffect(() => {
