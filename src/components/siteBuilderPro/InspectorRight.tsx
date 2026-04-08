@@ -7,9 +7,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { AlertTriangle } from 'lucide-react';
 import { ElementRegistry } from '@/components/siteBuilder/v2/elementRegistry';
 import type { BuilderState, BuilderAction } from '@/hooks/useSiteBuilderProState';
-import type { Section, Column } from '@/types/siteBuilderV2';
+import type { Column } from '@/types/siteBuilderV2';
 
 interface Props {
   state: BuilderState;
@@ -28,7 +29,6 @@ const ROW_CONFIGS: { label: string; config: number[] }[] = [
 
 export function InspectorRight({ state, dispatch }: Props) {
   const { selection } = state;
-
   return (
     <div className="h-full flex flex-col bg-background border-l">
       <div className="px-3 py-2 border-b">
@@ -68,9 +68,7 @@ function GlobalInspector({ state, dispatch }: Props) {
           <Label className="text-xs">Fonte</Label>
           <Select value={theme.fontFamily} onValueChange={(v) => dispatch({ type: 'UPDATE_THEME', theme: { fontFamily: v } })}>
             <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {FONTS.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
-            </SelectContent>
+            <SelectContent>{FONTS.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
           </Select>
         </div>
       </TabsContent>
@@ -121,7 +119,6 @@ function SectionInspector({ state, dispatch }: Props) {
         <Label className="text-xs">Altura mínima (px)</Label>
         <Input type="number" className="h-8 text-xs mt-1" value={section.styles.minHeight ?? ''} onChange={(e) => dispatch({ type: 'UPDATE_SECTION_STYLES', sectionId: sid, styles: { minHeight: Number(e.target.value) || 0 } })} />
       </div>
-
       <div className="border-t pt-3">
         <Label className="text-xs font-semibold">Adicionar Linha</Label>
         <div className="grid grid-cols-2 gap-1.5 mt-2">
@@ -150,13 +147,38 @@ function ColumnInspector({ state, dispatch }: Props) {
   if (!column) return <p className="text-xs text-muted-foreground">Coluna não encontrada</p>;
 
   const update = (styles: Partial<Column['styles']>) => dispatch({ type: 'UPDATE_COLUMN_STYLES', sectionId: sel.sectionId, rowId: sel.rowId, columnId: sel.columnId, styles });
+  const isAbsolute = column.layoutMode === 'absolute';
 
   return (
     <div className="space-y-3">
       <div>
         <Label className="text-xs">Largura ({column.width}/12)</Label>
-        <Slider className="mt-1" min={1} max={12} step={1} value={[column.width]} onValueChange={([v]) => {}} />
+        <Slider className="mt-1" min={1} max={12} step={1} value={[column.width]} onValueChange={([v]) => dispatch({ type: 'UPDATE_COLUMN_WIDTH', sectionId: sel.sectionId, rowId: sel.rowId, columnId: sel.columnId, width: v })} />
       </div>
+
+      {/* Absolute mode toggle */}
+      <div className="border rounded-md p-2 space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">Posicionamento livre (estilo Wix)</Label>
+          <Switch
+            checked={isAbsolute}
+            onCheckedChange={(v) => dispatch({ type: 'UPDATE_COLUMN_LAYOUT_MODE', sectionId: sel.sectionId, rowId: sel.rowId, columnId: sel.columnId, mode: v ? 'absolute' : 'stack' })}
+          />
+        </div>
+        {isAbsolute && (
+          <>
+            <div>
+              <Label className="text-xs">Altura mínima ({column.minHeight ?? 300}px)</Label>
+              <Slider className="mt-1" min={100} max={1000} step={10} value={[column.minHeight ?? 300]} onValueChange={([v]) => dispatch({ type: 'UPDATE_COLUMN_MIN_HEIGHT', sectionId: sel.sectionId, rowId: sel.rowId, columnId: sel.columnId, minHeight: v })} />
+            </div>
+            <div className="flex items-start gap-1.5 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200 p-2 rounded text-[10px]">
+              <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+              <span>Modo livre: arraste elementos pra qualquer posição. Mobile vai mostrar empilhado automaticamente.</span>
+            </div>
+          </>
+        )}
+      </div>
+
       <ColorField label="Cor de fundo" value={column.styles.bgColor || ''} onChange={(v) => update({ bgColor: v })} />
       <div>
         <Label className="text-xs">Alinhamento vertical</Label>
@@ -183,12 +205,14 @@ function ColumnInspector({ state, dispatch }: Props) {
 function ElementInspector({ state, dispatch }: Props) {
   const sel = state.selection as { type: 'element'; sectionId: string; rowId: string; columnId: string; elementId: string };
   let element: any;
+  let parentColumn: Column | undefined;
   for (const s of state.present.sections) {
     if (s.id !== sel.sectionId) continue;
     for (const r of s.rows) {
       if (r.id !== sel.rowId) continue;
       for (const c of r.columns) {
         if (c.id !== sel.columnId) continue;
+        parentColumn = c;
         element = c.elements.find(e => e.id === sel.elementId);
       }
     }
@@ -200,6 +224,7 @@ function ElementInspector({ state, dispatch }: Props) {
 
   const Icon = def.icon;
   const Inspector = def.Inspector;
+  const isAbsolute = parentColumn?.layoutMode === 'absolute';
 
   return (
     <div className="space-y-3">
@@ -207,9 +232,24 @@ function ElementInspector({ state, dispatch }: Props) {
         <Icon className="w-4 h-4 text-muted-foreground" />
         <span className="text-sm font-medium">{def.label}</span>
       </div>
+
+      {/* Absolute layout controls */}
+      {isAbsolute && element.layout && (
+        <div className="border rounded-md p-2 space-y-2">
+          <Label className="text-[10px] font-semibold text-muted-foreground uppercase">Posição</Label>
+          <div className="grid grid-cols-2 gap-1.5">
+            <NumField label="X" value={element.layout.x ?? 0} onChange={(v) => dispatch({ type: 'UPDATE_ELEMENT_LAYOUT', sectionId: sel.sectionId, rowId: sel.rowId, columnId: sel.columnId, elementId: sel.elementId, layout: { x: v } })} />
+            <NumField label="Y" value={element.layout.y ?? 0} onChange={(v) => dispatch({ type: 'UPDATE_ELEMENT_LAYOUT', sectionId: sel.sectionId, rowId: sel.rowId, columnId: sel.columnId, elementId: sel.elementId, layout: { y: v } })} />
+            <NumField label="W" value={element.layout.width ?? 0} onChange={(v) => dispatch({ type: 'UPDATE_ELEMENT_LAYOUT', sectionId: sel.sectionId, rowId: sel.rowId, columnId: sel.columnId, elementId: sel.elementId, layout: { width: v || undefined } })} />
+            <NumField label="H" value={element.layout.height ?? 0} onChange={(v) => dispatch({ type: 'UPDATE_ELEMENT_LAYOUT', sectionId: sel.sectionId, rowId: sel.rowId, columnId: sel.columnId, elementId: sel.elementId, layout: { height: v || undefined } })} />
+          </div>
+          <NumField label="Z-Index" value={element.layout.zIndex ?? 1} onChange={(v) => dispatch({ type: 'UPDATE_ELEMENT_LAYOUT', sectionId: sel.sectionId, rowId: sel.rowId, columnId: sel.columnId, elementId: sel.elementId, layout: { zIndex: v } })} />
+        </div>
+      )}
+
       <Inspector
         element={element}
-        onChange={(props, styles) => {
+        onChange={(props: any, styles: any) => {
           if (props) dispatch({ type: 'UPDATE_ELEMENT_PROPS', sectionId: sel.sectionId, rowId: sel.rowId, columnId: sel.columnId, elementId: sel.elementId, props });
           if (styles) dispatch({ type: 'UPDATE_ELEMENT_STYLES', sectionId: sel.sectionId, rowId: sel.rowId, columnId: sel.columnId, elementId: sel.elementId, styles });
         }}

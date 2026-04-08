@@ -35,18 +35,33 @@ export interface ElementStyles {
   hideOnDesktop?: boolean;
 }
 
+// ── Element Layout ────────────────────────────────────
+export type ElementLayoutMode = 'stack' | 'absolute';
+
+export interface ElementLayout {
+  mode: ElementLayoutMode;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  zIndex?: number;
+}
+
 // ── Element ───────────────────────────────────────────
 export interface Element {
   id: string;
   type: ElementType;
   props: Record<string, any>;
   styles: ElementStyles;
+  layout?: ElementLayout;
 }
 
 // ── Column ────────────────────────────────────────────
 export interface Column {
   id: string;
   width: number; // 1-12 (CSS Grid spans)
+  layoutMode?: 'stack' | 'absolute';
+  minHeight?: number;
   elements: Element[];
   styles: {
     paddingTop?: number; paddingRight?: number; paddingBottom?: number; paddingLeft?: number;
