@@ -1,10 +1,11 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Topbar } from '@/components/siteBuilderPro/Topbar';
 import { SidebarLeft } from '@/components/siteBuilderPro/SidebarLeft';
 import { Canvas } from '@/components/siteBuilderPro/Canvas';
 import { InspectorRight } from '@/components/siteBuilderPro/InspectorRight';
-import { useSiteBuilderProState, buildSeedLayout } from '@/hooks/useSiteBuilderProState';
+import { useSiteBuilderProState, buildSeedLayout, type BuilderAction } from '@/hooks/useSiteBuilderProState';
+import { DevQAPanel } from '@/components/siteBuilderPro/DevQAPanel';
 import { toast } from 'sonner';
 
 import '@/components/siteBuilder/v2/elements';
@@ -17,9 +18,42 @@ const MOCK_THEME = {
   fontFamily: 'Inter',
 };
 
+const TRACKED_ACTIONS = new Set([
+  'REORDER_SECTIONS',
+  'MOVE_ELEMENT_BETWEEN_COLUMNS',
+  'UPDATE_ELEMENT_LAYOUT',
+  'UPDATE_COLUMN_LAYOUT_MODE',
+  'UPDATE_COLUMN_WIDTH',
+  'UPDATE_COLUMN_MIN_HEIGHT',
+  'DELETE_ELEMENT',
+  'DUPLICATE_ELEMENT',
+  'UNDO',
+  'REDO',
+]);
+
+interface EventEntry {
+  time: string;
+  action: string;
+  payload: string;
+}
+
 export default function DevSiteBuilderPro() {
-  const { state, dispatch } = useSiteBuilderProState();
+  const { state, dispatch: rawDispatch } = useSiteBuilderProState();
   const loaded = useRef(false);
+  const [eventLog, setEventLog] = useState<EventEntry[]>([]);
+
+  // Wrap dispatch to log tracked actions
+  const dispatch = useCallback((action: BuilderAction) => {
+    if (TRACKED_ACTIONS.has(action.type)) {
+      const { type, ...rest } = action;
+      setEventLog(prev => [{
+        time: new Date().toLocaleTimeString('pt-BR'),
+        action: type,
+        payload: JSON.stringify(rest).slice(0, 120),
+      }, ...prev].slice(0, 50));
+    }
+    rawDispatch(action);
+  }, [rawDispatch]);
 
   useEffect(() => {
     if (loaded.current) return;
@@ -37,7 +71,7 @@ export default function DevSiteBuilderPro() {
     toast.success('Mock publish — site publicado (dev mode)');
   }, []);
 
-  // Keyboard shortcuts (same as production)
+  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const isMod = e.metaKey || e.ctrlKey;
@@ -101,6 +135,7 @@ export default function DevSiteBuilderPro() {
           <InspectorRight state={state} dispatch={dispatch} />
         </ResizablePanel>
       </ResizablePanelGroup>
+      <DevQAPanel state={state} dispatch={dispatch} eventLog={eventLog} />
     </div>
   );
 }
