@@ -16,14 +16,17 @@ import { restrictToParentElement } from '@dnd-kit/modifiers';
 interface Props {
   state: BuilderState;
   dispatch: React.Dispatch<BuilderAction>;
+  externalGuides?: { x?: number; y?: number }[];
 }
 
-export function Canvas({ state, dispatch }: Props) {
+export function Canvas({ state, dispatch, externalGuides = [] }: Props) {
   const { present, selection, hoveredId, viewport, snapEnabled, gridSize } = state;
   const sections = [...present.sections].sort((a, b) => a.order - b.order);
   const isMobile = viewport === 'mobile';
   const [activeDrag, setActiveDrag] = useState<{ element: V2Element; from: { sectionId: string; rowId: string; columnId: string } } | null>(null);
-  const [guides, setGuides] = useState<{ x?: number; y?: number }[]>([]);
+  const [dragGuides, setDragGuides] = useState<{ x?: number; y?: number }[]>([]);
+
+  const allGuides = useMemo(() => [...dragGuides, ...externalGuides], [dragGuides, externalGuides]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -34,8 +37,41 @@ export function Canvas({ state, dispatch }: Props) {
     }
   }, []);
 
+  const handleDragMove = useCallback((event: { active: any; delta: { x: number; y: number } }) => {
+    if (!activeDrag) return;
+    const activeData = event.active.data.current as any;
+    if (!activeData || activeData.kind !== 'element') return;
+
+    const el = activeDrag.element;
+    const currentX = el.layout?.x ?? 0;
+    const currentY = el.layout?.y ?? 0;
+    const proposedX = currentX + event.delta.x;
+    const proposedY = currentY + event.delta.y;
+
+    const newGuides: { x?: number; y?: number }[] = [];
+    const THRESHOLD = 4;
+
+    for (const s of present.sections) {
+      if (s.id !== activeData.sectionId) continue;
+      for (const r of s.rows) {
+        if (r.id !== activeData.rowId) continue;
+        for (const c of r.columns) {
+          if (c.id !== activeData.columnId || c.layoutMode !== 'absolute') continue;
+          for (const other of c.elements) {
+            if (other.id === activeData.elementId) continue;
+            const ox = other.layout?.x ?? 0;
+            const oy = other.layout?.y ?? 0;
+            if (Math.abs(proposedX - ox) < THRESHOLD) newGuides.push({ x: ox });
+            if (Math.abs(proposedY - oy) < THRESHOLD) newGuides.push({ y: oy });
+          }
+        }
+      }
+    }
+    setDragGuides(newGuides);
+  }, [activeDrag, present.sections]);
+
   const handleDragEnd = useCallback((event: DragEndEvent) => {
-    setGuides([]);
+    setDragGuides([]);
     const { active, over, delta } = event;
     if (!activeDrag || !over) { setActiveDrag(null); return; }
 
@@ -75,7 +111,7 @@ export function Canvas({ state, dispatch }: Props) {
   }, [activeDrag, dispatch, snapEnabled, gridSize]);
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragMove={handleDragMove} onDragEnd={handleDragEnd}>
       <ScrollArea className="h-full bg-muted">
         <div className={cn('min-h-full relative', isMobile ? 'w-[390px] mx-auto shadow-2xl bg-background my-4' : 'w-full bg-background')}>
           {sections.map(s => (
@@ -85,7 +121,7 @@ export function Canvas({ state, dispatch }: Props) {
             <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">Nenhuma seção. Adicione pela sidebar.</div>
           )}
           {/* Alignment guides */}
-          {guides.map((g, i) => (
+          {allGuides.map((g, i) => (
             <div key={i}>
               {g.x !== undefined && <div className="absolute top-0 bottom-0 w-px bg-destructive pointer-events-none z-50" style={{ left: g.x }} />}
               {g.y !== undefined && <div className="absolute left-0 right-0 h-px bg-destructive pointer-events-none z-50" style={{ top: g.y }} />}

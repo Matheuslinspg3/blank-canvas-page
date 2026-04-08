@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, useState } from 'react';
+import { useEffect, useCallback, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Topbar } from '@/components/siteBuilderPro/Topbar';
 import { SidebarLeft } from '@/components/siteBuilderPro/SidebarLeft';
@@ -41,6 +41,7 @@ export default function DevSiteBuilderPro() {
   const { state, dispatch: rawDispatch } = useSiteBuilderProState();
   const loaded = useRef(false);
   const [eventLog, setEventLog] = useState<EventEntry[]>([]);
+  const [externalGuides, setExternalGuides] = useState<{ x?: number; y?: number }[]>([]);
 
   // Wrap dispatch to log tracked actions
   const dispatch = useCallback((action: BuilderAction) => {
@@ -128,14 +129,14 @@ export default function DevSiteBuilderPro() {
         </ResizablePanel>
         <ResizableHandle />
         <ResizablePanel defaultSize={55}>
-          <Canvas state={state} dispatch={dispatch} />
+          <Canvas state={state} dispatch={dispatch} externalGuides={externalGuides} />
         </ResizablePanel>
         <ResizableHandle />
         <ResizablePanel defaultSize={25} minSize={15} maxSize={35}>
           <InspectorRight state={state} dispatch={dispatch} />
         </ResizablePanel>
       </ResizablePanelGroup>
-      <DevQAPanel state={state} dispatch={dispatch} eventLog={eventLog} />
+      <DevQAPanel state={state} dispatch={dispatch} eventLog={eventLog} setExternalGuides={setExternalGuides} />
     </div>
   );
 }
