@@ -15,12 +15,13 @@ import {
   Globe, Layout, Phone, Search, Trash2, RefreshCw, Plus,
   CheckCircle2, Clock, AlertCircle, Loader2, ExternalLink, Save,
   MessageSquare, Mail, FileText, Palette, Upload, X, Pipette, Crown,
-  Shield, Wifi, FileCheck, Cloud, Copy, Server, Sparkles, Eraser
+  Shield, Wifi, FileCheck, Cloud, Copy, Server, Sparkles, Eraser,
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
 import { extractColorsFromImage } from "@/lib/extractColors";
+import { getTransparentLogoUrl, isCloudinaryUrl } from "@/lib/cloudinary/logoTransparency";
 import { DomainSetupWizard } from "./DomainSetupWizard";
 import { SiteTemplateSelector, type SiteTemplate } from "./SiteTemplateSelector";
 import { AIContentDialog, type AIContentAnswers } from "./AIContentDialog";
@@ -1049,25 +1050,16 @@ function BrandSection() {
   const [extracting, setExtracting] = useState(false);
   const [removingBg, setRemovingBg] = useState(false);
 
-  const handleRemoveBg = async (field: "logo_url" | "logo_dark_url") => {
+  const handleRemoveBg = (field: "logo_url" | "logo_dark_url") => {
     const url = config[field];
-    if (!url || !profile?.organization_id) return;
-    setRemovingBg(true);
-    try {
-      const { removeBackground } = await import("@/lib/removeBackground");
-      const blob = await removeBackground(url);
-      const path = `${profile.organization_id}/brand/${field}-nobg-${Date.now()}.png`;
-      const { error: upErr } = await supabase.storage.from("brand-assets").upload(path, blob, { upsert: true });
-      if (upErr) throw upErr;
-      const { data: pub } = supabase.storage.from("brand-assets").getPublicUrl(path);
-      setConfig((prev) => ({ ...prev, [field]: pub.publicUrl }));
-      toast.success("Fundo removido com sucesso!");
-    } catch (err: any) {
-      console.error("Remove bg error:", err);
-      toastError("Erro ao remover fundo. Tente novamente.");
-    } finally {
-      setRemovingBg(false);
+    if (!url) return;
+    if (!isCloudinaryUrl(url)) {
+      toast.error("Remoção de fundo funciona apenas com imagens do Cloudinary.");
+      return;
     }
+    const transparentUrl = getTransparentLogoUrl(url);
+    setConfig((prev) => ({ ...prev, [field]: transparentUrl }));
+    toast.success("Fundo removido! Salve para aplicar.");
   };
 
   useEffect(() => {
