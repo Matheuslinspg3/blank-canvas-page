@@ -9,6 +9,7 @@ import { toastError } from "@/lib/toastError";
 import { Palette, Save, Loader2, Upload, Image as ImageIcon, Type, X, Eraser } from "lucide-react";
 import { getTransparentLogoUrl, isCloudinaryUrl } from "@/lib/cloudinary/logoTransparency";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface BrandConfig {
@@ -291,12 +292,14 @@ export default function BrandSettingsContent() {
               url={config.logo_url}
               onUpload={(f) => handleLogoUpload(f, "logo_url")}
               onRemove={() => setConfig({ ...config, logo_url: "" })}
+              onRemoveBg={() => handleRemoveBg("logo_url")}
             />
             <LogoUploader
               label="Logo (fundo escuro) — opcional"
               url={config.logo_dark_url}
               onUpload={(f) => handleLogoUpload(f, "logo_dark_url")}
               onRemove={() => setConfig({ ...config, logo_dark_url: "" })}
+              onRemoveBg={() => handleRemoveBg("logo_dark_url")}
             />
           </div>
           <p className="text-xs text-muted-foreground">
