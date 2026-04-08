@@ -44,10 +44,13 @@ export default function Storefront() {
 
   // V2 advanced renderer
   if (siteDoc?.editor_mode === 'advanced' && siteDoc.layout) {
+    const v2Layout = siteDoc.layout as SiteLayoutV2;
+    const v2Title = v2Layout.meta?.title || metaTitle;
+    const v2Desc = v2Layout.meta?.description || metaDesc;
     return (
       <div style={{ fontFamily, "--sf-primary": primaryColor, "--sf-secondary": secondaryColor, "--sf-accent": accentColor } as React.CSSProperties} className="min-h-screen bg-white text-gray-900">
-        <SEOHead title={metaTitle} description={metaDesc} noIndex={false} />
-        <SiteDocumentRendererV2 siteLayout={siteDoc.layout as SiteLayoutV2} properties={properties} />
+        <SEOHead title={v2Title} description={v2Desc} noIndex={false} />
+        <SiteDocumentRendererV2 siteLayout={v2Layout} properties={properties} />
         {website?.show_whatsapp_float && website?.whatsapp_number && (
           <StorefrontWhatsAppFloat number={website.whatsapp_number} message={website.whatsapp_message || "Olá!"} />
         )}
