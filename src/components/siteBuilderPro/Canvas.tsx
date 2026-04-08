@@ -81,7 +81,7 @@ function EditableSection({ section, theme, selection, hoveredId, dispatch, isMob
     <div
       className={cn(
         'relative cursor-pointer transition-all',
-        isHovered && !isSelected && 'outline outline-2 outline-blue-300 outline-offset-[-2px]',
+        isHovered && !isSelected && 'outline outline-2 outline-accent outline-offset-[-2px]',
         isSelected && 'outline outline-2 outline-primary outline-offset-[-2px]',
       )}
       style={sectionStyle}
@@ -185,7 +185,7 @@ function EditableElement({ element, sectionId, rowId, columnId, selection, hover
     <div
       className={cn(
         'relative group',
-        isHovered && !isSelected && 'outline outline-1 outline-blue-300 outline-offset-1',
+        isHovered && !isSelected && 'outline outline-1 outline-accent outline-offset-1',
         isSelected && 'outline outline-2 outline-primary outline-offset-1',
       )}
       onClick={(e) => { e.stopPropagation(); dispatch({ type: 'SELECT', selection: { type: 'element', sectionId, rowId, columnId, elementId: element.id } }); }}
