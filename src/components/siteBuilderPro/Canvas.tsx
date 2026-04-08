@@ -206,7 +206,7 @@ function EditableElement({ element, sectionId, rowId, columnId, selection, hover
           <button onClick={(e) => { e.stopPropagation(); dispatch({ type: 'DUPLICATE_ELEMENT', sectionId, rowId, columnId, elementId: element.id }); }} className="p-1 hover:bg-primary-foreground/20 rounded" title="Duplicar">
             <Copy className="w-3 h-3" />
           </button>
-          <button onClick={(e) => { e.stopPropagation(); dispatch({ type: 'DELETE_ELEMENT', sectionId, rowId, columnId, elementId: element.id }); }} className="p-1 hover:bg-red-400/80 rounded" title="Excluir">
+          <button onClick={(e) => { e.stopPropagation(); dispatch({ type: 'DELETE_ELEMENT', sectionId, rowId, columnId, elementId: element.id }); }} className="p-1 hover:bg-destructive/80 rounded" title="Excluir">
             <Trash2 className="w-3 h-3" />
           </button>
         </div>
