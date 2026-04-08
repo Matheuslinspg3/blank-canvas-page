@@ -163,6 +163,7 @@ const App = () => (
                       <Route path="/onboarding" element={<ProtectedRoute><OnboardingWizard /></ProtectedRoute>} />
                       <Route path="/demo" element={<Demo />} />
                       <Route path="/dev/blocks" element={<Suspense fallback={<div className="p-8">Carregando...</div>}><DevBlocks /></Suspense>} />
+                      <Route path="/dev/elements" element={<Suspense fallback={<div className="p-8">Carregando...</div>}><DevElements /></Suspense>} />
                       <Route path="/imovel/:id" element={<PropertyLandingPage />} />
                       <Route path="/instalar" element={<Install />} />
                       <Route path="/site/:orgSlug" element={<Storefront />} />
