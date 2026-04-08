@@ -5703,6 +5703,47 @@ export type Database = {
           },
         ]
       }
+      site_documents: {
+        Row: {
+          created_at: string
+          draft: Json
+          id: string
+          last_published_at: string | null
+          last_saved_at: string
+          organization_id: string
+          published: Json | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          draft?: Json
+          id?: string
+          last_published_at?: string | null
+          last_saved_at?: string
+          organization_id: string
+          published?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          draft?: Json
+          id?: string
+          last_published_at?: string | null
+          last_saved_at?: string
+          organization_id?: string
+          published?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_documents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_plans: {
         Row: {
           created_at: string
@@ -7599,6 +7640,7 @@ export type Database = {
           stored_url: string
         }[]
       }
+      get_public_site_document: { Args: { p_org_id: string }; Returns: Json }
       get_public_tenant_by_domain: {
         Args: { p_hostname: string }
         Returns: Json
