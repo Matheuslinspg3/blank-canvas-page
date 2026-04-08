@@ -170,7 +170,6 @@ export function convertLegacyToSiteLayoutV2({ org, brand, website, template }: C
       secondaryColor: secondary,
       accentColor: accent,
       fontFamily,
-      borderRadius: 8,
     },
     meta: {
       title: website?.meta_title || `${org.name} — Imóveis`,
