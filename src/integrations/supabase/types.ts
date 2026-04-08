@@ -5707,31 +5707,40 @@ export type Database = {
         Row: {
           created_at: string
           draft: Json
+          draft_v2: Json | null
+          editor_mode: string
           id: string
           last_published_at: string | null
           last_saved_at: string
           organization_id: string
           published: Json | null
+          published_v2: Json | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           draft?: Json
+          draft_v2?: Json | null
+          editor_mode?: string
           id?: string
           last_published_at?: string | null
           last_saved_at?: string
           organization_id: string
           published?: Json | null
+          published_v2?: Json | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           draft?: Json
+          draft_v2?: Json | null
+          editor_mode?: string
           id?: string
           last_published_at?: string | null
           last_saved_at?: string
           organization_id?: string
           published?: Json | null
+          published_v2?: Json | null
           updated_at?: string
         }
         Relationships: [
@@ -7641,6 +7650,10 @@ export type Database = {
         }[]
       }
       get_public_site_document: { Args: { p_org_id: string }; Returns: Json }
+      get_public_site_document_full: {
+        Args: { p_org_id: string }
+        Returns: Json
+      }
       get_public_tenant_by_domain: {
         Args: { p_hostname: string }
         Returns: Json

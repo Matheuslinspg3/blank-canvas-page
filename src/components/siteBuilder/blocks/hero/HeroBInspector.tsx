@@ -1,10 +1,9 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { ImageUploadField } from '@/components/siteBuilder/ImageUploadField';
 import type { HeroBBlock } from '@/types/siteBuilder';
 
 interface Props {
@@ -13,7 +12,7 @@ interface Props {
 }
 
 export function HeroBInspector({ block, onChange }: Props) {
-  const { register, watch, setValue } = useForm({ defaultValues: block.props });
+  const { register, watch } = useForm({ defaultValues: block.props });
 
   useEffect(() => {
     const sub = watch((values) => {
@@ -22,10 +21,6 @@ export function HeroBInspector({ block, onChange }: Props) {
     });
     return () => sub.unsubscribe();
   }, [watch, onChange]);
-
-  const handleImageChange = useCallback((url: string) => {
-    setValue('image', url, { shouldDirty: true });
-  }, [setValue]);
 
   return (
     <div className="space-y-4 p-4">
@@ -49,7 +44,11 @@ export function HeroBInspector({ block, onChange }: Props) {
 
       <Separator />
       <h3 className="font-semibold text-sm text-muted-foreground">Aparência</h3>
-      <ImageUploadField label="Imagem lateral" value={watch('image')} onChange={handleImageChange} />
+      <div className="space-y-2">
+        <Label>Imagem lateral (URL)</Label>
+        <Input {...register('image')} placeholder="https://..." />
+        {/* LOVABLE: TODO trocar por upload Cloudinary na FASE 4 */}
+      </div>
       <div className="flex gap-4">
         <div className="space-y-2 flex-1">
           <Label>Cor de fundo (texto)</Label>
