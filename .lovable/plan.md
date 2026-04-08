@@ -1,61 +1,57 @@
 
 
-# Plan: Add "Testar Guides" button + fix guide rendering
+# Plan: FASE E — Persistência real + Renderer público v2
 
-## Problem
+## Current State
 
-The `guides` state in `Canvas.tsx` exists (line 26) and renders (lines 87-93), but is **never populated** — there is no `onDragMove` handler computing alignment guides during drag. The guides array stays empty forever.
-
-Two things need to happen:
-1. Wire up actual guide computation in Canvas (so guides work during real drags too)
-2. Add a "Testar guides" QA button that programmatically creates a near-aligned scenario and triggers visible guides
+- `SiteBuilderPro.tsx` already loads `draft_v2`, autosaves via `useSaveDraftV2`, and publishes via `usePublishSiteV2` — this is wired correctly
+- `Storefront.tsx` already checks `siteDoc?.editor_mode === 'advanced'` and renders `SiteDocumentRendererV2` — but that component is a stub ("em construção")
+- The RPC `get_public_site_document_full` correctly returns `editor_mode` + the right `layout` (published_v2 for advanced, published for simple)
+- `buildSeedLayout` exists and is reusable
+- `SectionRenderer` in `src/components/siteBuilder/v2/SectionRenderer.tsx` already renders sections/rows/columns/elements with mobile fallback
 
 ## Changes
 
-### 1. Canvas.tsx — Add `onDragMove` with guide computation + accept external guides prop
+### 1. Extract `buildSeedLayout` to a shared helper
+**File**: `src/lib/buildInitialSiteLayoutV2.ts` (new)
 
-- Add `onDragMove` handler to `DndContext` that:
-  - Gets the dragged element's proposed position (current layout + delta)
-  - Iterates other elements in the same absolute column
-  - If `|proposedX - otherX| < 4` or `|proposedY - otherY| < 4`, adds a guide
-  - Sets `guides` state with the computed guides
-- Add optional `externalGuides` prop so DevQAPanel can inject persistent test guides
-- Merge external + drag guides for rendering
+Move `buildSeedLayout` into a standalone `buildInitialSiteLayoutV2(theme?)` function. Re-export from `useSiteBuilderProState.ts` for backward compatibility. Used by both `SiteBuilderPro.tsx` and `DevSiteBuilderPro.tsx`.
 
-### 2. Canvas.tsx — Accept `externalGuides` prop
+### 2. Implement `SiteDocumentRendererV2` for real
+**File**: `src/components/storefront/v3/SiteDocumentRendererV2.tsx`
 
-Add `externalGuides?: { x?: number; y?: number }[]` to Canvas Props. Render them alongside internal guides.
+Replace the stub with a real renderer that:
+- Iterates `siteLayout.sections` in order
+- Skips sections where `visible === false`
+- Reuses the existing `SectionRenderer` from `src/components/siteBuilder/v2/SectionRenderer.tsx` with `isEditing={false}`
+- Passes `properties` through (for property_list/property_card/property_carousel elements)
+- Applies theme font-family on the wrapper div
 
-### 3. DevQAPanel.tsx — Add "Testar guides" button
+### 3. Update Storefront SEO for v2 meta
+**File**: `src/pages/Storefront.tsx`
 
-The button will:
-1. Find or create a column in absolute mode with 2+ elements
-2. Activate absolute on the first column with 2+ elements (dispatches `UPDATE_COLUMN_LAYOUT_MODE`)
-3. Position element A at `{ x: 50, y: 80 }`
-4. Position element B at `{ x: 53, y: 80 }` (3px difference in X — within the 4px threshold)
-5. Select element B
-6. Set `externalGuides` to `[{ x: 50 }]` (the alignment line at element A's X)
-7. Clear guides after 5 seconds via `setTimeout`
+When `editor_mode === 'advanced'` and `siteDoc.layout` exists:
+- Use `siteLayout.meta.title` for SEO title (fallback to existing `metaTitle`)
+- Use `siteLayout.meta.description` for SEO description (fallback to existing `metaDesc`)
 
-### 4. DevSiteBuilderPro.tsx — Wire external guides state
+### 4. No database changes needed
+The RPC and columns (`draft_v2`, `published_v2`, `editor_mode`) already exist and work correctly.
 
-- Add `const [externalGuides, setExternalGuides] = useState([])` 
-- Pass `externalGuides` to Canvas
-- Pass `setExternalGuides` to DevQAPanel
+### 5. No changes to SiteBuilderPro.tsx
+It already loads `draft_v2`, seeds with `buildSeedLayout` when null, autosaves, and publishes. No QA panel is present in the production page (it's only in DevSiteBuilderPro).
 
-### 5. Validate in runtime
+### 6. Validation
+- Build `tsc --noEmit`
+- Navigate to `/dev/site-builder-pro` to confirm editor still works
+- Check storefront route to confirm renderer no longer shows stub text
 
-After implementation:
-- Navigate to `/dev/site-builder-pro`
-- Click "Testar guides"
-- Screenshot showing red guide line
-- Confirm `tsc --noEmit` clean
+## Files
 
-## Files modified
-
-| File | Change |
+| File | Action |
 |------|--------|
-| `src/components/siteBuilderPro/Canvas.tsx` | Add `onDragMove` guide computation + `externalGuides` prop |
-| `src/components/siteBuilderPro/DevQAPanel.tsx` | Add "Testar guides" button |
-| `src/pages/DevSiteBuilderPro.tsx` | Wire `externalGuides` state between Canvas and DevQAPanel |
+| `src/lib/buildInitialSiteLayoutV2.ts` | Create — shared seed helper |
+| `src/hooks/useSiteBuilderProState.ts` | Update — import from shared helper, re-export |
+| `src/components/storefront/v3/SiteDocumentRendererV2.tsx` | Rewrite — real renderer using SectionRenderer |
+| `src/pages/Storefront.tsx` | Update — SEO meta from v2 layout |
+| `src/pages/DevSiteBuilderPro.tsx` | Update — import from shared helper |
 
