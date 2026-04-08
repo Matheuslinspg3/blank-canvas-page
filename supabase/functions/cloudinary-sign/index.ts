@@ -43,9 +43,27 @@ Deno.serve(async (req) => {
     const folder = body.folder || 'properties';
     const fileHash = body.file_hash || '';
 
-    const cloudName = Deno.env.get('CLOUDINARY_CLOUD_NAME');
-    const apiKey = Deno.env.get('CLOUDINARY_API_KEY');
-    const apiSecret = Deno.env.get('CLOUDINARY_API_SECRET');
+    // Try primary Cloudinary, fallback to CLOUDINARY2 if primary is disabled
+    let cloudName = Deno.env.get('CLOUDINARY_CLOUD_NAME');
+    let apiKey = Deno.env.get('CLOUDINARY_API_KEY');
+    let apiSecret = Deno.env.get('CLOUDINARY_API_SECRET');
+
+    // Fallback to CLOUDINARY2 if primary is not configured
+    if (!cloudName || !apiKey || !apiSecret) {
+      cloudName = Deno.env.get('CLOUDINARY2_CLOUD_NAME') ?? null;
+      apiKey = Deno.env.get('CLOUDINARY2_API_KEY') ?? null;
+      apiSecret = Deno.env.get('CLOUDINARY2_API_SECRET') ?? null;
+    }
+
+    // Also check CLOUDINARY2 as preferred if it exists (primary may be disabled)
+    const c2Name = Deno.env.get('CLOUDINARY2_CLOUD_NAME');
+    const c2Key = Deno.env.get('CLOUDINARY2_API_KEY');
+    const c2Secret = Deno.env.get('CLOUDINARY2_API_SECRET');
+    if (c2Name && c2Key && c2Secret) {
+      cloudName = c2Name;
+      apiKey = c2Key;
+      apiSecret = c2Secret;
+    }
 
     if (!cloudName || !apiKey || !apiSecret) {
       return new Response(JSON.stringify({ error: 'Credenciais não configuradas' }), {
