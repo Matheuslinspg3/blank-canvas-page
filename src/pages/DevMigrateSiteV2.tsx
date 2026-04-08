@@ -9,8 +9,24 @@ import { StorefrontTemplateRenderer, type SiteTemplate } from '@/components/stor
 import { convertLegacyToSiteLayoutV2 } from '@/lib/convertLegacyToSiteLayoutV2';
 import type { SiteLayoutV2 } from '@/types/siteBuilderV2';
 import { Loader2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const DEFAULT_ORG = 'cdf3f0e6-da64-4090-bc76-1758796bea28';
+
+interface PendingAction {
+  label: string;
+  description: string;
+  onConfirm: () => Promise<void>;
+}
 
 export default function DevMigrateSiteV2() {
   const [params] = useSearchParams();
@@ -22,24 +38,37 @@ export default function DevMigrateSiteV2() {
 
   const [busy, setBusy] = useState('');
   const [previewV2, setPreviewV2] = useState<SiteLayoutV2 | null>(null);
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
 
   const template: SiteTemplate = (website?.site_template as SiteTemplate) || 'classic';
   const hasLayout = !!(siteDoc?.layout);
   const v2Layout = hasLayout ? (siteDoc!.layout as SiteLayoutV2) : null;
 
-  // Generate a preview from legacy without saving
   const handleGeneratePreview = () => {
     if (!org) return;
     const layout = convertLegacyToSiteLayoutV2({ org, brand, website, template });
     setPreviewV2(layout);
   };
 
-  // Save draft_v2 to DB
   const handleSaveDraft = async (force = false) => {
     if (!org) return;
     if (!force && v2Layout) {
-      if (!confirm('draft_v2 já existe. Sobrescrever?')) return;
+      setPendingAction({
+        label: 'Sobrescrever draft_v2',
+        description: 'draft_v2 já existe. Deseja sobrescrever com a conversão do legado?',
+        onConfirm: () => doSaveDraft(),
+      });
+      return;
     }
+    setPendingAction({
+      label: 'Salvar draft_v2',
+      description: 'Salvar layout convertido como draft_v2 no banco?',
+      onConfirm: () => doSaveDraft(),
+    });
+  };
+
+  const doSaveDraft = async () => {
+    if (!org) return;
     const layout = previewV2 || convertLegacyToSiteLayoutV2({ org, brand, website, template });
     setBusy('saving');
     try {
@@ -54,7 +83,14 @@ export default function DevMigrateSiteV2() {
   };
 
   const handlePublish = async () => {
-    if (!confirm('Copiar draft_v2 → published_v2?')) return;
+    setPendingAction({
+      label: 'Publicar draft_v2',
+      description: 'Copiar draft_v2 → published_v2? Isso ativa o layout v2 no storefront público.',
+      onConfirm: doPublish,
+    });
+  };
+
+  const doPublish = async () => {
     setBusy('publishing');
     try {
       const { error } = await (supabase.rpc as any)('dev_force_publish_v2', { p_org_id: orgId });
@@ -68,7 +104,14 @@ export default function DevMigrateSiteV2() {
   };
 
   const handleSetMode = async (mode: string) => {
-    if (!confirm(`Trocar editor_mode para "${mode}"?`)) return;
+    setPendingAction({
+      label: mode === 'advanced' ? 'Ativar advanced' : 'Voltar para simple',
+      description: `Trocar editor_mode para "${mode}"?`,
+      onConfirm: () => doSetMode(mode),
+    });
+  };
+
+  const doSetMode = async (mode: string) => {
     setBusy('mode');
     try {
       const { error } = await (supabase.rpc as any)('dev_set_editor_mode', { p_org_id: orgId, p_mode: mode });
@@ -79,6 +122,13 @@ export default function DevMigrateSiteV2() {
     } finally {
       setBusy('');
     }
+  };
+
+  const confirmPending = async () => {
+    if (!pendingAction) return;
+    const action = pendingAction;
+    setPendingAction(null);
+    await action.onConfirm();
   };
 
   function invalidateAll() {
@@ -98,7 +148,7 @@ export default function DevMigrateSiteV2() {
 
   return (
     <div style={{ fontFamily: 'Inter, sans-serif' }} className="min-h-screen bg-gray-50">
-      {/* ── DEV Info Panel ── */}
+      {/* DEV Info Panel */}
       <div className="bg-gray-900 text-white p-4 text-xs font-mono space-y-1">
         <div className="font-bold text-sm mb-2">🔧 DEV — Migrate Site to V2</div>
         <div><b>orgId:</b> {orgId}</div>
@@ -112,7 +162,7 @@ export default function DevMigrateSiteV2() {
         <div><b>meta_description:</b> {metaDesc || '—'}</div>
       </div>
 
-      {/* ── Actions ── */}
+      {/* Actions */}
       <div className="p-4 bg-white border-b flex flex-wrap gap-2">
         <button onClick={handleGeneratePreview} className="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700" disabled={!org}>
           👁 Preview V2 do legado
@@ -131,9 +181,8 @@ export default function DevMigrateSiteV2() {
         </button>
       </div>
 
-      {/* ── Side-by-side preview ── */}
+      {/* Side-by-side preview */}
       <div className="grid grid-cols-2 gap-0 min-h-[80vh]">
-        {/* Left: Legacy */}
         <div className="border-r overflow-auto">
           <div className="bg-yellow-100 text-yellow-900 text-xs font-bold px-3 py-1 text-center">LEGADO — Template "{template}"</div>
           {org && (
@@ -150,7 +199,6 @@ export default function DevMigrateSiteV2() {
           )}
         </div>
 
-        {/* Right: V2 */}
         <div className="overflow-auto">
           <div className="bg-green-100 text-green-900 text-xs font-bold px-3 py-1 text-center">V2 — Renderer Avançado</div>
           {displayV2 ? (
@@ -164,6 +212,20 @@ export default function DevMigrateSiteV2() {
           )}
         </div>
       </div>
+
+      {/* Confirmation AlertDialog */}
+      <AlertDialog open={!!pendingAction} onOpenChange={(open) => { if (!open) setPendingAction(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{pendingAction?.label}</AlertDialogTitle>
+            <AlertDialogDescription>{pendingAction?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmPending}>Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
