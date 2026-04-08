@@ -91,6 +91,8 @@ export function SectionRenderer({ section, theme, properties, isEditing }: Secti
     return s;
   }, [section, theme]);
 
+  if (!section.visible && !isEditing) return null;
+
   const content = (
     <>
       {section.rows.map((row) => (
