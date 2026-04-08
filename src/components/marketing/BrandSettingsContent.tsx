@@ -6,27 +6,77 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
-import { Palette, Save, Loader2, Upload, Image as ImageIcon, Type, X, Eraser } from "lucide-react";
-import { getLogoPreviewUrl, getTransparentLogoUrl, isCloudinaryUrl } from "@/lib/cloudinary/logoTransparency";
-...
+import { Palette, Save, Loader2, Upload, Image as ImageIcon, Type, X } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+
+interface BrandConfig {
+  primary_color: string;
+  secondary_color: string;
+  accent_color: string;
+  font_family: string;
+  slogan: string;
+  tagline: string;
+  logo_url: string;
+  logo_dark_url: string;
+  white_label_enabled: boolean;
+}
+
+const DEFAULT_BRAND: BrandConfig = {
+  primary_color: "#3B82F6",
+  secondary_color: "#1E293B",
+  accent_color: "#F59E0B",
+  font_family: "Montserrat",
+  slogan: "",
+  tagline: "",
+  logo_url: "",
+  logo_dark_url: "",
+  white_label_enabled: false,
+};
+
+const FONT_OPTIONS = [
+  { value: "Montserrat", label: "Montserrat" },
+  { value: "Roboto", label: "Roboto" },
+  { value: "Open Sans", label: "Open Sans" },
+  { value: "Lato", label: "Lato" },
+  { value: "Poppins", label: "Poppins" },
+  { value: "Raleway", label: "Raleway" },
+  { value: "Playfair Display", label: "Playfair Display" },
+  { value: "Oswald", label: "Oswald" },
+];
+
+function ColorPicker({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <div className="flex items-center gap-3">
+        <input
+          type="color"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-10 w-14 rounded-md border border-border cursor-pointer"
+        />
+        <Input value={value} onChange={(e) => onChange(e.target.value)} className="flex-1 font-mono text-sm" maxLength={7} />
+      </div>
+    </div>
+  );
+}
+
+function LogoUploader({ label, url, onUpload, onRemove }: { label: string; url: string; onUpload: (file: File) => void; onRemove: () => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
       {url ? (
-        <div className="space-y-2">
-          <div className="relative inline-block">
-            <img key={url} src={getLogoPreviewUrl(url)} alt={label} className="h-20 max-w-[200px] object-contain rounded-md border p-2 bg-muted/30" />
-            <button
-              type="button"
-              onClick={onRemove}
-              className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </div>
-          {onRemoveBg && (
-            <Button variant="outline" size="sm" onClick={onRemoveBg} className="gap-1.5 h-7 text-xs">
-              <Eraser className="h-3 w-3" />
-              Remover fundo
-            </Button>
-          )}
+        <div className="relative inline-block">
+          <img src={url} alt={label} className="h-20 max-w-[200px] object-contain rounded-md border p-2 bg-muted/30" />
+          <button
+            type="button"
+            onClick={onRemove}
+            className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs"
+          >
+            <X className="h-3 w-3" />
+          </button>
         </div>
       ) : (
         <Button variant="outline" size="sm" onClick={() => ref.current?.click()} className="gap-2">
@@ -80,36 +130,22 @@ export default function BrandSettingsContent() {
   };
 
   const handleLogoUpload = async (file: File, field: "logo_url" | "logo_dark_url") => {
-    if (!profile?.organization_id) {
-      console.error("[LogoUpload] No organization_id");
-      return;
-    }
-    console.log("[LogoUpload] Starting upload for", field, "file:", file.name, file.size);
+    if (!profile?.organization_id) return;
     setUploading(true);
     try {
-      const { uploadLogoToCloudinary } = await import("@/lib/cloudinary/uploadLogo");
-      const url = await uploadLogoToCloudinary(file, profile.organization_id, field);
-      console.log("[LogoUpload] Success, URL:", url);
-      setConfig((prev) => ({ ...prev, [field]: url }));
+      const ext = file.name.split(".").pop() || "png";
+      const path = `${profile.organization_id}/brand/${field}-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from("brand-assets").upload(path, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: publicUrl } = supabase.storage.from("brand-assets").getPublicUrl(path);
+      setConfig((prev) => ({ ...prev, [field]: publicUrl.publicUrl }));
       toast.success("Logo carregada!");
     } catch (err: any) {
-      console.error("[LogoUpload] Error:", err?.message || err);
-      toastError("Erro ao enviar logo", err, { module: "BrandSettingsContent" });
+      console.error("Upload error:", err);
+      toastError("Erro ao enviar logo. Verifique se o bucket 'brand-assets' existe.", undefined, { module: "BrandSettingsContent" });
     } finally {
       setUploading(false);
     }
-  };
-
-  const handleRemoveBg = (field: "logo_url" | "logo_dark_url") => {
-    const url = config[field];
-    if (!url) return;
-    if (!isCloudinaryUrl(url)) {
-      toast.error("Remoção de fundo funciona apenas com imagens do Cloudinary.");
-      return;
-    }
-    const transparentUrl = getTransparentLogoUrl(url);
-    setConfig((prev) => ({ ...prev, [field]: transparentUrl }));
-    toast.success("Fundo removido! Salve para aplicar.");
   };
 
   const handleSave = async () => {
@@ -234,14 +270,12 @@ export default function BrandSettingsContent() {
               url={config.logo_url}
               onUpload={(f) => handleLogoUpload(f, "logo_url")}
               onRemove={() => setConfig({ ...config, logo_url: "" })}
-              onRemoveBg={() => handleRemoveBg("logo_url")}
             />
             <LogoUploader
               label="Logo (fundo escuro) — opcional"
               url={config.logo_dark_url}
               onUpload={(f) => handleLogoUpload(f, "logo_dark_url")}
               onRemove={() => setConfig({ ...config, logo_dark_url: "" })}
-              onRemoveBg={() => handleRemoveBg("logo_dark_url")}
             />
           </div>
           <p className="text-xs text-muted-foreground">
