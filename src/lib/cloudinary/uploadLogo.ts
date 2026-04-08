@@ -26,8 +26,8 @@ export async function uploadLogoToCloudinary(
   formData.append("timestamp", signature.timestamp.toString());
   formData.append("signature", signature.signature);
   formData.append("folder", signature.folder);
-  formData.append("overwrite", "true");
-  formData.append("unique_filename", "true");
+  formData.append("overwrite", String(signature.overwrite));
+  formData.append("unique_filename", String(signature.unique_filename));
   if (signature.transformation) {
     formData.append("transformation", signature.transformation);
   }
