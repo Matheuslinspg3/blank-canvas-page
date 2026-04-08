@@ -2,7 +2,7 @@ import type { Element } from '@/types/siteBuilderV2';
 import { ElementWrapper } from '../../../ElementWrapper';
 import { Check } from 'lucide-react';
 
-export function PricingTableElement({ element }: { element: Element; isEditing?: boolean }) {
+export function PricingTableElement({ element, isEditing }: { element: Element; isEditing?: boolean }) {
   const { plans, currency } = element.props;
   const items: { name: string; price: number; period: string; features: string[]; ctaLabel: string; highlighted?: boolean }[] = plans || [];
   const cur = currency || 'R$';
