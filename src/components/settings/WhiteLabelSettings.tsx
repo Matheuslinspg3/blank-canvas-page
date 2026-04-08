@@ -8,44 +8,8 @@ import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
 import { Crown, Sparkles, Save, Loader2, Upload, X, Palette, Pipette, Eraser } from "lucide-react";
 import { extractColorsFromImage } from "@/lib/extractColors";
-import { getTransparentLogoUrl, isCloudinaryUrl } from "@/lib/cloudinary/logoTransparency";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { useWhiteLabel } from "@/hooks/useWhiteLabel";
-import { useQueryClient } from "@tanstack/react-query";
-
-interface WhiteLabelConfig {
-  primary_color: string;
-  secondary_color: string;
-  accent_color: string;
-  logo_url: string;
-  logo_dark_url: string;
-  white_label_enabled: boolean;
-}
-
-const DEFAULTS: WhiteLabelConfig = {
-  primary_color: "#D62828",
-  secondary_color: "#1E3A5F",
-  accent_color: "#F77F00",
-  logo_url: "",
-  logo_dark_url: "",
-  white_label_enabled: false,
-};
-
-function MiniColorPicker({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-xs">{label}</Label>
-      <div className="flex items-center gap-2">
-        <input type="color" value={value} onChange={(e) => onChange(e.target.value)}
-          className="h-8 w-10 rounded border border-border cursor-pointer" />
-        <Input value={value} onChange={(e) => onChange(e.target.value)}
-          className="flex-1 font-mono text-xs h-8" maxLength={7} />
-      </div>
-    </div>
-  );
-}
-
+import { getLogoPreviewUrl, getTransparentLogoUrl, isCloudinaryUrl } from "@/lib/cloudinary/logoTransparency";
+...
 function LogoField({ label, url, onUpload, onRemove, onRemoveBg, removingBg }: { label: string; url: string; onUpload: (f: File) => void; onRemove: () => void; onRemoveBg?: () => void; removingBg?: boolean }) {
   const ref = useRef<HTMLInputElement>(null);
   return (
@@ -54,7 +18,7 @@ function LogoField({ label, url, onUpload, onRemove, onRemoveBg, removingBg }: {
       {url ? (
         <div className="space-y-1.5">
           <div className="relative inline-block">
-            <img src={url} alt={label} className="h-12 max-w-[140px] object-contain rounded border p-1 bg-muted/30" />
+            <img key={url} src={getLogoPreviewUrl(url)} alt={label} className="h-12 max-w-[140px] object-contain rounded border p-1 bg-muted/30" />
             <button type="button" onClick={onRemove}
               className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-[10px]">
               <X className="h-2.5 w-2.5" />

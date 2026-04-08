@@ -7,71 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
 import { Palette, Save, Loader2, Upload, Image as ImageIcon, Type, X, Eraser } from "lucide-react";
-import { getTransparentLogoUrl, isCloudinaryUrl } from "@/lib/cloudinary/logoTransparency";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-
-interface BrandConfig {
-  primary_color: string;
-  secondary_color: string;
-  accent_color: string;
-  font_family: string;
-  slogan: string;
-  tagline: string;
-  logo_url: string;
-  logo_dark_url: string;
-  white_label_enabled: boolean;
-}
-
-const DEFAULT_BRAND: BrandConfig = {
-  primary_color: "#3B82F6",
-  secondary_color: "#1E293B",
-  accent_color: "#F59E0B",
-  font_family: "Montserrat",
-  slogan: "",
-  tagline: "",
-  logo_url: "",
-  logo_dark_url: "",
-  white_label_enabled: false,
-};
-
-const FONT_OPTIONS = [
-  { value: "Montserrat", label: "Montserrat" },
-  { value: "Roboto", label: "Roboto" },
-  { value: "Open Sans", label: "Open Sans" },
-  { value: "Lato", label: "Lato" },
-  { value: "Poppins", label: "Poppins" },
-  { value: "Raleway", label: "Raleway" },
-  { value: "Playfair Display", label: "Playfair Display" },
-  { value: "Oswald", label: "Oswald" },
-];
-
-function ColorPicker({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
-      <div className="flex items-center gap-3">
-        <input
-          type="color"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="h-10 w-14 rounded-md border border-border cursor-pointer"
-        />
-        <Input value={value} onChange={(e) => onChange(e.target.value)} className="flex-1 font-mono text-sm" maxLength={7} />
-      </div>
-    </div>
-  );
-}
-
-function LogoUploader({ label, url, onUpload, onRemove, onRemoveBg }: { label: string; url: string; onUpload: (file: File) => void; onRemove: () => void; onRemoveBg?: () => void }) {
-  const ref = useRef<HTMLInputElement>(null);
-  return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
+import { getLogoPreviewUrl, getTransparentLogoUrl, isCloudinaryUrl } from "@/lib/cloudinary/logoTransparency";
+...
       {url ? (
         <div className="space-y-2">
           <div className="relative inline-block">
-            <img src={url} alt={label} className="h-20 max-w-[200px] object-contain rounded-md border p-2 bg-muted/30" />
+            <img key={url} src={getLogoPreviewUrl(url)} alt={label} className="h-20 max-w-[200px] object-contain rounded-md border p-2 bg-muted/30" />
             <button
               type="button"
               onClick={onRemove}
