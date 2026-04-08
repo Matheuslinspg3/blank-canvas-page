@@ -13,9 +13,10 @@ interface DevQAPanelProps {
   state: BuilderState;
   dispatch: React.Dispatch<BuilderAction>;
   eventLog: EventEntry[];
+  setExternalGuides: React.Dispatch<React.SetStateAction<{ x?: number; y?: number }[]>>;
 }
 
-export function DevQAPanel({ state, dispatch, eventLog }: DevQAPanelProps) {
+export function DevQAPanel({ state, dispatch, eventLog, setExternalGuides }: DevQAPanelProps) {
   const [open, setOpen] = useState(true);
 
   // Find first two columns in layout for move tests
@@ -119,6 +120,42 @@ export function DevQAPanel({ state, dispatch, eventLog }: DevQAPanelProps) {
     dispatch({ type: 'REORDER_SECTIONS', orderedIds: reversed });
   };
 
+  const testGuides = () => {
+    // Find first column with 2+ elements, or first column with any elements
+    for (const s of state.present.sections) {
+      for (const r of s.rows) {
+        for (const c of r.columns) {
+          if (c.elements.length >= 2) {
+            // Activate absolute mode
+            dispatch({ type: 'UPDATE_COLUMN_LAYOUT_MODE', sectionId: s.id, rowId: r.id, columnId: c.id, mode: 'absolute' });
+            // Position element A at x:50, y:80
+            const elA = c.elements[0];
+            const elB = c.elements[1];
+            dispatch({
+              type: 'UPDATE_ELEMENT_LAYOUT',
+              sectionId: s.id, rowId: r.id, columnId: c.id, elementId: elA.id,
+              layout: { x: 200, y: 30, width: 200, height: 60 },
+            });
+            // Position element B at x:203, y:120 (3px diff — within 4px threshold)
+            dispatch({
+              type: 'UPDATE_ELEMENT_LAYOUT',
+              sectionId: s.id, rowId: r.id, columnId: c.id, elementId: elB.id,
+              layout: { x: 203, y: 120, width: 200, height: 60 },
+            });
+            // Select element B
+            dispatch({ type: 'SELECT', selection: { type: 'element', sectionId: s.id, rowId: r.id, columnId: c.id, elementId: elB.id } });
+            // Inject external guide at x:200 (the alignment line from element A)
+            setExternalGuides([{ x: 200, y: 30 }]);
+            // Clear after 5 seconds
+            setTimeout(() => setExternalGuides([]), 5000);
+            return;
+          }
+        }
+      }
+    }
+    alert('No column with 2+ elements found');
+  };
+
   return (
     <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 max-w-[340px]">
       <button
@@ -151,8 +188,11 @@ export function DevQAPanel({ state, dispatch, eventLog }: DevQAPanelProps) {
               <Button size="sm" variant="outline" className="text-[10px] h-7" onClick={applyZIndex}>
                 zIndex: 99
               </Button>
-              <Button size="sm" variant="outline" className="text-[10px] h-7 col-span-2" onClick={reorderSections}>
+              <Button size="sm" variant="outline" className="text-[10px] h-7" onClick={reorderSections}>
                 Inverter ordem seções
+              </Button>
+              <Button size="sm" variant="outline" className="text-[10px] h-7 bg-red-900/30 border-red-500/50 text-red-300" onClick={testGuides}>
+                Testar guides
               </Button>
             </div>
             <div className="mt-1 text-[9px] text-gray-400">
