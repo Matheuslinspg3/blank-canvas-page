@@ -169,7 +169,7 @@ export default function BrandSettingsContent() {
     toast.success("Fundo removido! Salve para aplicar.");
   };
 
-
+  const handleSave = async () => {
     if (!profile?.organization_id || !user) return;
     setSaving(true);
     try {
