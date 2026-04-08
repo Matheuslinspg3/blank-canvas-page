@@ -42,7 +42,7 @@ export function useSiteDocument(organizationId: string | undefined) {
       // Auto-create empty document
       const { data: created, error: createErr } = await supabase
         .from('site_documents')
-        .insert({ organization_id: organizationId!, draft: EMPTY_LAYOUT as unknown as Record<string, unknown> })
+        .insert([{ organization_id: organizationId!, draft: EMPTY_LAYOUT as unknown as Json }])
         .select('*')
         .single();
 
@@ -69,7 +69,7 @@ export function useSaveDraft() {
       const { error } = await supabase
         .from('site_documents')
         .update({
-          draft: draft as unknown as Record<string, unknown>,
+          draft: draft as unknown as Json,
           last_saved_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
@@ -92,7 +92,7 @@ export function usePublishSite() {
       const { error } = await supabase
         .from('site_documents')
         .update({
-          published: draft as unknown as Record<string, unknown>,
+          published: draft as unknown as Json,
           last_published_at: now,
           updated_at: now,
         })
