@@ -7403,6 +7403,14 @@ export type Database = {
         Returns: undefined
       }
       dev_force_publish_v2: { Args: { p_org_id: string }; Returns: undefined }
+      dev_save_draft_v2: {
+        Args: { p_layout: Json; p_org_id: string }
+        Returns: undefined
+      }
+      dev_set_editor_mode: {
+        Args: { p_mode: string; p_org_id: string }
+        Returns: undefined
+      }
       exec_sql: { Args: { sql_query: string }; Returns: Json }
       fix_user_without_organization: {
         Args: { p_email: string; p_full_name?: string; p_user_id: string }
