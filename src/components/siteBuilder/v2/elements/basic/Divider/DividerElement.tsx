@@ -1,5 +1,5 @@
 import type { Element } from '@/types/siteBuilderV2';
-import { ElementWrapper } from '../../ElementWrapper';
+import { ElementWrapper } from '../../../ElementWrapper';
 
 export function DividerElement({ element }: { element: Element; isEditing?: boolean }) {
   const { thickness, color, style, width } = element.props;

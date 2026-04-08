@@ -1,5 +1,5 @@
 import type { Element } from '@/types/siteBuilderV2';
-import { ElementWrapper } from '../../ElementWrapper';
+import { ElementWrapper } from '../../../ElementWrapper';
 
 export function ButtonElement({ element, isEditing }: { element: Element; isEditing?: boolean }) {
   const { label, link, variant, size, fullWidth, icon, openInNewTab } = element.props;

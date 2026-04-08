@@ -1,5 +1,5 @@
 import type { Element } from '@/types/siteBuilderV2';
-import { ElementWrapper } from '../../ElementWrapper';
+import { ElementWrapper } from '../../../ElementWrapper';
 import { ImageIcon } from 'lucide-react';
 
 export function ImageElement({ element }: { element: Element; isEditing?: boolean }) {
