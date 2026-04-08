@@ -94,14 +94,8 @@ export default function WhiteLabelSettings() {
     if (!url || !profile?.organization_id) return;
     setRemovingBg(true);
     try {
-      const { data, error } = await supabase.functions.invoke("remove-bg", { body: { image_url: url } });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      // Upload the result to storage
-      const byteString = atob(data.image_base64);
-      const bytes = new Uint8Array(byteString.length);
-      for (let i = 0; i < byteString.length; i++) bytes[i] = byteString.charCodeAt(i);
-      const blob = new Blob([bytes], { type: "image/png" });
+      const { removeBackground } = await import("@/lib/removeBackground");
+      const blob = await removeBackground(url);
       const path = `${profile.organization_id}/brand/${field}-nobg-${Date.now()}.png`;
       const { error: upErr } = await supabase.storage.from("brand-assets").upload(path, blob, { upsert: true });
       if (upErr) throw upErr;
@@ -110,7 +104,7 @@ export default function WhiteLabelSettings() {
       toast.success("Fundo removido com sucesso!");
     } catch (err: any) {
       console.error("Remove bg error:", err);
-      toastError("Erro ao remover fundo. Verifique se a chave REMOVE_BG_API_KEY está configurada.");
+      toastError("Erro ao remover fundo. Tente novamente.");
     } finally {
       setRemovingBg(false);
     }
