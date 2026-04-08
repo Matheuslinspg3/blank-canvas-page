@@ -1,9 +1,8 @@
 import type { SiteLayoutV2 } from '@/types/siteBuilderV2';
-import type { PropertySummary } from '@/types/siteBuilder';
 
 interface Props {
   siteLayout: SiteLayoutV2;
-  properties: PropertySummary[];
+  properties: any[];
 }
 
 export function SiteDocumentRendererV2({ siteLayout, properties }: Props) {
