@@ -57,7 +57,7 @@ function SortableBlock({
       <button {...attributes} {...listeners} className="cursor-grab text-muted-foreground hover:text-foreground">
         <GripVertical className="w-4 h-4" />
       </button>
-      {def?.icon && <def.icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
+      {def?.icon && (() => { const Icon = def.icon; return <Icon />; })()}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{def?.label || block.type}</p>
         <p className="text-xs text-muted-foreground">Var {block.variant}</p>

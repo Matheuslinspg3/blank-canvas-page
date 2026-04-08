@@ -106,7 +106,7 @@ function BlockInspector({
     <div className="flex flex-col h-full">
       <div className="px-4 py-3 border-b">
         <div className="flex items-center gap-2">
-          {def.icon && <def.icon className="w-4 h-4 text-muted-foreground" />}
+          {def.icon && (() => { const Icon = def.icon; return <Icon />; })()}
           <span className="text-sm font-semibold">{block.type}</span>
           <span className="text-xs text-muted-foreground">Var {block.variant}</span>
         </div>
