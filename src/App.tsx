@@ -36,6 +36,7 @@ const DevSections = lazy(() => lazyRetry(() => import("./pages/DevSections")));
 const DevSiteBuilderPro = lazy(() => lazyRetry(() => import("./pages/DevSiteBuilderPro")));
 const DevStorefrontV2 = lazy(() => lazyRetry(() => import("./pages/DevStorefrontV2")));
 const DevMigrateSiteV2 = lazy(() => lazyRetry(() => import("./pages/DevMigrateSiteV2")));
+const DevSiteBuilderRollout = lazy(() => lazyRetry(() => import("./pages/DevSiteBuilderRollout")));
 const SiteBuilderPage = lazy(() => lazyRetry(() => import("./pages/SiteBuilder")));
 const SiteBuilderProPage = lazy(() => lazyRetry(() => import("./pages/SiteBuilderPro")));
 const Dashboard = lazy(() => lazyRetry(() => import("./pages/Dashboard")));
@@ -172,6 +173,7 @@ const App = () => (
                       <Route path="/dev/site-builder-pro" element={<Suspense fallback={<div className="p-8">Carregando...</div>}><DevSiteBuilderPro /></Suspense>} />
                       <Route path="/dev/storefront-v2" element={<DevStorefrontV2 />} />
                       <Route path="/dev/migrate-site-v2" element={<Suspense fallback={<div className="p-8">Carregando...</div>}><DevMigrateSiteV2 /></Suspense>} />
+                      <Route path="/dev/site-builder-rollout" element={<Suspense fallback={<div className="p-8">Carregando...</div>}><DevSiteBuilderRollout /></Suspense>} />
                       <Route path="/imovel/:id" element={<PropertyLandingPage />} />
                       <Route path="/instalar" element={<Install />} />
                       <Route path="/site/:orgSlug" element={<Storefront />} />

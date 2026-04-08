@@ -7403,6 +7403,18 @@ export type Database = {
         Returns: undefined
       }
       dev_force_publish_v2: { Args: { p_org_id: string }; Returns: undefined }
+      dev_list_org_rollout_status: {
+        Args: never
+        Returns: {
+          editor_mode: string
+          has_draft_v2: boolean
+          has_published_v1: boolean
+          has_published_v2: boolean
+          org_id: string
+          org_name: string
+          site_template: string
+        }[]
+      }
       dev_save_draft_v2: {
         Args: { p_layout: Json; p_org_id: string }
         Returns: undefined
