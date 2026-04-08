@@ -1,5 +1,6 @@
 import type { SiteLayoutV2 } from '@/types/siteBuilderV2';
 import type { SiteTheme } from '@/types/siteBuilder';
+import '@/components/siteBuilder/v2/elements'; // register all element types
 import { SectionRenderer } from '@/components/siteBuilder/v2/SectionRenderer';
 
 interface Props {

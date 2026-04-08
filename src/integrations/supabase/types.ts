@@ -7402,6 +7402,7 @@ export type Database = {
         Args: { p_property_id: string }
         Returns: undefined
       }
+      dev_force_publish_v2: { Args: { p_org_id: string }; Returns: undefined }
       exec_sql: { Args: { sql_query: string }; Returns: Json }
       fix_user_without_organization: {
         Args: { p_email: string; p_full_name?: string; p_user_id: string }
