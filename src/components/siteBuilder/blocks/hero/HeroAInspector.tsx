@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { ImageUploadField } from '@/components/siteBuilder/ImageUploadField';
 import type { HeroABlock } from '@/types/siteBuilder';
 
 interface Props {
@@ -12,7 +13,7 @@ interface Props {
 }
 
 export function HeroAInspector({ block, onChange }: Props) {
-  const { register, watch } = useForm({ defaultValues: block.props });
+  const { register, watch, setValue } = useForm({ defaultValues: block.props });
 
   useEffect(() => {
     const sub = watch((values) => {
@@ -21,6 +22,10 @@ export function HeroAInspector({ block, onChange }: Props) {
     });
     return () => sub.unsubscribe();
   }, [watch, onChange]);
+
+  const handleImageChange = useCallback((url: string) => {
+    setValue('bgImage', url, { shouldDirty: true });
+  }, [setValue]);
 
   return (
     <div className="space-y-4 p-4">
@@ -44,11 +49,7 @@ export function HeroAInspector({ block, onChange }: Props) {
 
       <Separator />
       <h3 className="font-semibold text-sm text-muted-foreground">Aparência</h3>
-      <div className="space-y-2">
-        <Label>Imagem de fundo (URL)</Label>
-        <Input {...register('bgImage')} placeholder="https://..." />
-        {/* LOVABLE: TODO trocar por upload Cloudinary na FASE 4 */}
-      </div>
+      <ImageUploadField label="Imagem de fundo" value={watch('bgImage')} onChange={handleImageChange} />
       <div className="flex gap-4">
         <div className="space-y-2 flex-1">
           <Label>Cor de fundo</Label>

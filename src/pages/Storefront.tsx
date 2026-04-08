@@ -1,13 +1,17 @@
 import { useParams } from "react-router-dom";
 import { useStorefront } from "@/hooks/useStorefront";
+import { useSiteDocumentPublic } from "@/hooks/useSiteDocumentPublic";
 import { SEOHead } from "@/components/SEOHead";
 import { StorefrontWhatsAppFloat } from "@/components/storefront/StorefrontWhatsAppFloat";
 import { StorefrontTemplateRenderer, type SiteTemplate } from "@/components/storefront/templates/StorefrontTemplateRenderer";
+import { SiteDocumentRenderer } from "@/components/storefront/v2/SiteDocumentRenderer";
+import type { PropertySummary } from "@/types/siteBuilder";
 import { Loader2 } from "lucide-react";
 
 export default function Storefront() {
   const { orgSlug } = useParams<{ orgSlug: string }>();
   const { org, brand, website, properties, isLoading, notFound } = useStorefront(orgSlug);
+  const { data: siteDoc } = useSiteDocumentPublic(org?.id);
 
   if (isLoading) {
     return (
@@ -32,23 +36,52 @@ export default function Storefront() {
   const secondaryColor = brand?.secondary_color || "#1E293B";
   const accentColor = brand?.accent_color || "#F59E0B";
   const fontFamily = brand?.font_family || "Montserrat";
-  const template = (website?.site_template as SiteTemplate) || "classic";
 
-  const metaTitle = website?.meta_title || `${org.name} — Imóveis`;
-  const metaDesc = website?.meta_description || `Confira os melhores imóveis da ${org.name}. Encontre seu imóvel ideal.`;
+  // SEO: prefer site builder meta, fallback to website_settings
+  const metaTitle = siteDoc?.meta?.title || website?.meta_title || `${org.name} — Imóveis`;
+  const metaDesc = siteDoc?.meta?.description || website?.meta_description || `Confira os melhores imóveis da ${org.name}. Encontre seu imóvel ideal.`;
+
+  // Map storefront properties to PropertySummary for v2 renderer
+  const propertySummaries: PropertySummary[] = properties.map((p) => ({
+    id: p.id,
+    title: p.title,
+    description: null,
+    sale_price: p.sale_price,
+    rent_price: p.rent_price,
+    transaction_type: p.transaction_type,
+    images: p.images,
+    bedrooms: p.bedrooms,
+    bathrooms: p.bathrooms,
+    parking_spots: p.parking_spots,
+    area_total: p.area_total,
+    area_built: null,
+    address_city: p.address_city,
+    address_neighborhood: p.address_neighborhood,
+    address_state: p.address_state,
+    is_featured: p.is_featured,
+    organization_id: null,
+    status: p.status,
+  }));
 
   return (
-    <div style={{ fontFamily, "--sf-primary": primaryColor, "--sf-secondary": secondaryColor, "--sf-accent": accentColor } as React.CSSProperties} className="min-h-screen bg-white text-gray-900">
+    <div
+      style={{ fontFamily, "--sf-primary": primaryColor, "--sf-secondary": secondaryColor, "--sf-accent": accentColor } as React.CSSProperties}
+      className="min-h-screen bg-white text-gray-900"
+    >
       <SEOHead title={metaTitle} description={metaDesc} noIndex={false} />
 
-      <StorefrontTemplateRenderer
-        template={template}
-        org={org}
-        brand={brand}
-        website={website}
-        properties={properties}
-        primaryColor={primaryColor}
-      />
+      {siteDoc ? (
+        <SiteDocumentRenderer siteLayout={siteDoc} properties={propertySummaries} />
+      ) : (
+        <StorefrontTemplateRenderer
+          template={(website?.site_template as SiteTemplate) || "classic"}
+          org={org}
+          brand={brand}
+          website={website}
+          properties={properties}
+          primaryColor={primaryColor}
+        />
+      )}
 
       {website?.show_whatsapp_float && website?.whatsapp_number && (
         <StorefrontWhatsAppFloat
