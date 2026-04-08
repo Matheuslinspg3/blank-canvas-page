@@ -134,18 +134,18 @@ export function DevQAPanel({ state, dispatch, eventLog, setExternalGuides }: Dev
             dispatch({
               type: 'UPDATE_ELEMENT_LAYOUT',
               sectionId: s.id, rowId: r.id, columnId: c.id, elementId: elA.id,
-              layout: { x: 50, y: 80, width: 200, height: 60 },
+              layout: { x: 200, y: 30, width: 200, height: 60 },
             });
-            // Position element B at x:53, y:80 (3px diff — within 4px threshold)
+            // Position element B at x:203, y:120 (3px diff — within 4px threshold)
             dispatch({
               type: 'UPDATE_ELEMENT_LAYOUT',
               sectionId: s.id, rowId: r.id, columnId: c.id, elementId: elB.id,
-              layout: { x: 53, y: 160, width: 200, height: 60 },
+              layout: { x: 203, y: 120, width: 200, height: 60 },
             });
             // Select element B
             dispatch({ type: 'SELECT', selection: { type: 'element', sectionId: s.id, rowId: r.id, columnId: c.id, elementId: elB.id } });
-            // Inject external guide at x:50 (the alignment line from element A)
-            setExternalGuides([{ x: 50 }]);
+            // Inject external guide at x:200 (the alignment line from element A)
+            setExternalGuides([{ x: 200, y: 30 }]);
             // Clear after 5 seconds
             setTimeout(() => setExternalGuides([]), 5000);
             return;
