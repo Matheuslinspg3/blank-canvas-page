@@ -120,11 +120,11 @@ export function Canvas({ state, dispatch, externalGuides = [] }: Props) {
           {sections.length === 0 && (
             <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">Nenhuma seção. Adicione pela sidebar.</div>
           )}
-          {/* Alignment guides */}
+          {/* Alignment guides — rendered at canvas root for visibility */}
           {allGuides.map((g, i) => (
-            <div key={i}>
-              {g.x !== undefined && <div className="absolute top-0 bottom-0 w-px bg-destructive pointer-events-none z-50" style={{ left: g.x }} />}
-              {g.y !== undefined && <div className="absolute left-0 right-0 h-px bg-destructive pointer-events-none z-50" style={{ top: g.y }} />}
+            <div key={`guide-${i}`}>
+              {g.x !== undefined && <div className="absolute top-0 bottom-0 pointer-events-none z-[9998]" style={{ left: g.x, width: 2, background: 'red', boxShadow: '0 0 6px 1px rgba(255,0,0,0.6)' }} />}
+              {g.y !== undefined && <div className="absolute left-0 right-0 pointer-events-none z-[9998]" style={{ top: g.y, height: 2, background: 'red', boxShadow: '0 0 6px 1px rgba(255,0,0,0.6)' }} />}
             </div>
           ))}
         </div>
