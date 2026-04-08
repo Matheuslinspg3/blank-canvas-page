@@ -1,115 +1,80 @@
 
 
-# Plan: FASE G1 — Painel de Rollout do Site Builder Advanced v2
+# Plan: FASE H1 — Seed de dados realistas para 3 orgs de teste
 
 ## Summary
 
-Create a DEV admin dashboard at `/dev/site-builder-rollout` listing all organizations with their migration status, filters, metrics, quick links, and inline documentation.
+Insert realistic test data for 3 new organizations with varying content levels, then run each through the full migration pipeline to validate visual quality.
 
-## Data Source
+## Data Insertion Strategy
 
-A single SQL query joining `organizations`, `site_documents`, and `website_settings` provides all needed data. This will use `supabase.rpc` or a direct query via the anon key (tables already have public RPCs or permissive policies for DEV routes).
+All data goes via SQL INSERT statements (using the insert tool) into existing tables. No schema changes needed.
 
-Since direct table access may be restricted, create a new `SECURITY DEFINER` RPC `dev_list_org_rollout_status` that returns the joined data.
+### Org 1 — "Vitrine Premium Imóveis" (alto padrão)
+- **Template**: `elegant`
+- **Brand**: dark navy (#0F172A) + gold (#D4AF37) + accent (#E11D48), font Playfair Display
+- **Website**: rich hero ("Imóveis de alto padrão no litoral paulista"), detailed about text, all contact fields, meta title/description
+- **Properties**: 12 properties — mix of luxury apartments, penthouses, beachfront houses in Guarujá/Santos/Riviera. Prices R$800k–R$5M. Real Unsplash images. 4 featured.
 
-## Changes
+### Org 2 — "Nova Casa Imobiliária" (médio padrão)
+- **Template**: `modern`
+- **Brand**: blue (#2563EB) + dark (#1E293B) + orange (#F97316), font Inter
+- **Website**: hero filled, about partially filled, no meta_description, whatsapp but no email
+- **Properties**: 6 properties — apartments and houses in Campinas/Jundiaí. Prices R$280k–R$750k. 2 featured.
 
-### 1. New RPC: `dev_list_org_rollout_status` (migration)
+### Org 3 — "JR Corretor" (edge case)
+- **Template**: `classic`
+- **Brand**: defaults only (generic blue), no logo, no slogan
+- **Website**: hero_title only, no about, no meta, no whatsapp
+- **Properties**: 2 properties — basic apartments in Sorocaba. Minimal descriptions.
 
-```sql
-CREATE OR REPLACE FUNCTION public.dev_list_org_rollout_status()
-RETURNS TABLE (
-  org_id uuid,
-  org_name text,
-  editor_mode text,
-  has_published_v1 boolean,
-  has_draft_v2 boolean,
-  has_published_v2 boolean,
-  site_template text
-)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT
-    o.id,
-    o.name,
-    COALESCE(sd.editor_mode, 'simple'),
-    (sd.published IS NOT NULL),
-    (sd.draft_v2 IS NOT NULL),
-    (sd.published_v2 IS NOT NULL),
-    ws.site_template::text
-  FROM organizations o
-  LEFT JOIN site_documents sd ON sd.organization_id = o.id
-  LEFT JOIN website_settings ws ON ws.organization_id = o.id
-  ORDER BY o.name;
-$$;
-```
+## Data Tables Affected
 
-### 2. New page: `src/pages/DevSiteBuilderRollout.tsx`
+| Table | Rows per Org |
+|-------|-------------|
+| `organizations` | 1 |
+| `website_settings` | 1 |
+| `brand_settings` | 1 |
+| `marketplace_properties` | 12 / 6 / 2 |
 
-**Top section — Metrics counters:**
-- Total orgs
-- Simple mode
-- Advanced mode
-- With `published_v2`
-- With `draft_v2` but no `published_v2`
-- Fallback-only (no site_documents row or no published content)
+Total: ~26 new rows across 4 tables.
 
-Displayed as small stat cards in a row.
+## Property Images
 
-**Middle section — Filters:**
-- Dropdown or toggle chips: All / Simple only / Advanced only / With published_v2 / Draft without publish
-- Client-side filtering on the fetched data.
+Use curated Unsplash real estate photos (`https://images.unsplash.com/photo-{id}?w=800`) — different photo per property for realism.
 
-**Table columns:**
-- Org name
-- `editor_mode` (badge: `simple` gray, `advanced` green)
-- Published v1 (✅/❌)
-- Draft v2 (✅/❌)
-- Published v2 (✅/❌)
-- Template legado
-- Status (computed badge):
-  - `legacy-only`: no draft_v2, no published_v2
-  - `v2-draft-ready`: has draft_v2, no published_v2
-  - `v2-published`: has published_v2, mode still simple
-  - `advanced-active`: mode = advanced + has published_v2
-- Actions: two icon buttons linking to `/dev/migrate-site-v2?orgId=...` and `/dev/storefront-v2?orgId=...`
+## Validation Pipeline
 
-**Bottom section — Inline documentation:**
-A collapsible card with markdown-rendered operational guide covering:
-- How to migrate an org (step-by-step)
-- How to publish
-- How to revert to simple
-- How to validate storefront
-- When NOT to migrate
+After seeding, for each org:
+1. Navigate to `/dev/migrate-site-v2?orgId=...`
+2. Generate v2 preview from legacy
+3. Save as `draft_v2`
+4. Publish to `published_v2`
+5. Activate `advanced` mode
+6. Navigate to `/dev/storefront-v2?orgId=...`
+7. Screenshot and evaluate visual quality (hero, spacing, grid, CTA)
 
-Uses the existing `LazyMarkdown` component for rendering.
+## Conversion Quality Assessment
 
-### 3. Route registration in `App.tsx`
+Evaluate per org:
+- Hero convincingness (title, subtitle, CTA button)
+- About section rendering
+- Property grid layout and card quality
+- Contact/CTA section completeness
+- Overall "does this look like a real site?"
 
-```tsx
-const DevSiteBuilderRollout = lazy(() => lazyRetry(() => import("./pages/DevSiteBuilderRollout")));
-// Add route alongside other /dev/ routes
-<Route path="/dev/site-builder-rollout" element={<Suspense ...><DevSiteBuilderRollout /></Suspense>} />
-```
-
-### 4. No production changes
-
-No modifications to Storefront, SiteBuilderPro, or any production component.
+If patterns of visual issues emerge, apply targeted fixes to `convertLegacyToSiteLayoutV2.ts` (preset adjustments, spacing, fallback text).
 
 ## Files
 
 | File | Action |
 |------|--------|
-| `src/pages/DevSiteBuilderRollout.tsx` | Create |
-| `src/App.tsx` | Update — add route + lazy import |
-| Migration SQL | Create `dev_list_org_rollout_status` RPC |
+| No file changes for seeding | Data via INSERT tool |
+| `src/lib/convertLegacyToSiteLayoutV2.ts` | Update only if conversion issues found |
 
-## Validation
+## Deliverables
 
-1. Navigate to `/dev/site-builder-rollout`
-2. Confirm all 10 orgs appear with correct statuses
-3. Confirm Porto Caiçara shows `advanced-active` and Teste Corretor shows `advanced-active`
-4. Confirm filters work
-5. Confirm quick links navigate correctly
-6. Run `tsc --noEmit`
-7. Screenshot
+- Table with org name, type, template, visual quality rating, issues
+- Screenshots of each org on `/dev/storefront-v2`
+- Any converter fixes applied
 
