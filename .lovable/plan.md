@@ -1,55 +1,61 @@
 
 
-## Plano: Templates de Site + Gerador com IA
+# Plan: Add "Testar Guides" button + fix guide rendering
 
-### Contexto
-Atualmente o storefront tem um layout fixo (Hero → Imóveis → Sobre → Contato → Footer). O usuário quer poder escolher entre templates visuais diferentes e ter a opção de gerar o conteúdo com IA.
+## Problem
 
-### O que será feito
+The `guides` state in `Canvas.tsx` exists (line 26) and renders (lines 87-93), but is **never populated** — there is no `onDragMove` handler computing alignment guides during drag. The guides array stays empty forever.
 
-**1. Coluna `site_template` na tabela `website_settings`**
-- Migração adicionando `site_template TEXT DEFAULT 'classic'` na tabela `website_settings`
-- Valores possíveis: `classic`, `modern`, `elegant`, `bold`, `minimal`
+Two things need to happen:
+1. Wire up actual guide computation in Canvas (so guides work during real drags too)
+2. Add a "Testar guides" QA button that programmatically creates a near-aligned scenario and triggers visible guides
 
-**2. 5 Templates de site (variações visuais no storefront)**
-Cada template define um estilo visual diferente para o Hero, cards de imóveis, About, Contact e Footer:
+## Changes
 
-- **Classic** (atual) — Gradiente no hero, cards com sombra, layout centralizado
-- **Modern** — Hero com imagem de fundo e overlay escuro, cards arredondados com hover elevado, seções com fundo alternado
-- **Elegant** — Hero minimalista com tipografia serif grande, cards com bordas finas, paleta sofisticada com tons dourados
-- **Bold** — Hero com cor sólida vibrante e texto grande, cards com borda colorida lateral, seções com formas geométricas decorativas
-- **Minimal** — Hero clean com fundo branco e texto escuro, sem gradientes, cards flat com espaçamento generoso
+### 1. Canvas.tsx — Add `onDragMove` with guide computation + accept external guides prop
 
-**3. Componente `SiteTemplateSelector` em "Meu Site"**
-- Nova seção na aba **Conteúdo**, logo após "Status do Site"
-- Grid de 5 cards com miniatura/preview de cada template
-- Card selecionado com borda primária e checkmark
-- Salvamento junto com as demais configurações
-- Opção adicional: card "Criar com IA" (com ícone Sparkles)
+- Add `onDragMove` handler to `DndContext` that:
+  - Gets the dragged element's proposed position (current layout + delta)
+  - Iterates other elements in the same absolute column
+  - If `|proposedX - otherX| < 4` or `|proposedY - otherY| < 4`, adds a guide
+  - Sets `guides` state with the computed guides
+- Add optional `externalGuides` prop so DevQAPanel can inject persistent test guides
+- Merge external + drag guides for rendering
 
-**4. Card "Montar Template" (personalização manual)**
-- Um card extra que leva à aba de conteúdo/marca para edição manual dos textos e cores
-- Funciona como atalho para o fluxo manual já existente
+### 2. Canvas.tsx — Accept `externalGuides` prop
 
-**5. Card "Criar com IA"**
-- Card com ícone Sparkles e badge "IA"
-- Ao clicar: chama edge function `generate-site-content` que analisa os dados da org e imóveis para gerar hero_title, hero_subtitle, about_text, meta_title, meta_description, whatsapp_message
-- Preenche os campos do formulário sem salvar automaticamente (o usuário revisa e salva)
-- A edge function usará a API de IA do provedor externo configurado (o Lovable AI Gateway está desabilitado; será necessária uma chave de API externa como OpenAI)
+Add `externalGuides?: { x?: number; y?: number }[]` to Canvas Props. Render them alongside internal guides.
 
-**6. Renderização dinâmica no `WhiteLabelStorefront`**
-- Ler `website.site_template` e renderizar os componentes do storefront com as variações visuais correspondentes
-- Cada componente (Hero, Properties, About, Contact, Footer) recebe uma prop `template` e aplica os estilos condicionalmente
-- Alternativa mais limpa: criar variantes de componente por template (ex: `StorefrontHeroModern`, `StorefrontHeroBold`, etc.) e usar um map para selecionar
+### 3. DevQAPanel.tsx — Add "Testar guides" button
 
-### Arquivos a criar/modificar
-- **Migração SQL**: adicionar coluna `site_template`
-- **`src/components/settings/SiteTemplateSelector.tsx`**: novo componente de seleção de template
-- **`src/components/settings/SiteSettingsTab.tsx`**: integrar selector + botão IA na aba Conteúdo
-- **`src/components/storefront/templates/`**: pasta com variantes visuais dos componentes
-- **`src/components/WhiteLabelStorefront.tsx`**: renderizar template selecionado
-- **`supabase/functions/generate-site-content/index.ts`**: edge function para gerar conteúdo com IA
+The button will:
+1. Find or create a column in absolute mode with 2+ elements
+2. Activate absolute on the first column with 2+ elements (dispatches `UPDATE_COLUMN_LAYOUT_MODE`)
+3. Position element A at `{ x: 50, y: 80 }`
+4. Position element B at `{ x: 53, y: 80 }` (3px difference in X — within the 4px threshold)
+5. Select element B
+6. Set `externalGuides` to `[{ x: 50 }]` (the alignment line at element A's X)
+7. Clear guides after 5 seconds via `setTimeout`
 
-### Nota sobre IA
-O Lovable AI Gateway está desabilitado. Para o "Criar com IA" funcionar, será necessário fornecer uma chave de API externa (ex: OpenAI) ou habilitar o Lovable AI nas configurações do projeto.
+### 4. DevSiteBuilderPro.tsx — Wire external guides state
+
+- Add `const [externalGuides, setExternalGuides] = useState([])` 
+- Pass `externalGuides` to Canvas
+- Pass `setExternalGuides` to DevQAPanel
+
+### 5. Validate in runtime
+
+After implementation:
+- Navigate to `/dev/site-builder-pro`
+- Click "Testar guides"
+- Screenshot showing red guide line
+- Confirm `tsc --noEmit` clean
+
+## Files modified
+
+| File | Change |
+|------|--------|
+| `src/components/siteBuilderPro/Canvas.tsx` | Add `onDragMove` guide computation + `externalGuides` prop |
+| `src/components/siteBuilderPro/DevQAPanel.tsx` | Add "Testar guides" button |
+| `src/pages/DevSiteBuilderPro.tsx` | Wire `externalGuides` state between Canvas and DevQAPanel |
 
