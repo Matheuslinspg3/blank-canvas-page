@@ -25,8 +25,8 @@ const SiteSettingsTab = lazy(() => import("@/components/settings/SiteSettingsTab
 
 export default function SitePage() {
   const navigate = useNavigate();
-  const { organization } = useAuth();
-  const { data: siteDoc } = useSiteDocument(organization?.id);
+  const { profile } = useAuth();
+  const { data: siteDoc } = useSiteDocument(profile?.organization_id ?? undefined);
   const switchMode = useSwitchEditorMode();
   const [pendingMode, setPendingMode] = useState<'simple' | 'advanced' | null>(null);
 
