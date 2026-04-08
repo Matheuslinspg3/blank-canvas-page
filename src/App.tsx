@@ -30,6 +30,7 @@ import { lazyRetry } from "@/utils/lazyRetry";
 const Auth = lazy(() => lazyRetry(() => import("./pages/Auth")));
 const AcceptInvite = lazy(() => lazyRetry(() => import("./pages/AcceptInvite")));
 const Demo = lazy(() => lazyRetry(() => import("./pages/Demo")));
+const DevBlocks = lazy(() => lazyRetry(() => import("./pages/DevBlocks")));
 const Dashboard = lazy(() => lazyRetry(() => import("./pages/Dashboard")));
 const Properties = lazy(() => lazyRetry(() => import("./pages/Properties")));
 const PropertyDetails = lazy(() => lazyRetry(() => import("./pages/PropertyDetails")));
