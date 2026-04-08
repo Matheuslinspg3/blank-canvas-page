@@ -31,6 +31,7 @@ const Auth = lazy(() => lazyRetry(() => import("./pages/Auth")));
 const AcceptInvite = lazy(() => lazyRetry(() => import("./pages/AcceptInvite")));
 const Demo = lazy(() => lazyRetry(() => import("./pages/Demo")));
 const DevBlocks = lazy(() => lazyRetry(() => import("./pages/DevBlocks")));
+const DevElements = lazy(() => lazyRetry(() => import("./pages/DevElements")));
 const SiteBuilderPage = lazy(() => lazyRetry(() => import("./pages/SiteBuilder")));
 const SiteBuilderProPage = lazy(() => lazyRetry(() => import("./pages/SiteBuilderPro")));
 const Dashboard = lazy(() => lazyRetry(() => import("./pages/Dashboard")));
@@ -162,6 +163,7 @@ const App = () => (
                       <Route path="/onboarding" element={<ProtectedRoute><OnboardingWizard /></ProtectedRoute>} />
                       <Route path="/demo" element={<Demo />} />
                       <Route path="/dev/blocks" element={<Suspense fallback={<div className="p-8">Carregando...</div>}><DevBlocks /></Suspense>} />
+                      <Route path="/dev/elements" element={<Suspense fallback={<div className="p-8">Carregando...</div>}><DevElements /></Suspense>} />
                       <Route path="/imovel/:id" element={<PropertyLandingPage />} />
                       <Route path="/instalar" element={<Install />} />
                       <Route path="/site/:orgSlug" element={<Storefront />} />
