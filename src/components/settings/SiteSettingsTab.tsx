@@ -1092,12 +1092,9 @@ function BrandSection() {
     if (!profile?.organization_id) return;
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop() || "png";
-      const path = `${profile.organization_id}/brand/${field}-${Date.now()}.${ext}`;
-      const { error: err } = await supabase.storage.from("brand-assets").upload(path, file, { upsert: true });
-      if (err) throw err;
-      const { data: pub } = supabase.storage.from("brand-assets").getPublicUrl(path);
-      setConfig((prev) => ({ ...prev, [field]: pub.publicUrl }));
+      const { uploadLogoToCloudinary } = await import("@/lib/cloudinary/uploadLogo");
+      const url = await uploadLogoToCloudinary(file, profile.organization_id, field);
+      setConfig((prev) => ({ ...prev, [field]: url }));
       toast.success("Logo enviada!");
     } catch (e: any) {
       toastError("Erro ao enviar logo", e, { module: "SiteBrand" });

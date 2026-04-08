@@ -142,16 +142,13 @@ export default function BrandSettingsContent() {
     if (!profile?.organization_id) return;
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop() || "png";
-      const path = `${profile.organization_id}/brand/${field}-${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from("brand-assets").upload(path, file, { upsert: true });
-      if (uploadError) throw uploadError;
-      const { data: publicUrl } = supabase.storage.from("brand-assets").getPublicUrl(path);
-      setConfig((prev) => ({ ...prev, [field]: publicUrl.publicUrl }));
+      const { uploadLogoToCloudinary } = await import("@/lib/cloudinary/uploadLogo");
+      const url = await uploadLogoToCloudinary(file, profile.organization_id, field);
+      setConfig((prev) => ({ ...prev, [field]: url }));
       toast.success("Logo carregada!");
     } catch (err: any) {
       console.error("Upload error:", err);
-      toastError("Erro ao enviar logo. Verifique se o bucket 'brand-assets' existe.", undefined, { module: "BrandSettingsContent" });
+      toastError("Erro ao enviar logo", err, { module: "BrandSettingsContent" });
     } finally {
       setUploading(false);
     }
