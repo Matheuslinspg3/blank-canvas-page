@@ -210,3 +210,25 @@ export interface SiteDocument {
   last_published_at: string | null;
   last_saved_at: string;
 }
+
+// ── Property summary for block rendering ─────────────────────
+export interface PropertySummary {
+  id: string;
+  title: string | null;
+  description: string | null;
+  sale_price: number | null;
+  rent_price: number | null;
+  transaction_type: string | null;
+  images: string[] | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  parking_spots: number | null;
+  area_total: number | null;
+  area_built: number | null;
+  address_city: string | null;
+  address_neighborhood: string | null;
+  address_state: string | null;
+  is_featured: boolean | null;
+  organization_id: string | null;
+  status: string | null;
+}
