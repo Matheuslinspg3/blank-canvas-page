@@ -32,6 +32,7 @@ const AcceptInvite = lazy(() => lazyRetry(() => import("./pages/AcceptInvite")))
 const Demo = lazy(() => lazyRetry(() => import("./pages/Demo")));
 const DevBlocks = lazy(() => lazyRetry(() => import("./pages/DevBlocks")));
 const SiteBuilderPage = lazy(() => lazyRetry(() => import("./pages/SiteBuilder")));
+const SiteBuilderProPage = lazy(() => lazyRetry(() => import("./pages/SiteBuilderPro")));
 const Dashboard = lazy(() => lazyRetry(() => import("./pages/Dashboard")));
 const Properties = lazy(() => lazyRetry(() => import("./pages/Properties")));
 const PropertyDetails = lazy(() => lazyRetry(() => import("./pages/PropertyDetails")));
