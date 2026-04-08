@@ -212,6 +212,7 @@ const App = () => (
                         <Route path="/administracao" element={<Administration />} />
                         <Route path="/site" element={<SitePage />} />
                         <Route path="/site/builder" element={<Suspense fallback={<div className="h-screen flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin" /></div>}><SiteBuilderPage /></Suspense>} />
+                        <Route path="/site/builder-pro" element={<Suspense fallback={<div className="h-screen flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin" /></div>}><SiteBuilderProPage /></Suspense>} />
                         <Route path="/integracoes" element={<Integrations />} />
                         <Route path="/configuracoes" element={<Settings />} />
                         <Route path="/meu-plano" element={<MyPlan />} />
