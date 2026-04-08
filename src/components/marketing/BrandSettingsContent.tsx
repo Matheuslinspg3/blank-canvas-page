@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
-import { Palette, Save, Loader2, Upload, Image as ImageIcon, Type, X } from "lucide-react";
+import { Palette, Save, Loader2, Upload, Image as ImageIcon, Type, X, Eraser } from "lucide-react";
+import { getLogoPreviewUrl, getTransparentLogoUrl, isCloudinaryUrl } from "@/lib/cloudinary/logoTransparency";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -62,21 +63,29 @@ function ColorPicker({ label, value, onChange }: { label: string; value: string;
   );
 }
 
-function LogoUploader({ label, url, onUpload, onRemove }: { label: string; url: string; onUpload: (file: File) => void; onRemove: () => void }) {
+function LogoUploader({ label, url, onUpload, onRemove, onRemoveBg }: { label: string; url: string; onUpload: (file: File) => void; onRemove: () => void; onRemoveBg?: () => void }) {
   const ref = useRef<HTMLInputElement>(null);
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
       {url ? (
-        <div className="relative inline-block">
-          <img src={url} alt={label} className="h-20 max-w-[200px] object-contain rounded-md border p-2 bg-muted/30" />
-          <button
-            type="button"
-            onClick={onRemove}
-            className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs"
-          >
-            <X className="h-3 w-3" />
-          </button>
+        <div className="space-y-2">
+          <div className="relative inline-block">
+            <img key={url} src={getLogoPreviewUrl(url)} alt={label} className="h-20 max-w-[200px] object-contain rounded-md border p-2 bg-muted/30" />
+            <button
+              type="button"
+              onClick={onRemove}
+              className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+          {onRemoveBg && (
+            <Button variant="outline" size="sm" onClick={onRemoveBg} className="gap-1.5 h-7 text-xs">
+              <Eraser className="h-3 w-3" />
+              Remover fundo
+            </Button>
+          )}
         </div>
       ) : (
         <Button variant="outline" size="sm" onClick={() => ref.current?.click()} className="gap-2">
@@ -133,19 +142,28 @@ export default function BrandSettingsContent() {
     if (!profile?.organization_id) return;
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop() || "png";
-      const path = `${profile.organization_id}/brand/${field}-${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from("brand-assets").upload(path, file, { upsert: true });
-      if (uploadError) throw uploadError;
-      const { data: publicUrl } = supabase.storage.from("brand-assets").getPublicUrl(path);
-      setConfig((prev) => ({ ...prev, [field]: publicUrl.publicUrl }));
+      const { uploadLogoToCloudinary } = await import("@/lib/cloudinary/uploadLogo");
+      const url = await uploadLogoToCloudinary(file, profile.organization_id, field);
+      setConfig((prev) => ({ ...prev, [field]: url }));
       toast.success("Logo carregada!");
     } catch (err: any) {
       console.error("Upload error:", err);
-      toastError("Erro ao enviar logo. Verifique se o bucket 'brand-assets' existe.", undefined, { module: "BrandSettingsContent" });
+      toastError("Erro ao enviar logo", err, { module: "BrandSettingsContent" });
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleRemoveBg = (field: "logo_url" | "logo_dark_url") => {
+    const url = config[field];
+    if (!url) return;
+    if (!isCloudinaryUrl(url)) {
+      toast.error("Faça upload da logo novamente para habilitar a remoção de fundo.");
+      return;
+    }
+    const transparentUrl = getTransparentLogoUrl(url);
+    setConfig((prev) => ({ ...prev, [field]: transparentUrl }));
+    toast.success("Fundo removido! Salve para aplicar.");
   };
 
   const handleSave = async () => {
