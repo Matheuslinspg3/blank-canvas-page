@@ -173,6 +173,7 @@ const App = () => (
                       <Route path="/dev/site-builder-pro" element={<Suspense fallback={<div className="p-8">Carregando...</div>}><DevSiteBuilderPro /></Suspense>} />
                       <Route path="/dev/storefront-v2" element={<DevStorefrontV2 />} />
                       <Route path="/dev/migrate-site-v2" element={<Suspense fallback={<div className="p-8">Carregando...</div>}><DevMigrateSiteV2 /></Suspense>} />
+                      <Route path="/dev/site-builder-rollout" element={<Suspense fallback={<div className="p-8">Carregando...</div>}><DevSiteBuilderRollout /></Suspense>} />
                       <Route path="/imovel/:id" element={<PropertyLandingPage />} />
                       <Route path="/instalar" element={<Install />} />
                       <Route path="/site/:orgSlug" element={<Storefront />} />
