@@ -35,6 +35,7 @@ const DevElements = lazy(() => lazyRetry(() => import("./pages/DevElements")));
 const DevSections = lazy(() => lazyRetry(() => import("./pages/DevSections")));
 const DevSiteBuilderPro = lazy(() => lazyRetry(() => import("./pages/DevSiteBuilderPro")));
 const DevStorefrontV2 = lazy(() => lazyRetry(() => import("./pages/DevStorefrontV2")));
+const DevMigrateSiteV2 = lazy(() => lazyRetry(() => import("./pages/DevMigrateSiteV2")));
 const SiteBuilderPage = lazy(() => lazyRetry(() => import("./pages/SiteBuilder")));
 const SiteBuilderProPage = lazy(() => lazyRetry(() => import("./pages/SiteBuilderPro")));
 const Dashboard = lazy(() => lazyRetry(() => import("./pages/Dashboard")));
