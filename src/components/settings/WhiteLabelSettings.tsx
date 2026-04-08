@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
 import { Crown, Sparkles, Save, Loader2, Upload, X, Palette, Pipette, Eraser } from "lucide-react";
 import { extractColorsFromImage } from "@/lib/extractColors";
+import { getLogoPreviewUrl, getTransparentLogoUrl, isCloudinaryUrl } from "@/lib/cloudinary/logoTransparency";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWhiteLabel } from "@/hooks/useWhiteLabel";
@@ -53,7 +54,7 @@ function LogoField({ label, url, onUpload, onRemove, onRemoveBg, removingBg }: {
       {url ? (
         <div className="space-y-1.5">
           <div className="relative inline-block">
-            <img src={url} alt={label} className="h-12 max-w-[140px] object-contain rounded border p-1 bg-muted/30" />
+            <img key={url} src={getLogoPreviewUrl(url)} alt={label} className="h-12 max-w-[140px] object-contain rounded border p-1 bg-muted/30" />
             <button type="button" onClick={onRemove}
               className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-[10px]">
               <X className="h-2.5 w-2.5" />
@@ -89,31 +90,16 @@ export default function WhiteLabelSettings() {
   const [extracting, setExtracting] = useState(false);
   const [removingBg, setRemovingBg] = useState(false);
 
-  const handleRemoveBg = async (field: "logo_url" | "logo_dark_url") => {
+  const handleRemoveBg = (field: "logo_url" | "logo_dark_url") => {
     const url = config[field];
-    if (!url || !profile?.organization_id) return;
-    setRemovingBg(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("remove-bg", { body: { image_url: url } });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      // Upload the result to storage
-      const byteString = atob(data.image_base64);
-      const bytes = new Uint8Array(byteString.length);
-      for (let i = 0; i < byteString.length; i++) bytes[i] = byteString.charCodeAt(i);
-      const blob = new Blob([bytes], { type: "image/png" });
-      const path = `${profile.organization_id}/brand/${field}-nobg-${Date.now()}.png`;
-      const { error: upErr } = await supabase.storage.from("brand-assets").upload(path, blob, { upsert: true });
-      if (upErr) throw upErr;
-      const { data: pub } = supabase.storage.from("brand-assets").getPublicUrl(path);
-      setConfig((prev) => ({ ...prev, [field]: pub.publicUrl }));
-      toast.success("Fundo removido com sucesso!");
-    } catch (err: any) {
-      console.error("Remove bg error:", err);
-      toastError("Erro ao remover fundo. Verifique se a chave REMOVE_BG_API_KEY está configurada.");
-    } finally {
-      setRemovingBg(false);
+    if (!url) return;
+    if (!isCloudinaryUrl(url)) {
+      toast.error("Faça upload da logo novamente para habilitar a remoção de fundo.");
+      return;
     }
+    const transparentUrl = getTransparentLogoUrl(url);
+    setConfig((prev) => ({ ...prev, [field]: transparentUrl }));
+    toast.success("Fundo removido! Salve para aplicar.");
   };
 
   useEffect(() => {
@@ -144,12 +130,9 @@ export default function WhiteLabelSettings() {
     if (!profile?.organization_id) return;
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop() || "png";
-      const path = `${profile.organization_id}/brand/${field}-${Date.now()}.${ext}`;
-      const { error: err } = await supabase.storage.from("brand-assets").upload(path, file, { upsert: true });
-      if (err) throw err;
-      const { data: pub } = supabase.storage.from("brand-assets").getPublicUrl(path);
-      setConfig((prev) => ({ ...prev, [field]: pub.publicUrl }));
+      const { uploadLogoToCloudinary } = await import("@/lib/cloudinary/uploadLogo");
+      const url = await uploadLogoToCloudinary(file, profile.organization_id, field);
+      setConfig((prev) => ({ ...prev, [field]: url }));
       toast.success("Logo enviada!");
     } catch (e: any) {
       toastError("Erro ao enviar logo", e, { module: "WhiteLabelSettings" });
