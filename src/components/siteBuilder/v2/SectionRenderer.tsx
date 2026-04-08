@@ -72,8 +72,6 @@ interface SectionRendererProps {
 export function SectionRenderer({ section, theme, properties, isEditing }: SectionRendererProps) {
   const isMobile = useIsMobile();
 
-  if (!section.visible && !isEditing) return null;
-
   const sectionStyle: CSSProperties = useMemo(() => {
     const s: CSSProperties = {
       paddingTop: section.styles.paddingTop ?? 0,
