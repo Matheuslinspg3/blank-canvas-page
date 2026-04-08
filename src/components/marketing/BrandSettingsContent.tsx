@@ -139,15 +139,20 @@ export default function BrandSettingsContent() {
   };
 
   const handleLogoUpload = async (file: File, field: "logo_url" | "logo_dark_url") => {
-    if (!profile?.organization_id) return;
+    if (!profile?.organization_id) {
+      console.error("[LogoUpload] No organization_id");
+      return;
+    }
+    console.log("[LogoUpload] Starting upload for", field, "file:", file.name, file.size);
     setUploading(true);
     try {
       const { uploadLogoToCloudinary } = await import("@/lib/cloudinary/uploadLogo");
       const url = await uploadLogoToCloudinary(file, profile.organization_id, field);
+      console.log("[LogoUpload] Success, URL:", url);
       setConfig((prev) => ({ ...prev, [field]: url }));
       toast.success("Logo carregada!");
     } catch (err: any) {
-      console.error("Upload error:", err);
+      console.error("[LogoUpload] Error:", err?.message || err);
       toastError("Erro ao enviar logo", err, { module: "BrandSettingsContent" });
     } finally {
       setUploading(false);
