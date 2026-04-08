@@ -1,99 +1,63 @@
 
 
-# Plan: FASE F1 — Migração assistida legado → advanced v2
+# Plan: FASE F2 — Piloto com 2 orgs + remover confirm() bloqueante
 
-## Summary
+## Data Reality
 
-Create a conversion helper that maps legacy `website_settings` + `brand` + template into a `SiteLayoutV2`, plus a DEV admin page at `/dev/migrate-site-v2` with side-by-side preview and migration actions.
+Only **one org** (`cdf3f0e6...` — Porto Caiçara) has `website_settings` populated. All other orgs have no `website_settings` at all, which means the converter produces a minimal/fallback layout for them.
+
+**Pilot orgs:**
+- **Org A** (Porto Caiçara — `cdf3f0e6...`): template `minimal`, rich data (hero, about, contact, meta, brand colors). Already has `draft_v2` and `published_v2` from previous phases. Will reset `published_v2` to null to re-test full flow.
+- **Org B** (Teste Corretor — `0d37f6b3...`): No `website_settings`, no `site_documents`, no brand. Tests the "empty org" conversion path — converter should produce a valid seed layout with fallback defaults.
 
 ## Changes
 
-### 1. Conversion helper: `src/lib/convertLegacyToSiteLayoutV2.ts` (new)
+### 1. Replace `confirm()` with AlertDialog in `DevMigrateSiteV2.tsx`
 
-**Input**: `{ website: StorefrontWebsite, brand: StorefrontBrand, org: StorefrontOrg, template: SiteTemplate }`
+Replace all 4 `confirm()` calls with a single reusable `AlertDialog` state pattern:
 
-**Output**: `SiteLayoutV2`
+- State: `pendingAction: { label: string; description: string; onConfirm: () => Promise<void> } | null`
+- Each button sets `pendingAction` instead of calling `confirm()`
+- An `AlertDialog` at the bottom of the component shows the action details and "Confirmar" / "Cancelar" buttons
+- On confirm, execute `pendingAction.onConfirm()` and clear state
+- Uses existing `@/components/ui/alert-dialog` (already in the project)
 
-The helper uses the existing `section/row/col/el` factory functions from `sectionTemplates/helpers.ts` to build sections. It maps:
+This removes the browser-native `confirm()` blocker while keeping confirmation UX.
 
-- **Hero**: `hero_title`, `hero_subtitle`, brand logo. Style varies by template preset:
-  - `classic` → `hero-image-bg` style (gradient bg, centered text)
-  - `modern` → `hero-split` style (left-aligned text, accent bar, dark bg)
-  - `elegant` → centered with serif feel, gold accent
-  - `bold` → full-width vivid colors, large text
-  - `minimal` → clean white bg, minimal text
-- **About**: `about_text` → about-centered section (if text exists)
-- **Properties**: property_list element with `columns: 3, source: 'featured'`
-- **Contact**: contact_form + contact info from `contact_phone`, `contact_email`, `whatsapp_number`
-- **CTA**: cta-banner with theme primary color
-- **Footer**: org name, tagline, contact info, whatsapp button
-- **Theme**: `primaryColor`, `secondaryColor`, `accentColor`, `fontFamily` from brand
-- **Meta**: `meta_title`, `meta_description` with fallback to org name
+### 2. Ensure Org B has a `site_documents` row
 
-Each template preset adjusts colors, padding, background styles, and layout proportions to match the legacy template's visual identity.
+The migration page calls `useSiteDocumentPublic` which queries the `site_documents` table. If no row exists, the RPC returns null. The page already handles this gracefully (shows "no layout"). But to test save/publish, we need the row to exist.
 
-### 2. Migration RPC: `dev_save_draft_v2` (migration)
+The `dev_save_draft_v2` RPC does `UPDATE ... WHERE organization_id = p_org_id`. If no row exists, it updates 0 rows silently. We need to handle this:
 
-```sql
-CREATE OR REPLACE FUNCTION public.dev_save_draft_v2(p_org_id uuid, p_layout jsonb)
-RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
-  UPDATE site_documents SET draft_v2 = p_layout WHERE organization_id = p_org_id;
-$$;
+- Option: Add an `INSERT ... ON CONFLICT DO NOTHING` to ensure the row exists before updating. Update the `dev_save_draft_v2` RPC via migration to use `INSERT INTO site_documents (organization_id, editor_mode) VALUES (p_org_id, 'simple') ON CONFLICT (organization_id) DO NOTHING;` before the UPDATE.
 
-CREATE OR REPLACE FUNCTION public.dev_set_editor_mode(p_org_id uuid, p_mode text)
-RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
-  UPDATE site_documents SET editor_mode = p_mode WHERE organization_id = p_org_id;
-$$;
-```
+### 3. Route registration
 
-These are DEV-only RPCs (can be dropped later). `dev_force_publish_v2` already exists.
+No changes needed — `/dev/migrate-site-v2` already registered.
 
-### 3. Migration page: `src/pages/DevMigrateSiteV2.tsx` (new)
+### 4. Runtime validation
 
-**Route**: `/dev/migrate-site-v2?orgId=...`
-
-**Layout**:
-- Top: DEV info panel showing org state (orgId, editor_mode, has draft v1/v2, has published v1/v2, current template, meta fields)
-- Middle: Side-by-side preview
-  - Left column: Legacy template rendered via `StorefrontTemplateRenderer` (same component used in production)
-  - Right column: V2 preview via `SiteDocumentRendererV2` (using the converted/existing draft_v2)
-- Bottom: Action buttons
-
-**Data fetching** (all public, no auth needed):
-- `get_public_org_by_id` → org
-- `get_public_brand_settings` → brand
-- `website_settings` select → website (already public via RPC or direct)
-- `useSiteDocumentPublic` → siteDoc (editor_mode, layout)
-- `marketplace_properties_public` → properties
-- Direct query to check `draft_v2 IS NOT NULL` and `published_v2 IS NOT NULL` status
-
-**Actions** (each with confirmation dialog):
-1. **"Gerar draft_v2 a partir do legado"**: Calls `convertLegacyToSiteLayoutV2(...)`, then `dev_save_draft_v2` RPC. Disabled if no website_settings exist.
-2. **"Sobrescrever draft_v2"**: Same as above but with extra "Are you sure?" confirmation (when draft_v2 already exists).
-3. **"Copiar draft_v2 para published_v2"**: Calls existing `dev_force_publish_v2` RPC.
-4. **"Ativar modo advanced"**: Calls `dev_set_editor_mode(orgId, 'advanced')`.
-5. **"Voltar para simple"**: Calls `dev_set_editor_mode(orgId, 'simple')`.
-
-After each action, invalidate relevant queries so UI refreshes.
-
-### 4. Route registration in `App.tsx`
-
-Add lazy import + route for `/dev/migrate-site-v2`.
-
-### 5. No production changes
-
-No changes to Storefront.tsx, SiteBuilderPro.tsx, or any legacy template. The converter is a standalone lib function. The page is DEV-only.
+After code changes, navigate to `/dev/migrate-site-v2` for both orgs and execute the full 11-step flow using browser automation (now possible without `confirm()` blockers).
 
 ## Files
 
 | File | Action |
 |------|--------|
-| `src/lib/convertLegacyToSiteLayoutV2.ts` | Create — conversion helper with 5 template presets |
-| `src/pages/DevMigrateSiteV2.tsx` | Create — migration admin page with side-by-side preview |
-| `src/App.tsx` | Update — add route |
-| Migration SQL | Create `dev_save_draft_v2` + `dev_set_editor_mode` RPCs |
+| `src/pages/DevMigrateSiteV2.tsx` | Update — replace `confirm()` with AlertDialog |
+| Migration SQL | Update `dev_save_draft_v2` to upsert `site_documents` row |
 
-## Validation
+## Validation Plan
 
-After implementation, navigate to `/dev/migrate-site-v2?orgId=cdf3f0e6-da64-4090-bc76-1758796bea28` and execute the 10-step validation sequence from the requirements.
+For each org, automate via browser:
+1. Navigate to `/dev/migrate-site-v2?orgId=...`
+2. Click "Preview V2 do legado"
+3. Click "Salvar como draft_v2" → confirm in AlertDialog
+4. Click "Copiar draft → published" → confirm
+5. Click "Ativar advanced" → confirm
+6. Navigate to `/dev/storefront-v2?orgId=...` → verify renderer v2
+7. Return to migrate page → "Voltar simple" → confirm
+8. Navigate to storefront v2 → verify fallback
+9. Return → reactivate advanced
+10. Screenshots at key steps
 
