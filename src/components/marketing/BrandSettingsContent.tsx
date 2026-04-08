@@ -9,7 +9,6 @@ import { toastError } from "@/lib/toastError";
 import { Palette, Save, Loader2, Upload, Image as ImageIcon, Type, X, Eraser } from "lucide-react";
 import { getTransparentLogoUrl, isCloudinaryUrl } from "@/lib/cloudinary/logoTransparency";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface BrandConfig {
