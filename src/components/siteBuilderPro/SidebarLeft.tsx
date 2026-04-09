@@ -4,11 +4,18 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Layers, LayoutGrid, Plus, Trash2, ChevronDown, ChevronRight, GripVertical } from 'lucide-react';
+import { Layers, LayoutGrid, Plus, Trash2, ChevronDown, ChevronRight, GripVertical, FileStack } from 'lucide-react';
 import { ElementRegistry } from '@/components/siteBuilder/v2/elementRegistry';
 import type { BuilderState, BuilderAction, Selection } from '@/hooks/useSiteBuilderProState';
 import { cn } from '@/lib/utils';
 import { AddSectionSheet } from './AddSectionSheet';
+import { PagesTab } from './PagesTab';
+import {
+  DndContext, closestCenter, useSensor, useSensors, PointerSensor,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import {
   DndContext, closestCenter, useSensor, useSensors, PointerSensor,
   type DragEndEvent,
@@ -44,6 +51,7 @@ export function SidebarLeft({ state, dispatch }: Props) {
       <Tabs defaultValue="pages" className="flex-1 flex flex-col">
         <TabsList className="w-full rounded-none border-b h-10 bg-transparent justify-start px-1">
           <TabsTrigger value="pages" className="text-xs gap-1"><LayoutGrid className="w-3.5 h-3.5" /> Seções</TabsTrigger>
+          <TabsTrigger value="site-pages" className="text-xs gap-1"><FileStack className="w-3.5 h-3.5" /> Páginas</TabsTrigger>
           <TabsTrigger value="layers" className="text-xs gap-1"><Layers className="w-3.5 h-3.5" /> Camadas</TabsTrigger>
           <TabsTrigger value="elements" className="text-xs gap-1"><Plus className="w-3.5 h-3.5" /> Elementos</TabsTrigger>
         </TabsList>
