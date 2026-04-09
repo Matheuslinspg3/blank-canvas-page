@@ -292,7 +292,67 @@ async function setupPlatformWorker(cfToken: string, cfZone: string, accountId: s
   };
 }
 
-// ─── Auth helper ────────────────────────────────────────────────
+// ─── A-record helper for full_zone (avoids Error 1000 cross-zone CNAME) ─
+async function ensureARecordInZone(
+  cfToken: string,
+  zoneId: string,
+  name: string,
+  ip: string,
+): Promise<void> {
+  // Check for existing records (CNAME or A) with this name
+  const searchRes = await fetch(
+    `${CF_API}/zones/${zoneId}/dns_records?name=${encodeURIComponent(name)}`,
+    { headers: { Authorization: `Bearer ${cfToken}` } }
+  );
+  const searchData = await searchRes.json();
+  const existing = searchData?.result || [];
+
+  // Delete any conflicting CNAME records for this name
+  for (const record of existing) {
+    if (record.type === "CNAME") {
+      console.log(`Deleting conflicting CNAME record ${record.id} for ${name}`);
+      await fetch(`${CF_API}/zones/${zoneId}/dns_records/${record.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${cfToken}` },
+      });
+    }
+    // If A record already points to the right IP, done
+    if (record.type === "A" && record.content === ip) {
+      console.log(`A record for ${name} already points to ${ip}`);
+      return;
+    }
+    // If A record points to wrong IP, update it
+    if (record.type === "A" && record.content !== ip) {
+      console.log(`Updating A record ${record.id} for ${name} from ${record.content} to ${ip}`);
+      await fetch(`${CF_API}/zones/${zoneId}/dns_records/${record.id}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${cfToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ content: ip, proxied: true }),
+      });
+      return;
+    }
+  }
+
+  // No existing A record, create one
+  console.log(`Creating A record for ${name} → ${ip}`);
+  const createRes = await fetch(`${CF_API}/zones/${zoneId}/dns_records`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${cfToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      type: "A",
+      name,
+      content: ip,
+      proxied: true,
+      comment: "Auto-created for platform site (A record)",
+    }),
+  });
+  const createData = await createRes.json();
+  if (!createData?.success) {
+    console.warn(`Failed to create A record for ${name}:`, createData?.errors);
+  }
+}
+
+
 async function authenticateRequest(
   req: Request,
   env: { supabaseUrl: string; supabaseAnonKey: string; supabaseServiceRoleKey: string }
