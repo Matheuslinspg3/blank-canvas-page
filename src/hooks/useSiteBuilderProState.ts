@@ -151,12 +151,14 @@ function reducer(state: BuilderState, action: BuilderAction): BuilderState {
       const tmpl = SectionTemplateRegistry.find(t => t.id === action.templateId);
       if (!tmpl) return state;
       const newSection = tmpl.build(state.present.theme);
-      newSection.order = state.present.sections.length;
-      return withHistory(state, { ...state.present, sections: [...state.present.sections, newSection] });
+      const currentSections = getSections(state.present, state.activePageId);
+      newSection.order = currentSections.length;
+      return withHistory(state, setSections(state.present, state.activePageId, [...currentSections, newSection]));
     }
 
     case 'DELETE_SECTION': {
-      const newLayout = { ...state.present, sections: state.present.sections.filter(s => s.id !== action.sectionId) };
+      const currentSections = getSections(state.present, state.activePageId);
+      const newLayout = setSections(state.present, state.activePageId, currentSections.filter(s => s.id !== action.sectionId));
       const newState = withHistory(state, newLayout);
       if (state.selection.type !== 'none' && 'sectionId' in state.selection && state.selection.sectionId === action.sectionId) {
         newState.selection = { type: 'none' };
