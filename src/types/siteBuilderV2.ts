@@ -99,10 +99,27 @@ export interface Section {
   };
 }
 
+// ── Multi-page support ────────────────────────────────
+export interface SitePage {
+  id: string;
+  slug: string;           // 'imoveis', 'sobre', 'contato'
+  title: string;          // Display name in nav
+  sections: Section[];
+  seo?: { title?: string; description?: string };
+}
+
+export interface NavItem {
+  label: string;
+  href: string;           // '/' | '/imoveis' | '/sobre' | '#imoveis'
+  type: 'page' | 'anchor' | 'external';
+}
+
 // ── Layout v2 ─────────────────────────────────────────
 export interface SiteLayoutV2 {
   version: 2;
-  sections: Section[];
+  sections: Section[];          // Homepage sections
   theme: SiteTheme;
   meta: SiteMeta;
+  pages?: SitePage[];           // Additional pages (multi-page mode)
+  navigation?: NavItem[];       // Global nav menu
 }

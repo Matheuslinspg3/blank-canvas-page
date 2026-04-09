@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import type { SiteLayoutV2, Section } from '@/types/siteBuilderV2';
+import type { SiteLayoutV2, Section, SitePage, NavItem } from '@/types/siteBuilderV2';
 import type { SiteTheme } from '@/types/siteBuilder';
 import { SectionTemplateRegistry } from '@/components/siteBuilder/v2/sectionTemplates';
 import type { AIContentAnswers } from '@/components/settings/AIContentDialog';
@@ -22,6 +22,22 @@ interface AILayoutResponse {
   }>;
   meta: { title: string; description: string };
   whatsapp_message: string;
+  navigation?: Array<{ label: string; href: string; type: 'page' | 'anchor' | 'external' }>;
+  pages?: Array<{
+    slug: string;
+    title: string;
+    seo?: { title?: string; description?: string };
+    sections: Array<{
+      template_id: string;
+      content: {
+        heading?: string;
+        subheading?: string;
+        paragraph?: string;
+        button_text?: string;
+        button_link?: string;
+      };
+    }>;
+  }>;
 }
 
 function applyContentToSection(section: Section, content: AILayoutResponse['sections'][0]['content']): Section {
@@ -51,14 +67,14 @@ function applyContentToSection(section: Section, content: AILayoutResponse['sect
   return updated;
 }
 
-function buildLayoutFromAI(
-  aiLayout: AILayoutResponse,
+function buildSectionsFromAI(
+  aiSections: AILayoutResponse['sections'],
   theme: SiteTheme,
-): SiteLayoutV2 {
+): Section[] {
   const sections: Section[] = [];
 
-  for (let i = 0; i < aiLayout.sections.length; i++) {
-    const aiSection = aiLayout.sections[i];
+  for (let i = 0; i < aiSections.length; i++) {
+    const aiSection = aiSections[i];
     const template = SectionTemplateRegistry.find(t => t.id === aiSection.template_id);
     if (!template) continue;
 
@@ -79,6 +95,16 @@ function buildLayoutFromAI(
     sections.push(withContent);
   }
 
+  return sections;
+}
+
+function buildLayoutFromAI(
+  aiLayout: AILayoutResponse,
+  theme: SiteTheme,
+  siteMode: 'single-page' | 'multi-page' = 'single-page',
+): SiteLayoutV2 {
+  const sections = buildSectionsFromAI(aiLayout.sections, theme);
+
   // Fallback if no sections were built
   if (sections.length === 0) {
     const fallbackIds = ['hero-split', 'about-with-image', 'properties-grid', 'footer-three-col'];
@@ -92,13 +118,75 @@ function buildLayoutFromAI(
     });
   }
 
-  return {
+  const layout: SiteLayoutV2 = {
     version: 2,
     sections,
     theme,
     meta: aiLayout.meta || { title: '', description: '' },
   };
+
+  // Multi-page: add navigation and pages
+  if (siteMode === 'multi-page') {
+    // Navigation
+    if (aiLayout.navigation && aiLayout.navigation.length > 0) {
+      layout.navigation = aiLayout.navigation as NavItem[];
+    } else {
+      // Default navigation for multi-page
+      layout.navigation = [
+        { label: 'Home', href: '/', type: 'page' },
+        { label: 'Imóveis', href: '/imoveis', type: 'page' },
+        { label: 'Sobre', href: '/sobre', type: 'page' },
+        { label: 'Contato', href: '/contato', type: 'page' },
+      ];
+    }
+
+    // Pages
+    if (aiLayout.pages && aiLayout.pages.length > 0) {
+      layout.pages = aiLayout.pages.map((p): SitePage => ({
+        id: crypto.randomUUID(),
+        slug: p.slug,
+        title: p.title,
+        sections: buildSectionsFromAI(p.sections, theme),
+        seo: p.seo,
+      }));
+    } else {
+      // Generate default pages structure
+      layout.pages = [
+        {
+          id: crypto.randomUUID(),
+          slug: 'imoveis',
+          title: 'Imóveis',
+          sections: [], // /imoveis uses StorefrontPropertiesPage, no sections needed
+          seo: { title: `Imóveis — ${aiLayout.meta?.title || ''}`, description: 'Encontre o imóvel ideal.' },
+        },
+        {
+          id: crypto.randomUUID(),
+          slug: 'sobre',
+          title: 'Sobre',
+          sections: buildSectionsFromAI(
+            [{ template_id: 'about-with-image', content: { heading: 'Sobre Nós', paragraph: '' } }],
+            theme,
+          ),
+          seo: { title: `Sobre — ${aiLayout.meta?.title || ''}` },
+        },
+        {
+          id: crypto.randomUUID(),
+          slug: 'contato',
+          title: 'Contato',
+          sections: buildSectionsFromAI(
+            [{ template_id: 'contact-cta', content: { heading: 'Fale Conosco', paragraph: '' } }],
+            theme,
+          ),
+          seo: { title: `Contato — ${aiLayout.meta?.title || ''}` },
+        },
+      ];
+    }
+  }
+
+  return layout;
 }
+
+export type SiteMode = 'single-page' | 'multi-page';
 
 export function useSiteAIGeneration() {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -133,18 +221,22 @@ export function useSiteAIGeneration() {
     }
   }, []);
 
-  const generateFullLayout = useCallback(async (answers: AIContentAnswers): Promise<SiteLayoutV2 | null> => {
+  const generateFullLayout = useCallback(async (
+    answers: AIContentAnswers,
+    siteMode: SiteMode = 'single-page',
+  ): Promise<SiteLayoutV2 | null> => {
     setIsGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-site-v2', {
-        body: { mode: 'full_layout', answers },
+        body: { mode: 'full_layout', answers, site_mode: siteMode },
       });
 
       if (error) throw new Error(error.message || 'Erro ao gerar layout');
       if (data?.error) throw new Error(data.error);
 
-      const layout = buildLayoutFromAI(data.aiLayout, data.theme);
-      toast.success('Site gerado com sucesso! Revise e publique quando quiser.');
+      const layout = buildLayoutFromAI(data.aiLayout, data.theme, siteMode);
+      const modeLabel = siteMode === 'multi-page' ? 'Site multi-página' : 'Site';
+      toast.success(`${modeLabel} gerado com sucesso! Revise e publique quando quiser.`);
       return layout;
     } catch (err: any) {
       console.error('generateFullLayout error:', err);

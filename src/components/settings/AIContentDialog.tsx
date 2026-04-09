@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Loader2, FileText, LayoutTemplate } from "lucide-react";
+import { Sparkles, Loader2, FileText, LayoutTemplate, Globe, FileStack } from "lucide-react";
+import type { SiteMode } from "@/hooks/useSiteAIGeneration";
 
 export type AIGenerationMode = "text_only" | "full_layout";
 
@@ -26,7 +27,7 @@ export interface AIContentAnswers {
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onGenerate: (answers: AIContentAnswers, mode: AIGenerationMode) => void;
+  onGenerate: (answers: AIContentAnswers, mode: AIGenerationMode, siteMode?: SiteMode) => void;
   isGenerating: boolean;
   showLayoutOption?: boolean;
 }
@@ -54,8 +55,24 @@ const MODE_OPTIONS = [
   },
 ];
 
+const SITE_MODE_OPTIONS = [
+  {
+    value: "single-page" as SiteMode,
+    label: "Site one-page",
+    description: "Tudo em uma página com scroll entre seções",
+    icon: Globe,
+  },
+  {
+    value: "multi-page" as SiteMode,
+    label: "Site multi-página",
+    description: "Páginas separadas: Home, Imóveis, Sobre, Contato",
+    icon: FileStack,
+  },
+];
+
 export function AIContentDialog({ open, onOpenChange, onGenerate, isGenerating, showLayoutOption = true }: Props) {
   const [mode, setMode] = useState<AIGenerationMode>("full_layout");
+  const [siteMode, setSiteMode] = useState<SiteMode>("multi-page");
   const [answers, setAnswers] = useState<AIContentAnswers>({
     target_audience: "",
     differentials: "",
@@ -95,6 +112,36 @@ export function AIContentDialog({ open, onOpenChange, onGenerate, isGenerating, 
                       onClick={() => setMode(opt.value)}
                       className={`p-3 rounded-lg border text-left transition-colors ${
                         mode === opt.value
+                          ? "bg-primary/10 border-primary ring-1 ring-primary/30"
+                          : "bg-background border-border hover:border-primary/40"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <Icon className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium">{opt.label}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{opt.description}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Site mode selector — only for full_layout */}
+          {mode === "full_layout" && (
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Estilo do site</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {SITE_MODE_OPTIONS.map((opt) => {
+                  const Icon = opt.icon;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setSiteMode(opt.value)}
+                      className={`p-3 rounded-lg border text-left transition-colors ${
+                        siteMode === opt.value
                           ? "bg-primary/10 border-primary ring-1 ring-primary/30"
                           : "bg-background border-border hover:border-primary/40"
                       }`}
@@ -180,19 +227,23 @@ export function AIContentDialog({ open, onOpenChange, onGenerate, isGenerating, 
             Cancelar
           </Button>
           <Button
-            onClick={() => onGenerate(answers, mode)}
+            onClick={() => onGenerate(answers, mode, mode === "full_layout" ? siteMode : undefined)}
             disabled={isGenerating}
             className="gap-2"
           >
             {isGenerating ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                {mode === "full_layout" ? "Gerando site..." : "Gerando textos..."}
+                {mode === "full_layout"
+                  ? siteMode === "multi-page" ? "Gerando site multi-página..." : "Gerando site..."
+                  : "Gerando textos..."}
               </>
             ) : (
               <>
                 <Sparkles className="h-4 w-4" />
-                {mode === "full_layout" ? "Gerar site completo" : "Gerar textos"}
+                {mode === "full_layout"
+                  ? siteMode === "multi-page" ? "Gerar site multi-página" : "Gerar site completo"
+                  : "Gerar textos"}
               </>
             )}
           </Button>

@@ -30,9 +30,10 @@ Deno.serve(async (req) => {
     if (rl) return rl;
 
     const body = await req.json();
-    const { mode, answers } = body as {
+    const { mode, answers, site_mode } = body as {
       mode: "text_only" | "full_layout";
       answers: Record<string, string>;
+      site_mode?: "single-page" | "multi-page";
     };
 
     const supabase = createServiceClient();
@@ -55,7 +56,7 @@ Deno.serve(async (req) => {
     const orgId = profile.organization_id;
 
     // Fetch org data in parallel
-    const [orgRes, brandRes, propsRes] = await Promise.all([
+    const [orgRes, brandRes, propsRes, websiteRes] = await Promise.all([
       supabase.from("organizations").select("name, slug").eq("id", orgId).single(),
       supabase.from("brand_settings").select("*").eq("organization_id", orgId).single(),
       supabase.from("properties")
@@ -63,11 +64,16 @@ Deno.serve(async (req) => {
         .eq("organization_id", orgId)
         .eq("status", "disponivel")
         .limit(12),
+      supabase.from("website_settings")
+        .select("whatsapp_number, contact_email, contact_phone, about_text")
+        .eq("organization_id", orgId)
+        .single(),
     ]);
 
     const org = orgRes.data;
     const brand = brandRes.data;
     const properties = propsRes.data || [];
+    const websiteData = websiteRes.data;
 
     // Build context
     const cities = [...new Set(properties.map((p: any) => p.address_city).filter(Boolean))];
@@ -100,7 +106,10 @@ Público-alvo: ${answers?.target_audience || "geral"}
 Diferenciais: ${answers?.differentials || "não informado"}
 Tom: ${toneDesc}
 Região: ${answers?.region_focus || "não especificada"}
-Info extra: ${answers?.extra_info || "nenhuma"}`;
+Info extra: ${answers?.extra_info || "nenhuma"}
+WhatsApp: ${websiteData?.whatsapp_number || "não informado"}
+E-mail: ${websiteData?.contact_email || "não informado"}
+Telefone: ${websiteData?.contact_phone || "não informado"}`;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) return errorResponse("LOVABLE_API_KEY não configurada", 503);
@@ -161,7 +170,24 @@ Info extra: ${answers?.extra_info || "nenhuma"}`;
     }
 
     // ── FULL LAYOUT MODE ──
+    const isMultiPage = site_mode === "multi-page";
     const sectionCatalogStr = SECTION_CATALOG.map(s => `- ${s.id} (${s.category}): ${s.label}`).join("\n");
+
+    const multiPageInstructions = isMultiPage ? `
+MODO MULTI-PÁGINA:
+Além das seções da homepage, gere conteúdo para páginas separadas:
+- Página "Sobre" (/sobre): com história, missão e valores da imobiliária
+- Página "Contato" (/contato): com dados de contato e formulário
+
+A página /imoveis é gerada automaticamente pelo sistema com filtros.
+
+Inclua o campo "navigation" com os links do menu:
+- Home (/)
+- Imóveis (/imoveis)
+- Sobre (/sobre)
+- Contato (/contato)
+
+Inclua o campo "pages" com as seções de cada página adicional.` : "";
 
     const fullPrompt = `Você é um web designer e copywriter especialista em sites imobiliários brasileiros.
 Monte um site completo escolhendo seções do catálogo e preenchendo todo o conteúdo.
@@ -171,14 +197,112 @@ ${sectionCatalogStr}
 
 DADOS DA IMOBILIÁRIA:
 ${contextBlock}
+${multiPageInstructions}
 
 REGRAS:
-1. Escolha 5-7 seções que façam sentido para esta imobiliária
+1. Escolha 5-7 seções para a homepage que façam sentido para esta imobiliária
 2. Sempre inclua: 1 hero, 1 about, 1 properties, 1 footer
 3. Preencha TODOS os textos de forma personalizada e realista
 4. Use o tom "${toneDesc}" em todos os textos
 5. Os textos devem parecer escritos por um profissional de marketing
 6. Adapte o hero_image_description ao tipo de imobiliária`;
+
+    const toolSchema: any = {
+      type: "object",
+      properties: {
+        sections: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              template_id: { type: "string", description: "ID do template do catálogo" },
+              content: {
+                type: "object",
+                properties: {
+                  heading: { type: "string" },
+                  subheading: { type: "string" },
+                  paragraph: { type: "string" },
+                  button_text: { type: "string" },
+                  button_link: { type: "string" },
+                },
+              },
+            },
+            required: ["template_id", "content"],
+            additionalProperties: false,
+          },
+        },
+        meta: {
+          type: "object",
+          properties: {
+            title: { type: "string" },
+            description: { type: "string" },
+          },
+          required: ["title", "description"],
+          additionalProperties: false,
+        },
+        whatsapp_message: { type: "string" },
+      },
+      required: ["sections", "meta", "whatsapp_message"],
+      additionalProperties: false,
+    };
+
+    // Add multi-page fields to schema
+    if (isMultiPage) {
+      toolSchema.properties.navigation = {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            label: { type: "string" },
+            href: { type: "string" },
+            type: { type: "string", enum: ["page", "anchor", "external"] },
+          },
+          required: ["label", "href", "type"],
+          additionalProperties: false,
+        },
+      };
+      toolSchema.properties.pages = {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            slug: { type: "string", description: "URL slug: sobre, contato" },
+            title: { type: "string" },
+            seo: {
+              type: "object",
+              properties: {
+                title: { type: "string" },
+                description: { type: "string" },
+              },
+            },
+            sections: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  template_id: { type: "string" },
+                  content: {
+                    type: "object",
+                    properties: {
+                      heading: { type: "string" },
+                      subheading: { type: "string" },
+                      paragraph: { type: "string" },
+                      button_text: { type: "string" },
+                      button_link: { type: "string" },
+                    },
+                  },
+                },
+                required: ["template_id", "content"],
+                additionalProperties: false,
+              },
+            },
+          },
+          required: ["slug", "title", "sections"],
+          additionalProperties: false,
+        },
+      };
+      toolSchema.required.push("navigation", "pages");
+    }
 
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -196,44 +320,7 @@ REGRAS:
           function: {
             name: "generate_site_layout",
             description: "Gera o layout completo do site com seções e conteúdo personalizado",
-            parameters: {
-              type: "object",
-              properties: {
-                sections: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      template_id: { type: "string", description: "ID do template do catálogo" },
-                      content: {
-                        type: "object",
-                        properties: {
-                          heading: { type: "string" },
-                          subheading: { type: "string" },
-                          paragraph: { type: "string" },
-                          button_text: { type: "string" },
-                          button_link: { type: "string" },
-                        },
-                      },
-                    },
-                    required: ["template_id", "content"],
-                    additionalProperties: false,
-                  },
-                },
-                meta: {
-                  type: "object",
-                  properties: {
-                    title: { type: "string" },
-                    description: { type: "string" },
-                  },
-                  required: ["title", "description"],
-                  additionalProperties: false,
-                },
-                whatsapp_message: { type: "string" },
-              },
-              required: ["sections", "meta", "whatsapp_message"],
-              additionalProperties: false,
-            },
+            parameters: toolSchema,
           },
         }],
         tool_choice: { type: "function", function: { name: "generate_site_layout" } },
@@ -254,7 +341,6 @@ REGRAS:
 
     const aiLayout = JSON.parse(toolCall.function.arguments);
 
-    // Build SiteLayoutV2 from AI response using section templates
     const theme = {
       primaryColor: brand?.primary_color || "#2563eb",
       secondaryColor: brand?.secondary_color || "#1e293b",
@@ -262,10 +348,9 @@ REGRAS:
       fontFamily: brand?.font_family || "Inter",
     };
 
-    // We return the AI layout data + theme for the frontend to build
-    // The frontend has access to SectionTemplateRegistry and will assemble the sections
     return json({
       mode: "full_layout",
+      site_mode: isMultiPage ? "multi-page" : "single-page",
       aiLayout,
       theme,
       orgName: org?.name || "Imobiliária",
