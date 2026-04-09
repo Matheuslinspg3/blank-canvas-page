@@ -109,6 +109,7 @@ function WebsiteContentSection() {
               .update({
                 draft_v2: layout as any,
                 published_v2: layout as any,
+                editor_mode: "advanced",
                 updated_at: new Date().toISOString(),
               })
               .eq("id", existingDoc.id);
@@ -117,14 +118,9 @@ function WebsiteContentSection() {
               organization_id: orgId,
               draft_v2: layout as any,
               published_v2: layout as any,
+              editor_mode: "advanced",
             });
           }
-
-          // Activate advanced mode
-          await supabase
-            .from("website_settings")
-            .update({ site_builder_mode: "advanced" })
-            .eq("organization_id", orgId);
 
           setShowAIDialog(false);
           toast.success("Site gerado com IA! Abrindo o editor...");
