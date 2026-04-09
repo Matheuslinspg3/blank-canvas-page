@@ -113,29 +113,53 @@ function WebsiteContentSection() {
             .eq("organization_id", orgId)
             .maybeSingle();
 
+          const now = new Date().toISOString();
+          let savedDocId = existingDoc?.id;
+
           if (existingDoc) {
-            await supabase
+            const { error: updateError } = await supabase
               .from("site_documents")
               .update({
                 draft_v2: layout as any,
                 published_v2: layout as any,
                 editor_mode: "advanced",
-                updated_at: new Date().toISOString(),
+                updated_at: now,
               })
               .eq("id", existingDoc.id);
+
+            if (updateError) throw updateError;
           } else {
-            await supabase.from("site_documents").insert({
-              organization_id: orgId,
-              draft_v2: layout as any,
-              published_v2: layout as any,
-              editor_mode: "advanced",
-            });
+            const { data: createdDoc, error: insertError } = await supabase
+              .from("site_documents")
+              .insert({
+                organization_id: orgId,
+                draft_v2: layout as any,
+                published_v2: layout as any,
+                editor_mode: "advanced",
+              })
+              .select("id")
+              .single();
+
+            if (insertError) throw insertError;
+            savedDocId = createdDoc.id;
           }
+
+          queryClient.setQueryData(["site-document", orgId], (current: any) => ({
+            ...(current || {}),
+            id: savedDocId,
+            organization_id: orgId,
+            editor_mode: "advanced",
+            draft: current?.draft ?? null,
+            published: current?.published ?? null,
+            draft_v2: layout,
+            published_v2: layout,
+            last_saved_at: now,
+            last_published_at: now,
+          }));
+          await queryClient.invalidateQueries({ queryKey: ["site-document", orgId], exact: true });
 
           setShowAIDialog(false);
           toast.success("Site gerado com IA! Abrindo o editor...");
-          queryClient.invalidateQueries({ queryKey: ["site-document"] });
-          // Force reload if already on builder-pro
           if (window.location.pathname.includes("builder-pro")) {
             window.location.reload();
           } else {
@@ -1329,8 +1353,10 @@ function TemplateSection() {
   const orgId = profile?.organization_id;
 
   // Site document for editor mode
+  const editorModeQueryKey = ["site-document-editor-mode", orgId];
+
   const { data: siteDoc } = useQuery({
-    queryKey: ["site-document", orgId],
+    queryKey: editorModeQueryKey,
     enabled: !!orgId,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -1354,9 +1380,12 @@ function TemplateSection() {
         .eq("id", siteDoc.id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("Modo do editor atualizado!");
-      queryClient.invalidateQueries({ queryKey: ["site-document"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: editorModeQueryKey }),
+        queryClient.invalidateQueries({ queryKey: ["site-document", orgId], exact: true }),
+      ]);
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -1423,28 +1452,53 @@ function TemplateSection() {
             .eq("organization_id", orgId)
             .maybeSingle();
 
+          const now = new Date().toISOString();
+          let savedDocId = existingDoc?.id;
+
           if (existingDoc) {
-            await supabase
+            const { error: updateError } = await supabase
               .from("site_documents")
               .update({
                 draft_v2: layout as any,
                 published_v2: layout as any,
                 editor_mode: "advanced",
-                updated_at: new Date().toISOString(),
+                updated_at: now,
               })
               .eq("id", existingDoc.id);
+
+            if (updateError) throw updateError;
           } else {
-            await supabase.from("site_documents").insert({
-              organization_id: orgId,
-              draft_v2: layout as any,
-              published_v2: layout as any,
-              editor_mode: "advanced",
-            });
+            const { data: createdDoc, error: insertError } = await supabase
+              .from("site_documents")
+              .insert({
+                organization_id: orgId,
+                draft_v2: layout as any,
+                published_v2: layout as any,
+                editor_mode: "advanced",
+              })
+              .select("id")
+              .single();
+
+            if (insertError) throw insertError;
+            savedDocId = createdDoc.id;
           }
+
+          queryClient.setQueryData(["site-document", orgId], (current: any) => ({
+            ...(current || {}),
+            id: savedDocId,
+            organization_id: orgId,
+            editor_mode: "advanced",
+            draft: current?.draft ?? null,
+            published: current?.published ?? null,
+            draft_v2: layout,
+            published_v2: layout,
+            last_saved_at: now,
+            last_published_at: now,
+          }));
+          await queryClient.invalidateQueries({ queryKey: ["site-document", orgId], exact: true });
 
           setShowAIDialog(false);
           toast.success("Site gerado com IA! Abrindo o editor...");
-          queryClient.invalidateQueries({ queryKey: ["site-document"] });
           if (window.location.pathname.includes("builder-pro")) {
             window.location.reload();
           } else {
