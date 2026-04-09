@@ -16,21 +16,21 @@ import '@/components/siteBuilder/v2/sectionTemplates';
 export default function SiteBuilderPro() {
   const { profile } = useAuth();
   const orgId = profile?.organization_id;
-  const { data: doc, isLoading } = useSiteDocument(orgId);
+  const { data: doc, isLoading, isFetching } = useSiteDocument(orgId);
   const saveDraft = useSaveDraftV2();
   const publishSite = usePublishSiteV2();
   const { state, dispatch } = useSiteBuilderProState();
   const loaded = useRef(false);
 
   useEffect(() => {
-    if (!doc || loaded.current) return;
+    if (!doc || loaded.current || isFetching) return;
     loaded.current = true;
     if (doc.draft_v2) {
       dispatch({ type: 'LOAD_LAYOUT', layout: doc.draft_v2 });
     } else {
       dispatch({ type: 'LOAD_LAYOUT', layout: buildSeedLayout(state.present.theme) });
     }
-  }, [doc]);
+  }, [doc, isFetching, dispatch, state.present.theme]);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => {
