@@ -38,11 +38,19 @@ Deno.serve(async (req) => {
     const supabase = createServiceClient();
 
     // Get user org
-    const { data: profile } = await supabase
+    let { data: profile } = await supabase
       .from("profiles")
       .select("organization_id")
       .eq("id", user.id)
       .single();
+    if (!profile) {
+      const res = await supabase
+        .from("profiles")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .single();
+      profile = res.data;
+    }
     if (!profile?.organization_id) return errorResponse("Organização não encontrada", 404);
     const orgId = profile.organization_id;
 
