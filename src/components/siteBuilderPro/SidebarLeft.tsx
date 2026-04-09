@@ -71,6 +71,11 @@ export function SidebarLeft({ state, dispatch }: Props) {
           <AddSectionSheet open={sheetOpen} onOpenChange={setSheetOpen} dispatch={dispatch} />
         </TabsContent>
 
+        {/* Tab: Páginas */}
+        <TabsContent value="site-pages" className="flex-1 m-0">
+          <PagesTab state={state} dispatch={dispatch} />
+        </TabsContent>
+
         {/* Tab: Camadas */}
         <TabsContent value="layers" className="flex-1 m-0">
           <ScrollArea className="h-full">
