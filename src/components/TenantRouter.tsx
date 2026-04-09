@@ -13,6 +13,7 @@ interface Props {
 /**
  * If the current hostname matches a tenant domain, render their storefront
  * OR the property landing page if the path matches /imovel/:id.
+ * For multi-page sites, route /imoveis, /sobre, /contato to the right page.
  * Otherwise render the normal app routes.
  */
 export function TenantRouter({ children }: Props) {
@@ -59,5 +60,10 @@ export function TenantRouter({ children }: Props) {
     );
   }
 
-  return <WhiteLabelStorefront organizationId={organizationId} />;
+  // Detect page slug from path for multi-page sites
+  // /imoveis → pageSlug='imoveis', /sobre → pageSlug='sobre', /contato → pageSlug='contato'
+  const pageMatch = pathname.match(/^\/([a-z0-9-]+)\/?$/);
+  const pageSlug = pageMatch ? pageMatch[1] : undefined;
+
+  return <WhiteLabelStorefront organizationId={organizationId} pageSlug={pageSlug} />;
 }
