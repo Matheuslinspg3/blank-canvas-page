@@ -22,6 +22,7 @@ export interface AIContentAnswers {
   tone: string;
   region_focus: string;
   extra_info: string;
+  reference_url: string;
 }
 
 interface Props {
