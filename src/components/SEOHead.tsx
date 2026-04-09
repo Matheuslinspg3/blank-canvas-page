@@ -9,6 +9,8 @@ interface SEOHeadProps {
   ogImage?: string | null;
   ogUrl?: string | null;
   noIndex?: boolean;
+  favicon?: string | null;
+  siteName?: string | null;
 }
 
 export function SEOHead({
@@ -17,14 +19,18 @@ export function SEOHead({
   ogImage,
   ogUrl,
   noIndex = false,
+  favicon,
+  siteName,
 }: SEOHeadProps) {
-  const fullTitle = title.includes(SITE_NAME) ? title : `${title} — ${SITE_NAME}`;
+  const effectiveSiteName = siteName || SITE_NAME;
+  const fullTitle = title.includes(effectiveSiteName) ? title : `${title} — ${effectiveSiteName}`;
   const resolvedImage = ogImage || DEFAULT_OG_IMAGE;
   const resolvedUrl = ogUrl || (typeof window !== "undefined" ? window.location.href : "");
 
   return (
     <Helmet>
       <title>{fullTitle}</title>
+      {favicon && <link rel="icon" type="image/png" href={favicon} />}
       {description && <meta name="description" content={description} />}
       {noIndex && <meta name="robots" content="noindex, nofollow" />}
 
@@ -34,7 +40,7 @@ export function SEOHead({
       <meta property="og:image" content={resolvedImage} />
       <meta property="og:url" content={resolvedUrl} />
       <meta property="og:type" content="website" />
-      <meta property="og:site_name" content={SITE_NAME} />
+      <meta property="og:site_name" content={effectiveSiteName} />
 
       {/* Twitter Card */}
       <meta name="twitter:card" content="summary_large_image" />
