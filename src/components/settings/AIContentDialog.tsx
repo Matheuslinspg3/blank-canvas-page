@@ -80,6 +80,7 @@ export function AIContentDialog({ open, onOpenChange, onGenerate, isGenerating, 
     tone: "profissional",
     region_focus: "",
     extra_info: "",
+    reference_url: "",
   });
 
   const update = (key: keyof AIContentAnswers, value: string) =>
