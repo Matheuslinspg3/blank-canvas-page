@@ -2,8 +2,17 @@ import type { Element } from '@/types/siteBuilderV2';
 import { ElementWrapper } from '../../../ElementWrapper';
 import { CSSProperties } from 'react';
 
+const SHADOW_MAP: Record<string, string> = {
+  none: 'none',
+  sm: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+  md: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+  lg: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+  xl: '0 20px 25px -5px rgb(0 0 0 / 0.1)',
+};
+
 export function ButtonElement({ element, isEditing }: { element: Element; isEditing?: boolean }) {
-  const { label, link, variant, size, fullWidth, icon, openInNewTab } = element.props;
+  const { label, link, variant, size, fullWidth, openInNewTab } = element.props;
+  const s = element.styles;
 
   const sizeClasses: Record<string, string> = {
     sm: 'px-3 py-1.5 text-sm',
@@ -13,15 +22,23 @@ export function ButtonElement({ element, isEditing }: { element: Element; isEdit
 
   const v = variant || 'primary';
 
-  // In storefront (not editing), use CSS variables from brand so colors match the org theme
-  const inlineStyle: CSSProperties = {};
+  // Visual styles applied directly on the button (not the wrapper)
+  const btnStyle: CSSProperties = {
+    borderRadius: s.borderRadius ?? 6,
+    borderWidth: s.borderWidth ?? 0,
+    borderColor: s.borderColor || '#e5e7eb',
+    borderStyle: (s.borderStyle && s.borderStyle !== 'none') ? s.borderStyle : (s.borderWidth ? 'solid' : undefined),
+    boxShadow: SHADOW_MAP[s.boxShadow || 'none'],
+  };
+
+  // Storefront uses CSS variables for brand colors
   if (!isEditing) {
     if (v === 'primary') {
-      inlineStyle.backgroundColor = 'var(--sf-primary, hsl(var(--primary)))';
-      inlineStyle.color = '#fff';
+      btnStyle.backgroundColor = 'var(--sf-primary, hsl(var(--primary)))';
+      btnStyle.color = '#fff';
     } else if (v === 'secondary') {
-      inlineStyle.backgroundColor = 'var(--sf-secondary, hsl(var(--secondary)))';
-      inlineStyle.color = '#fff';
+      btnStyle.backgroundColor = 'var(--sf-secondary, hsl(var(--secondary)))';
+      btnStyle.color = '#fff';
     }
   }
 
@@ -32,16 +49,28 @@ export function ButtonElement({ element, isEditing }: { element: Element; isEdit
     ghost: 'bg-transparent hover:bg-muted',
   };
 
-  const cls = `inline-flex items-center justify-center gap-2 rounded-md font-medium transition-opacity ${sizeClasses[size || 'md']} ${variantClasses[v] || variantClasses.primary} ${fullWidth ? 'w-full' : ''}`;
+  const cls = `inline-flex items-center justify-center gap-2 font-medium transition-opacity ${sizeClasses[size || 'md']} ${variantClasses[v] || variantClasses.primary} ${fullWidth ? 'w-full' : ''}`;
 
   const Tag = isEditing ? 'button' : 'a';
   const extraProps = isEditing
     ? { type: 'button' as const, disabled: true }
     : { href: link || '#', target: openInNewTab ? '_blank' : undefined, rel: openInNewTab ? 'noopener noreferrer' : undefined };
 
+  // Strip visual props from wrapper so they only appear on button
+  const wrapperElement: Element = {
+    ...element,
+    styles: {
+      ...element.styles,
+      borderRadius: 0,
+      borderWidth: 0,
+      borderStyle: 'none',
+      boxShadow: 'none',
+    },
+  };
+
   return (
-    <ElementWrapper element={element}>
-      <Tag className={cls} style={inlineStyle} {...(extraProps as any)}>
+    <ElementWrapper element={wrapperElement}>
+      <Tag className={cls} style={btnStyle} {...(extraProps as any)}>
         {label || 'Botão'}
       </Tag>
     </ElementWrapper>
