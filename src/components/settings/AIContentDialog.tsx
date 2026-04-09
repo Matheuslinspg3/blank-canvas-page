@@ -22,6 +22,7 @@ export interface AIContentAnswers {
   tone: string;
   region_focus: string;
   extra_info: string;
+  reference_url: string;
 }
 
 interface Props {
@@ -79,6 +80,7 @@ export function AIContentDialog({ open, onOpenChange, onGenerate, isGenerating, 
     tone: "profissional",
     region_focus: "",
     extra_info: "",
+    reference_url: "",
   });
 
   const update = (key: keyof AIContentAnswers, value: string) =>
@@ -208,6 +210,20 @@ export function AIContentDialog({ open, onOpenChange, onGenerate, isGenerating, 
               value={answers.region_focus}
               onChange={(e) => update("region_focus", e.target.value)}
             />
+          </div>
+
+          {/* Reference URL */}
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">URL de referência de estilo (opcional)</Label>
+            <Input
+              type="url"
+              placeholder="Ex: https://www.imobiliariaxyz.com.br — cole o link de um site que goste do visual"
+              value={answers.reference_url}
+              onChange={(e) => update("reference_url", e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              A IA usará este site como inspiração para cores, layout e espaçamentos.
+            </p>
           </div>
 
           {/* Extra info */}
