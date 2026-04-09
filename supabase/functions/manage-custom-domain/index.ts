@@ -517,42 +517,19 @@ Deno.serve(async (req) => {
       const zoneId = cfZoneResult.id;
       const zoneStatus = cfZoneResult.status || "pending";
 
+      // Use A records pointing to Lovable origin IP to avoid Cloudflare Error 1000
+      // (CNAME to another CF-proxied domain causes cross-zone conflict)
       try {
-        const createHostnameDnsRes = await fetch(`${CF_API}/zones/${zoneId}/dns_records`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${env.cloudflareToken!}`,
-            "Content-Type": "application/json",
-          },
-           body: JSON.stringify({
-            type: "CNAME",
-            name: hostname,
-            content: PLATFORM_DOMAIN,
-            proxied: true,
-            comment: "Auto-created for platform site",
-          }),
-        });
-        await createHostnameDnsRes.text();
-
+        await ensureARecordInZone(env.cloudflareToken!, zoneId, hostname, LOVABLE_ORIGIN_IP);
         if (hostname.startsWith("www.")) {
-          const createRootDnsRes = await fetch(`${CF_API}/zones/${zoneId}/dns_records`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${env.cloudflareToken!}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              type: "CNAME",
-              name: "@",
-              content: PLATFORM_DOMAIN,
-              proxied: true,
-              comment: "Auto-created root for platform site",
-            }),
-          });
-          await createRootDnsRes.text();
+          await ensureARecordInZone(env.cloudflareToken!, zoneId, "@", LOVABLE_ORIGIN_IP);
+        } else if (!hostname.startsWith("www.")) {
+          // Also add www variant
+          const rootDomain = hostname;
+          await ensureARecordInZone(env.cloudflareToken!, zoneId, `www.${rootDomain}`, LOVABLE_ORIGIN_IP);
         }
       } catch (e) {
-        console.warn("DNS record creation warning (may already exist):", e);
+        console.warn("DNS record creation warning:", e);
       }
 
       const { data: existingDomain } = await adminClient
