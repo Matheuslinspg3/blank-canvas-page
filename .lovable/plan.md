@@ -1,73 +1,40 @@
-# Plan: Criar com IA para Site Builder v2
 
-## Resumo
-Atualizar o fluxo "Criar com IA" para oferecer duas opções:
-1. **Só textos** — preenche conteúdo nos templates existentes (atual, adaptado para v2)
-2. **Site completo** — IA escolhe seções, monta layout e preenche tudo com dados reais
 
-## Arquitetura
+# Plan: Filtros na lista de imóveis v2 + corrigir "Ver Imóveis"
 
-### Edge Function: `generate-site-v2`
-- Recebe: `organization_id`, `mode` ("text_only" | "full_layout"), respostas do questionário (público-alvo, tom, diferenciais, região)
-- Busca dados reais: `brand_settings`, `website_settings`, `properties` (top 12), nome/slug da org
-- Monta prompt contextualizado com inventário real
-- Usa Lovable AI (gemini-3-flash-preview) com tool calling para extrair JSON estruturado
-- Retorna: `SiteLayoutV2` completo (seções, rows, colunas, elementos com props preenchidos)
+## Problemas identificados
 
-### Schema de saída (tool calling)
-A IA retorna um JSON que mapeia diretamente para `SiteLayoutV2`:
-- Lista de seções com template_id (hero-split, about-with-image, etc.)
-- Props dos elementos preenchidos (títulos, textos, CTAs, cores do branding)
-- Dados de imóveis reais injetados nos property_list/carousel
+1. **"Ver imóveis" não funciona**: O botão aponta para `#imoveis`, mas o `SectionRenderer` não coloca `id` nas seções. Nenhum elemento na página tem esse ID, então o scroll anchor não encontra destino.
 
-### Frontend
-1. Atualizar `AIContentDialog` com toggle "Modo":
-   - "Gerar textos" (preenche website_settings como hoje)
-   - "Gerar site completo" (gera SiteLayoutV2 e salva como draft_v2)
-2. Após geração completa, redirecionar para o editor avançado com o draft carregado
-3. Loading state com progresso
+2. **Sem filtros nos imóveis**: O `PropertyListElement` exibe apenas um grid estático. Os templates legados (Modern, Bold, Elegant, Minimal) todos usam `StorefrontFilters` com busca, tipo de transação, quartos, vagas, preço, cidade e bairro. O modo avançado v2 não tem isso.
 
-### Fluxo de dados
-```
-AIContentDialog → Edge Function → Lovable AI (tool calling)
-                                → Busca brand_settings, properties, org
-                                → Monta SiteLayoutV2
-                                → Salva em site_documents.draft_v2
-                                → Retorna sucesso
-                                → Frontend abre editor com draft
-```
+## Solução
 
-## Tarefas
+### A. Anchor IDs nas seções (SectionRenderer)
 
-1. **Criar edge function `generate-site-v2`**
-   - Buscar dados da org (brand, properties, settings)
-   - Montar prompt com contexto real
-   - Chamar Lovable AI com tool calling para JSON estruturado
-   - Validar e montar SiteLayoutV2 a partir da resposta
-   - Salvar em site_documents
+Adicionar `id={section.anchor || section.label?.toLowerCase().replace(/\s+/g, '-')}` no `<section>` do `SectionRenderer.tsx`. Isso permite que seções com label "Imóveis" gerem automaticamente `id="imoveis"`, fazendo os botões `#imoveis` funcionarem.
 
-2. **Atualizar AIContentDialog**
-   - Adicionar seletor de modo (textos vs site completo)
-   - Chamar nova edge function no modo "site completo"
-   - Manter fluxo atual para modo "textos"
+Também atualizar o converter (`convertLegacyToSiteLayoutV2.ts`) para adicionar `anchor: 'imoveis'` na seção de imóveis e `anchor: 'sobre'` / `anchor: 'contato'` nas seções correspondentes.
 
-3. **Integrar com editor**
-   - Após geração, abrir editor avançado com draft_v2 carregado
-   - Ativar modo advanced automaticamente se ainda não estiver
+### B. Filtros no PropertyListElement
 
-4. **Validar qualidade**
-   - Testar com Porto Caiçara (dados ricos)
-   - Testar com org sem dados (edge case)
+Integrar `useStorefrontFilters` dentro do `PropertyListElement` quando `isEditing` é `false`. No modo público (storefront), renderizar o componente `StorefrontFilters` acima do grid de imóveis, com busca por texto, tipo de transação, quartos, vagas, preço, cidade e bairro.
 
-## Arquivos
+No modo de edição, manter os placeholders atuais sem filtros.
+
+## Arquivos alterados
 
 | Arquivo | Ação |
 |---------|------|
-| `supabase/functions/generate-site-v2/index.ts` | Criar |
-| `src/components/settings/AIContentDialog.tsx` | Atualizar |
-| `src/hooks/useSiteAIGeneration.ts` | Criar (hook para chamar a edge function) |
+| `src/components/siteBuilder/v2/SectionRenderer.tsx` | Adicionar `id` com anchor/label |
+| `src/components/siteBuilder/v2/elements/properties/PropertyList/PropertyListElement.tsx` | Integrar `StorefrontFilters` + `useStorefrontFilters` |
+| `src/lib/convertLegacyToSiteLayoutV2.ts` | Adicionar `anchor` nas seções geradas |
+| `src/types/siteBuilderV2.ts` | Adicionar campo opcional `anchor?: string` no tipo `Section` |
 
-## Riscos
-- Qualidade do layout gerado pela IA — mitigado com templates pré-definidos como "cardápio"
-- Token limits — mitigado com prompt conciso e tool calling
-- Dados vazios — fallback para presets padrão
+## Resultado esperado
+
+- Botão "Ver imóveis" faz scroll até a seção de imóveis
+- Grid de imóveis tem barra de filtros completa (busca, tipo, quartos, vagas, preço, cidade, bairro)
+- Filtros funcionam em tempo real no storefront público
+- Editor continua mostrando placeholders sem filtros
+
