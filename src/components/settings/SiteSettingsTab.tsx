@@ -232,20 +232,8 @@ function WebsiteContentSection() {
         </CardHeader>
       </Card>
 
-      {/* Template Selector */}
-      <SiteTemplateSelector
-        value={form.site_template}
-        onChange={(t) => update("site_template", t)}
-        onGenerateWithAI={() => setShowAIDialog(true)}
-        isGenerating={isGeneratingAI}
-      />
 
-      <AIContentDialog
-        open={showAIDialog}
-        onOpenChange={setShowAIDialog}
-        onGenerate={handleGenerateWithAI}
-        isGenerating={isGeneratingAI || isAIGenerating}
-      />
+
 
       {/* Hero Section */}
       <Card>
