@@ -91,9 +91,9 @@ function WebsiteContentSection() {
   const navigate = useNavigate();
   const { generateTextOnly, generateFullLayout, isGenerating: isAIGenerating } = useSiteAIGeneration();
 
-  const handleGenerateWithAI = async (answers: AIContentAnswers, mode: AIGenerationMode = "text_only") => {
+  const handleGenerateWithAI = async (answers: AIContentAnswers, mode: AIGenerationMode = "text_only", siteMode?: 'single-page' | 'multi-page') => {
     if (mode === "full_layout") {
-      const layout = await generateFullLayout(answers);
+      const layout = await generateFullLayout(answers, siteMode || 'single-page');
       if (layout && orgId) {
         // Save as draft_v2 and activate advanced mode
         try {
