@@ -92,8 +92,7 @@ Deno.serve(async (req) => {
     const { data: pendingDomains, error: fetchErr } = await adminClient
       .from("tenant_domains")
       .select("id, hostname, cloudflare_hostname_id, cloudflare_zone_id, zone_mode, zone_status, organization_id")
-      .eq("is_active", false)
-      .not("cloudflare_hostname_id", "is", null);
+      .or("and(zone_mode.eq.full_zone,cloudflare_zone_id.not.is.null),and(is_active.eq.false,cloudflare_hostname_id.not.is.null)");
 
     if (fetchErr) {
       console.error("DB fetch error:", fetchErr);
@@ -154,6 +153,43 @@ Deno.serve(async (req) => {
 
             if (hasARecord) {
               console.log(`✅ Full-zone domain ready: ${domain.hostname}`);
+
+              if (domain.hostname.startsWith("www.")) {
+                const rootHostname = domain.hostname.replace(/^www\./, "");
+                const { data: rootAlias } = await adminClient
+                  .from("tenant_domains")
+                  .select("id")
+                  .eq("hostname", rootHostname)
+                  .eq("organization_id", domain.organization_id)
+                  .maybeSingle();
+
+                const rootPayload = {
+                  cloudflare_zone_id: domain.cloudflare_zone_id,
+                  zone_mode: "full_zone",
+                  zone_status: "active",
+                  nameservers,
+                  ssl_status: "active",
+                  verification_status: "active",
+                  is_active: true,
+                  updated_at: new Date().toISOString(),
+                };
+
+                if (rootAlias?.id) {
+                  await adminClient
+                    .from("tenant_domains")
+                    .update(rootPayload)
+                    .eq("id", rootAlias.id);
+                } else {
+                  await adminClient
+                    .from("tenant_domains")
+                    .insert({
+                      organization_id: domain.organization_id,
+                      hostname: rootHostname,
+                      ...rootPayload,
+                    });
+                }
+              }
+
               await adminClient
                 .from("tenant_domains")
                 .update({
