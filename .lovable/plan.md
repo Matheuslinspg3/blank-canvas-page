@@ -1,40 +1,62 @@
 
 
-# Plan: Filtros na lista de imóveis v2 + corrigir "Ver Imóveis"
+# Plan: Corrigir botão vermelho, favicon, anchors e cores no storefront v2
 
-## Problemas identificados
+## Problemas identificados (confirmados via browser)
 
-1. **"Ver imóveis" não funciona**: O botão aponta para `#imoveis`, mas o `SectionRenderer` não coloca `id` nas seções. Nenhum elemento na página tem esse ID, então o scroll anchor não encontra destino.
+1. **Botão "Ver Imóveis" vermelho**: O `ButtonElement` usa classes Tailwind (`bg-primary`) que resolvem para o primary padrão do Tailwind (vermelho/rosa), e NÃO para a cor da marca. O storefront define `--sf-primary` como CSS variable, mas o botão não a usa.
 
-2. **Sem filtros nos imóveis**: O `PropertyListElement` exibe apenas um grid estático. Os templates legados (Modern, Bold, Elegant, Minimal) todos usam `StorefrontFilters` com busca, tipo de transação, quartos, vagas, preço, cidade e bairro. O modo avançado v2 não tem isso.
+2. **Nenhum botão funciona / "Ver Imóveis" não faz scroll**: Todas as 6 seções na página têm `id=""` (vazio). O `SectionRenderer` gera IDs a partir de `section.anchor || section.name`, mas o layout gerado pela IA (`useSiteAIGeneration`) não define `anchor` nem `name` nas seções.
+
+3. **Favicon do Porta do Corretor**: O `index.html` tem `<link rel="icon" href="/favicon.png">` hardcoded. O `SEOHead` injeta dinamicamente via Helmet, mas o favicon estático pode ser carregado antes ou tomar precedência em alguns browsers.
+
+4. **Filtros**: JÁ FUNCIONAM — confirmado no browser. A barra de busca, tabs Todos/Venda/Aluguel e ícone de filtros estão presentes.
 
 ## Solução
 
-### A. Anchor IDs nas seções (SectionRenderer)
+### A. ButtonElement — usar cor da marca via CSS variable
 
-Adicionar `id={section.anchor || section.label?.toLowerCase().replace(/\s+/g, '-')}` no `<section>` do `SectionRenderer.tsx`. Isso permite que seções com label "Imóveis" gerem automaticamente `id="imoveis"`, fazendo os botões `#imoveis` funcionarem.
+No `ButtonElement.tsx`, trocar `bg-primary text-primary-foreground` por estilos inline que usam `var(--sf-primary)` com fallback para as classes Tailwind padrão (para não quebrar o editor).
 
-Também atualizar o converter (`convertLegacyToSiteLayoutV2.ts`) para adicionar `anchor: 'imoveis'` na seção de imóveis e `anchor: 'sobre'` / `anchor: 'contato'` nas seções correspondentes.
+Quando `isEditing` é `false` (storefront público), aplicar:
+```
+style={{ backgroundColor: 'var(--sf-primary, hsl(var(--primary)))' }}
+```
 
-### B. Filtros no PropertyListElement
+Para o variant `secondary`, usar `var(--sf-secondary)`.
 
-Integrar `useStorefrontFilters` dentro do `PropertyListElement` quando `isEditing` é `false`. No modo público (storefront), renderizar o componente `StorefrontFilters` acima do grid de imóveis, com busca por texto, tipo de transação, quartos, vagas, preço, cidade e bairro.
+### B. Anchors nas seções geradas pela IA
 
-No modo de edição, manter os placeholders atuais sem filtros.
+No `useSiteAIGeneration.ts`, dentro de `buildLayoutFromAI`, detectar o `template_id` de cada seção e atribuir anchors automaticamente:
+- Templates com "hero" → `anchor: 'hero'`
+- Templates com "about" → `anchor: 'sobre'`
+- Templates com "properties" → `anchor: 'imoveis'`
+- Templates com "contact" ou "footer" → `anchor: 'contato'`
+
+Também definir `name` para cada seção baseado no template.
+
+### C. Favicon dinâmico para white-label
+
+Remover o `<link rel="icon" href="/favicon.png">` do `index.html` (o `SEOHead` já injeta dinamicamente). Isso permite que o Helmet controle o favicon, que no caso do Porto Caiçara usará a `brand.logo_url`.
+
+Se `brand.logo_url` for null, o SEOHead não injeta favicon, e o browser usará o fallback padrão.
+
+### D. Re-publicação necessária
+
+Após as correções de código, o site precisará ser republicado pelo builder para que as mudanças de anchor no layout sejam aplicadas. As correções de CSS/ButtonElement e favicon serão imediatas.
 
 ## Arquivos alterados
 
 | Arquivo | Ação |
 |---------|------|
-| `src/components/siteBuilder/v2/SectionRenderer.tsx` | Adicionar `id` com anchor/label |
-| `src/components/siteBuilder/v2/elements/properties/PropertyList/PropertyListElement.tsx` | Integrar `StorefrontFilters` + `useStorefrontFilters` |
-| `src/lib/convertLegacyToSiteLayoutV2.ts` | Adicionar `anchor` nas seções geradas |
-| `src/types/siteBuilderV2.ts` | Adicionar campo opcional `anchor?: string` no tipo `Section` |
+| `src/components/siteBuilder/v2/elements/basic/Button/ButtonElement.tsx` | Usar `var(--sf-primary)` para cores |
+| `src/hooks/useSiteAIGeneration.ts` | Adicionar `anchor` e `name` nas seções |
+| `index.html` | Remover favicon hardcoded |
 
 ## Resultado esperado
 
-- Botão "Ver imóveis" faz scroll até a seção de imóveis
-- Grid de imóveis tem barra de filtros completa (busca, tipo, quartos, vagas, preço, cidade, bairro)
-- Filtros funcionam em tempo real no storefront público
-- Editor continua mostrando placeholders sem filtros
+- Botão "Ver Imóveis" usa a cor dourada/accent da marca
+- Clicar "Ver Imóveis" faz scroll até a seção de imóveis
+- Favicon mostra a logo da imobiliária (não do Porta)
+- Filtros continuam funcionando (já estão OK)
 
