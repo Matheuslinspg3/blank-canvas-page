@@ -3,9 +3,51 @@ import { corsHeaders } from "../_shared/cors.ts";
 
 const CF_API = "https://api.cloudflare.com/client/v4";
 const LOVABLE_ORIGIN_IP = "185.158.133.1";
+const WORKER_PROXY_IP = "192.0.2.1";
+const WORKER_SCRIPT_NAME = "platform-subdomain-proxy";
 
-// Ensure A record is present with proxy disabled to avoid Cloudflare Error 1000
-async function ensureDnsOnlyARecord(
+function getRootHostname(hostname: string): string {
+  return hostname.replace(/^www\./, "");
+}
+
+async function ensureWorkerRoutes(
+  cfToken: string,
+  zoneId: string,
+  hostname: string,
+): Promise<boolean> {
+  const rootHostname = getRootHostname(hostname);
+  const desiredPatterns = [`${rootHostname}/*`, `www.${rootHostname}/*`];
+
+  const routesRes = await fetch(`${CF_API}/zones/${zoneId}/workers/routes`, {
+    headers: { Authorization: `Bearer ${cfToken}` },
+  });
+  const routesData = await routesRes.json();
+  const routes = routesData?.result || [];
+  const existingPatterns = new Set(routes.map((route: any) => route.pattern));
+  let changed = false;
+
+  for (const pattern of desiredPatterns) {
+    if (existingPatterns.has(pattern)) continue;
+
+    console.log(`Creating Worker route ${pattern} → ${WORKER_SCRIPT_NAME}`);
+    const routeRes = await fetch(`${CF_API}/zones/${zoneId}/workers/routes`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${cfToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ pattern, script: WORKER_SCRIPT_NAME }),
+    });
+    const routeData = await routeRes.json();
+    if (routeData?.success) {
+      changed = true;
+    } else {
+      console.warn(`Failed creating Worker route ${pattern}:`, routeData?.errors);
+    }
+  }
+
+  return changed;
+}
+
+// Ensure proxied A record is present for the Worker proxy on full-zone domains
+async function ensureWorkerProxyARecord(
   cfToken: string,
   zoneId: string,
   name: string,
@@ -20,7 +62,7 @@ async function ensureDnsOnlyARecord(
 
   for (const record of records) {
     if (record.type === "CNAME") {
-      console.log(`Fixing CNAME→A for ${name}: deleting CNAME ${record.id} (${record.content})`);
+      console.log(`Fixing CNAME→Worker A for ${name}: deleting CNAME ${record.id} (${record.content})`);
       await fetch(`${CF_API}/zones/${zoneId}/dns_records/${record.id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${cfToken}` },
@@ -30,21 +72,21 @@ async function ensureDnsOnlyARecord(
     }
 
     if (record.type === "A") {
-      const needsUpdate = record.content !== LOVABLE_ORIGIN_IP || record.proxied !== false;
+      const needsUpdate = record.content !== WORKER_PROXY_IP || record.proxied !== true;
       if (!needsUpdate) {
         return changed;
       }
 
-      console.log(`Updating A record for ${name} to dns-only ${LOVABLE_ORIGIN_IP}`);
+      console.log(`Updating A record for ${name} to Worker proxy ${WORKER_PROXY_IP}`);
       const updateRes = await fetch(`${CF_API}/zones/${zoneId}/dns_records/${record.id}`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${cfToken}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "A",
           name,
-          content: LOVABLE_ORIGIN_IP,
-          proxied: false,
-          comment: "Auto-fixed to DNS-only A record for platform site",
+          content: WORKER_PROXY_IP,
+          proxied: true,
+          comment: "Auto-fixed to proxied Worker A record for platform site",
         }),
       });
       const updateData = await updateRes.json();
@@ -52,16 +94,16 @@ async function ensureDnsOnlyARecord(
     }
   }
 
-  console.log(`Creating dns-only A record for ${name} → ${LOVABLE_ORIGIN_IP}`);
+  console.log(`Creating proxied Worker A record for ${name} → ${WORKER_PROXY_IP}`);
   const createRes = await fetch(`${CF_API}/zones/${zoneId}/dns_records`, {
     method: "POST",
     headers: { Authorization: `Bearer ${cfToken}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       type: "A",
       name,
-      content: LOVABLE_ORIGIN_IP,
-      proxied: false,
-      comment: "Auto-fixed to DNS-only A record for platform site",
+      content: WORKER_PROXY_IP,
+      proxied: true,
+      comment: "Auto-fixed to proxied Worker A record for platform site",
     }),
   });
   const createData = await createRes.json();
@@ -132,15 +174,23 @@ Deno.serve(async (req) => {
           console.log(`Zone check for ${domain.hostname}: status=${zoneStatus}`);
 
           if (zoneStatus === "active") {
-            // Auto-fix: replace CNAME with A record to avoid Error 1000
-            const dnsFixed = await ensureDnsOnlyARecord(CF_TOKEN, domain.cloudflare_zone_id, domain.hostname);
-            if (dnsFixed) {
-              console.log(`🔧 Fixed DNS for ${domain.hostname}`);
-            }
-            // Also fix root if www
+            // Auto-fix: ensure Worker routes + proxied dummy A records so the custom host is served correctly.
+            const routesFixed = await ensureWorkerRoutes(CF_TOKEN, domain.cloudflare_zone_id, domain.hostname);
+            let dnsFixed = await ensureWorkerProxyARecord(CF_TOKEN, domain.cloudflare_zone_id, domain.hostname);
+
             if (domain.hostname.startsWith("www.")) {
-              const rootName = domain.hostname.replace(/^www\./, "");
-              await ensureDnsOnlyARecord(CF_TOKEN, domain.cloudflare_zone_id, rootName);
+              const rootName = getRootHostname(domain.hostname);
+              dnsFixed = await ensureWorkerProxyARecord(CF_TOKEN, domain.cloudflare_zone_id, rootName) || dnsFixed;
+            } else {
+              dnsFixed = await ensureWorkerProxyARecord(
+                CF_TOKEN,
+                domain.cloudflare_zone_id,
+                `www.${getRootHostname(domain.hostname)}`,
+              ) || dnsFixed;
+            }
+
+            if (routesFixed || dnsFixed) {
+              console.log(`🔧 Fixed proxy/DNS for ${domain.hostname}`);
             }
 
             // Check for A record
