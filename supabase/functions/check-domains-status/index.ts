@@ -2,6 +2,47 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { corsHeaders } from "../_shared/cors.ts";
 
 const CF_API = "https://api.cloudflare.com/client/v4";
+const LOVABLE_ORIGIN_IP = "185.158.133.1";
+
+// Fix CNAME→A to avoid Cloudflare Error 1000 (cross-zone CNAME conflict)
+async function fixCnameToARecord(
+  cfToken: string,
+  zoneId: string,
+  name: string,
+): Promise<boolean> {
+  const searchRes = await fetch(
+    `${CF_API}/zones/${zoneId}/dns_records?name=${encodeURIComponent(name)}&type=CNAME`,
+    { headers: { Authorization: `Bearer ${cfToken}` } }
+  );
+  const searchData = await searchRes.json();
+  const cnameRecords = searchData?.result || [];
+
+  if (cnameRecords.length === 0) return false;
+
+  for (const record of cnameRecords) {
+    console.log(`Fixing CNAME→A for ${name}: deleting CNAME ${record.id} (${record.content})`);
+    await fetch(`${CF_API}/zones/${zoneId}/dns_records/${record.id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${cfToken}` },
+    });
+  }
+
+  // Create A record
+  console.log(`Creating A record for ${name} → ${LOVABLE_ORIGIN_IP}`);
+  const createRes = await fetch(`${CF_API}/zones/${zoneId}/dns_records`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${cfToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      type: "A",
+      name,
+      content: LOVABLE_ORIGIN_IP,
+      proxied: true,
+      comment: "Auto-fixed from CNAME to A record for platform site",
+    }),
+  });
+  const createData = await createRes.json();
+  return createData?.success === true;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -24,7 +65,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch all pending (non-active) domains that have a Cloudflare hostname ID
     const { data: pendingDomains, error: fetchErr } = await adminClient
       .from("tenant_domains")
       .select("id, hostname, cloudflare_hostname_id, cloudflare_zone_id, zone_mode, zone_status, organization_id")
@@ -46,11 +86,11 @@ Deno.serve(async (req) => {
 
     let checked = 0;
     let activated = 0;
-    const results: { hostname: string; status: string; ssl: string; active: boolean; zone_status?: string }[] = [];
+    const results: { hostname: string; status: string; ssl: string; active: boolean; zone_status?: string; dns_fixed?: boolean }[] = [];
 
     for (const domain of pendingDomains) {
       try {
-        // ── Full Zone mode: zone's own SSL handles certificates ──
+        // ── Full Zone mode ──
         if (domain.zone_mode === "full_zone" && domain.cloudflare_zone_id) {
           const zoneRes = await fetch(
             `${CF_API}/zones/${domain.cloudflare_zone_id}`,
@@ -69,18 +109,27 @@ Deno.serve(async (req) => {
           console.log(`Zone check for ${domain.hostname}: status=${zoneStatus}`);
 
           if (zoneStatus === "active") {
-            // Zone is active → DNS is working, Cloudflare Universal SSL handles certs.
-            // Verify the CNAME/A record exists in the zone for this hostname.
-            const dnsCheckRes = await fetch(
-              `${CF_API}/zones/${domain.cloudflare_zone_id}/dns_records?name=${encodeURIComponent(domain.hostname)}&type=CNAME`,
+            // Auto-fix: replace CNAME with A record to avoid Error 1000
+            const dnsFixed = await fixCnameToARecord(CF_TOKEN, domain.cloudflare_zone_id, domain.hostname);
+            if (dnsFixed) {
+              console.log(`🔧 Fixed CNAME→A for ${domain.hostname}`);
+            }
+            // Also fix root if www
+            if (domain.hostname.startsWith("www.")) {
+              const rootName = domain.hostname.replace(/^www\./, "");
+              await fixCnameToARecord(CF_TOKEN, domain.cloudflare_zone_id, rootName);
+            }
+
+            // Check for A record
+            const aCheckRes = await fetch(
+              `${CF_API}/zones/${domain.cloudflare_zone_id}/dns_records?name=${encodeURIComponent(domain.hostname)}&type=A`,
               { headers: { Authorization: `Bearer ${CF_TOKEN}` } }
             );
-            const dnsCheckData = await dnsCheckRes.json();
-            const hasCname = dnsCheckData.success && dnsCheckData.result?.length > 0;
+            const aCheckData = await aCheckRes.json();
+            const hasARecord = aCheckData.success && aCheckData.result?.length > 0;
 
-            if (hasCname) {
-              // CNAME exists + zone active → domain is fully operational
-              console.log(`✅ Full-zone domain ready: ${domain.hostname} (zone active + CNAME exists)`);
+            if (hasARecord) {
+              console.log(`✅ Full-zone domain ready: ${domain.hostname}`);
               await adminClient
                 .from("tenant_domains")
                 .update({
@@ -99,63 +148,29 @@ Deno.serve(async (req) => {
                 ssl: "active",
                 active: true,
                 zone_status: "active",
+                dns_fixed: dnsFixed,
               });
               activated++;
             } else {
-              console.log(`Zone active but no CNAME for ${domain.hostname}, checking A records...`);
-              // Check for A records as fallback
-              const aCheckRes = await fetch(
-                `${CF_API}/zones/${domain.cloudflare_zone_id}/dns_records?name=${encodeURIComponent(domain.hostname)}&type=A`,
-                { headers: { Authorization: `Bearer ${CF_TOKEN}` } }
-              );
-              const aCheckData = await aCheckRes.json();
-              const hasARecord = aCheckData.success && aCheckData.result?.length > 0;
-
-              if (hasARecord) {
-                console.log(`✅ Full-zone domain ready via A record: ${domain.hostname}`);
-                await adminClient
-                  .from("tenant_domains")
-                  .update({
-                    zone_status: "active",
-                    nameservers,
-                    ssl_status: "active",
-                    verification_status: "active",
-                    is_active: true,
-                    updated_at: new Date().toISOString(),
-                  })
-                  .eq("id", domain.id);
-
-                results.push({
-                  hostname: domain.hostname,
-                  status: "active",
-                  ssl: "active",
-                  active: true,
+              await adminClient
+                .from("tenant_domains")
+                .update({
                   zone_status: "active",
-                });
-                activated++;
-              } else {
-                // Zone active but no DNS record for this hostname
-                await adminClient
-                  .from("tenant_domains")
-                  .update({
-                    zone_status: "active",
-                    nameservers,
-                    verification_status: "active",
-                    updated_at: new Date().toISOString(),
-                  })
-                  .eq("id", domain.id);
+                  nameservers,
+                  verification_status: "active",
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", domain.id);
 
-                results.push({
-                  hostname: domain.hostname,
-                  status: "no_dns_record",
-                  ssl: "pending",
-                  active: false,
-                  zone_status: "active",
-                });
-              }
+              results.push({
+                hostname: domain.hostname,
+                status: "no_a_record",
+                ssl: "pending",
+                active: false,
+                zone_status: "active",
+              });
             }
           } else {
-            // Zone not yet active (NS haven't propagated)
             await adminClient
               .from("tenant_domains")
               .update({
@@ -176,7 +191,7 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // ── Custom Hostname mode (default): check via platform zone ──
+        // ── Custom Hostname mode ──
         const cfRes = await fetch(
           `${CF_API}/zones/${CF_ZONE}/custom_hostnames/${domain.cloudflare_hostname_id}`,
           { headers: { Authorization: `Bearer ${CF_TOKEN}` } }
@@ -186,12 +201,7 @@ Deno.serve(async (req) => {
 
         if (!cfData.success) {
           console.warn(`CF check failed for ${domain.hostname}:`, cfData.errors);
-          results.push({
-            hostname: domain.hostname,
-            status: "cf_error",
-            ssl: "unknown",
-            active: false,
-          });
+          results.push({ hostname: domain.hostname, status: "cf_error", ssl: "unknown", active: false });
           continue;
         }
 
@@ -200,7 +210,6 @@ Deno.serve(async (req) => {
         const verificationStatus = cfHostname.status || "unknown";
         const isActive = verificationStatus === "active" && sslStatus === "active";
 
-        // Update DB
         await adminClient
           .from("tenant_domains")
           .update({
@@ -211,12 +220,7 @@ Deno.serve(async (req) => {
           })
           .eq("id", domain.id);
 
-        results.push({
-          hostname: domain.hostname,
-          status: verificationStatus,
-          ssl: sslStatus,
-          active: isActive,
-        });
+        results.push({ hostname: domain.hostname, status: verificationStatus, ssl: sslStatus, active: isActive });
 
         if (isActive) {
           activated++;
