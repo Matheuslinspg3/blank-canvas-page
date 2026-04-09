@@ -171,9 +171,10 @@ function reducer(state: BuilderState, action: BuilderAction): BuilderState {
     }
 
     case 'REORDER_SECTIONS': {
-      const map = new Map(state.present.sections.map(s => [s.id, s]));
+      const currentSections = getSections(state.present, state.activePageId);
+      const map = new Map(currentSections.map(s => [s.id, s]));
       const reordered = action.orderedIds.map((id, i) => ({ ...map.get(id)!, order: i }));
-      return withHistory(state, { ...state.present, sections: reordered });
+      return withHistory(state, setSections(state.present, state.activePageId, reordered));
     }
 
     case 'UPDATE_SECTION_STYLES':
