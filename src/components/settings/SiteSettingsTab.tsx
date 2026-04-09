@@ -24,7 +24,9 @@ import { extractColorsFromImage } from "@/lib/extractColors";
 import { getLogoPreviewUrl, getTransparentLogoUrl, isCloudinaryUrl } from "@/lib/cloudinary/logoTransparency";
 import { DomainSetupWizard } from "./DomainSetupWizard";
 import { SiteTemplateSelector, type SiteTemplate } from "./SiteTemplateSelector";
-import { AIContentDialog, type AIContentAnswers } from "./AIContentDialog";
+import { AIContentDialog, type AIContentAnswers, type AIGenerationMode } from "./AIContentDialog";
+import { useSiteAIGeneration } from "@/hooks/useSiteAIGeneration";
+import { useNavigate } from "react-router-dom";
 
 // ─── Website Settings Section ────────────────────────────────────────────────
 
@@ -86,31 +88,70 @@ function WebsiteContentSection() {
     }
   }, [settings]);
 
-  const handleGenerateWithAI = async (answers: AIContentAnswers) => {
+  const navigate = useNavigate();
+  const { generateTextOnly, generateFullLayout, isGenerating: isAIGenerating } = useSiteAIGeneration();
+
+  const handleGenerateWithAI = async (answers: AIContentAnswers, mode: AIGenerationMode = "text_only") => {
+    if (mode === "full_layout") {
+      const layout = await generateFullLayout(answers);
+      if (layout && orgId) {
+        // Save as draft_v2 and activate advanced mode
+        try {
+          const { data: existingDoc } = await supabase
+            .from("site_documents")
+            .select("id")
+            .eq("organization_id", orgId)
+            .maybeSingle();
+
+          if (existingDoc) {
+            await supabase
+              .from("site_documents")
+              .update({
+                draft_v2: layout as any,
+                published_v2: layout as any,
+                editor_mode: "advanced",
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", existingDoc.id);
+          } else {
+            await supabase.from("site_documents").insert({
+              organization_id: orgId,
+              draft_v2: layout as any,
+              published_v2: layout as any,
+              editor_mode: "advanced",
+            });
+          }
+
+          setShowAIDialog(false);
+          toast.success("Site gerado com IA! Abrindo o editor...");
+          navigate("/site/builder-pro");
+        } catch (err: any) {
+          toast.error("Erro ao salvar layout: " + (err.message || ""));
+        }
+      }
+      return;
+    }
+
+    // Text only mode
     setIsGeneratingAI(true);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-site-content", {
-        body: answers,
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-
-      setForm((prev) => ({
-        ...prev,
-        hero_title: data.hero_title || prev.hero_title,
-        hero_subtitle: data.hero_subtitle || prev.hero_subtitle,
-        about_text: data.about_text || prev.about_text,
-        meta_title: data.meta_title || prev.meta_title,
-        meta_description: data.meta_description || prev.meta_description,
-        whatsapp_message: data.whatsapp_message || prev.whatsapp_message,
-      }));
-      setShowAIDialog(false);
-      toast.success("Conteúdo gerado com IA! Revise e salve.", {
-        description: "Os campos foram preenchidos automaticamente.",
-        icon: <Sparkles className="h-4 w-4" />,
-      });
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao gerar conteúdo com IA");
+      const content = await generateTextOnly(answers);
+      if (content) {
+        setForm((prev) => ({
+          ...prev,
+          hero_title: content.hero_title || prev.hero_title,
+          hero_subtitle: content.hero_subtitle || prev.hero_subtitle,
+          about_text: content.about_text || prev.about_text,
+          meta_title: content.meta_title || prev.meta_title,
+          meta_description: content.meta_description || prev.meta_description,
+          whatsapp_message: content.whatsapp_message || prev.whatsapp_message,
+        }));
+        setShowAIDialog(false);
+        toast.success("Conteúdo gerado com IA! Revise e salve.", {
+          description: "Os campos foram preenchidos automaticamente.",
+          icon: <Sparkles className="h-4 w-4" />,
+        });
+      }
     } finally {
       setIsGeneratingAI(false);
     }
@@ -203,7 +244,7 @@ function WebsiteContentSection() {
         open={showAIDialog}
         onOpenChange={setShowAIDialog}
         onGenerate={handleGenerateWithAI}
-        isGenerating={isGeneratingAI}
+        isGenerating={isGeneratingAI || isAIGenerating}
       />
 
       {/* Hero Section */}
