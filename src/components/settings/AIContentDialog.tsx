@@ -212,6 +212,20 @@ export function AIContentDialog({ open, onOpenChange, onGenerate, isGenerating, 
             />
           </div>
 
+          {/* Reference URL */}
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">URL de referência de estilo (opcional)</Label>
+            <Input
+              type="url"
+              placeholder="Ex: https://www.imobiliariaxyz.com.br — cole o link de um site que goste do visual"
+              value={answers.reference_url}
+              onChange={(e) => update("reference_url", e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              A IA usará este site como inspiração para cores, layout e espaçamentos.
+            </p>
+          </div>
+
           {/* Extra info */}
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Algo mais que a IA deve saber? (opcional)</Label>
