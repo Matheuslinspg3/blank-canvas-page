@@ -15,7 +15,7 @@ import {
   Globe, Layout, Phone, Search, Trash2, RefreshCw, Plus,
   CheckCircle2, Clock, AlertCircle, Loader2, ExternalLink, Save,
   MessageSquare, Mail, FileText, Palette, Upload, X, Pipette, Crown,
-  Shield, Wifi, FileCheck, Cloud, Copy, Server, Sparkles, Eraser
+  Shield, Wifi, FileCheck, Cloud, Copy, Server, Sparkles, Eraser, Wand2
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
@@ -23,6 +23,16 @@ import { toastError } from "@/lib/toastError";
 import { extractColorsFromImage } from "@/lib/extractColors";
 import { getLogoPreviewUrl, getTransparentLogoUrl, isCloudinaryUrl } from "@/lib/cloudinary/logoTransparency";
 import { DomainSetupWizard } from "./DomainSetupWizard";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { SiteTemplateSelector, type SiteTemplate } from "./SiteTemplateSelector";
 import { AIContentDialog, type AIContentAnswers, type AIGenerationMode } from "./AIContentDialog";
 import { useSiteAIGeneration } from "@/hooks/useSiteAIGeneration";
