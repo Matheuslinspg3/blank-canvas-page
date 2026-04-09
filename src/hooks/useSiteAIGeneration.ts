@@ -65,6 +65,17 @@ function buildLayoutFromAI(
     const built = template.build(theme);
     const withContent = applyContentToSection(built, aiSection.content);
     withContent.order = i;
+
+    // Auto-assign anchor and name based on template_id
+    const tid = aiSection.template_id.toLowerCase();
+    if (tid.includes('hero')) { withContent.anchor = 'hero'; withContent.name = 'Hero'; }
+    else if (tid.includes('about')) { withContent.anchor = 'sobre'; withContent.name = 'Sobre'; }
+    else if (tid.includes('propert')) { withContent.anchor = 'imoveis'; withContent.name = 'Imóveis'; }
+    else if (tid.includes('contact') || tid.includes('cta')) { withContent.anchor = 'contato'; withContent.name = 'Contato'; }
+    else if (tid.includes('footer')) { withContent.anchor = 'rodape'; withContent.name = 'Rodapé'; }
+    else if (tid.includes('testimonial')) { withContent.anchor = 'depoimentos'; withContent.name = 'Depoimentos'; }
+    else if (tid.includes('banner')) { withContent.anchor = 'banner'; withContent.name = 'Banner'; }
+
     sections.push(withContent);
   }
 
