@@ -275,6 +275,35 @@ function reducer(state: BuilderState, action: BuilderAction): BuilderState {
     case 'UPDATE_META':
       return withHistory(state, { ...state.present, meta: { ...state.present.meta, ...action.meta } });
 
+    case 'ADD_PAGE': {
+      const newPage: import('@/types/siteBuilderV2').SitePage = {
+        id: uid(), slug: action.slug, title: action.title, sections: [],
+        seo: { title: action.title },
+      };
+      const pages = [...(state.present.pages || []), newPage];
+      return withHistory(state, { ...state.present, pages });
+    }
+
+    case 'DELETE_PAGE': {
+      const pages = (state.present.pages || []).filter(p => p.id !== action.pageId);
+      const newState = withHistory(state, { ...state.present, pages });
+      if (state.activePageId === action.pageId) newState.activePageId = null;
+      return newState;
+    }
+
+    case 'UPDATE_PAGE': {
+      const pages = (state.present.pages || []).map(p =>
+        p.id === action.pageId ? { ...p, ...action.updates } : p
+      );
+      return withHistory(state, { ...state.present, pages });
+    }
+
+    case 'UPDATE_NAVIGATION':
+      return withHistory(state, { ...state.present, navigation: action.navigation });
+
+    case 'SET_ACTIVE_PAGE':
+      return { ...state, activePageId: action.pageId, selection: { type: 'none' } };
+
     case 'UNDO': {
       if (state.past.length === 0) return state;
       const prev = state.past[state.past.length - 1];
@@ -306,6 +335,7 @@ const INITIAL_STATE: BuilderState = {
   past: [], present: EMPTY_LAYOUT, future: [],
   selection: { type: 'none' }, viewport: 'desktop', hoveredId: null,
   lastSavedAt: null, isDirty: false, snapEnabled: true, gridSize: 8,
+  activePageId: null,
 };
 
 export function useSiteBuilderProState() {
