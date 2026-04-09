@@ -23,6 +23,7 @@ export interface BuilderState {
   isDirty: boolean;
   snapEnabled: boolean;
   gridSize: number;
+  activePageId: string | null; // null = homepage
 }
 
 // ── Actions ──────────────────────────────────────────────────
@@ -56,6 +57,11 @@ export type BuilderAction =
   | { type: 'MOVE_ELEMENT_BETWEEN_COLUMNS'; from: { sectionId: string; rowId: string; columnId: string; elementId: string }; to: { sectionId: string; rowId: string; columnId: string } }
   | { type: 'UPDATE_THEME'; theme: Partial<SiteTheme> }
   | { type: 'UPDATE_META'; meta: Partial<SiteMeta> }
+  | { type: 'ADD_PAGE'; slug: string; title: string }
+  | { type: 'DELETE_PAGE'; pageId: string }
+  | { type: 'UPDATE_PAGE'; pageId: string; updates: Partial<Pick<import('@/types/siteBuilderV2').SitePage, 'slug' | 'title' | 'seo'>> }
+  | { type: 'UPDATE_NAVIGATION'; navigation: import('@/types/siteBuilderV2').NavItem[] }
+  | { type: 'SET_ACTIVE_PAGE'; pageId: string | null }
   | { type: 'UNDO' }
   | { type: 'REDO' }
   | { type: 'MARK_SAVED'; at: Date };
