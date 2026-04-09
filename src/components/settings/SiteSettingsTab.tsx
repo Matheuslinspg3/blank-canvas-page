@@ -24,7 +24,9 @@ import { extractColorsFromImage } from "@/lib/extractColors";
 import { getLogoPreviewUrl, getTransparentLogoUrl, isCloudinaryUrl } from "@/lib/cloudinary/logoTransparency";
 import { DomainSetupWizard } from "./DomainSetupWizard";
 import { SiteTemplateSelector, type SiteTemplate } from "./SiteTemplateSelector";
-import { AIContentDialog, type AIContentAnswers } from "./AIContentDialog";
+import { AIContentDialog, type AIContentAnswers, type AIGenerationMode } from "./AIContentDialog";
+import { useSiteAIGeneration } from "@/hooks/useSiteAIGeneration";
+import { useNavigate } from "react-router-dom";
 
 // ─── Website Settings Section ────────────────────────────────────────────────
 
