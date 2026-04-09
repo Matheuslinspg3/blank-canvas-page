@@ -11,5 +11,6 @@ import './templates/contactCta';
 import './templates/ctaBanner';
 import './templates/footerThreeCol';
 import './templates/footerMinimal';
+import './templates/customBlank';
 
 export { SectionTemplateRegistry, type SectionTemplate } from './registry';
