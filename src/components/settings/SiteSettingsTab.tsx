@@ -134,7 +134,13 @@ function WebsiteContentSection() {
 
           setShowAIDialog(false);
           toast.success("Site gerado com IA! Abrindo o editor...");
-          navigate("/site/builder-pro");
+          queryClient.invalidateQueries({ queryKey: ["site-document"] });
+          // Force reload if already on builder-pro
+          if (window.location.pathname.includes("builder-pro")) {
+            window.location.reload();
+          } else {
+            navigate("/site/builder-pro");
+          }
         } catch (err: any) {
           toast.error("Erro ao salvar layout: " + (err.message || ""));
         }
@@ -1439,7 +1445,11 @@ function TemplateSection() {
           setShowAIDialog(false);
           toast.success("Site gerado com IA! Abrindo o editor...");
           queryClient.invalidateQueries({ queryKey: ["site-document"] });
-          navigate("/site/builder-pro");
+          if (window.location.pathname.includes("builder-pro")) {
+            window.location.reload();
+          } else {
+            navigate("/site/builder-pro");
+          }
         } catch (err: any) {
           toast.error("Erro ao salvar layout: " + (err.message || ""));
         }
