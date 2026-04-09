@@ -119,7 +119,8 @@ function PropertyListWithFilters({ element, properties, cols, maxItems, heading 
     filtered, availableCities, availableNeighborhoods,
   } = useStorefrontFilters(properties);
 
-  const visibleProps = filtered.slice(0, maxItems);
+  // When filters are active, show all matching results; otherwise cap at maxItems
+  const visibleProps = hasActiveFilters ? filtered : filtered.slice(0, maxItems);
 
   return (
     <ElementWrapper element={element}>
