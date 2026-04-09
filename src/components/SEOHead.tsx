@@ -22,8 +22,14 @@ export function SEOHead({
   favicon,
   siteName,
 }: SEOHeadProps) {
+  const isWhiteLabel = !!siteName && siteName !== SITE_NAME;
   const effectiveSiteName = siteName || SITE_NAME;
-  const fullTitle = title.includes(effectiveSiteName) ? title : `${title} — ${effectiveSiteName}`;
+  // For white-label sites, use the title as-is or append org name only if not redundant
+  const fullTitle = isWhiteLabel
+    ? (title.toLowerCase().includes(siteName!.toLowerCase().replace(/\s*(ltda|me|eireli|s\.?a\.?)\.?$/i, '').trim().toLowerCase())
+        ? title
+        : `${title} — ${siteName}`)
+    : (title.includes(effectiveSiteName) ? title : `${title} — ${effectiveSiteName}`);
   const resolvedImage = ogImage || DEFAULT_OG_IMAGE;
   const resolvedUrl = ogUrl || (typeof window !== "undefined" ? window.location.href : "");
 
