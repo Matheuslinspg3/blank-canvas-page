@@ -292,7 +292,67 @@ async function setupPlatformWorker(cfToken: string, cfZone: string, accountId: s
   };
 }
 
-// ─── Auth helper ────────────────────────────────────────────────
+// ─── A-record helper for full_zone (avoids Error 1000 cross-zone CNAME) ─
+async function ensureARecordInZone(
+  cfToken: string,
+  zoneId: string,
+  name: string,
+  ip: string,
+): Promise<void> {
+  // Check for existing records (CNAME or A) with this name
+  const searchRes = await fetch(
+    `${CF_API}/zones/${zoneId}/dns_records?name=${encodeURIComponent(name)}`,
+    { headers: { Authorization: `Bearer ${cfToken}` } }
+  );
+  const searchData = await searchRes.json();
+  const existing = searchData?.result || [];
+
+  // Delete any conflicting CNAME records for this name
+  for (const record of existing) {
+    if (record.type === "CNAME") {
+      console.log(`Deleting conflicting CNAME record ${record.id} for ${name}`);
+      await fetch(`${CF_API}/zones/${zoneId}/dns_records/${record.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${cfToken}` },
+      });
+    }
+    // If A record already points to the right IP, done
+    if (record.type === "A" && record.content === ip) {
+      console.log(`A record for ${name} already points to ${ip}`);
+      return;
+    }
+    // If A record points to wrong IP, update it
+    if (record.type === "A" && record.content !== ip) {
+      console.log(`Updating A record ${record.id} for ${name} from ${record.content} to ${ip}`);
+      await fetch(`${CF_API}/zones/${zoneId}/dns_records/${record.id}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${cfToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ content: ip, proxied: true }),
+      });
+      return;
+    }
+  }
+
+  // No existing A record, create one
+  console.log(`Creating A record for ${name} → ${ip}`);
+  const createRes = await fetch(`${CF_API}/zones/${zoneId}/dns_records`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${cfToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      type: "A",
+      name,
+      content: ip,
+      proxied: true,
+      comment: "Auto-created for platform site (A record)",
+    }),
+  });
+  const createData = await createRes.json();
+  if (!createData?.success) {
+    console.warn(`Failed to create A record for ${name}:`, createData?.errors);
+  }
+}
+
+
 async function authenticateRequest(
   req: Request,
   env: { supabaseUrl: string; supabaseAnonKey: string; supabaseServiceRoleKey: string }
@@ -419,7 +479,31 @@ Deno.serve(async (req) => {
       return json({ success: true, already_exists: result.already_exists, record_id: result.record_id, proxy: proxyResult });
     }
 
-    // ─── Setup Platform Worker Proxy ───────────────────────────────
+    // ─── Fix DNS: replace CNAME with A records (fixes Error 1000) ──
+    if (action === "fix_dns") {
+      const domainId = body.domain_id as string;
+      const { data: domain } = await adminClient
+        .from("tenant_domains")
+        .select("*")
+        .eq("id", domainId)
+        .eq("organization_id", orgId)
+        .single();
+      if (!domain) return errorJson("Domínio não encontrado", 404);
+
+      const zoneId = (domain as any).cloudflare_zone_id;
+      if (!zoneId) return errorJson("Zona não encontrada para este domínio", 400);
+
+      await ensureARecordInZone(env.cloudflareToken!, zoneId, domain.hostname, LOVABLE_ORIGIN_IP);
+      
+      // Also fix root domain if www
+      if (domain.hostname.startsWith("www.")) {
+        await ensureARecordInZone(env.cloudflareToken!, zoneId, "@", LOVABLE_ORIGIN_IP);
+      }
+
+      return json({ success: true, message: `DNS records fixed for ${domain.hostname}` });
+    }
+
+
     if (action === "setup_platform_proxy") {
       if (!env.cloudflareAccountId) {
         return errorJson("CLOUDFLARE_ACCOUNT_ID é obrigatório para criar o Worker proxy. Configure no Supabase.", 400);
@@ -517,42 +601,19 @@ Deno.serve(async (req) => {
       const zoneId = cfZoneResult.id;
       const zoneStatus = cfZoneResult.status || "pending";
 
+      // Use A records pointing to Lovable origin IP to avoid Cloudflare Error 1000
+      // (CNAME to another CF-proxied domain causes cross-zone conflict)
       try {
-        const createHostnameDnsRes = await fetch(`${CF_API}/zones/${zoneId}/dns_records`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${env.cloudflareToken!}`,
-            "Content-Type": "application/json",
-          },
-           body: JSON.stringify({
-            type: "CNAME",
-            name: hostname,
-            content: PLATFORM_DOMAIN,
-            proxied: true,
-            comment: "Auto-created for platform site",
-          }),
-        });
-        await createHostnameDnsRes.text();
-
+        await ensureARecordInZone(env.cloudflareToken!, zoneId, hostname, LOVABLE_ORIGIN_IP);
         if (hostname.startsWith("www.")) {
-          const createRootDnsRes = await fetch(`${CF_API}/zones/${zoneId}/dns_records`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${env.cloudflareToken!}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              type: "CNAME",
-              name: "@",
-              content: PLATFORM_DOMAIN,
-              proxied: true,
-              comment: "Auto-created root for platform site",
-            }),
-          });
-          await createRootDnsRes.text();
+          await ensureARecordInZone(env.cloudflareToken!, zoneId, "@", LOVABLE_ORIGIN_IP);
+        } else if (!hostname.startsWith("www.")) {
+          // Also add www variant
+          const rootDomain = hostname;
+          await ensureARecordInZone(env.cloudflareToken!, zoneId, `www.${rootDomain}`, LOVABLE_ORIGIN_IP);
         }
       } catch (e) {
-        console.warn("DNS record creation warning (may already exist):", e);
+        console.warn("DNS record creation warning:", e);
       }
 
       const { data: existingDomain } = await adminClient
