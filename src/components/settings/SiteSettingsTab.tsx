@@ -244,7 +244,7 @@ function WebsiteContentSection() {
         open={showAIDialog}
         onOpenChange={setShowAIDialog}
         onGenerate={handleGenerateWithAI}
-        isGenerating={isGeneratingAI}
+        isGenerating={isGeneratingAI || isAIGenerating}
       />
 
       {/* Hero Section */}
