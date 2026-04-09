@@ -4,31 +4,55 @@ import { corsHeaders } from "../_shared/cors.ts";
 const CF_API = "https://api.cloudflare.com/client/v4";
 const LOVABLE_ORIGIN_IP = "185.158.133.1";
 
-// Fix CNAME→A to avoid Cloudflare Error 1000 (cross-zone CNAME conflict)
-async function fixCnameToARecord(
+// Ensure A record is present with proxy disabled to avoid Cloudflare Error 1000
+async function ensureDnsOnlyARecord(
   cfToken: string,
   zoneId: string,
   name: string,
 ): Promise<boolean> {
   const searchRes = await fetch(
-    `${CF_API}/zones/${zoneId}/dns_records?name=${encodeURIComponent(name)}&type=CNAME`,
+    `${CF_API}/zones/${zoneId}/dns_records?name=${encodeURIComponent(name)}`,
     { headers: { Authorization: `Bearer ${cfToken}` } }
   );
   const searchData = await searchRes.json();
-  const cnameRecords = searchData?.result || [];
+  const records = searchData?.result || [];
+  let changed = false;
 
-  if (cnameRecords.length === 0) return false;
+  for (const record of records) {
+    if (record.type === "CNAME") {
+      console.log(`Fixing CNAME→A for ${name}: deleting CNAME ${record.id} (${record.content})`);
+      await fetch(`${CF_API}/zones/${zoneId}/dns_records/${record.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${cfToken}` },
+      });
+      changed = true;
+      continue;
+    }
 
-  for (const record of cnameRecords) {
-    console.log(`Fixing CNAME→A for ${name}: deleting CNAME ${record.id} (${record.content})`);
-    await fetch(`${CF_API}/zones/${zoneId}/dns_records/${record.id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${cfToken}` },
-    });
+    if (record.type === "A") {
+      const needsUpdate = record.content !== LOVABLE_ORIGIN_IP || record.proxied !== false;
+      if (!needsUpdate) {
+        return changed;
+      }
+
+      console.log(`Updating A record for ${name} to dns-only ${LOVABLE_ORIGIN_IP}`);
+      const updateRes = await fetch(`${CF_API}/zones/${zoneId}/dns_records/${record.id}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${cfToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "A",
+          name,
+          content: LOVABLE_ORIGIN_IP,
+          proxied: false,
+          comment: "Auto-fixed to DNS-only A record for platform site",
+        }),
+      });
+      const updateData = await updateRes.json();
+      return updateData?.success === true || changed;
+    }
   }
 
-  // Create A record
-  console.log(`Creating A record for ${name} → ${LOVABLE_ORIGIN_IP}`);
+  console.log(`Creating dns-only A record for ${name} → ${LOVABLE_ORIGIN_IP}`);
   const createRes = await fetch(`${CF_API}/zones/${zoneId}/dns_records`, {
     method: "POST",
     headers: { Authorization: `Bearer ${cfToken}`, "Content-Type": "application/json" },
@@ -36,12 +60,12 @@ async function fixCnameToARecord(
       type: "A",
       name,
       content: LOVABLE_ORIGIN_IP,
-      proxied: true,
-      comment: "Auto-fixed from CNAME to A record for platform site",
+      proxied: false,
+      comment: "Auto-fixed to DNS-only A record for platform site",
     }),
   });
   const createData = await createRes.json();
-  return createData?.success === true;
+  return createData?.success === true || changed;
 }
 
 Deno.serve(async (req) => {
@@ -68,8 +92,7 @@ Deno.serve(async (req) => {
     const { data: pendingDomains, error: fetchErr } = await adminClient
       .from("tenant_domains")
       .select("id, hostname, cloudflare_hostname_id, cloudflare_zone_id, zone_mode, zone_status, organization_id")
-      .eq("is_active", false)
-      .not("cloudflare_hostname_id", "is", null);
+      .or("and(zone_mode.eq.full_zone,cloudflare_zone_id.not.is.null),and(is_active.eq.false,cloudflare_hostname_id.not.is.null)");
 
     if (fetchErr) {
       console.error("DB fetch error:", fetchErr);
@@ -110,14 +133,14 @@ Deno.serve(async (req) => {
 
           if (zoneStatus === "active") {
             // Auto-fix: replace CNAME with A record to avoid Error 1000
-            const dnsFixed = await fixCnameToARecord(CF_TOKEN, domain.cloudflare_zone_id, domain.hostname);
+            const dnsFixed = await ensureDnsOnlyARecord(CF_TOKEN, domain.cloudflare_zone_id, domain.hostname);
             if (dnsFixed) {
-              console.log(`🔧 Fixed CNAME→A for ${domain.hostname}`);
+              console.log(`🔧 Fixed DNS for ${domain.hostname}`);
             }
             // Also fix root if www
             if (domain.hostname.startsWith("www.")) {
               const rootName = domain.hostname.replace(/^www\./, "");
-              await fixCnameToARecord(CF_TOKEN, domain.cloudflare_zone_id, rootName);
+              await ensureDnsOnlyARecord(CF_TOKEN, domain.cloudflare_zone_id, rootName);
             }
 
             // Check for A record
@@ -130,6 +153,43 @@ Deno.serve(async (req) => {
 
             if (hasARecord) {
               console.log(`✅ Full-zone domain ready: ${domain.hostname}`);
+
+              if (domain.hostname.startsWith("www.")) {
+                const rootHostname = domain.hostname.replace(/^www\./, "");
+                const { data: rootAlias } = await adminClient
+                  .from("tenant_domains")
+                  .select("id")
+                  .eq("hostname", rootHostname)
+                  .eq("organization_id", domain.organization_id)
+                  .maybeSingle();
+
+                const rootPayload = {
+                  cloudflare_zone_id: domain.cloudflare_zone_id,
+                  zone_mode: "full_zone",
+                  zone_status: "active",
+                  nameservers,
+                  ssl_status: "active",
+                  verification_status: "active",
+                  is_active: true,
+                  updated_at: new Date().toISOString(),
+                };
+
+                if (rootAlias?.id) {
+                  await adminClient
+                    .from("tenant_domains")
+                    .update(rootPayload)
+                    .eq("id", rootAlias.id);
+                } else {
+                  await adminClient
+                    .from("tenant_domains")
+                    .insert({
+                      organization_id: domain.organization_id,
+                      hostname: rootHostname,
+                      ...rootPayload,
+                    });
+                }
+              }
+
               await adminClient
                 .from("tenant_domains")
                 .update({
