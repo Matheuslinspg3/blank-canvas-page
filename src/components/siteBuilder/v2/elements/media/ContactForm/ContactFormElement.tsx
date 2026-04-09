@@ -51,13 +51,15 @@ export function ContactFormElement({ element, isEditing }: { element: Element; i
       }
 
       if (orgId) {
-        await supabase.from('leads').insert({
-          name: form.name || 'Visitante do site',
-          email: form.email || null,
-          phone: form.phone || null,
-          notes: form.message || null,
-          source: 'site',
-          organization_id: orgId,
+        // Use edge function to create lead as anonymous visitor
+        await supabase.functions.invoke('create-site-lead', {
+          body: {
+            organization_id: orgId,
+            name: form.name || 'Visitante do site',
+            email: form.email || null,
+            phone: form.phone || null,
+            message: form.message || null,
+          },
         });
       }
 
