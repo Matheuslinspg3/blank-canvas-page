@@ -9,16 +9,33 @@ import type { AIContentAnswers } from '@/components/settings/AIContentDialog';
 // Import templates to ensure registry is populated
 import '@/components/siteBuilder/v2/sectionTemplates';
 
+interface AIContentBlock {
+  heading?: string;
+  subheading?: string;
+  paragraph?: string;
+  button_text?: string;
+  button_link?: string;
+  button_variant?: 'primary' | 'secondary' | 'outline';
+  counters?: Array<{ value: number; label: string; suffix?: string }>;
+  testimonials?: Array<{ quote: string; author: string; role?: string }>;
+  icons?: Array<{ name: string; label: string }>;
+  faq_items?: Array<{ title: string; content: string }>;
+}
+
+interface AISectionStyles {
+  bgColor?: string;
+  bgGradient?: string;
+  paddingTop?: number;
+  paddingBottom?: number;
+  minHeight?: number;
+  fullWidth?: boolean;
+}
+
 interface AILayoutResponse {
   sections: Array<{
     template_id: string;
-    content: {
-      heading?: string;
-      subheading?: string;
-      paragraph?: string;
-      button_text?: string;
-      button_link?: string;
-    };
+    content: AIContentBlock;
+    section_styles?: AISectionStyles;
   }>;
   meta: { title: string; description: string };
   whatsapp_message: string;
@@ -29,42 +46,58 @@ interface AILayoutResponse {
     seo?: { title?: string; description?: string };
     sections: Array<{
       template_id: string;
-      content: {
-        heading?: string;
-        subheading?: string;
-        paragraph?: string;
-        button_text?: string;
-        button_link?: string;
-      };
+      content: AIContentBlock;
+      section_styles?: AISectionStyles;
     }>;
   }>;
 }
 
-function applyContentToSection(section: Section, content: AILayoutResponse['sections'][0]['content']): Section {
+function applyContentToSection(section: Section, content: AIContentBlock): Section {
   const updated = JSON.parse(JSON.stringify(section)) as Section;
+
+  // Track if heading was already set (for subheading logic)
+  let mainHeadingSet = false;
 
   for (const row of updated.rows) {
     for (const col of row.columns) {
       for (const el of col.elements) {
-        if (el.type === 'heading' && content.heading) {
-          el.props.text = content.heading;
+        // Heading: main heading for h1, subheading for h2/h3
+        if (el.type === 'heading') {
+          if ((el.props.level === 'h1' || (!el.props.level && !mainHeadingSet)) && content.heading) {
+            el.props.text = content.heading;
+            mainHeadingSet = true;
+          } else if ((el.props.level === 'h2' || el.props.level === 'h3') && content.subheading) {
+            el.props.text = content.subheading;
+          }
         }
+
         if (el.type === 'paragraph' && content.paragraph) {
           el.props.text = content.paragraph;
         }
-        if (el.type === 'button' && content.button_text) {
-          el.props.label = content.button_text;
+
+        if (el.type === 'button') {
+          if (content.button_text) el.props.label = content.button_text;
           if (content.button_link) el.props.link = content.button_link;
-        }
-        // For subheading: look for h2/h3 headings
-        if (el.type === 'heading' && content.subheading && (el.props.level === 'h2' || el.props.level === 'h3')) {
-          el.props.text = content.subheading;
+          if (content.button_variant) el.props.variant = content.button_variant;
         }
       }
     }
   }
 
   return updated;
+}
+
+function applySectionStyles(section: Section, styles?: AISectionStyles): Section {
+  if (!styles) return section;
+
+  if (styles.bgColor) section.styles.bgColor = styles.bgColor;
+  if (styles.bgGradient) section.styles.bgGradient = styles.bgGradient;
+  if (styles.paddingTop !== undefined) section.styles.paddingTop = styles.paddingTop;
+  if (styles.paddingBottom !== undefined) section.styles.paddingBottom = styles.paddingBottom;
+  if (styles.minHeight !== undefined) section.styles.minHeight = styles.minHeight;
+  if (styles.fullWidth !== undefined) section.styles.fullWidth = styles.fullWidth;
+
+  return section;
 }
 
 function buildSectionsFromAI(
@@ -78,21 +111,22 @@ function buildSectionsFromAI(
     const template = SectionTemplateRegistry.find(t => t.id === aiSection.template_id);
     if (!template) continue;
 
-    const built = template.build(theme);
-    const withContent = applyContentToSection(built, aiSection.content);
-    withContent.order = i;
+    let built = template.build(theme);
+    built = applyContentToSection(built, aiSection.content);
+    built = applySectionStyles(built, aiSection.section_styles);
+    built.order = i;
 
     // Auto-assign anchor and name based on template_id
     const tid = aiSection.template_id.toLowerCase();
-    if (tid.includes('hero')) { withContent.anchor = 'hero'; withContent.name = 'Hero'; }
-    else if (tid.includes('about')) { withContent.anchor = 'sobre'; withContent.name = 'Sobre'; }
-    else if (tid.includes('propert')) { withContent.anchor = 'imoveis'; withContent.name = 'Imóveis'; }
-    else if (tid.includes('contact') || tid.includes('cta')) { withContent.anchor = 'contato'; withContent.name = 'Contato'; }
-    else if (tid.includes('footer')) { withContent.anchor = 'rodape'; withContent.name = 'Rodapé'; }
-    else if (tid.includes('testimonial')) { withContent.anchor = 'depoimentos'; withContent.name = 'Depoimentos'; }
-    else if (tid.includes('banner')) { withContent.anchor = 'banner'; withContent.name = 'Banner'; }
+    if (tid.includes('hero')) { built.anchor = 'hero'; built.name = 'Hero'; }
+    else if (tid.includes('about')) { built.anchor = 'sobre'; built.name = 'Sobre'; }
+    else if (tid.includes('propert')) { built.anchor = 'imoveis'; built.name = 'Imóveis'; }
+    else if (tid.includes('contact') || tid.includes('cta')) { built.anchor = 'contato'; built.name = 'Contato'; }
+    else if (tid.includes('footer')) { built.anchor = 'rodape'; built.name = 'Rodapé'; }
+    else if (tid.includes('testimonial')) { built.anchor = 'depoimentos'; built.name = 'Depoimentos'; }
+    else if (tid.includes('banner')) { built.anchor = 'banner'; built.name = 'Banner'; }
 
-    sections.push(withContent);
+    sections.push(built);
   }
 
   return sections;
@@ -127,11 +161,9 @@ function buildLayoutFromAI(
 
   // Multi-page: add navigation and pages
   if (siteMode === 'multi-page') {
-    // Navigation
     if (aiLayout.navigation && aiLayout.navigation.length > 0) {
       layout.navigation = aiLayout.navigation as NavItem[];
     } else {
-      // Default navigation for multi-page
       layout.navigation = [
         { label: 'Home', href: '/', type: 'page' },
         { label: 'Imóveis', href: '/imoveis', type: 'page' },
@@ -140,7 +172,6 @@ function buildLayoutFromAI(
       ];
     }
 
-    // Pages
     if (aiLayout.pages && aiLayout.pages.length > 0) {
       layout.pages = aiLayout.pages.map((p): SitePage => ({
         id: crypto.randomUUID(),
@@ -150,13 +181,12 @@ function buildLayoutFromAI(
         seo: p.seo,
       }));
     } else {
-      // Generate default pages structure
       layout.pages = [
         {
           id: crypto.randomUUID(),
           slug: 'imoveis',
           title: 'Imóveis',
-          sections: [], // /imoveis uses StorefrontPropertiesPage, no sections needed
+          sections: [],
           seo: { title: `Imóveis — ${aiLayout.meta?.title || ''}`, description: 'Encontre o imóvel ideal.' },
         },
         {
