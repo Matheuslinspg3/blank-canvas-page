@@ -82,7 +82,7 @@ function buildAbout(website: StorefrontWebsite | null): ReturnType<typeof sectio
 }
 
 function buildProperties(): ReturnType<typeof section> {
-  return section(
+  const s = section(
     [row([col(12, [
       el('heading', { text: 'Nossos imóveis', level: 'h2', fontSize: 32, fontWeight: 'bold' }, { textAlign: 'center', paddingBottom: 24 }),
       el('property_list', { columns: 3, source: 'featured', limit: 6 }),
@@ -90,6 +90,8 @@ function buildProperties(): ReturnType<typeof section> {
     { paddingTop: 64, paddingBottom: 64 },
     'Imóveis',
   );
+  s.anchor = 'imoveis';
+  return s;
 }
 
 function buildContact(website: StorefrontWebsite | null, org: StorefrontOrg): ReturnType<typeof section> {
