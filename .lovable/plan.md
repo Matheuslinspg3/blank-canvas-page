@@ -1,62 +1,65 @@
 
 
-# Plan: Corrigir botão vermelho, favicon, anchors e cores no storefront v2
+# Plan: Seção customizada, estilos no botão, link picker e posicionamento livre
 
-## Problemas identificados (confirmados via browser)
+## Problemas identificados
 
-1. **Botão "Ver Imóveis" vermelho**: O `ButtonElement` usa classes Tailwind (`bg-primary`) que resolvem para o primary padrão do Tailwind (vermelho/rosa), e NÃO para a cor da marca. O storefront define `--sf-primary` como CSS variable, mas o botão não a usa.
+1. **Sem seção "em branco"**: Todas as seções no catálogo vem com conteúdo predefinido. Falta uma seção vazia/customizada onde o usuario coloca o que quiser.
 
-2. **Nenhum botão funciona / "Ver Imóveis" não faz scroll**: Todas as 6 seções na página têm `id=""` (vazio). O `SectionRenderer` gera IDs a partir de `section.anchor || section.name`, mas o layout gerado pela IA (`useSiteAIGeneration`) não define `anchor` nem `name` nas seções.
+2. **Borda aplica no container, não no botão**: O `ButtonElement` renderiza dentro de `ElementWrapper`, que aplica todos os estilos (borda, sombra, raio) no `<div>` wrapper externo. O botão em si fica sem estilo visual direto.
 
-3. **Favicon do Porta do Corretor**: O `index.html` tem `<link rel="icon" href="/favicon.png">` hardcoded. O `SEOHead` injeta dinamicamente via Helmet, mas o favicon estático pode ser carregado antes ou tomar precedência em alguns browsers.
+3. **Link do botão é texto livre sem sugestões**: O campo de link aceita qualquer texto (ex: "google") sem validar ou sugerir links internos (paginas, ancoras). O usuario pode digitar algo que nao funciona.
 
-4. **Filtros**: JÁ FUNCIONAM — confirmado no browser. A barra de busca, tabs Todos/Venda/Aluguel e ícone de filtros estão presentes.
+4. **Botão fixo em 3 posições (sm/md/lg)**: Não ha opção de posicionamento absoluto livre para o botão -- ele so funciona em modo stack dentro da coluna.
 
-## Solução
+---
 
-### A. ButtonElement — usar cor da marca via CSS variable
+## Alteracoes
 
-No `ButtonElement.tsx`, trocar `bg-primary text-primary-foreground` por estilos inline que usam `var(--sf-primary)` com fallback para as classes Tailwind padrão (para não quebrar o editor).
+### 1. Seção customizada em branco
+**Arquivo**: `src/components/siteBuilder/v2/sectionTemplates/templates/customBlank.ts` (novo)
 
-Quando `isEditing` é `false` (storefront público), aplicar:
-```
-style={{ backgroundColor: 'var(--sf-primary, hsl(var(--primary)))' }}
-```
+- Registrar template `custom-blank` com category `custom`
+- Gera uma seção vazia com 1 row, 1 coluna (12/12), sem elementos
+- Coluna em modo `stack` por padrão, com minHeight de 200px
+- Label: "Seção em branco"
 
-Para o variant `secondary`, usar `var(--sf-secondary)`.
+**Arquivo**: `src/components/siteBuilder/v2/sectionTemplates/index.ts`
+- Importar o novo template
 
-### B. Anchors nas seções geradas pela IA
+### 2. Estilos aplicados diretamente no botão
+**Arquivo**: `src/components/siteBuilder/v2/elements/basic/Button/ButtonElement.tsx`
 
-No `useSiteAIGeneration.ts`, dentro de `buildLayoutFromAI`, detectar o `template_id` de cada seção e atribuir anchors automaticamente:
-- Templates com "hero" → `anchor: 'hero'`
-- Templates com "about" → `anchor: 'sobre'`
-- Templates com "properties" → `anchor: 'imoveis'`
-- Templates com "contact" ou "footer" → `anchor: 'contato'`
+- Mover os estilos visuais (borderRadius, borderWidth, borderColor, borderStyle, boxShadow) do `ElementWrapper` para o proprio `<button>/<a>`, aplicando inline
+- Manter o `ElementWrapper` apenas para padding/margin/background do container
+- Separar: container cuida de espacamento, botão cuida de aparencia visual
 
-Também definir `name` para cada seção baseado no template.
+### 3. Link picker com sugestões internas
+**Arquivo**: `src/components/siteBuilder/v2/elements/basic/Button/ButtonInspector.tsx`
 
-### C. Favicon dinâmico para white-label
+- Substituir o campo de texto livre por um componente com sugestões
+- Listar automaticamente: paginas do site (`/`, `/imoveis`, `/sobre`, `/contato`), ancoras das seções (`#imoveis`, `#sobre`, `#contato`), e opção de URL externa
+- Validar URLs externas: se nao comecar com `http://`, `https://`, `#` ou `/`, prefixar automaticamente com `https://`
+- Mostrar as opções como lista clicavel acima do input
 
-Remover o `<link rel="icon" href="/favicon.png">` do `index.html` (o `SEOHead` já injeta dinamicamente). Isso permite que o Helmet controle o favicon, que no caso do Porto Caiçara usará a `brand.logo_url`.
+### 4. Botão com suporte a posicionamento absoluto
+**Arquivo**: `src/components/siteBuilder/v2/elements/basic/Button/ButtonInspector.tsx`
 
-Se `brand.logo_url` for null, o SEOHead não injeta favicon, e o browser usará o fallback padrão.
+- Adicionar secao "Posicionamento" no inspector quando a coluna pai esta em modo `absolute`
+- Campos: X, Y, Largura, Altura (ja suportados pelo sistema de layout existente via `UPDATE_ELEMENT_LAYOUT`)
 
-### D. Re-publicação necessária
+**Nota**: O sistema de drag absoluto ja existe no Canvas -- quando a coluna esta em modo `absolute`, elementos podem ser arrastados livremente. O que falta e tornar isso mais acessivel:
+- No inspector do botão, mostrar campos numéricos de posição
+- No `CommonStylesEditor` ou no inspector, indicar que o modo absoluto esta ativo
 
-Após as correções de código, o site precisará ser republicado pelo builder para que as mudanças de anchor no layout sejam aplicadas. As correções de CSS/ButtonElement e favicon serão imediatas.
+---
 
-## Arquivos alterados
+## Arquivos modificados
 
-| Arquivo | Ação |
-|---------|------|
-| `src/components/siteBuilder/v2/elements/basic/Button/ButtonElement.tsx` | Usar `var(--sf-primary)` para cores |
-| `src/hooks/useSiteAIGeneration.ts` | Adicionar `anchor` e `name` nas seções |
-| `index.html` | Remover favicon hardcoded |
-
-## Resultado esperado
-
-- Botão "Ver Imóveis" usa a cor dourada/accent da marca
-- Clicar "Ver Imóveis" faz scroll até a seção de imóveis
-- Favicon mostra a logo da imobiliária (não do Porta)
-- Filtros continuam funcionando (já estão OK)
+| Arquivo | Mudanca |
+|---------|---------|
+| `src/components/siteBuilder/v2/sectionTemplates/templates/customBlank.ts` | Novo template em branco |
+| `src/components/siteBuilder/v2/sectionTemplates/index.ts` | Import do novo template |
+| `src/components/siteBuilder/v2/elements/basic/Button/ButtonElement.tsx` | Estilos visuais no botão |
+| `src/components/siteBuilder/v2/elements/basic/Button/ButtonInspector.tsx` | Link picker com sugestões + campos de posição |
 
