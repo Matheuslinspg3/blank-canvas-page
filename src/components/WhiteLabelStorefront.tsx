@@ -43,6 +43,7 @@ export function WhiteLabelStorefront({ organizationId }: Props) {
 
   const metaTitle = website?.meta_title || `${org.name} — Imóveis`;
   const metaDesc = website?.meta_description || `Confira os melhores imóveis da ${org.name}.`;
+  const faviconUrl = brand?.logo_url || null;
 
   // V2 advanced renderer
   if (siteDoc?.editor_mode === 'advanced' && siteDoc.layout) {
@@ -51,7 +52,7 @@ export function WhiteLabelStorefront({ organizationId }: Props) {
     const v2Desc = v2Layout.meta?.description || metaDesc;
     return (
       <div style={{ fontFamily, "--sf-primary": primaryColor, "--sf-secondary": secondaryColor, "--sf-accent": accentColor } as React.CSSProperties} className="min-h-screen bg-white text-gray-900">
-        <SEOHead title={v2Title} description={v2Desc} noIndex={false} />
+        <SEOHead title={v2Title} description={v2Desc} noIndex={false} favicon={faviconUrl} siteName={org.name} />
         <SiteDocumentRendererV2 siteLayout={v2Layout} properties={properties} />
         {website?.show_whatsapp_float && website?.whatsapp_number && (
           <StorefrontWhatsAppFloat number={website.whatsapp_number} message={website.whatsapp_message || "Olá!"} />
@@ -65,7 +66,7 @@ export function WhiteLabelStorefront({ organizationId }: Props) {
       style={{ fontFamily, "--sf-primary": primaryColor, "--sf-secondary": secondaryColor, "--sf-accent": accentColor } as React.CSSProperties}
       className="min-h-screen bg-white text-gray-900"
     >
-      <SEOHead title={metaTitle} description={metaDesc} noIndex={false} />
+      <SEOHead title={metaTitle} description={metaDesc} noIndex={false} favicon={faviconUrl} siteName={org.name} />
 
       <StorefrontTemplateRenderer
         template={template}
