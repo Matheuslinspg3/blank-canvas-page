@@ -54,7 +54,7 @@ export function SidebarLeft({ state, dispatch }: Props) {
         </TabsList>
 
         {/* Tab: Seções with DnD */}
-        <TabsContent value="pages" className="flex-1 m-0 flex flex-col">
+        <TabsContent value="pages" className="flex-1 m-0 data-[state=active]:flex data-[state=active]:flex-col">
           <ScrollArea className="flex-1">
             <div className="p-2 space-y-1">
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -75,12 +75,12 @@ export function SidebarLeft({ state, dispatch }: Props) {
         </TabsContent>
 
         {/* Tab: Páginas */}
-        <TabsContent value="site-pages" className="flex-1 m-0">
+        <TabsContent value="site-pages" className="flex-1 m-0 data-[state=active]:flex data-[state=active]:flex-col">
           <PagesTab state={state} dispatch={dispatch} />
         </TabsContent>
 
         {/* Tab: Camadas */}
-        <TabsContent value="layers" className="flex-1 m-0">
+        <TabsContent value="layers" className="flex-1 m-0 data-[state=active]:flex data-[state=active]:flex-col">
           <ScrollArea className="h-full">
             <div className="p-2 space-y-1">
               {sections.map(s => (
@@ -91,7 +91,7 @@ export function SidebarLeft({ state, dispatch }: Props) {
         </TabsContent>
 
         {/* Tab: Elementos */}
-        <TabsContent value="elements" className="flex-1 m-0">
+        <TabsContent value="elements" className="flex-1 m-0 data-[state=active]:flex data-[state=active]:flex-col">
           <ScrollArea className="h-full">
             <div className="p-2 space-y-3">
               <p className="text-[10px] text-muted-foreground">Selecione uma coluna e clique para adicionar</p>
