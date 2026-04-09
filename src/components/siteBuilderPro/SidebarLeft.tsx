@@ -24,8 +24,11 @@ interface Props {
 
 export function SidebarLeft({ state, dispatch }: Props) {
   const [sheetOpen, setSheetOpen] = useState(false);
-  const { present, selection } = state;
-  const sections = [...present.sections].sort((a, b) => a.order - b.order);
+  const { present, selection, activePageId } = state;
+  const rawSections = activePageId
+    ? ((present.pages || []).find(p => p.id === activePageId)?.sections || [])
+    : present.sections;
+  const sections = [...rawSections].sort((a, b) => a.order - b.order);
   const sectionIds = sections.map(s => s.id);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
