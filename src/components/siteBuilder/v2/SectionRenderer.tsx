@@ -103,6 +103,7 @@ export function SectionRenderer({ section, theme, properties, isEditing }: Secti
 
   return (
     <section
+      id={section.anchor || section.name?.toLowerCase().replace(/\s+/g, '-') || undefined}
       style={sectionStyle}
       className={`relative ${!section.visible && isEditing ? 'opacity-30' : ''}`}
     >

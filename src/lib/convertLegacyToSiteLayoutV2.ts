@@ -71,7 +71,7 @@ function buildHero(website: StorefrontWebsite | null, org: StorefrontOrg, preset
 function buildAbout(website: StorefrontWebsite | null): ReturnType<typeof section> | null {
   const text = website?.about_text;
   if (!text) return null;
-  return section(
+  const s = section(
     [row([col(12, [
       el('heading', { text: 'Sobre nós', level: 'h2', fontSize: 32, fontWeight: 'bold' }, { textAlign: 'center', paddingBottom: 16 }),
       el('paragraph', { text, fontSize: 16, lineHeight: '1.7' }, { textAlign: 'center' }),
@@ -79,10 +79,12 @@ function buildAbout(website: StorefrontWebsite | null): ReturnType<typeof sectio
     { paddingTop: 64, paddingBottom: 64 },
     'Sobre',
   );
+  s.anchor = 'sobre';
+  return s;
 }
 
 function buildProperties(): ReturnType<typeof section> {
-  return section(
+  const s = section(
     [row([col(12, [
       el('heading', { text: 'Nossos imóveis', level: 'h2', fontSize: 32, fontWeight: 'bold' }, { textAlign: 'center', paddingBottom: 24 }),
       el('property_list', { columns: 3, source: 'featured', limit: 6 }),
@@ -90,6 +92,8 @@ function buildProperties(): ReturnType<typeof section> {
     { paddingTop: 64, paddingBottom: 64 },
     'Imóveis',
   );
+  s.anchor = 'imoveis';
+  return s;
 }
 
 function buildContact(website: StorefrontWebsite | null, org: StorefrontOrg): ReturnType<typeof section> {
@@ -100,7 +104,7 @@ function buildContact(website: StorefrontWebsite | null, org: StorefrontOrg): Re
   if (website?.contact_email) leftElements.push(el('paragraph', { text: `✉️ ${website.contact_email}`, fontSize: 16 }, { paddingBottom: 8 }));
   if (website?.whatsapp_number) leftElements.push(el('whatsapp_button', { number: website.whatsapp_number, message: website.whatsapp_message || 'Olá!', label: 'Falar no WhatsApp' }, { paddingTop: 16 }));
 
-  return section(
+  const s = section(
     [row([
       col(5, leftElements, { verticalAlign: 'center', paddingRight: 24 }),
       col(7, [el('contact_form', { organizationId: org.id })]),
@@ -108,6 +112,8 @@ function buildContact(website: StorefrontWebsite | null, org: StorefrontOrg): Re
     { paddingTop: 64, paddingBottom: 64 },
     'Contato',
   );
+  s.anchor = 'contato';
+  return s;
 }
 
 function buildCta(primary: string): ReturnType<typeof section> {

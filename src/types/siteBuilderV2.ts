@@ -84,6 +84,7 @@ export interface Row {
 export interface Section {
   id: string;
   name?: string;
+  anchor?: string;
   rows: Row[];
   visible: boolean;
   order: number;

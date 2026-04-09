@@ -15,7 +15,7 @@ interface StorefrontFiltersProps {
   activeFilterCount: number;
   availableCities: string[];
   availableNeighborhoods: string[];
-  primaryColor: string;
+  primaryColor?: string;
 }
 
 function formatPriceBR(value: number | null) {
