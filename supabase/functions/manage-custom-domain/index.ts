@@ -316,18 +316,20 @@ async function ensureARecordInZone(
         headers: { Authorization: `Bearer ${cfToken}` },
       });
     }
-    // If A record already points to the right IP, done
-    if (record.type === "A" && record.content === ip) {
-      console.log(`A record for ${name} already points to ${ip}`);
-      return;
-    }
-    // If A record points to wrong IP, update it
-    if (record.type === "A" && record.content !== ip) {
-      console.log(`Updating A record ${record.id} for ${name} from ${record.content} to ${ip}`);
+    if (record.type === "A") {
+      const needsUpdate = record.content !== ip || record.proxied !== false;
+      if (!needsUpdate) {
+        console.log(`A record for ${name} already points to ${ip} with proxy disabled`);
+        return;
+      }
+
+      console.log(
+        `Updating A record ${record.id} for ${name} from ${record.content} (proxied=${record.proxied}) to ${ip} (proxied=false)`
+      );
       await fetch(`${CF_API}/zones/${zoneId}/dns_records/${record.id}`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${cfToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ content: ip, proxied: true }),
+        body: JSON.stringify({ content: ip, proxied: false }),
       });
       return;
     }
@@ -342,7 +344,7 @@ async function ensureARecordInZone(
       type: "A",
       name,
       content: ip,
-      proxied: true,
+      proxied: false,
       comment: "Auto-created for platform site (A record)",
     }),
   });
