@@ -138,27 +138,16 @@ export function ButtonInspector({ element, onChange }: Props) {
         <Switch checked={!!openInNewTab} onCheckedChange={(v) => updateProp('openInNewTab', v)} />
       </div>
 
-      {/* Absolute positioning fields */}
+      {/* Absolute positioning indicator */}
       {isAbsolute && (
         <div className="space-y-2 border-t pt-3">
           <Label className="text-xs font-semibold">Posicionamento livre</Label>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-[10px] text-muted-foreground">X</Label>
-              <Input type="number" className="h-7 text-xs" value={layout?.x ?? 0} onChange={(e) => onChange(element.props, undefined)} />
-            </div>
-            <div>
-              <Label className="text-[10px] text-muted-foreground">Y</Label>
-              <Input type="number" className="h-7 text-xs" value={layout?.y ?? 0} onChange={(e) => onChange(element.props, undefined)} />
-            </div>
-            <div>
-              <Label className="text-[10px] text-muted-foreground">Largura</Label>
-              <Input type="number" className="h-7 text-xs" value={layout?.width ?? ''} onChange={(e) => onChange(element.props, undefined)} placeholder="auto" />
-            </div>
-            <div>
-              <Label className="text-[10px] text-muted-foreground">Altura</Label>
-              <Input type="number" className="h-7 text-xs" value={layout?.height ?? ''} onChange={(e) => onChange(element.props, undefined)} placeholder="auto" />
-            </div>
+          <p className="text-[10px] text-muted-foreground">Arraste o botão diretamente no canvas para reposicioná-lo.</p>
+          <div className="grid grid-cols-2 gap-2 text-[10px] text-muted-foreground">
+            <span>X: {layout?.x ?? 0}px</span>
+            <span>Y: {layout?.y ?? 0}px</span>
+            {layout?.width && <span>L: {layout.width}px</span>}
+            {layout?.height && <span>A: {layout.height}px</span>}
           </div>
         </div>
       )}
