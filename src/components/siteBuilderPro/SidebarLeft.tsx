@@ -16,12 +16,6 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import {
-  DndContext, closestCenter, useSensor, useSensors, PointerSensor,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 
 interface Props {
   state: BuilderState;
