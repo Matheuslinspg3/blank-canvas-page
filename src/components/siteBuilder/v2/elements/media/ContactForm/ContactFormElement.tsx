@@ -75,9 +75,9 @@ export function ContactFormElement({ element, isEditing }: { element: Element; i
 
   if (sent) {
     return (
-      <ElementWrapper element={element}>
-        <div className="text-center py-8">
-          <p className="text-lg font-medium text-green-600">✅ Mensagem enviada!</p>
+    <ElementWrapper element={element}>
+      <div className="text-center py-8">
+        <p className="text-lg font-medium text-primary">✅ Mensagem enviada!</p>
           <p className="text-sm text-muted-foreground mt-1">Entraremos em contato em breve.</p>
           <Button variant="outline" className="mt-4" onClick={() => setSent(false)}>
             Enviar outra mensagem
