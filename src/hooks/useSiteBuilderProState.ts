@@ -80,9 +80,31 @@ function withHistory(state: BuilderState, newPresent: SiteLayoutV2): BuilderStat
   };
 }
 
+// ── Page-aware section access ────────────────────────────────
+function getSections(layout: SiteLayoutV2, pageId: string | null): Section[] {
+  if (!pageId) return layout.sections;
+  const page = (layout.pages || []).find(p => p.id === pageId);
+  return page?.sections || [];
+}
+function setSections(layout: SiteLayoutV2, pageId: string | null, sections: Section[]): SiteLayoutV2 {
+  if (!pageId) return { ...layout, sections };
+  return { ...layout, pages: (layout.pages || []).map(p => p.id === pageId ? { ...p, sections } : p) };
+}
+
 // ── Immutable helpers ────────────────────────────────────────
 function mapSections(layout: SiteLayoutV2, sectionId: string, fn: (s: Section) => Section): SiteLayoutV2 {
-  return { ...layout, sections: layout.sections.map(s => s.id === sectionId ? fn(s) : s) };
+  // Search in homepage sections
+  if (layout.sections.some(s => s.id === sectionId)) {
+    return { ...layout, sections: layout.sections.map(s => s.id === sectionId ? fn(s) : s) };
+  }
+  // Search in page sections
+  if (layout.pages) {
+    return { ...layout, pages: layout.pages.map(p => ({
+      ...p,
+      sections: p.sections.map(s => s.id === sectionId ? fn(s) : s),
+    })) };
+  }
+  return layout;
 }
 function mapRows(layout: SiteLayoutV2, sectionId: string, rowId: string, fn: (r: Row) => Row): SiteLayoutV2 {
   return mapSections(layout, sectionId, s => ({ ...s, rows: s.rows.map(r => r.id === rowId ? fn(r) : r) }));
