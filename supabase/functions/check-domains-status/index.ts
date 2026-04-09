@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
     // Fetch all pending (non-active) domains that have a Cloudflare hostname ID
     const { data: pendingDomains, error: fetchErr } = await adminClient
       .from("tenant_domains")
-      .select("id, hostname, cloudflare_hostname_id, organization_id")
+      .select("id, hostname, cloudflare_hostname_id, cloudflare_zone_id, zone_mode, zone_status, organization_id")
       .eq("is_active", false)
       .not("cloudflare_hostname_id", "is", null);
 
@@ -46,10 +46,50 @@ Deno.serve(async (req) => {
 
     let checked = 0;
     let activated = 0;
-    const results: { hostname: string; status: string; ssl: string; active: boolean }[] = [];
+    const results: { hostname: string; status: string; ssl: string; active: boolean; zone_status?: string }[] = [];
 
     for (const domain of pendingDomains) {
       try {
+        // ── Step 1: For full_zone domains, check if the zone is active first ──
+        if (domain.zone_mode === "full_zone" && domain.cloudflare_zone_id && domain.zone_status !== "active") {
+          const zoneRes = await fetch(
+            `${CF_API}/zones/${domain.cloudflare_zone_id}`,
+            { headers: { Authorization: `Bearer ${CF_TOKEN}` } }
+          );
+          const zoneData = await zoneRes.json();
+
+          if (zoneData.success) {
+            const zoneStatus = zoneData.result.status;
+            const nameservers = zoneData.result.name_servers || [];
+            console.log(`Zone check for ${domain.hostname}: status=${zoneStatus}`);
+
+            await adminClient
+              .from("tenant_domains")
+              .update({
+                zone_status: zoneStatus,
+                nameservers,
+                ...(zoneStatus === "active" ? { verification_status: "active" } : {}),
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", domain.id);
+
+            // If zone just became active, the CNAMEs (auto-created during add_zone)
+            // will now resolve. Give CF a moment, then continue to check the custom hostname.
+            if (zoneStatus !== "active") {
+              results.push({
+                hostname: domain.hostname,
+                status: "zone_pending",
+                ssl: "pending",
+                active: false,
+                zone_status: zoneStatus,
+              });
+              checked++;
+              continue;
+            }
+          }
+        }
+
+        // ── Step 2: Check the Custom Hostname status ──
         const cfRes = await fetch(
           `${CF_API}/zones/${CF_ZONE}/custom_hostnames/${domain.cloudflare_hostname_id}`,
           { headers: { Authorization: `Bearer ${CF_TOKEN}` } }
@@ -59,6 +99,12 @@ Deno.serve(async (req) => {
 
         if (!cfData.success) {
           console.warn(`CF check failed for ${domain.hostname}:`, cfData.errors);
+          results.push({
+            hostname: domain.hostname,
+            status: "cf_error",
+            ssl: "unknown",
+            active: false,
+          });
           continue;
         }
 
