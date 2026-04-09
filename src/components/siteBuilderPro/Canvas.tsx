@@ -20,8 +20,18 @@ interface Props {
 }
 
 export function Canvas({ state, dispatch, externalGuides = [] }: Props) {
-  const { present, selection, hoveredId, viewport, snapEnabled, gridSize } = state;
-  const sections = [...present.sections].sort((a, b) => a.order - b.order);
+  const { present, selection, hoveredId, viewport, snapEnabled, gridSize, activePageId } = state;
+
+  // Show sections for active page or homepage
+  const rawSections = useMemo(() => {
+    if (activePageId) {
+      const page = (present.pages || []).find(p => p.id === activePageId);
+      return page?.sections || [];
+    }
+    return present.sections;
+  }, [present, activePageId]);
+
+  const sections = [...rawSections].sort((a, b) => a.order - b.order);
   const isMobile = viewport === 'mobile';
   const [activeDrag, setActiveDrag] = useState<{ element: V2Element; from: { sectionId: string; rowId: string; columnId: string } } | null>(null);
   const [dragGuides, setDragGuides] = useState<{ x?: number; y?: number }[]>([]);
