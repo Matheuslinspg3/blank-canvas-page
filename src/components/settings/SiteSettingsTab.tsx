@@ -1304,15 +1304,291 @@ function BrandSection() {
   );
 }
 
+// ─── Template & Editor Mode Section ──────────────────────────────────────────
+
+function TemplateSection() {
+  const { profile } = useAuth();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const orgId = profile?.organization_id;
+
+  // Site document for editor mode
+  const { data: siteDoc } = useQuery({
+    queryKey: ["site-document", orgId],
+    enabled: !!orgId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("site_documents")
+        .select("id, editor_mode")
+        .eq("organization_id", orgId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const editorMode = (siteDoc as any)?.editor_mode ?? 'simple';
+
+  const switchModeMutation = useMutation({
+    mutationFn: async (mode: string) => {
+      if (!siteDoc) throw new Error("Documento não encontrado");
+      const { error } = await supabase
+        .from("site_documents")
+        .update({ editor_mode: mode })
+        .eq("id", siteDoc.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Modo do editor atualizado!");
+      queryClient.invalidateQueries({ queryKey: ["site-document"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const [pendingMode, setPendingMode] = useState<string | null>(null);
+
+  // Website settings for template
+  const { data: settings } = useQuery({
+    queryKey: ["website-settings", orgId],
+    enabled: !!orgId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("website_settings")
+        .select("id, site_template")
+        .eq("organization_id", orgId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const [siteTemplate, setSiteTemplate] = useState<SiteTemplate>("classic");
+  const [showAIDialog, setShowAIDialog] = useState(false);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+
+  const { generateTextOnly, generateFullLayout, isGenerating: isAIGenerating } = useSiteAIGeneration();
+
+  useEffect(() => {
+    if (settings) {
+      setSiteTemplate(((settings as any).site_template || "classic") as SiteTemplate);
+    }
+  }, [settings]);
+
+  const saveTemplateMutation = useMutation({
+    mutationFn: async (template: SiteTemplate) => {
+      if (!settings?.id) return;
+      const { error } = await supabase
+        .from("website_settings")
+        .update({ site_template: template } as any)
+        .eq("id", settings.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Template salvo!");
+      queryClient.invalidateQueries({ queryKey: ["website-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["storefront-website"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const handleTemplateChange = (t: SiteTemplate) => {
+    setSiteTemplate(t);
+    saveTemplateMutation.mutate(t);
+  };
+
+  const handleGenerateWithAI = async (answers: AIContentAnswers, mode: AIGenerationMode = "text_only", siteMode?: 'single-page' | 'multi-page') => {
+    if (mode === "full_layout") {
+      const layout = await generateFullLayout(answers, siteMode || 'single-page');
+      if (layout && orgId) {
+        try {
+          const { data: existingDoc } = await supabase
+            .from("site_documents")
+            .select("id")
+            .eq("organization_id", orgId)
+            .maybeSingle();
+
+          if (existingDoc) {
+            await supabase
+              .from("site_documents")
+              .update({
+                draft_v2: layout as any,
+                published_v2: layout as any,
+                editor_mode: "advanced",
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", existingDoc.id);
+          } else {
+            await supabase.from("site_documents").insert({
+              organization_id: orgId,
+              draft_v2: layout as any,
+              published_v2: layout as any,
+              editor_mode: "advanced",
+            });
+          }
+
+          setShowAIDialog(false);
+          toast.success("Site gerado com IA! Abrindo o editor...");
+          queryClient.invalidateQueries({ queryKey: ["site-document"] });
+          navigate("/site/builder-pro");
+        } catch (err: any) {
+          toast.error("Erro ao salvar layout: " + (err.message || ""));
+        }
+      }
+      return;
+    }
+
+    // Text only — not relevant for template tab, but keep for compatibility
+    setIsGeneratingAI(true);
+    try {
+      await generateTextOnly(answers);
+      setShowAIDialog(false);
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
+
+  const openEditor = () => {
+    if (editorMode === 'advanced') {
+      navigate('/site/builder-pro');
+    } else {
+      navigate('/site/builder');
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Editor Mode */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Layout className="h-5 w-5" />
+            Modo do Editor
+          </CardTitle>
+          <CardDescription>Escolha entre o editor simples (blocos) ou avançado (drag & drop)</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (editorMode !== 'simple') setPendingMode('simple');
+              }}
+              className={`p-4 rounded-lg border text-left transition-colors ${
+                editorMode === 'simple'
+                  ? 'bg-primary/10 border-primary ring-1 ring-primary/30'
+                  : 'bg-background border-border hover:border-primary/40'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">Simples</span>
+              </div>
+              <p className="text-xs text-muted-foreground">Blocos pré-prontos, fácil de usar</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (editorMode !== 'advanced') setPendingMode('advanced');
+              }}
+              className={`p-4 rounded-lg border text-left transition-colors ${
+                editorMode === 'advanced'
+                  ? 'bg-primary/10 border-primary ring-1 ring-primary/30'
+                  : 'bg-background border-border hover:border-primary/40'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <Wand2 className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">Avançado</span>
+                <Badge variant="secondary" className="text-[10px]">Beta</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">Drag & drop, multi-página, controle total</p>
+            </button>
+          </div>
+
+          <Button onClick={openEditor} className="gap-2 w-full sm:w-auto">
+            {editorMode === 'advanced' ? <Wand2 className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+            Abrir Editor {editorMode === 'advanced' ? 'Avançado' : 'Visual'}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Template Selector (for simple mode) */}
+      {editorMode === 'simple' && (
+        <SiteTemplateSelector
+          value={siteTemplate}
+          onChange={handleTemplateChange}
+          onGenerateWithAI={() => setShowAIDialog(true)}
+          isGenerating={isGeneratingAI}
+        />
+      )}
+
+      {/* AI Generation (for advanced mode) */}
+      {editorMode === 'advanced' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              Criar com IA
+            </CardTitle>
+            <CardDescription>Gere um site completo automaticamente usando inteligência artificial</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => setShowAIDialog(true)} className="gap-2" disabled={isAIGenerating}>
+              {isAIGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Gerar site com IA
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      <AIContentDialog
+        open={showAIDialog}
+        onOpenChange={setShowAIDialog}
+        onGenerate={handleGenerateWithAI}
+        isGenerating={isGeneratingAI || isAIGenerating}
+      />
+
+      {/* Confirm mode switch */}
+      <AlertDialog open={!!pendingMode} onOpenChange={(open) => !open && setPendingMode(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Trocar modo do editor?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingMode === 'advanced'
+                ? 'Trocar para o modo avançado fará seu site público mostrar o conteúdo do editor avançado. Se você ainda não criou conteúdo lá, o site ficará vazio até você publicar.'
+                : 'Trocar para o modo simples fará seu site público voltar a mostrar o conteúdo do editor simples.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (pendingMode) {
+                switchModeMutation.mutate(pendingMode);
+                setPendingMode(null);
+              }
+            }}>
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function SiteSettingsTab() {
   return (
     <div className="max-w-3xl space-y-6">
-      <Tabs defaultValue="content">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="content" className="gap-2">
+      <Tabs defaultValue="template">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="template" className="gap-2">
             <Layout className="h-4 w-4" />
+            Template
+          </TabsTrigger>
+          <TabsTrigger value="content" className="gap-2">
+            <FileText className="h-4 w-4" />
             Conteúdo
           </TabsTrigger>
           <TabsTrigger value="brand" className="gap-2">
@@ -1324,6 +1600,9 @@ export default function SiteSettingsTab() {
             Domínio
           </TabsTrigger>
         </TabsList>
+        <TabsContent value="template" className="mt-6">
+          <TemplateSection />
+        </TabsContent>
         <TabsContent value="content" className="mt-6">
           <WebsiteContentSection />
         </TabsContent>
