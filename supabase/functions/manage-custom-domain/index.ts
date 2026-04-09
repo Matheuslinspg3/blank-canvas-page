@@ -479,7 +479,31 @@ Deno.serve(async (req) => {
       return json({ success: true, already_exists: result.already_exists, record_id: result.record_id, proxy: proxyResult });
     }
 
-    // ─── Setup Platform Worker Proxy ───────────────────────────────
+    // ─── Fix DNS: replace CNAME with A records (fixes Error 1000) ──
+    if (action === "fix_dns") {
+      const domainId = body.domain_id as string;
+      const { data: domain } = await adminClient
+        .from("tenant_domains")
+        .select("*")
+        .eq("id", domainId)
+        .eq("organization_id", orgId)
+        .single();
+      if (!domain) return errorJson("Domínio não encontrado", 404);
+
+      const zoneId = (domain as any).cloudflare_zone_id;
+      if (!zoneId) return errorJson("Zona não encontrada para este domínio", 400);
+
+      await ensureARecordInZone(env.cloudflareToken!, zoneId, domain.hostname, LOVABLE_ORIGIN_IP);
+      
+      // Also fix root domain if www
+      if (domain.hostname.startsWith("www.")) {
+        await ensureARecordInZone(env.cloudflareToken!, zoneId, "@", LOVABLE_ORIGIN_IP);
+      }
+
+      return json({ success: true, message: `DNS records fixed for ${domain.hostname}` });
+    }
+
+
     if (action === "setup_platform_proxy") {
       if (!env.cloudflareAccountId) {
         return errorJson("CLOUDFLARE_ACCOUNT_ID é obrigatório para criar o Worker proxy. Configure no Supabase.", 400);
