@@ -21,6 +21,14 @@ export function Topbar({ state, dispatch, onSave, onPublish, isSaving, isPublish
       <div className="flex items-center gap-3">
         <Link to="/site" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="w-4 h-4" /></Link>
         <span className="font-semibold text-sm">Editor Avançado</span>
+        {state.activePageId && (() => {
+          const page = (state.present.pages || []).find(p => p.id === state.activePageId);
+          return page ? (
+            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+              Página: {page.title}
+            </span>
+          ) : null;
+        })()}
       </div>
 
       <div className="flex items-center gap-2">

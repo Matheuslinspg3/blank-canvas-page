@@ -23,6 +23,7 @@ export interface BuilderState {
   isDirty: boolean;
   snapEnabled: boolean;
   gridSize: number;
+  activePageId: string | null; // null = homepage
 }
 
 // ── Actions ──────────────────────────────────────────────────
@@ -56,6 +57,11 @@ export type BuilderAction =
   | { type: 'MOVE_ELEMENT_BETWEEN_COLUMNS'; from: { sectionId: string; rowId: string; columnId: string; elementId: string }; to: { sectionId: string; rowId: string; columnId: string } }
   | { type: 'UPDATE_THEME'; theme: Partial<SiteTheme> }
   | { type: 'UPDATE_META'; meta: Partial<SiteMeta> }
+  | { type: 'ADD_PAGE'; slug: string; title: string }
+  | { type: 'DELETE_PAGE'; pageId: string }
+  | { type: 'UPDATE_PAGE'; pageId: string; updates: Partial<Pick<import('@/types/siteBuilderV2').SitePage, 'slug' | 'title' | 'seo'>> }
+  | { type: 'UPDATE_NAVIGATION'; navigation: import('@/types/siteBuilderV2').NavItem[] }
+  | { type: 'SET_ACTIVE_PAGE'; pageId: string | null }
   | { type: 'UNDO' }
   | { type: 'REDO' }
   | { type: 'MARK_SAVED'; at: Date };
@@ -74,9 +80,31 @@ function withHistory(state: BuilderState, newPresent: SiteLayoutV2): BuilderStat
   };
 }
 
+// ── Page-aware section access ────────────────────────────────
+function getSections(layout: SiteLayoutV2, pageId: string | null): Section[] {
+  if (!pageId) return layout.sections;
+  const page = (layout.pages || []).find(p => p.id === pageId);
+  return page?.sections || [];
+}
+function setSections(layout: SiteLayoutV2, pageId: string | null, sections: Section[]): SiteLayoutV2 {
+  if (!pageId) return { ...layout, sections };
+  return { ...layout, pages: (layout.pages || []).map(p => p.id === pageId ? { ...p, sections } : p) };
+}
+
 // ── Immutable helpers ────────────────────────────────────────
 function mapSections(layout: SiteLayoutV2, sectionId: string, fn: (s: Section) => Section): SiteLayoutV2 {
-  return { ...layout, sections: layout.sections.map(s => s.id === sectionId ? fn(s) : s) };
+  // Search in homepage sections
+  if (layout.sections.some(s => s.id === sectionId)) {
+    return { ...layout, sections: layout.sections.map(s => s.id === sectionId ? fn(s) : s) };
+  }
+  // Search in page sections
+  if (layout.pages) {
+    return { ...layout, pages: layout.pages.map(p => ({
+      ...p,
+      sections: p.sections.map(s => s.id === sectionId ? fn(s) : s),
+    })) };
+  }
+  return layout;
 }
 function mapRows(layout: SiteLayoutV2, sectionId: string, rowId: string, fn: (r: Row) => Row): SiteLayoutV2 {
   return mapSections(layout, sectionId, s => ({ ...s, rows: s.rows.map(r => r.id === rowId ? fn(r) : r) }));
@@ -123,12 +151,14 @@ function reducer(state: BuilderState, action: BuilderAction): BuilderState {
       const tmpl = SectionTemplateRegistry.find(t => t.id === action.templateId);
       if (!tmpl) return state;
       const newSection = tmpl.build(state.present.theme);
-      newSection.order = state.present.sections.length;
-      return withHistory(state, { ...state.present, sections: [...state.present.sections, newSection] });
+      const currentSections = getSections(state.present, state.activePageId);
+      newSection.order = currentSections.length;
+      return withHistory(state, setSections(state.present, state.activePageId, [...currentSections, newSection]));
     }
 
     case 'DELETE_SECTION': {
-      const newLayout = { ...state.present, sections: state.present.sections.filter(s => s.id !== action.sectionId) };
+      const currentSections = getSections(state.present, state.activePageId);
+      const newLayout = setSections(state.present, state.activePageId, currentSections.filter(s => s.id !== action.sectionId));
       const newState = withHistory(state, newLayout);
       if (state.selection.type !== 'none' && 'sectionId' in state.selection && state.selection.sectionId === action.sectionId) {
         newState.selection = { type: 'none' };
@@ -141,9 +171,10 @@ function reducer(state: BuilderState, action: BuilderAction): BuilderState {
     }
 
     case 'REORDER_SECTIONS': {
-      const map = new Map(state.present.sections.map(s => [s.id, s]));
+      const currentSections = getSections(state.present, state.activePageId);
+      const map = new Map(currentSections.map(s => [s.id, s]));
       const reordered = action.orderedIds.map((id, i) => ({ ...map.get(id)!, order: i }));
-      return withHistory(state, { ...state.present, sections: reordered });
+      return withHistory(state, setSections(state.present, state.activePageId, reordered));
     }
 
     case 'UPDATE_SECTION_STYLES':
@@ -269,6 +300,35 @@ function reducer(state: BuilderState, action: BuilderAction): BuilderState {
     case 'UPDATE_META':
       return withHistory(state, { ...state.present, meta: { ...state.present.meta, ...action.meta } });
 
+    case 'ADD_PAGE': {
+      const newPage: import('@/types/siteBuilderV2').SitePage = {
+        id: uid(), slug: action.slug, title: action.title, sections: [],
+        seo: { title: action.title },
+      };
+      const pages = [...(state.present.pages || []), newPage];
+      return withHistory(state, { ...state.present, pages });
+    }
+
+    case 'DELETE_PAGE': {
+      const pages = (state.present.pages || []).filter(p => p.id !== action.pageId);
+      const newState = withHistory(state, { ...state.present, pages });
+      if (state.activePageId === action.pageId) newState.activePageId = null;
+      return newState;
+    }
+
+    case 'UPDATE_PAGE': {
+      const pages = (state.present.pages || []).map(p =>
+        p.id === action.pageId ? { ...p, ...action.updates } : p
+      );
+      return withHistory(state, { ...state.present, pages });
+    }
+
+    case 'UPDATE_NAVIGATION':
+      return withHistory(state, { ...state.present, navigation: action.navigation });
+
+    case 'SET_ACTIVE_PAGE':
+      return { ...state, activePageId: action.pageId, selection: { type: 'none' } };
+
     case 'UNDO': {
       if (state.past.length === 0) return state;
       const prev = state.past[state.past.length - 1];
@@ -300,6 +360,7 @@ const INITIAL_STATE: BuilderState = {
   past: [], present: EMPTY_LAYOUT, future: [],
   selection: { type: 'none' }, viewport: 'desktop', hoveredId: null,
   lastSavedAt: null, isDirty: false, snapEnabled: true, gridSize: 8,
+  activePageId: null,
 };
 
 export function useSiteBuilderProState() {
