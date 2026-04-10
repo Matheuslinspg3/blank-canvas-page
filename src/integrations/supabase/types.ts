@@ -6453,6 +6453,7 @@ export type Database = {
           voice_percentage: number
           webhook_url: string | null
           welcome_message: string | null
+          welcome_next_index: number
           working_hours_end: string | null
           working_hours_start: string | null
         }
@@ -6501,6 +6502,7 @@ export type Database = {
           voice_percentage?: number
           webhook_url?: string | null
           welcome_message?: string | null
+          welcome_next_index?: number
           working_hours_end?: string | null
           working_hours_start?: string | null
         }
@@ -6549,6 +6551,7 @@ export type Database = {
           voice_percentage?: number
           webhook_url?: string | null
           welcome_message?: string | null
+          welcome_next_index?: number
           working_hours_end?: string | null
           working_hours_start?: string | null
         }
@@ -6816,6 +6819,47 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_welcome_messages: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          message: string
+          organization_id: string
+          position: number
+          updated_at: string
+          usage_count: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          message: string
+          organization_id: string
+          position?: number
+          updated_at?: string
+          usage_count?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          message?: string
+          organization_id?: string
+          position?: number
+          updated_at?: string
+          usage_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_welcome_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
