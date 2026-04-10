@@ -76,6 +76,9 @@ export function WhatsAppAgentPanel() {
               <TabsContent value="transferencia">
                 <AgentTransferTab />
               </TabsContent>
+              <TabsContent value="boas-vindas">
+                <AgentWelcomeTab />
+              </TabsContent>
             </>
           )}
 
