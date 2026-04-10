@@ -6823,6 +6823,60 @@ export type Database = {
           },
         ]
       }
+      whatsapp_welcome_log: {
+        Row: {
+          created_at: string
+          had_dialogue: boolean
+          id: string
+          last_activity_at: string | null
+          organization_id: string
+          phone: string
+          responded_at: string | null
+          response_count: number
+          sent_at: string
+          welcome_message_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          had_dialogue?: boolean
+          id?: string
+          last_activity_at?: string | null
+          organization_id: string
+          phone: string
+          responded_at?: string | null
+          response_count?: number
+          sent_at?: string
+          welcome_message_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          had_dialogue?: boolean
+          id?: string
+          last_activity_at?: string | null
+          organization_id?: string
+          phone?: string
+          responded_at?: string | null
+          response_count?: number
+          sent_at?: string
+          welcome_message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_welcome_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_welcome_log_welcome_message_id_fkey"
+            columns: ["welcome_message_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_welcome_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_welcome_messages: {
         Row: {
           created_at: string

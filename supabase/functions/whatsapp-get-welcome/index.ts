@@ -10,7 +10,6 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // Auth via webhook secret (N8N) or Bearer token
     const webhookSecret = req.headers.get("x-webhook-secret");
     const expectedSecret = Deno.env.get("WEBHOOK_SECRET");
 
@@ -45,21 +44,50 @@ Deno.serve(async (req) => {
     }
 
     const orgId = instance.organization_id;
+    const cleanPhone = phone ? phone.replace("@s.whatsapp.net", "") : null;
 
-    // Check if this phone already has messages (not a new contact)
-    if (phone) {
-      const { count } = await supabase
-        .from("whatsapp_messages")
-        .select("id", { count: "exact", head: true })
+    // ── Smart welcome logic using welcome_log ──
+    if (cleanPhone) {
+      // Check the most recent welcome log for this contact
+      const { data: lastWelcome } = await supabase
+        .from("whatsapp_welcome_log")
+        .select("*")
         .eq("organization_id", orgId)
-        .eq("phone", phone.replace("@s.whatsapp.net", ""))
-        .gt("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+        .eq("phone", cleanPhone)
+        .order("sent_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (count && count > 1) {
-        return new Response(JSON.stringify({ message: null, reason: "returning_contact" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      if (lastWelcome) {
+        // Case 1: Had real dialogue (2+ responses after welcome) → returning contact
+        if (lastWelcome.had_dialogue) {
+          // But if last activity was > 30 days ago, treat as dormant → resend
+          const daysSinceActivity = lastWelcome.last_activity_at
+            ? (Date.now() - new Date(lastWelcome.last_activity_at).getTime()) / (1000 * 60 * 60 * 24)
+            : 999;
+
+          if (daysSinceActivity < 30) {
+            return new Response(JSON.stringify({ message: null, reason: "returning_contact_with_dialogue" }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          // > 30 days dormant → fall through to resend welcome
+        }
+
+        // Case 2: Welcome sent recently (< 24h), no dialogue yet → don't spam
+        const hoursSinceSent = (Date.now() - new Date(lastWelcome.sent_at).getTime()) / (1000 * 60 * 60);
+        if (hoursSinceSent < 24) {
+          return new Response(JSON.stringify({ message: null, reason: "recent_welcome_no_spam" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Case 3: Welcome sent > 24h ago, responded but no real dialogue → they said "oi" again
+        // We resend to re-engage them
+        // Case 4: Welcome sent > 24h ago, never responded → resend to try again
+        // Both cases: fall through to send a new welcome
       }
+      // No log entry → first contact ever → fall through to send welcome
     }
 
     // Get active welcome messages ordered by position
@@ -95,7 +123,7 @@ Deno.serve(async (req) => {
       finalMessage = finalMessage.replace(/\{\{nome\}\}/gi, "").replace(/\s{2,}/g, " ").trim();
     }
 
-    // Update index and usage count atomically
+    // Update index, usage count, and log the welcome send
     const nextIndex = (currentIndex + 1) % messages.length;
 
     await Promise.all([
@@ -107,6 +135,16 @@ Deno.serve(async (req) => {
         .from("whatsapp_welcome_messages")
         .update({ usage_count: selected.usage_count + 1 })
         .eq("id", selected.id),
+      // Log the welcome send for tracking
+      ...(cleanPhone
+        ? [
+            supabase.from("whatsapp_welcome_log").insert({
+              organization_id: orgId,
+              phone: cleanPhone,
+              welcome_message_id: selected.id,
+            }),
+          ]
+        : []),
     ]);
 
     return new Response(JSON.stringify({ message: finalMessage, message_id: selected.id }), {
