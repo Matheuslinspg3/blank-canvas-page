@@ -39,6 +39,9 @@ export function WhatsAppAgentPanel() {
                 <TabsTrigger value="transferencia" className="gap-1.5 text-xs sm:text-sm shrink-0">
                   <ArrowRightLeft className="h-3.5 w-3.5" /> Transferência
                 </TabsTrigger>
+                <TabsTrigger value="boas-vindas" className="gap-1.5 text-xs sm:text-sm shrink-0">
+                  <Sparkles className="h-3.5 w-3.5" /> Boas-Vindas
+                </TabsTrigger>
               </>
             )}
             <TabsTrigger value="chat" className="gap-1.5 text-xs sm:text-sm shrink-0">
