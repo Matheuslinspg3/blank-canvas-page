@@ -6,13 +6,34 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-webhook-secret",
 };
 
+function getTimePeriod(): string {
+  const hour = new Date().getUTCHours() - 3; // BRT = UTC-3
+  const h = hour < 0 ? hour + 24 : hour;
+  if (h >= 6 && h < 12) return "morning";
+  if (h >= 12 && h < 18) return "afternoon";
+  return "night";
+}
+
+function weightedRandomSelect(messages: any[]): any {
+  // 20% exploration (random), 80% exploitation (weighted by reply_rate)
+  if (Math.random() < 0.2 || messages.every((m: any) => (m.reply_rate ?? 0) === 0)) {
+    return messages[Math.floor(Math.random() * messages.length)];
+  }
+  const totalRate = messages.reduce((sum: number, m: any) => sum + Math.max(m.reply_rate ?? 0, 0.1), 0);
+  let rand = Math.random() * totalRate;
+  for (const m of messages) {
+    rand -= Math.max(m.reply_rate ?? 0, 0.1);
+    if (rand <= 0) return m;
+  }
+  return messages[messages.length - 1];
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const webhookSecret = req.headers.get("x-webhook-secret");
     const expectedSecret = Deno.env.get("WEBHOOK_SECRET");
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -24,13 +45,13 @@ Deno.serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, serviceKey);
+    const { instance_name, phone, contact_name, is_lead, campaign_tag } = await req.json();
 
-    const { instance_name, phone, contact_name } = await req.json();
     if (!instance_name) {
       return new Response(JSON.stringify({ error: "instance_name required" }), { status: 400, headers: corsHeaders });
     }
 
-    // Resolve org from instance
+    // Resolve org
     const { data: instance } = await supabase
       .from("whatsapp_instances")
       .select("organization_id")
@@ -48,7 +69,6 @@ Deno.serve(async (req) => {
 
     // ── Smart welcome logic using welcome_log ──
     if (cleanPhone) {
-      // Check the most recent welcome log for this contact
       const { data: lastWelcome } = await supabase
         .from("whatsapp_welcome_log")
         .select("*")
@@ -59,63 +79,87 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (lastWelcome) {
-        // Case 1: Had real dialogue (2+ responses after welcome) → returning contact
         if (lastWelcome.had_dialogue) {
-          // But if last activity was > 30 days ago, treat as dormant → resend
           const daysSinceActivity = lastWelcome.last_activity_at
             ? (Date.now() - new Date(lastWelcome.last_activity_at).getTime()) / (1000 * 60 * 60 * 24)
             : 999;
-
           if (daysSinceActivity < 30) {
             return new Response(JSON.stringify({ message: null, reason: "returning_contact_with_dialogue" }), {
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
           }
-          // > 30 days dormant → fall through to resend welcome
         }
-
-        // Case 2: Welcome sent recently (< 24h), no dialogue yet → don't spam
         const hoursSinceSent = (Date.now() - new Date(lastWelcome.sent_at).getTime()) / (1000 * 60 * 60);
         if (hoursSinceSent < 24) {
           return new Response(JSON.stringify({ message: null, reason: "recent_welcome_no_spam" }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
-
-        // Case 3: Welcome sent > 24h ago, responded but no real dialogue → they said "oi" again
-        // We resend to re-engage them
-        // Case 4: Welcome sent > 24h ago, never responded → resend to try again
-        // Both cases: fall through to send a new welcome
       }
-      // No log entry → first contact ever → fall through to send welcome
     }
 
-    // Get active welcome messages ordered by position
-    const { data: messages } = await supabase
+    // Get config for A/B test and delay settings
+    const { data: config } = await supabase
+      .from("whatsapp_agent_config")
+      .select("welcome_next_index, welcome_ab_test, welcome_delay_min, welcome_delay_max")
+      .eq("organization_id", orgId)
+      .single();
+
+    const abTest = config?.welcome_ab_test ?? false;
+    const delayMin = config?.welcome_delay_min ?? 3;
+    const delayMax = config?.welcome_delay_max ?? 8;
+
+    // Get active welcome messages
+    const { data: allMessages } = await supabase
       .from("whatsapp_welcome_messages")
-      .select("id, message, position, usage_count")
+      .select("id, message, position, usage_count, time_period, media_url, media_type, target_audience, campaign_tag, reply_count, reply_rate")
       .eq("organization_id", orgId)
       .eq("is_active", true)
       .order("position", { ascending: true });
 
-    if (!messages || messages.length === 0) {
+    if (!allMessages || allMessages.length === 0) {
       return new Response(JSON.stringify({ message: null, reason: "no_messages" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Get current index from agent config
-    const { data: config } = await supabase
-      .from("whatsapp_agent_config")
-      .select("welcome_next_index")
-      .eq("organization_id", orgId)
-      .single();
+    // Filter by time period
+    const currentPeriod = getTimePeriod();
+    let filtered = allMessages.filter(
+      (m: any) => !m.time_period || m.time_period === "all" || m.time_period === currentPeriod
+    );
 
-    const currentIndex = config?.welcome_next_index ?? 0;
-    const selectedIndex = currentIndex % messages.length;
-    const selected = messages[selectedIndex];
+    // Filter by target audience
+    if (is_lead === true) {
+      filtered = filtered.filter((m: any) => !m.target_audience || m.target_audience === "all" || m.target_audience === "leads_only");
+    } else if (is_lead === false) {
+      filtered = filtered.filter((m: any) => !m.target_audience || m.target_audience === "all" || m.target_audience === "new_only");
+    }
 
-    // Replace {{nome}} placeholder
+    // Filter/prioritize by campaign tag
+    if (campaign_tag) {
+      const campaignMatches = filtered.filter((m: any) => m.campaign_tag === campaign_tag);
+      if (campaignMatches.length > 0) {
+        filtered = campaignMatches;
+      }
+    }
+
+    // Fallback to all messages if filters removed everything
+    if (filtered.length === 0) {
+      filtered = allMessages;
+    }
+
+    // Select message: A/B weighted or round-robin
+    let selected: any;
+    if (abTest) {
+      selected = weightedRandomSelect(filtered);
+    } else {
+      const currentIndex = config?.welcome_next_index ?? 0;
+      const selectedIndex = currentIndex % filtered.length;
+      selected = filtered[selectedIndex];
+    }
+
+    // Replace {{nome}}
     let finalMessage = selected.message;
     if (contact_name) {
       finalMessage = finalMessage.replace(/\{\{nome\}\}/gi, contact_name);
@@ -123,8 +167,11 @@ Deno.serve(async (req) => {
       finalMessage = finalMessage.replace(/\{\{nome\}\}/gi, "").replace(/\s{2,}/g, " ").trim();
     }
 
-    // Update index, usage count, and log the welcome send
-    const nextIndex = (currentIndex + 1) % messages.length;
+    // Calculate delay
+    const delaySeconds = Math.floor(Math.random() * (delayMax - delayMin + 1)) + delayMin;
+
+    // Update index, usage count, and log
+    const nextIndex = ((config?.welcome_next_index ?? 0) + 1) % allMessages.length;
 
     await Promise.all([
       supabase
@@ -135,7 +182,6 @@ Deno.serve(async (req) => {
         .from("whatsapp_welcome_messages")
         .update({ usage_count: selected.usage_count + 1 })
         .eq("id", selected.id),
-      // Log the welcome send for tracking
       ...(cleanPhone
         ? [
             supabase.from("whatsapp_welcome_log").insert({
@@ -147,9 +193,16 @@ Deno.serve(async (req) => {
         : []),
     ]);
 
-    return new Response(JSON.stringify({ message: finalMessage, message_id: selected.id }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        message: finalMessage,
+        message_id: selected.id,
+        media_url: selected.media_url || null,
+        media_type: selected.media_type || null,
+        delay_seconds: delaySeconds,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   } catch (err) {
     console.error("whatsapp-get-welcome error:", err);
     return new Response(JSON.stringify({ error: "Erro interno" }), { status: 500, headers: corsHeaders });
