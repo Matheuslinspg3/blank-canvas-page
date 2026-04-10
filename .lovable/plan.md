@@ -1,65 +1,86 @@
 
 
-# Plan: Seção customizada, estilos no botão, link picker e posicionamento livre
+# Plano: Implementar 8 Funcionalidades Avançadas de Boas-Vindas
 
-## Problemas identificados
+## Resumo
 
-1. **Sem seção "em branco"**: Todas as seções no catálogo vem com conteúdo predefinido. Falta uma seção vazia/customizada onde o usuario coloca o que quiser.
+Adicionar ao sistema de boas-vindas existente: mensagens por horario, media anexa, preview/teste, metricas de engajamento, A/B testing automatico, conteudo condicional (lead vs desconhecido), delay inteligente, e suporte a origem/campanha.
 
-2. **Borda aplica no container, não no botão**: O `ButtonElement` renderiza dentro de `ElementWrapper`, que aplica todos os estilos (borda, sombra, raio) no `<div>` wrapper externo. O botão em si fica sem estilo visual direto.
+## 1. Migracoes de Banco de Dados
 
-3. **Link do botão é texto livre sem sugestões**: O campo de link aceita qualquer texto (ex: "google") sem validar ou sugerir links internos (paginas, ancoras). O usuario pode digitar algo que nao funciona.
+### Tabela `whatsapp_welcome_messages` - novas colunas:
+```sql
+ALTER TABLE whatsapp_welcome_messages
+  ADD COLUMN time_period text DEFAULT 'all',        -- 'all', 'morning', 'afternoon', 'night'
+  ADD COLUMN media_url text,                         -- URL de imagem/video/audio
+  ADD COLUMN media_type text,                        -- 'image', 'video', 'audio', null
+  ADD COLUMN target_audience text DEFAULT 'all',     -- 'all', 'new_only', 'leads_only'
+  ADD COLUMN campaign_tag text,                      -- tag de campanha/origem
+  ADD COLUMN reply_count integer DEFAULT 0,          -- quantas vezes foi respondida
+  ADD COLUMN reply_rate numeric(5,2) DEFAULT 0;      -- taxa de resposta calculada
+```
 
-4. **Botão fixo em 3 posições (sm/md/lg)**: Não ha opção de posicionamento absoluto livre para o botão -- ele so funciona em modo stack dentro da coluna.
+### Tabela `whatsapp_agent_config` - novas colunas:
+```sql
+ALTER TABLE whatsapp_agent_config
+  ADD COLUMN welcome_delay_min integer DEFAULT 3,    -- delay minimo em segundos
+  ADD COLUMN welcome_delay_max integer DEFAULT 8,    -- delay maximo em segundos
+  ADD COLUMN welcome_ab_test boolean DEFAULT false;  -- A/B testing ativo
+```
 
----
+### Tabela `whatsapp_welcome_log` - nova coluna:
+```sql
+ALTER TABLE whatsapp_welcome_log
+  ADD COLUMN replied boolean DEFAULT false;          -- se respondeu esta msg especifica
+```
 
-## Alteracoes
+### Trigger para calcular reply_rate:
+Trigger na `whatsapp_welcome_log` que, ao marcar `replied = true`, atualiza `reply_count` e `reply_rate` na mensagem correspondente.
 
-### 1. Seção customizada em branco
-**Arquivo**: `src/components/siteBuilder/v2/sectionTemplates/templates/customBlank.ts` (novo)
+## 2. Edge Function `whatsapp-get-welcome` - Atualizacoes
 
-- Registrar template `custom-blank` com category `custom`
-- Gera uma seção vazia com 1 row, 1 coluna (12/12), sem elementos
-- Coluna em modo `stack` por padrão, com minHeight de 200px
-- Label: "Seção em branco"
+- **Horario**: Determinar periodo (manha 6-12, tarde 12-18, noite 18-6) e filtrar mensagens com `time_period` correspondente ou `'all'`
+- **Conteudo condicional**: Receber parametro `is_lead` do n8n; filtrar por `target_audience`
+- **Campanha**: Receber parametro opcional `campaign_tag`; priorizar mensagens com tag correspondente
+- **A/B Testing**: Se `welcome_ab_test` ativo, selecionar aleatoriamente em vez de round-robin, ponderando por `reply_rate` (exploitation) com 20% exploracao
+- **Media**: Retornar `media_url` e `media_type` no response para o n8n enviar como midia
+- **Delay**: Retornar `delay_seconds` (random entre min e max) no response para o n8n aplicar um Wait
 
-**Arquivo**: `src/components/siteBuilder/v2/sectionTemplates/index.ts`
-- Importar o novo template
+## 3. UI - `AgentWelcomeTab.tsx` Melhorias
 
-### 2. Estilos aplicados diretamente no botão
-**Arquivo**: `src/components/siteBuilder/v2/elements/basic/Button/ButtonElement.tsx`
+- **Periodo do dia**: Select dropdown por mensagem (Todos / Manha / Tarde / Noite)
+- **Media**: Botao de upload/URL para anexar imagem ao lado do textarea
+- **Audiencia**: Select (Todos / Novos / Leads existentes)
+- **Campaign tag**: Input de texto opcional
+- **Metricas**: Exibir `reply_rate%` e `reply_count` ao lado de `usage_count`
+- **Preview/Teste**: Botao "Testar" que chama a edge function com dados mockados e mostra o resultado em um modal simulando WhatsApp (bolha verde)
 
-- Mover os estilos visuais (borderRadius, borderWidth, borderColor, borderStyle, boxShadow) do `ElementWrapper` para o proprio `<button>/<a>`, aplicando inline
-- Manter o `ElementWrapper` apenas para padding/margin/background do container
-- Separar: container cuida de espacamento, botão cuida de aparencia visual
+## 4. Configuracoes Globais (no painel existente)
 
-### 3. Link picker com sugestões internas
-**Arquivo**: `src/components/siteBuilder/v2/elements/basic/Button/ButtonInspector.tsx`
+- **Delay**: Dois inputs numericos (min/max segundos) no `AgentWelcomeTab` ou na config geral
+- **A/B Testing**: Toggle on/off que ativa selecao inteligente baseada em performance
 
-- Substituir o campo de texto livre por um componente com sugestões
-- Listar automaticamente: paginas do site (`/`, `/imoveis`, `/sobre`, `/contato`), ancoras das seções (`#imoveis`, `#sobre`, `#contato`), e opção de URL externa
-- Validar URLs externas: se nao comecar com `http://`, `https://`, `#` ou `/`, prefixar automaticamente com `https://`
-- Mostrar as opções como lista clicavel acima do input
+## 5. Trigger de Reply Tracking
 
-### 4. Botão com suporte a posicionamento absoluto
-**Arquivo**: `src/components/siteBuilder/v2/elements/basic/Button/ButtonInspector.tsx`
+Atualizar o trigger existente em `whatsapp_welcome_log` para:
+- Marcar `replied = true` quando o contato responde
+- Incrementar `reply_count` na `whatsapp_welcome_messages`
+- Recalcular `reply_rate = (reply_count / usage_count) * 100`
 
-- Adicionar secao "Posicionamento" no inspector quando a coluna pai esta em modo `absolute`
-- Campos: X, Y, Largura, Altura (ja suportados pelo sistema de layout existente via `UPDATE_ELEMENT_LAYOUT`)
+## Impacto no n8n
 
-**Nota**: O sistema de drag absoluto ja existe no Canvas -- quando a coluna esta em modo `absolute`, elementos podem ser arrastados livremente. O que falta e tornar isso mais acessivel:
-- No inspector do botão, mostrar campos numéricos de posição
-- No `CommonStylesEditor` ou no inspector, indicar que o modo absoluto esta ativo
+O node BOAS-VINDAS existente recebera campos extras no response:
+- `media_url`, `media_type` -> Se presente, enviar como midia via Evolution API
+- `delay_seconds` -> Aplicar Wait node antes de enviar
+- Enviar `is_lead: true/false` no body (verificar se o contato existe na tabela leads)
 
----
+## Arquivos Modificados
 
-## Arquivos modificados
-
-| Arquivo | Mudanca |
-|---------|---------|
-| `src/components/siteBuilder/v2/sectionTemplates/templates/customBlank.ts` | Novo template em branco |
-| `src/components/siteBuilder/v2/sectionTemplates/index.ts` | Import do novo template |
-| `src/components/siteBuilder/v2/elements/basic/Button/ButtonElement.tsx` | Estilos visuais no botão |
-| `src/components/siteBuilder/v2/elements/basic/Button/ButtonInspector.tsx` | Link picker com sugestões + campos de posição |
+| Arquivo | Alteracao |
+|---------|-----------|
+| Migration SQL | Novas colunas em 3 tabelas + trigger |
+| `whatsapp-get-welcome/index.ts` | Logica de horario, A/B, campanha, audiencia, media, delay |
+| `AgentWelcomeTab.tsx` | UI para periodo, media, audiencia, tag, metricas, preview |
+| `useWhatsAppAgentConfig.ts` | Novos campos delay e ab_test |
+| `types.ts` | Auto-atualizado pela migracao |
 
