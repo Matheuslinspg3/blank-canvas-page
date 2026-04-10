@@ -40,6 +40,9 @@ export interface AgentConfig {
   voice_percentage: number;
   voice_id: string;
   updated_at: string;
+  welcome_delay_min: number;
+  welcome_delay_max: number;
+  welcome_ab_test: boolean;
 }
 
 const DEFAULTS: Partial<AgentConfig> = {
@@ -68,6 +71,9 @@ const DEFAULTS: Partial<AgentConfig> = {
   voice_enabled: false,
   voice_percentage: 0,
   voice_id: "EXAVITQu4vr4xnSDxMaL",
+  welcome_delay_min: 3,
+  welcome_delay_max: 8,
+  welcome_ab_test: false,
 };
 
 export function useWhatsAppAgentConfig() {

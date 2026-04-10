@@ -6452,6 +6452,9 @@ export type Database = {
           voice_id: string | null
           voice_percentage: number
           webhook_url: string | null
+          welcome_ab_test: boolean | null
+          welcome_delay_max: number | null
+          welcome_delay_min: number | null
           welcome_message: string | null
           welcome_next_index: number
           working_hours_end: string | null
@@ -6501,6 +6504,9 @@ export type Database = {
           voice_id?: string | null
           voice_percentage?: number
           webhook_url?: string | null
+          welcome_ab_test?: boolean | null
+          welcome_delay_max?: number | null
+          welcome_delay_min?: number | null
           welcome_message?: string | null
           welcome_next_index?: number
           working_hours_end?: string | null
@@ -6550,6 +6556,9 @@ export type Database = {
           voice_id?: string | null
           voice_percentage?: number
           webhook_url?: string | null
+          welcome_ab_test?: boolean | null
+          welcome_delay_max?: number | null
+          welcome_delay_min?: number | null
           welcome_message?: string | null
           welcome_next_index?: number
           working_hours_end?: string | null
@@ -6831,6 +6840,7 @@ export type Database = {
           last_activity_at: string | null
           organization_id: string
           phone: string
+          replied: boolean | null
           responded_at: string | null
           response_count: number
           sent_at: string
@@ -6843,6 +6853,7 @@ export type Database = {
           last_activity_at?: string | null
           organization_id: string
           phone: string
+          replied?: boolean | null
           responded_at?: string | null
           response_count?: number
           sent_at?: string
@@ -6855,6 +6866,7 @@ export type Database = {
           last_activity_at?: string | null
           organization_id?: string
           phone?: string
+          replied?: boolean | null
           responded_at?: string | null
           response_count?: number
           sent_at?: string
@@ -6879,32 +6891,53 @@ export type Database = {
       }
       whatsapp_welcome_messages: {
         Row: {
+          campaign_tag: string | null
           created_at: string
           id: string
           is_active: boolean
+          media_type: string | null
+          media_url: string | null
           message: string
           organization_id: string
           position: number
+          reply_count: number | null
+          reply_rate: number | null
+          target_audience: string | null
+          time_period: string | null
           updated_at: string
           usage_count: number
         }
         Insert: {
+          campaign_tag?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
+          media_type?: string | null
+          media_url?: string | null
           message: string
           organization_id: string
           position?: number
+          reply_count?: number | null
+          reply_rate?: number | null
+          target_audience?: string | null
+          time_period?: string | null
           updated_at?: string
           usage_count?: number
         }
         Update: {
+          campaign_tag?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
+          media_type?: string | null
+          media_url?: string | null
           message?: string
           organization_id?: string
           position?: number
+          reply_count?: number | null
+          reply_rate?: number | null
+          target_audience?: string | null
+          time_period?: string | null
           updated_at?: string
           usage_count?: number
         }
