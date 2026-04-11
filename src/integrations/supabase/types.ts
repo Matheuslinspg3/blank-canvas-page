@@ -4054,6 +4054,50 @@ export type Database = {
           },
         ]
       }
+      pdf_extract_jobs: {
+        Row: {
+          created_at: string | null
+          error: string | null
+          file_name: string | null
+          id: string
+          organization_id: string
+          result: Json | null
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          error?: string | null
+          file_name?: string | null
+          id?: string
+          organization_id: string
+          result?: Json | null
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          error?: string | null
+          file_name?: string | null
+          id?: string
+          organization_id?: string
+          result?: Json | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pdf_extract_jobs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_modules: {
         Row: {
           category: string
