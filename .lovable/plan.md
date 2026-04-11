@@ -1,86 +1,122 @@
 
 
-# Plano: Implementar 8 Funcionalidades Avançadas de Boas-Vindas
+# Pipeline de Extração Máxima de PDF -- Versão Definitiva
 
 ## Resumo
 
-Adicionar ao sistema de boas-vindas existente: mensagens por horario, media anexa, preview/teste, metricas de engajamento, A/B testing automatico, conteudo condicional (lead vs desconhecido), delay inteligente, e suporte a origem/campanha.
+Atualizar o workflow n8n `isnDEmqhzJVkI5PX` para usar um pipeline de 3 etapas: (1) extração técnica com o node nativo `Extract from File` do n8n, (2) pré-formatação inteligente dos dados para a IA, e (3) análise visual + cruzamento pelo Gemini com prompt otimizado.
 
-## 1. Migracoes de Banco de Dados
+## O Que Muda
 
-### Tabela `whatsapp_welcome_messages` - novas colunas:
-```sql
-ALTER TABLE whatsapp_welcome_messages
-  ADD COLUMN time_period text DEFAULT 'all',        -- 'all', 'morning', 'afternoon', 'night'
-  ADD COLUMN media_url text,                         -- URL de imagem/video/audio
-  ADD COLUMN media_type text,                        -- 'image', 'video', 'audio', null
-  ADD COLUMN target_audience text DEFAULT 'all',     -- 'all', 'new_only', 'leads_only'
-  ADD COLUMN campaign_tag text,                      -- tag de campanha/origem
-  ADD COLUMN reply_count integer DEFAULT 0,          -- quantas vezes foi respondida
-  ADD COLUMN reply_rate numeric(5,2) DEFAULT 0;      -- taxa de resposta calculada
+### Problema Atual
+O workflow atual envia o PDF binário direto para o Gemini sem nenhum pré-processamento. O Gemini "vê" o PDF como imagem e perde:
+- Hyperlinks/URLs clicáveis (onde estão os links do Google Drive)
+- Metadados do documento (autor, título, datas)
+- Texto exato (depende do OCR visual, que é impreciso)
+
+O callback usa a chave errada (`result` em vez de `extracted_data`) e `Boolean("false")` retorna `true`.
+
+### Nova Arquitetura
+
+```text
+PDF Webhook
+    │
+    ▼
+Download PDF (HTTP Request) ← já existe
+    │
+    ├──→ [Extract from File] (node nativo n8n, operation: pdf)
+    │      → texto bruto + metadados do PDF
+    │
+    └──→ (PDF binário mantido para análise visual)
+    │
+    ▼
+[Code] Pré-Formatação Inteligente
+    → Extrai URLs via regex do texto
+    → Separa links do Drive
+    → Detecta palavras-chave (RESERVADO, VENDIDO)
+    → Formata texto em blocos estruturados por página
+    → Gera resumo de metadados
+    → Monta prompt enriquecido com TUDO
+    │
+    ▼
+[HTTP Request] Gemini com contexto duplo:
+    → Texto pré-processado + metadados + links encontrados
+    → PDF binário como inlineData (análise visual)
+    │
+    ▼
+[Code] Parsear + Callback CORRETO
+    → Chave "extracted_data" (não "result")
+    → Boolean fix: val === true || val === 'true'
+    │
+    ▼
+[HTTP Request] Callback → pdf-job-complete
 ```
 
-### Tabela `whatsapp_agent_config` - novas colunas:
-```sql
-ALTER TABLE whatsapp_agent_config
-  ADD COLUMN welcome_delay_min integer DEFAULT 3,    -- delay minimo em segundos
-  ADD COLUMN welcome_delay_max integer DEFAULT 8,    -- delay maximo em segundos
-  ADD COLUMN welcome_ab_test boolean DEFAULT false;  -- A/B testing ativo
+## Sobre Formatação de Dados para a IA
+
+Sim, o sistema pode e vai formatar os dados antes de enviar para a IA. O novo Code Node de "Pré-Formatação" fará:
+
+1. **Limpeza de texto**: remove espaços duplicados, quebras de linha excessivas, caracteres especiais inúteis
+2. **Estruturação por página**: separa o texto por página com marcadores claros (`=== PÁGINA 1 ===`)
+3. **Extração prévia de URLs**: lista todas as URLs encontradas no texto antes da IA processar
+4. **Detecção de padrões**: identifica previamente marcações como "RESERVADO", "VENDIDO", "DISPONÍVEL" no texto
+5. **Contexto de metadados**: formata título, autor, data de criação, software criador em bloco separado
+6. **Prompt estruturado**: em vez de "extraia tudo", envia um prompt com seções claras:
+
+```
+=== METADADOS DO DOCUMENTO ===
+Título: ...
+Autor: ...
+Criado em: ...
+Páginas: ...
+
+=== URLs ENCONTRADAS NO TEXTO ===
+1. https://drive.google.com/... (Drive)
+2. https://example.com/...
+
+=== DETECÇÕES AUTOMÁTICAS ===
+- Página 3: contém "RESERVADO"
+- Página 7: contém "VENDIDO"
+
+=== TEXTO COMPLETO POR PÁGINA ===
+--- Página 1 ---
+[texto limpo]
+--- Página 2 ---
+[texto limpo]
+
+=== INSTRUÇÃO ===
+Analise visualmente o PDF anexo E o texto acima.
+Cruze as URLs encontradas com os imóveis correspondentes.
+Identifique visualmente marcações de RESERVADO/VENDIDO que podem ser selos gráficos.
+Retorne JSON no schema especificado.
 ```
 
-### Tabela `whatsapp_welcome_log` - nova coluna:
-```sql
-ALTER TABLE whatsapp_welcome_log
-  ADD COLUMN replied boolean DEFAULT false;          -- se respondeu esta msg especifica
-```
+Isso dá à IA contexto máximo e estruturado, em vez de depender dela para "descobrir" tudo sozinha.
 
-### Trigger para calcular reply_rate:
-Trigger na `whatsapp_welcome_log` que, ao marcar `replied = true`, atualiza `reply_count` e `reply_rate` na mensagem correspondente.
+## Extrações Adicionais Incluídas
 
-## 2. Edge Function `whatsapp-get-welcome` - Atualizacoes
+| Dado | Como | Node |
+|------|------|------|
+| Texto bruto | `Extract from File` (pdf) | Node nativo n8n |
+| Metadados (título, autor, datas) | `Extract from File` (pdf) | Node nativo n8n |
+| URLs/hyperlinks no texto | Regex no Code Node | Code |
+| Links do Google Drive | Filtro específico | Code |
+| Status textual (RESERVADO/VENDIDO) | Regex no texto | Code |
+| Status visual (selos gráficos) | Gemini visual analysis | HTTP Request |
+| Fotos e plantas | Gemini visual analysis | HTTP Request |
+| Annotations/comentários | Gemini visual + texto | Combinado |
+| Arquivos embutidos | Gemini inlineData | HTTP Request |
+| OCR de páginas escaneadas | Gemini visual | HTTP Request |
 
-- **Horario**: Determinar periodo (manha 6-12, tarde 12-18, noite 18-6) e filtrar mensagens com `time_period` correspondente ou `'all'`
-- **Conteudo condicional**: Receber parametro `is_lead` do n8n; filtrar por `target_audience`
-- **Campanha**: Receber parametro opcional `campaign_tag`; priorizar mensagens com tag correspondente
-- **A/B Testing**: Se `welcome_ab_test` ativo, selecionar aleatoriamente em vez de round-robin, ponderando por `reply_rate` (exploitation) com 20% exploracao
-- **Media**: Retornar `media_url` e `media_type` no response para o n8n enviar como midia
-- **Delay**: Retornar `delay_seconds` (random entre min e max) no response para o n8n aplicar um Wait
+## Mudanças Técnicas
 
-## 3. UI - `AgentWelcomeTab.tsx` Melhorias
+### 1. Atualizar workflow n8n (isnDEmqhzJVkI5PX)
+- **Adicionar** node `Extract from File` (operation: pdf) após Download
+- **Adicionar** node Code "Pré-Formatação" que limpa, estrutura e formata os dados
+- **Atualizar** node "Preparar Gemini" para montar prompt com contexto duplo (texto formatado + PDF binário)
+- **Corrigir** node "Parsear Resposta" -- chave `extracted_data` + boolean fix
+- **Publicar** workflow
 
-- **Periodo do dia**: Select dropdown por mensagem (Todos / Manha / Tarde / Noite)
-- **Media**: Botao de upload/URL para anexar imagem ao lado do textarea
-- **Audiencia**: Select (Todos / Novos / Leads existentes)
-- **Campaign tag**: Input de texto opcional
-- **Metricas**: Exibir `reply_rate%` e `reply_count` ao lado de `usage_count`
-- **Preview/Teste**: Botao "Testar" que chama a edge function com dados mockados e mostra o resultado em um modal simulando WhatsApp (bolha verde)
-
-## 4. Configuracoes Globais (no painel existente)
-
-- **Delay**: Dois inputs numericos (min/max segundos) no `AgentWelcomeTab` ou na config geral
-- **A/B Testing**: Toggle on/off que ativa selecao inteligente baseada em performance
-
-## 5. Trigger de Reply Tracking
-
-Atualizar o trigger existente em `whatsapp_welcome_log` para:
-- Marcar `replied = true` quando o contato responde
-- Incrementar `reply_count` na `whatsapp_welcome_messages`
-- Recalcular `reply_rate = (reply_count / usage_count) * 100`
-
-## Impacto no n8n
-
-O node BOAS-VINDAS existente recebera campos extras no response:
-- `media_url`, `media_type` -> Se presente, enviar como midia via Evolution API
-- `delay_seconds` -> Aplicar Wait node antes de enviar
-- Enviar `is_lead: true/false` no body (verificar se o contato existe na tabela leads)
-
-## Arquivos Modificados
-
-| Arquivo | Alteracao |
-|---------|-----------|
-| Migration SQL | Novas colunas em 3 tabelas + trigger |
-| `whatsapp-get-welcome/index.ts` | Logica de horario, A/B, campanha, audiencia, media, delay |
-| `AgentWelcomeTab.tsx` | UI para periodo, media, audiencia, tag, metricas, preview |
-| `useWhatsAppAgentConfig.ts` | Novos campos delay e ab_test |
-| `types.ts` | Auto-atualizado pela migracao |
+### 2. Nenhuma mudança no código React/Supabase
+As Edge Functions já estão corretas. O problema é 100% no workflow n8n.
 
