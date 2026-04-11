@@ -184,7 +184,7 @@ serve(async (req) => {
 
       if (uploadError) throw new Error(`Upload falhou: ${uploadError.message}`);
 
-      const { data: signedData } = await sb.storage.from("temp-uploads").createSignedUrl(tempPath, 600);
+      const { data: signedData } = await sb.storage.from("temp-uploads").createSignedUrl(tempPath, 3600);
       if (!signedData?.signedUrl) throw new Error("Falha ao gerar URL assinada");
 
       storageUrl = signedData.signedUrl;
