@@ -253,8 +253,8 @@ export function PdfImportDialog({ open, onOpenChange, onDataExtracted, onBatchEx
             );
             const submitResult = await response.json();
 
-            if (!response.ok || !submitResult.job_id) {
-              const errorMsg = submitResult.error || `Erro ${response.status}`;
+            if (!submitResult.job_id) {
+              const errorMsg = submitResult.error || `Resposta inesperada do servidor (status ${response.status})`;
               if ((response.status >= 500 || response.status === 429) && attempt < maxRetries) {
                 lastError = errorMsg;
                 await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
