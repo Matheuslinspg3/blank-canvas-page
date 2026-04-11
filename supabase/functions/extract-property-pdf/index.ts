@@ -1,7 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import { checkAiRateLimitRedis } from "../_shared/rate-limiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,128 +25,11 @@ function isAllowedUrl(urlStr: string): boolean {
   } catch { return false; }
 }
 
-/** Extract hyperlinks from raw PDF bytes using TextDecoder (O(n)). */
-function extractPdfHyperlinks(bytes: Uint8Array): string[] {
-  const raw = new TextDecoder("latin1").decode(bytes);
-  const urls = new Set<string>();
-  const parenPattern = /\/URI\s*\(([^)]+)\)/gi;
-  let match;
-  while ((match = parenPattern.exec(raw)) !== null) {
-    const url = match[1].trim();
-    if (url.startsWith("http")) urls.add(url);
-  }
-  const hexPattern = /\/URI\s*<([0-9A-Fa-f]+)>/gi;
-  while ((match = hexPattern.exec(raw)) !== null) {
-    try {
-      const hex = match[1];
-      let decoded = "";
-      for (let i = 0; i < hex.length; i += 2) decoded += String.fromCharCode(parseInt(hex.substring(i, i + 2), 16));
-      if (decoded.startsWith("http")) urls.add(decoded);
-    } catch { /* skip */ }
-  }
-  return Array.from(urls);
-}
-
-// ── Background processor (runs via EdgeRuntime.waitUntil) ──────────────
-async function processInBackground(
-  jobId: string,
-  storageUrl: string,
-  fileName: string,
-  authHeader: string,
-  userId: string,
-  organizationId: string,
-) {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const sb = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-
-  try {
-    // 1. Download PDF
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 45000);
-    let bytes: Uint8Array;
-    try {
-      const res = await fetch(storageUrl, { signal: controller.signal, redirect: "error" });
-      if (!res.ok) throw new Error(`Download failed: ${res.status}`);
-      bytes = new Uint8Array(await res.arrayBuffer());
-      if (bytes.length > 10 * 1024 * 1024) throw new Error("Arquivo > 10MB");
-    } finally { clearTimeout(timeout); }
-
-    // 2. Extract hyperlinks (fast, native TextDecoder)
-    const hyperlinks = extractPdfHyperlinks(bytes);
-    const photoLinks = hyperlinks.filter(url =>
-      url.includes("drive.google.com") || url.includes("docs.google.com") ||
-      url.includes("onedrive.live.com") || url.includes("1drv.ms") ||
-      url.includes("photos.google.com") || url.includes("dropbox.com")
-    );
-
-    // 3. Encode base64 (native Deno std)
-    const base64 = base64Encode(bytes);
-
-    const hyperlinksContext = photoLinks.length > 0
-      ? `\n\nLINKS DE FOTOS EXTRAÍDOS DO PDF:\n${photoLinks.map((url, i) => `  ${i + 1}. ${url}`).join("\n")}\nUse esses links no campo photos_url.`
-      : "";
-
-    const systemPrompt = `Você é um especialista em extração de dados imobiliários de PDFs.
-Extraia TODOS os imóveis listados.
-
-Regras:
-- Preços são números (sem R$). Ex: 450000
-- transaction_type: "venda", "aluguel" ou "ambos"
-- property_condition: "novo" ou "usado"
-- Amenidades são array de strings
-- Se não constar, omita o campo
-- is_sold = true se marcado vendido
-- is_reserved = true se reservado${hyperlinksContext}
-
-Responda com JSON: { "properties": [{ unit_identifier, property_type, transaction_type, sale_price, rent_price, bedrooms, suites, bathrooms, parking_spots, area_total, area_built, address_neighborhood, address_city, address_state, description, amenities, ... }] }`;
-
-    const promptText = `Extraia TODOS os imóveis deste documento PDF (o conteúdo está em base64 inline). O PDF contém ${(bytes.length / 1024).toFixed(0)}KB de dados.`;
-
-    // 4. Call ai-router
-    const routerResponse = await fetch(`${supabaseUrl}/functions/v1/ai-router`, {
-      method: "POST",
-      headers: { Authorization: authHeader, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        task_type: "pdf_extract",
-        prompt: promptText,
-        system_prompt: systemPrompt,
-        image_base64: base64,
-        user_id: userId,
-      }),
-    });
-
-    const aiResult = await routerResponse.json();
-    if (!aiResult.success) throw new Error("IA indisponível");
-
-    // 5. Parse result
-    const aiText = aiResult.text || "";
-    const jsonMatch = aiText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("IA não retornou JSON válido");
-    const extractedData = JSON.parse(jsonMatch[0]);
-
-    // 6. Update job as complete
-    await sb.from("pdf_extract_jobs").update({
-      status: "complete",
-      result: extractedData,
-      updated_at: new Date().toISOString(),
-    }).eq("id", jobId);
-
-  } catch (error) {
-    console.error("[extract-pdf bg] Error:", error instanceof Error ? error.message : "unknown");
-    await sb.from("pdf_extract_jobs").update({
-      status: "failed",
-      error: error instanceof Error ? error.message : "Erro desconhecido",
-      updated_at: new Date().toISOString(),
-    }).eq("id", jobId);
-  }
-}
-
-// ── Main handler ───────────────────────────────────────────────────────
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // ── GET: Poll job status ──
+    // ── GET: Poll job status (unchanged) ──
     if (req.method === "GET") {
       const url = new URL(req.url);
       const jobId = url.searchParams.get("job_id");
@@ -190,13 +71,12 @@ serve(async (req) => {
         });
       }
 
-      // Still processing
       return new Response(JSON.stringify({ status: "processing" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // ── POST: Create job ──
+    // ── POST: Create job + dispatch to n8n ──
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Não autorizado" }), {
@@ -217,10 +97,6 @@ serve(async (req) => {
     }
     const userId = claimsData.claims.sub as string;
 
-    // Rate limit
-    const rateLimited = await checkAiRateLimitRedis(userId, "extract-property-pdf", corsHeaders);
-    if (rateLimited) return rateLimited;
-
     // Get org
     const sb = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const { data: profile } = await sb.from("profiles").select("organization_id").eq("user_id", userId).single();
@@ -230,7 +106,7 @@ serve(async (req) => {
       });
     }
 
-    // Parse body — only JSON with storage_url supported now
+    // Parse body
     const contentType = req.headers.get("content-type") || "";
     let storageUrl: string;
     let fileName: string;
@@ -242,14 +118,12 @@ serve(async (req) => {
       if (!storageUrl) throw new Error("storage_url é obrigatório");
       if (!isAllowedUrl(storageUrl)) throw new Error("URL não permitida.");
     } else if (contentType.includes("multipart/form-data")) {
-      // For small files sent as FormData, upload to temp storage first
       const formData = await req.formData();
       const file = formData.get("file") as File | null;
       if (!file) throw new Error("Nenhum arquivo enviado");
-      if (file.size > 10 * 1024 * 1024) throw new Error("Arquivo > 10MB");
+      if (file.size > 50 * 1024 * 1024) throw new Error("Arquivo > 50MB");
       fileName = file.name;
 
-      // Upload to temp storage
       const tempPath = `pdf-extract/${userId}/${Date.now()}_${fileName}`;
       const { error: upErr } = await sb.storage.from("temp-uploads").upload(tempPath, await file.arrayBuffer(), {
         contentType: "application/pdf",
@@ -272,9 +146,54 @@ serve(async (req) => {
 
     if (jobErr || !job) throw new Error("Falha ao criar job");
 
-    // Start background processing (non-blocking)
+    // ── Dispatch to n8n webhook (fire-and-forget) ──
+    const n8nWebhookUrl = Deno.env.get("N8N_PDF_WEBHOOK_URL");
+    if (!n8nWebhookUrl) {
+      // Fallback: mark job as failed if webhook not configured
+      await sb.from("pdf_extract_jobs").update({
+        status: "failed",
+        error: "N8N_PDF_WEBHOOK_URL não configurado",
+        updated_at: new Date().toISOString(),
+      }).eq("id", job.id);
+      throw new Error("Webhook de processamento não configurado");
+    }
+
+    const webhookSecret = Deno.env.get("WHATSAPP_AGENT_SECRET") || "";
+
+    // Fire-and-forget: send webhook to n8n
     EdgeRuntime.waitUntil(
-      processInBackground(job.id, storageUrl, fileName, authHeader, userId, profile.organization_id)
+      fetch(n8nWebhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Webhook-Secret": webhookSecret,
+        },
+        body: JSON.stringify({
+          job_id: job.id,
+          signed_url: storageUrl,
+          file_name: fileName,
+          org_id: profile.organization_id,
+          user_id: userId,
+          timestamp: new Date().toISOString(),
+        }),
+      }).then(async (res) => {
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          console.error(`[extract-pdf] n8n webhook failed: ${res.status} ${text}`);
+          await sb.from("pdf_extract_jobs").update({
+            status: "failed",
+            error: `Webhook n8n falhou: ${res.status}`,
+            updated_at: new Date().toISOString(),
+          }).eq("id", job.id);
+        }
+      }).catch(async (err) => {
+        console.error("[extract-pdf] n8n webhook error:", err);
+        await sb.from("pdf_extract_jobs").update({
+          status: "failed",
+          error: `Erro ao contactar n8n: ${err.message}`,
+          updated_at: new Date().toISOString(),
+        }).eq("id", job.id);
+      })
     );
 
     // Return immediately with job ID
