@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { checkAiRateLimitRedis } from "../_shared/rate-limiter.ts";
 
@@ -26,23 +27,15 @@ function isAllowedUrl(urlStr: string): boolean {
   } catch { return false; }
 }
 
-function encodeBase64Chunked(bytes: Uint8Array): string {
-  const chunkSize = 8192;
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const end = Math.min(i + chunkSize, bytes.length);
-    for (let j = i; j < end; j++) binary += String.fromCharCode(bytes[j]);
-  }
-  return btoa(binary);
+/** Use Deno std base64 — O(n) native, no string concatenation. */
+function encodeBase64Fast(bytes: Uint8Array): string {
+  return base64Encode(bytes);
 }
 
+/** Extract hyperlinks from raw PDF bytes using TextDecoder (O(n), no char-by-char). */
 function extractPdfHyperlinks(bytes: Uint8Array): string[] {
-  let raw = "";
-  const chunkSize = 32768;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const end = Math.min(i + chunkSize, bytes.length);
-    for (let j = i; j < end; j++) raw += String.fromCharCode(bytes[j]);
-  }
+  // Decode as latin1 to preserve byte values; TextDecoder is native C++ — no JS loop.
+  const raw = new TextDecoder("latin1").decode(bytes);
   const urls = new Set<string>();
   const parenPattern = /\/URI\s*\(([^)]+)\)/gi;
   let match;
