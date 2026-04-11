@@ -234,6 +234,7 @@ serve(async (req) => {
           org_id: profile.organization_id,
           user_id: userId,
           timestamp: new Date().toISOString(),
+          supabase_url: supabaseUrl,
         }),
       })
         .then(async (res) => {
