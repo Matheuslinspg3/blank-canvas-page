@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { checkAiRateLimitRedis } from "../_shared/rate-limiter.ts";
 
@@ -26,23 +27,15 @@ function isAllowedUrl(urlStr: string): boolean {
   } catch { return false; }
 }
 
-function encodeBase64Chunked(bytes: Uint8Array): string {
-  const chunkSize = 8192;
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const end = Math.min(i + chunkSize, bytes.length);
-    for (let j = i; j < end; j++) binary += String.fromCharCode(bytes[j]);
-  }
-  return btoa(binary);
+/** Use Deno std base64 — O(n) native, no string concatenation. */
+function encodeBase64Fast(bytes: Uint8Array): string {
+  return base64Encode(bytes);
 }
 
+/** Extract hyperlinks from raw PDF bytes using TextDecoder (O(n), no char-by-char). */
 function extractPdfHyperlinks(bytes: Uint8Array): string[] {
-  let raw = "";
-  const chunkSize = 32768;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const end = Math.min(i + chunkSize, bytes.length);
-    for (let j = i; j < end; j++) raw += String.fromCharCode(bytes[j]);
-  }
+  // Decode as latin1 to preserve byte values; TextDecoder is native C++ — no JS loop.
+  const raw = new TextDecoder("latin1").decode(bytes);
   const urls = new Set<string>();
   const parenPattern = /\/URI\s*\(([^)]+)\)/gi;
   let match;
@@ -77,7 +70,7 @@ async function getPdfBytes(req: Request): Promise<{ bytes: Uint8Array; fileName:
       if (!pdfResponse.ok) throw new Error(`Falha ao baixar PDF: ${pdfResponse.status}`);
       const arrayBuffer = await pdfResponse.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
-      if (bytes.length > 20 * 1024 * 1024) throw new Error("Arquivo muito grande. Limite: 20MB.");
+      if (bytes.length > 10 * 1024 * 1024) throw new Error("Arquivo muito grande. Limite: 10MB para extração via IA.");
       return { bytes, fileName: file_name || "document.pdf" };
     } finally { clearTimeout(timeout); }
   }
@@ -85,7 +78,7 @@ async function getPdfBytes(req: Request): Promise<{ bytes: Uint8Array; fileName:
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
   if (!file) throw new Error("Nenhum arquivo enviado");
-  if (file.size > 20 * 1024 * 1024) throw new Error("Arquivo muito grande. Limite: 20MB.");
+  if (file.size > 10 * 1024 * 1024) throw new Error("Arquivo muito grande. Limite: 10MB para extração via IA.");
   const arrayBuffer = await file.arrayBuffer();
   return { bytes: new Uint8Array(arrayBuffer), fileName: file.name };
 }
@@ -123,7 +116,7 @@ serve(async (req) => {
       url.includes("photos.google.com") || url.includes("dropbox.com")
     );
 
-    const base64 = encodeBase64Chunked(bytes);
+    const base64 = encodeBase64Fast(bytes);
 
     const hyperlinksContext = photoLinks.length > 0
       ? `\n\nLINKS DE FOTOS EXTRAÍDOS DO PDF:\n${photoLinks.map((url, i) => `  ${i + 1}. ${url}`).join("\n")}\nUse esses links no campo photos_url.`
