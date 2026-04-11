@@ -1,0 +1,1 @@
+UPDATE pdf_extract_jobs SET status = 'failed', error = 'Workflow n8n falhou: toBuffer não suportado (corrigido)', updated_at = now() WHERE status = 'processing';
