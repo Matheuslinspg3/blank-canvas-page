@@ -70,7 +70,7 @@ async function getPdfBytes(req: Request): Promise<{ bytes: Uint8Array; fileName:
       if (!pdfResponse.ok) throw new Error(`Falha ao baixar PDF: ${pdfResponse.status}`);
       const arrayBuffer = await pdfResponse.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
-      if (bytes.length > 20 * 1024 * 1024) throw new Error("Arquivo muito grande. Limite: 20MB.");
+      if (bytes.length > 10 * 1024 * 1024) throw new Error("Arquivo muito grande. Limite: 10MB para extração via IA.");
       return { bytes, fileName: file_name || "document.pdf" };
     } finally { clearTimeout(timeout); }
   }
@@ -78,7 +78,7 @@ async function getPdfBytes(req: Request): Promise<{ bytes: Uint8Array; fileName:
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
   if (!file) throw new Error("Nenhum arquivo enviado");
-  if (file.size > 20 * 1024 * 1024) throw new Error("Arquivo muito grande. Limite: 20MB.");
+  if (file.size > 10 * 1024 * 1024) throw new Error("Arquivo muito grande. Limite: 10MB para extração via IA.");
   const arrayBuffer = await file.arrayBuffer();
   return { bytes: new Uint8Array(arrayBuffer), fileName: file.name };
 }
@@ -116,7 +116,7 @@ serve(async (req) => {
       url.includes("photos.google.com") || url.includes("dropbox.com")
     );
 
-    const base64 = encodeBase64Chunked(bytes);
+    const base64 = encodeBase64Fast(bytes);
 
     const hyperlinksContext = photoLinks.length > 0
       ? `\n\nLINKS DE FOTOS EXTRAÍDOS DO PDF:\n${photoLinks.map((url, i) => `  ${i + 1}. ${url}`).join("\n")}\nUse esses links no campo photos_url.`
