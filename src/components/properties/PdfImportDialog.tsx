@@ -192,10 +192,28 @@ export function PdfImportDialog({ open, onOpenChange, onDataExtracted, onBatchEx
         chunksToProcess = [compressed];
       }
 
-      // Process each chunk
+      // Process each chunk via async job pattern
       const allProperties: ExtractedPropertyData[] = [];
       const { data: { session } } = await supabase.auth.getSession();
       const authToken = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+      // Helper: poll job until complete
+      const pollJob = async (jobId: string, timeoutMs = 180_000): Promise<any> => {
+        const start = Date.now();
+        while (Date.now() - start < timeoutMs) {
+          await new Promise(r => setTimeout(r, 2500));
+          const res = await fetch(
+            `${baseUrl}/functions/v1/extract-property-pdf?job_id=${jobId}`,
+            { headers: { Authorization: `Bearer ${authToken}` } }
+          );
+          const data = await res.json();
+          if (data.success) return data;
+          if (data.error) throw new Error(data.error);
+          // still processing, continue polling
+        }
+        throw new Error("Timeout: o processamento demorou demais.");
+      };
 
       for (let chunkIdx = 0; chunkIdx < chunksToProcess.length; chunkIdx++) {
         const chunk = chunksToProcess[chunkIdx];
@@ -206,92 +224,55 @@ export function PdfImportDialog({ open, onOpenChange, onDataExtracted, onBatchEx
           sonnerToast.info("Extraindo dados com IA...", { id: "pdf-process" });
         }
 
-        // Method 2: Upload to storage if chunk is large (> 5MB), otherwise send directly
-        const USE_STORAGE_THRESHOLD = 5 * 1024 * 1024;
-        let result: any;
         let storagePath: string | null = null;
 
         for (let attempt = 0; attempt <= maxRetries; attempt++) {
           try {
-            if (chunk.length > USE_STORAGE_THRESHOLD) {
-              // Upload to storage and send URL to edge function
-              const chunkName = chunksToProcess.length > 1
-                ? `${file.name.replace(/\.pdf$/i, '')}_part${chunkIdx + 1}.pdf`
-                : file.name;
-              
-              const { path, signedUrl } = await uploadPdfToStorage(supabase, chunk, chunkName);
-              storagePath = path;
+            // Always upload to storage first (required by async pattern)
+            const chunkName = chunksToProcess.length > 1
+              ? `${file.name.replace(/\.pdf$/i, '')}_part${chunkIdx + 1}.pdf`
+              : file.name;
 
-              const controller = new AbortController();
-              const timeout = setTimeout(() => controller.abort(), 180_000); // 3 min
+            const { path, signedUrl } = await uploadPdfToStorage(supabase, chunk, chunkName);
+            storagePath = path;
 
-              const response = await fetch(
-                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-property-pdf`,
-                {
-                  method: "POST",
-                  headers: {
-                    Authorization: `Bearer ${authToken}`,
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    storage_url: signedUrl,
-                    file_name: chunkName,
-                    chunk_index: chunkIdx,
-                    total_chunks: chunksToProcess.length,
-                  }),
-                  signal: controller.signal,
-                }
-              );
-              clearTimeout(timeout);
-              result = await response.json();
-
-              if (!response.ok || !result.success) {
-                const errorMsg = result.error || `Erro ${response.status}`;
-                if ((response.status >= 500 || response.status === 429) && attempt < maxRetries) {
-                  lastError = errorMsg;
-                  await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
-                  continue;
-                }
-                throw new Error(errorMsg);
+            // Submit job (returns immediately)
+            const response = await fetch(
+              `${baseUrl}/functions/v1/extract-property-pdf`,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${authToken}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  storage_url: signedUrl,
+                  file_name: chunkName,
+                }),
               }
-            } else {
-              // Small chunk: send directly as FormData
-              const formData = new FormData();
-              const blob = new Blob([chunk.buffer as ArrayBuffer], { type: "application/pdf" });
-              const chunkName = chunksToProcess.length > 1
-                ? `${file.name.replace(/\.pdf$/i, '')}_part${chunkIdx + 1}.pdf`
-                : file.name;
-              formData.append("file", blob, chunkName);
+            );
+            const submitResult = await response.json();
 
-              const controller = new AbortController();
-              const timeout = setTimeout(() => controller.abort(), 120_000);
-
-              const response = await fetch(
-                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-property-pdf`,
-                {
-                  method: "POST",
-                  headers: {
-                    Authorization: `Bearer ${authToken}`,
-                  },
-                  body: formData,
-                  signal: controller.signal,
-                }
-              );
-              clearTimeout(timeout);
-              result = await response.json();
-
-              if (!response.ok || !result.success) {
-                const errorMsg = result.error || `Erro ${response.status}`;
-                if ((response.status >= 500 || response.status === 429) && attempt < maxRetries) {
-                  lastError = errorMsg;
-                  await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
-                  continue;
-                }
-                throw new Error(errorMsg);
+            if (!response.ok || !submitResult.job_id) {
+              const errorMsg = submitResult.error || `Erro ${response.status}`;
+              if ((response.status >= 500 || response.status === 429) && attempt < maxRetries) {
+                lastError = errorMsg;
+                await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+                continue;
               }
+              throw new Error(errorMsg);
             }
 
-            // Success - extract properties from this chunk
+            // Poll for result
+            sonnerToast.info(
+              chunksToProcess.length > 1
+                ? `Aguardando IA (parte ${chunkIdx + 1})...`
+                : "Aguardando IA processar...",
+              { id: "pdf-process" }
+            );
+            const result = await pollJob(submitResult.job_id);
+
+            // Extract properties from result
             const properties: ExtractedPropertyData[] = result.data?.properties
               ? result.data.properties
               : [result.data];
@@ -303,19 +284,14 @@ export function PdfImportDialog({ open, onOpenChange, onDataExtracted, onBatchEx
               storagePath = null;
             }
 
-            break; // Success, exit retry loop
+            break; // Success
           } catch (err) {
-            // Cleanup on error
             if (storagePath) {
               deletePdfFromStorage(supabase, storagePath).catch(() => {});
               storagePath = null;
             }
 
-            if (err instanceof DOMException && err.name === "AbortError") {
-              lastError = "Timeout: o processamento demorou demais.";
-            } else {
-              lastError = err instanceof Error ? err.message : "Erro desconhecido";
-            }
+            lastError = err instanceof Error ? err.message : "Erro desconhecido";
 
             if (attempt < maxRetries) {
               await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
