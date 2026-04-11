@@ -1,0 +1,1 @@
+UPDATE pdf_extract_jobs SET status = 'failed', error = 'Job órfão: workflow n8n falhava antes do callback (bug $json.body corrigido)', updated_at = now() WHERE status = 'processing';
