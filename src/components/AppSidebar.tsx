@@ -5,6 +5,7 @@ import {
   DollarSign,
   Calendar,
   LayoutDashboard,
+  BarChart3,
   LogOut,
   Settings,
   Home,
@@ -48,6 +49,7 @@ import {
 
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Métricas", url: "/metricas", icon: BarChart3 },
   { title: "Imóveis", url: "/imoveis", icon: Home },
   { title: "Proprietários", url: "/proprietarios", icon: Building2 },
   
