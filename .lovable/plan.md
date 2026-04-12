@@ -1,88 +1,103 @@
 
 
-# Plano: Nova Aba "Métricas & Estimativas" no Dashboard
+# Plano: Adicionar Retell AI na página de Automações
 
 ## Visão Geral
 
-Criar uma nova página `/metricas` acessível pela sidebar, contendo 6 seções de métricas com filtro global de período, gráficos Recharts, skeleton loading e exportação PDF. Todos os dados vêm das tabelas existentes no Supabase (leads, properties, contracts, commissions, property_visits, lead_interactions, property_types, property_status_history, profiles).
+Criar uma nova aba "Voz (Retell)" na página de Automações, com configuração do agente, widget de chamada web e histórico de chamadas. Como você ainda não tem conta na Retell AI, o fluxo começa com um guia de setup.
 
-## Estrutura de Arquivos
+## Passo 1: Guia de Setup + Secrets
+
+Antes de codificar, você precisará:
+1. Criar conta em [dashboard.retellai.com](https://dashboard.retellai.com)
+2. Criar um agente no painel da Retell
+3. Copiar **API Key** e **Agent ID**
+4. Eu adicionarei os secrets `RETELL_API_KEY` e `RETELL_AGENT_ID` no Supabase
+
+## Passo 2: Edge Function `retell-create-web-call`
+
+Nova Edge Function que:
+- Recebe requisição autenticada do frontend
+- Chama `POST https://api.retellai.com/v2/create-web-call` com `agent_id` e `RETELL_API_KEY`
+- Retorna o `access_token` para iniciar a chamada via WebRTC no browser
+- Opcionalmente recebe `metadata` (lead_id, nome) para contexto
+
+## Passo 3: Componente `RetellVoicePanel.tsx`
+
+Novo componente em `src/components/automations/retell/`:
+
+- **Card de configuração**: mostra status da integração (conectado/não configurado), Agent ID
+- **Widget de chamada web**: botão "Iniciar Chamada" que chama a Edge Function, recebe o token e usa o SDK `retell-client-js-sdk` para WebRTC
+- **Indicadores visuais**: status idle/connecting/connected/speaking (igual ao VoiceChatWidget atual)
+- **Informações do agente**: nome, modelo de voz configurado na Retell
+
+## Passo 4: Nova aba em `Automations.tsx`
+
+Adicionar tab "Voz (Retell)" com ícone `Phone` entre "Follow-up" e o final:
 
 ```text
-src/pages/MetricsDashboard.tsx              — Página principal com filtro + 6 seções
-src/hooks/useMetricsData.ts                 — Hook central que busca dados via queries
-src/components/metrics/MetricsPeriodFilter.tsx
-src/components/metrics/LeadMetricsSection.tsx
-src/components/metrics/SalesMetricsSection.tsx
-src/components/metrics/PropertyMetricsSection.tsx
-src/components/metrics/CostRevenueSection.tsx
-src/components/metrics/BrokerRankingSection.tsx
-src/components/metrics/MetricCard.tsx        — Card reutilizável com skeleton
-src/components/metrics/MetricsSalesFunnel.tsx — Funil visual Leads→Fechamento
-src/components/metrics/ExportPdfButton.tsx   — Botão de exportação PDF
+Automações | Templates | Logs | Score | Agente IA (WhatsApp) | Follow-up | Voz (Retell)
 ```
 
-## Alterações em Arquivos Existentes
+Protegida por `canConfigureAgent` (admin/subadmin/dev).
 
-1. **`src/App.tsx`** — Adicionar rota `/metricas` com lazy load
-2. **`src/components/AppSidebar.tsx`** — Adicionar item "Métricas" no `mainItems` com ícone `BarChart3`
-3. **`src/components/MobileBottomNav.tsx`** — Incluir no menu mobile (opcional, se couber)
-4. **`src/components/GlobalCommandPalette.tsx`** — Adicionar atalho
+## Passo 5: Tabela `voice_calls` (migração)
 
-## Detalhes Técnicos por Seção
+Criar tabela para histórico de chamadas:
 
-### 1. Filtro Global
-- Reutiliza padrão do `useDashboardPeriod` existente, mas com opções: Mês atual, Mês anterior, 3 meses, 6 meses, 1 ano, Customizado
-- Componente `ToggleGroup` + `Calendar` range picker (mesmo padrão do `DashboardPeriodFilter`)
+```sql
+CREATE TABLE voice_calls (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES organizations(id),
+  lead_id UUID REFERENCES leads(id),
+  call_id TEXT NOT NULL,
+  agent_id TEXT NOT NULL,
+  call_type TEXT DEFAULT 'web_call',
+  call_status TEXT DEFAULT 'registered',
+  duration_ms INTEGER,
+  transcript TEXT,
+  recording_url TEXT,
+  sentiment TEXT,
+  metadata JSONB DEFAULT '{}',
+  started_at TIMESTAMPTZ,
+  ended_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+```
 
-### 2. Métricas de Leads
-- Queries na tabela `leads` filtradas por `created_at` no período + `organization_id`
-- Agrupamento por `source`, `stage`, `temperature`
-- Taxa de conversão: `fechado_ganho / (fechado_ganho + fechado_perdido)`
-- Tempo médio de resposta: `lead_interactions` com `type='whatsapp'|'ligacao'` MIN `occurred_at` - `leads.created_at`
-- Gráfico de linha (Recharts `LineChart`): leads por semana/mês
+Com RLS por `organization_id`.
 
-### 3. Métricas de Vendas
-- Tabela `contracts` (type='venda' status='ativo') e `properties` (status='vendido'/'alugado')
-- Valor total: SUM `contracts.value`
-- Ticket médio: AVG
-- Negócios perdidos: leads com `stage='fechado_perdido'` + SUM `estimated_value`
-- Funil visual: `BarChart` horizontal com estágios do lead_stages
+## Passo 6: Webhook `retell-webhook` (Edge Function)
 
-### 4. Métricas de Imóveis
-- `properties` filtradas por org
-- Adicionados: `created_at` no período
-- Removidos: `property_status_history` com `new_status='inativo'` no período
-- Por tipo: JOIN `property_types` → `PieChart`
-- Por status: agrupamento por `status`
-- Top 5 mais visualizados: `property_visits` COUNT por property_id
-- Tempo médio em carteira: diferença entre `created_at` e data de venda/locação (via `property_status_history`)
+Edge Function para receber webhooks da Retell com status de chamadas:
+- `call_started`, `call_ended`, `call_analyzed`
+- Atualiza `voice_calls` com duração, transcrição e sentimento
+- Autenticação via assinatura HMAC ou `X-Webhook-Secret`
 
-### 5. Estimativa de Custos & Receita
-- Comissão: SUM `commissions.amount` no período
-- Campos editáveis (custo por lead, ROI) armazenados em `localStorage` (sem nova tabela)
-- Projeção: média dos últimos 3 meses de comissões
+## Arquivos Novos
 
-### 6. Métricas de Corretores
-- Reutiliza lógica do `useDashboardRanking` existente
-- Rankings por leads atendidos, negócios fechados
-- Taxa de conversão individual
-- Exibido apenas para `isAdminOrAbove`
+```text
+src/components/automations/retell/RetellVoicePanel.tsx
+src/components/automations/retell/RetellCallWidget.tsx
+src/components/automations/retell/RetellCallHistory.tsx
+supabase/functions/retell-create-web-call/index.ts
+supabase/functions/retell-webhook/index.ts
+```
 
-### Exportação PDF
-- Usar `html2canvas` + `jspdf` para capturar a página e gerar PDF
-- Botão no topo da página
+## Arquivos Alterados
 
-### Performance
-- Todas as queries com `staleTime: 60_000`
-- Seções abaixo do fold wrapped em `LazySection` (IntersectionObserver)
-- Gráficos Recharts lazy-loaded via `React.lazy`
+- `src/pages/Automations.tsx` — nova aba
+- `package.json` — adicionar `retell-client-js-sdk`
 
-### Layout
-- Grid responsivo: `grid-cols-2 lg:grid-cols-4` nos cards
-- Seções separadas por `<hr className="section-divider" />`
-- Skeleton loading em todos os cards via `isLoading` prop
+## Dependência
 
-## Sem Migrações de Banco
-Todos os dados necessários já existem nas tabelas atuais. As queries serão feitas client-side via Supabase SDK. Campos editáveis de custos ficam em localStorage.
+- `retell-client-js-sdk` (SDK oficial para WebRTC no browser)
+
+## Sequência de Implementação
+
+1. Solicitar secrets (RETELL_API_KEY, RETELL_AGENT_ID)
+2. Criar migração `voice_calls`
+3. Criar Edge Functions
+4. Criar componentes React
+5. Adicionar aba em Automations
 
