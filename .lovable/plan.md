@@ -1,60 +1,88 @@
 
 
-# Correção: `toBuffer is not a function` no n8n Code Node
+# Plano: Nova Aba "Métricas & Estimativas" no Dashboard
 
-## Problema Identificado
-A execução real do workflow n8n (Execution #87064) falha no node **"Pré-Formatação Inteligente"** com o erro:
+## Visão Geral
 
-```
-TypeError: downloadNode.binary.pdf_data.toBuffer is not a function [line 7]
-```
+Criar uma nova página `/metricas` acessível pela sidebar, contendo 6 seções de métricas com filtro global de período, gráficos Recharts, skeleton loading e exportação PDF. Todos os dados vêm das tabelas existentes no Supabase (leads, properties, contracts, commissions, property_visits, lead_interactions, property_types, property_status_history, profiles).
 
-O n8n 2.15.0 usa `filesystem-v2` para armazenamento binário. O método `.toBuffer()` não está disponível diretamente nos objetos binários acessados via `$('Node').first().binary`. Em vez disso, deve-se usar a helper function `$getWorkflowStaticData` ou, mais simplesmente, acessar o binário via `this.helpers.getBinaryDataBuffer()` -- mas no Code node v2 a forma correta é usar `await this.helpers.getBinaryDataBuffer(itemIndex, propertyName)` ou simplesmente passar o PDF via a signed URL diretamente para o Gemini ao invés de tentar converter para base64 in-memory.
+## Estrutura de Arquivos
 
-**Consequência**: O workflow falha silenciosamente no n8n, não há callback, e os 3 jobs ficam presos em `processing` eternamente.
-
-## Plano de Correção
-
-### 1. Corrigir o Code node "Pré-Formatação Inteligente"
-Atualizar o jsCode para usar a **signed URL** do webhook payload em vez de tentar converter binário para base64. O Gemini 2.0 Flash aceita `fileUri` além de `inlineData`, mas como a URL é temporária do Supabase Storage (não do Google), a melhor abordagem é:
-
-- Usar `await $('Download PDF').first().binary.pdf_data.data` se o binário estiver em modo `base64` **OU**
-- Re-baixar o PDF via `fetch()` usando a `signed_url` do body do webhook e converter para base64
-
-A abordagem mais robusta: usar a signed_url do payload original (acessível via `$('PDF Webhook').first().json.body.signed_url`) para fazer fetch e converter para base64 diretamente no Code node, eliminando a dependência do sistema de binários do n8n.
-
-**Código corrigido (linhas relevantes):**
-```javascript
-// Substituir:
-const downloadNode = $('Download PDF').first();
-const pdfBuffer = await downloadNode.binary.pdf_data.toBuffer();
-const base64Pdf = pdfBuffer.toString('base64');
-
-// Por:
-const signedUrl = $('PDF Webhook').first().json.body.signed_url;
-const pdfResponse = await fetch(signedUrl);
-const pdfArrayBuffer = await pdfResponse.arrayBuffer();
-const base64Pdf = Buffer.from(pdfArrayBuffer).toString('base64');
+```text
+src/pages/MetricsDashboard.tsx              — Página principal com filtro + 6 seções
+src/hooks/useMetricsData.ts                 — Hook central que busca dados via queries
+src/components/metrics/MetricsPeriodFilter.tsx
+src/components/metrics/LeadMetricsSection.tsx
+src/components/metrics/SalesMetricsSection.tsx
+src/components/metrics/PropertyMetricsSection.tsx
+src/components/metrics/CostRevenueSection.tsx
+src/components/metrics/BrokerRankingSection.tsx
+src/components/metrics/MetricCard.tsx        — Card reutilizável com skeleton
+src/components/metrics/MetricsSalesFunnel.tsx — Funil visual Leads→Fechamento
+src/components/metrics/ExportPdfButton.tsx   — Botão de exportação PDF
 ```
 
-### 2. Marcar jobs órfãos como `failed`
-Executar migração SQL para atualizar os 3 jobs presos em `processing`:
-```sql
-UPDATE pdf_extract_jobs 
-SET status = 'failed', 
-    error = 'Workflow n8n falhou: toBuffer não suportado (corrigido)',
-    updated_at = now()
-WHERE status = 'processing';
-```
+## Alterações em Arquivos Existentes
 
-### 3. Testar com pin data e depois com execução real
-- Atualizar o workflow via `update_workflow`
-- Testar com `test_workflow` usando pin data
-- Pedir ao usuário para testar upload real
+1. **`src/App.tsx`** — Adicionar rota `/metricas` com lazy load
+2. **`src/components/AppSidebar.tsx`** — Adicionar item "Métricas" no `mainItems` com ícone `BarChart3`
+3. **`src/components/MobileBottomNav.tsx`** — Incluir no menu mobile (opcional, se couber)
+4. **`src/components/GlobalCommandPalette.tsx`** — Adicionar atalho
 
-## Detalhes Técnicos
-- **Workflow**: `isnDEmqhzJVkI5PX`
-- **Node afetado**: "Pré-Formatação Inteligente" (Code v2)
-- **Erro raiz**: `filesystem-v2` binary storage no n8n 2.15.0 não expõe `.toBuffer()` no Code node
-- **Execução de evidência**: #87064 (status: error)
+## Detalhes Técnicos por Seção
+
+### 1. Filtro Global
+- Reutiliza padrão do `useDashboardPeriod` existente, mas com opções: Mês atual, Mês anterior, 3 meses, 6 meses, 1 ano, Customizado
+- Componente `ToggleGroup` + `Calendar` range picker (mesmo padrão do `DashboardPeriodFilter`)
+
+### 2. Métricas de Leads
+- Queries na tabela `leads` filtradas por `created_at` no período + `organization_id`
+- Agrupamento por `source`, `stage`, `temperature`
+- Taxa de conversão: `fechado_ganho / (fechado_ganho + fechado_perdido)`
+- Tempo médio de resposta: `lead_interactions` com `type='whatsapp'|'ligacao'` MIN `occurred_at` - `leads.created_at`
+- Gráfico de linha (Recharts `LineChart`): leads por semana/mês
+
+### 3. Métricas de Vendas
+- Tabela `contracts` (type='venda' status='ativo') e `properties` (status='vendido'/'alugado')
+- Valor total: SUM `contracts.value`
+- Ticket médio: AVG
+- Negócios perdidos: leads com `stage='fechado_perdido'` + SUM `estimated_value`
+- Funil visual: `BarChart` horizontal com estágios do lead_stages
+
+### 4. Métricas de Imóveis
+- `properties` filtradas por org
+- Adicionados: `created_at` no período
+- Removidos: `property_status_history` com `new_status='inativo'` no período
+- Por tipo: JOIN `property_types` → `PieChart`
+- Por status: agrupamento por `status`
+- Top 5 mais visualizados: `property_visits` COUNT por property_id
+- Tempo médio em carteira: diferença entre `created_at` e data de venda/locação (via `property_status_history`)
+
+### 5. Estimativa de Custos & Receita
+- Comissão: SUM `commissions.amount` no período
+- Campos editáveis (custo por lead, ROI) armazenados em `localStorage` (sem nova tabela)
+- Projeção: média dos últimos 3 meses de comissões
+
+### 6. Métricas de Corretores
+- Reutiliza lógica do `useDashboardRanking` existente
+- Rankings por leads atendidos, negócios fechados
+- Taxa de conversão individual
+- Exibido apenas para `isAdminOrAbove`
+
+### Exportação PDF
+- Usar `html2canvas` + `jspdf` para capturar a página e gerar PDF
+- Botão no topo da página
+
+### Performance
+- Todas as queries com `staleTime: 60_000`
+- Seções abaixo do fold wrapped em `LazySection` (IntersectionObserver)
+- Gráficos Recharts lazy-loaded via `React.lazy`
+
+### Layout
+- Grid responsivo: `grid-cols-2 lg:grid-cols-4` nos cards
+- Seções separadas por `<hr className="section-divider" />`
+- Skeleton loading em todos os cards via `isLoading` prop
+
+## Sem Migrações de Banco
+Todos os dados necessários já existem nas tabelas atuais. As queries serão feitas client-side via Supabase SDK. Campos editáveis de custos ficam em localStorage.
 
