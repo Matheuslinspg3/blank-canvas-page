@@ -179,7 +179,7 @@ export function useSalesMetrics(dateRange: MetricsDateRange) {
         .lte("created_at", dateRange.to.toISOString());
 
       const sales = (contracts || []).filter((c) => c.type === "venda");
-      const rentals = (contracts || []).filter((c) => c.type === "aluguel");
+      const rentals = (contracts || []).filter((c) => c.type === "locacao");
 
       const totalSalesValue = sales.reduce((s, c) => s + Number(c.value || 0), 0);
       const totalRentalsValue = rentals.reduce((s, c) => s + Number(c.value || 0), 0);
