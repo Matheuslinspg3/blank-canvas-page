@@ -6158,6 +6158,7 @@ export type Database = {
       }
       subscription_plans: {
         Row: {
+          automation_allowance_brl: number
           created_at: string
           description: string | null
           discount_percent: number | null
@@ -6182,6 +6183,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          automation_allowance_brl?: number
           created_at?: string
           description?: string | null
           discount_percent?: number | null
@@ -6206,6 +6208,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          automation_allowance_brl?: number
           created_at?: string
           description?: string | null
           discount_percent?: number | null
