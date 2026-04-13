@@ -25,11 +25,23 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
-    const { data: profile } = await supabase
+    // Try by id first, fallback to user_id column
+    let profile: any = null;
+    const { data: p1 } = await supabase
       .from("profiles")
       .select("organization_id")
       .eq("id", user.id)
-      .single();
+      .maybeSingle();
+    profile = p1;
+
+    if (!profile) {
+      const { data: p2 } = await supabase
+        .from("profiles")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      profile = p2;
+    }
 
     if (!profile?.organization_id) {
       return new Response(JSON.stringify({ error: "No organization" }), { status: 400, headers: corsHeaders });
