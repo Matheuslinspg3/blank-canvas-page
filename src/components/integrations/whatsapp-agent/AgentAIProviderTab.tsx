@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { AICreditWalletCard } from "./AICreditWalletCard";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -94,7 +95,8 @@ export function AgentAIProviderTab() {
 
   return (
     <div className="space-y-4">
-      {/* Mode Selection */}
+      {/* Credit Wallet - only in platform mode */}
+      {!isByok && <AICreditWalletCard />}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">

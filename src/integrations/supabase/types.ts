@@ -479,6 +479,122 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_credit_transactions: {
+        Row: {
+          amount_usd: number
+          balance_after: number
+          billed_cost_usd: number | null
+          created_at: string
+          description: string | null
+          id: string
+          metadata: Json | null
+          model: string | null
+          organization_id: string
+          provider: string | null
+          raw_cost_usd: number | null
+          tokens_input: number | null
+          tokens_output: number | null
+          type: string
+          wallet_id: string
+        }
+        Insert: {
+          amount_usd: number
+          balance_after: number
+          billed_cost_usd?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          model?: string | null
+          organization_id: string
+          provider?: string | null
+          raw_cost_usd?: number | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+          type: string
+          wallet_id: string
+        }
+        Update: {
+          amount_usd?: number
+          balance_after?: number
+          billed_cost_usd?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          model?: string | null
+          organization_id?: string
+          provider?: string | null
+          raw_cost_usd?: number | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+          type?: string
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_credit_transactions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_credit_transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "ai_credit_wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_credit_wallets: {
+        Row: {
+          balance_usd: number
+          created_at: string
+          id: string
+          last_plan_credit_at: string | null
+          markup_multiplier: number
+          organization_id: string
+          plan_monthly_allowance_usd: number
+          total_consumed_usd: number
+          total_recharged_usd: number
+          updated_at: string
+        }
+        Insert: {
+          balance_usd?: number
+          created_at?: string
+          id?: string
+          last_plan_credit_at?: string | null
+          markup_multiplier?: number
+          organization_id: string
+          plan_monthly_allowance_usd?: number
+          total_consumed_usd?: number
+          total_recharged_usd?: number
+          updated_at?: string
+        }
+        Update: {
+          balance_usd?: number
+          created_at?: string
+          id?: string
+          last_plan_credit_at?: string | null
+          markup_multiplier?: number
+          organization_id?: string
+          plan_monthly_allowance_usd?: number
+          total_consumed_usd?: number
+          total_recharged_usd?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_credit_wallets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_org_budgets: {
         Row: {
           action_on_limit: string
@@ -7695,6 +7811,14 @@ export type Database = {
         Args: { p_invite_id: string; p_user_email: string; p_user_id: string }
         Returns: Json
       }
+      add_ai_credits: {
+        Args: {
+          p_amount_usd: number
+          p_description?: string
+          p_organization_id: string
+        }
+        Returns: Json
+      }
       admin_get_growth_metrics: { Args: never; Returns: Json }
       admin_get_org_metrics: { Args: never; Returns: Json }
       admin_get_org_usage: { Args: never; Returns: Json }
@@ -7780,6 +7904,19 @@ export type Database = {
       current_user_has_role: {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
+      }
+      deduct_ai_credits: {
+        Args: {
+          p_description?: string
+          p_markup_multiplier?: number
+          p_model: string
+          p_organization_id: string
+          p_provider: string
+          p_raw_cost_usd: number
+          p_tokens_input: number
+          p_tokens_output: number
+        }
+        Returns: Json
       }
       delete_property_cascade: {
         Args: { p_property_id: string }
