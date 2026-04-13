@@ -69,8 +69,8 @@ export function AgentAIProviderTab() {
 
   const handleProviderChange = (newProvider: ProviderKey) => {
     setProvider(newProvider);
-    const firstModel = AI_PROVIDERS[newProvider].models[0].id;
-    setModel(firstModel);
+    const models = AI_PROVIDERS[newProvider].models;
+    setModel(models[0].id);
   };
 
   const currentModels = AI_PROVIDERS[provider]?.models ?? [];
