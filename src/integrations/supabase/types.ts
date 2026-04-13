@@ -1474,6 +1474,122 @@ export type Database = {
           },
         ]
       }
+      automation_credit_transactions: {
+        Row: {
+          amount_brl: number
+          balance_after: number
+          billed_cost_brl: number | null
+          created_at: string
+          description: string | null
+          id: string
+          metadata: Json | null
+          model: string | null
+          organization_id: string
+          provider: string | null
+          raw_cost_usd: number | null
+          tokens_input: number | null
+          tokens_output: number | null
+          type: string
+          wallet_id: string
+        }
+        Insert: {
+          amount_brl: number
+          balance_after: number
+          billed_cost_brl?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          model?: string | null
+          organization_id: string
+          provider?: string | null
+          raw_cost_usd?: number | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+          type: string
+          wallet_id: string
+        }
+        Update: {
+          amount_brl?: number
+          balance_after?: number
+          billed_cost_brl?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          model?: string | null
+          organization_id?: string
+          provider?: string | null
+          raw_cost_usd?: number | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+          type?: string
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_credit_transactions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_credit_transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "automation_credit_wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automation_credit_wallets: {
+        Row: {
+          balance_brl: number
+          created_at: string
+          id: string
+          last_plan_credit_at: string | null
+          markup_multiplier: number
+          organization_id: string
+          plan_monthly_allowance_brl: number
+          total_consumed_brl: number
+          total_recharged_brl: number
+          updated_at: string
+        }
+        Insert: {
+          balance_brl?: number
+          created_at?: string
+          id?: string
+          last_plan_credit_at?: string | null
+          markup_multiplier?: number
+          organization_id: string
+          plan_monthly_allowance_brl?: number
+          total_consumed_brl?: number
+          total_recharged_brl?: number
+          updated_at?: string
+        }
+        Update: {
+          balance_brl?: number
+          created_at?: string
+          id?: string
+          last_plan_credit_at?: string | null
+          markup_multiplier?: number
+          organization_id?: string
+          plan_monthly_allowance_brl?: number
+          total_consumed_brl?: number
+          total_recharged_brl?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_credit_wallets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       automation_executions: {
         Row: {
           action_type: string
@@ -7819,6 +7935,15 @@ export type Database = {
         }
         Returns: Json
       }
+      add_automation_credits: {
+        Args: {
+          p_amount_brl: number
+          p_description?: string
+          p_organization_id: string
+          p_type?: string
+        }
+        Returns: Json
+      }
       admin_get_growth_metrics: { Args: never; Returns: Json }
       admin_get_org_metrics: { Args: never; Returns: Json }
       admin_get_org_usage: { Args: never; Returns: Json }
@@ -7915,6 +8040,18 @@ export type Database = {
           p_raw_cost_usd: number
           p_tokens_input: number
           p_tokens_output: number
+        }
+        Returns: Json
+      }
+      deduct_automation_credits: {
+        Args: {
+          p_model: string
+          p_organization_id: string
+          p_provider: string
+          p_raw_cost_usd?: number
+          p_tokens_input?: number
+          p_tokens_output?: number
+          p_usd_to_brl_rate?: number
         }
         Returns: Json
       }
