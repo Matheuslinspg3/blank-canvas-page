@@ -137,6 +137,18 @@ serve(async (req) => {
       }
     }
 
+    // Resolve AI provider config for N8N consumption
+    const aiConfig: Record<string, unknown> = {
+      provider: config.ai_provider ?? "openai",
+      model: config.ai_model ?? "gpt-4o",
+      mode: config.ai_mode ?? "platform",
+    };
+
+    // Only include BYOK key if mode is byok
+    if (config.ai_mode === "byok" && config.byok_api_key) {
+      aiConfig.api_key = config.byok_api_key;
+    }
+
     return new Response(JSON.stringify({
       agent_config: {
         agent_name: config.agent_name,
@@ -150,6 +162,7 @@ serve(async (req) => {
         max_messages_before_transfer: config.max_messages_before_transfer,
         broker_assignment_mode: config.broker_assignment_mode,
       },
+      ai_config: aiConfig,
       voice_config: {
         enabled: !!config.voice_enabled,
         percentage: config.voice_percentage ?? 0,

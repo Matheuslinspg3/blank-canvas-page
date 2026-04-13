@@ -6650,10 +6650,14 @@ export type Database = {
       whatsapp_agent_config: {
         Row: {
           agent_name: string
+          ai_mode: string
+          ai_model: string
+          ai_provider: string
           auto_create_leads: boolean
           auto_qualify_leads: boolean
           away_message: string | null
           broker_assignment_mode: string
+          byok_api_key: string | null
           cache_updated_at: string | null
           cached_bairros: Json | null
           cached_property_types: Json | null
@@ -6702,10 +6706,14 @@ export type Database = {
         }
         Insert: {
           agent_name?: string
+          ai_mode?: string
+          ai_model?: string
+          ai_provider?: string
           auto_create_leads?: boolean
           auto_qualify_leads?: boolean
           away_message?: string | null
           broker_assignment_mode?: string
+          byok_api_key?: string | null
           cache_updated_at?: string | null
           cached_bairros?: Json | null
           cached_property_types?: Json | null
@@ -6754,10 +6762,14 @@ export type Database = {
         }
         Update: {
           agent_name?: string
+          ai_mode?: string
+          ai_model?: string
+          ai_provider?: string
           auto_create_leads?: boolean
           auto_qualify_leads?: boolean
           away_message?: string | null
           broker_assignment_mode?: string
+          byok_api_key?: string | null
           cache_updated_at?: string | null
           cached_bairros?: Json | null
           cached_property_types?: Json | null

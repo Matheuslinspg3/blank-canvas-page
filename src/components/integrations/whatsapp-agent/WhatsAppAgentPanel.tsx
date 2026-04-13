@@ -1,11 +1,12 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wifi, Bot, Building2, UserCheck, ArrowRightLeft, MessageCircle, Volume2, Sparkles } from "lucide-react";
+import { Wifi, Bot, Building2, UserCheck, ArrowRightLeft, MessageCircle, Volume2, Sparkles, Brain } from "lucide-react";
 import { WhatsAppIntegrationCard } from "@/components/integrations/WhatsAppIntegrationCard";
 import { AgentBehaviorTab } from "./AgentBehaviorTab";
 import { AgentPropertiesTab } from "./AgentPropertiesTab";
 import { AgentQualificationTab } from "./AgentQualificationTab";
 import { AgentTransferTab } from "./AgentTransferTab";
 import { AgentWelcomeTab } from "./AgentWelcomeTab";
+import { AgentAIProviderTab } from "./AgentAIProviderTab";
 import { WhatsAppChatPanel } from "./WhatsAppChatPanel";
 import { VoiceChatWidget } from "./VoiceChatWidget";
 import { useWhatsAppInstance } from "@/hooks/useWhatsAppInstance";
@@ -41,6 +42,9 @@ export function WhatsAppAgentPanel() {
                 </TabsTrigger>
                 <TabsTrigger value="boas-vindas" className="gap-1.5 text-xs sm:text-sm shrink-0">
                   <Sparkles className="h-3.5 w-3.5" /> Boas-Vindas
+                </TabsTrigger>
+                <TabsTrigger value="ia-provider" className="gap-1.5 text-xs sm:text-sm shrink-0">
+                  <Brain className="h-3.5 w-3.5" /> IA
                 </TabsTrigger>
               </>
             )}
@@ -78,6 +82,9 @@ export function WhatsAppAgentPanel() {
               </TabsContent>
               <TabsContent value="boas-vindas">
                 <AgentWelcomeTab />
+              </TabsContent>
+              <TabsContent value="ia-provider">
+                <AgentAIProviderTab />
               </TabsContent>
             </>
           )}
