@@ -5631,6 +5631,56 @@ export type Database = {
           },
         ]
       }
+      retell_flow_steps: {
+        Row: {
+          created_at: string
+          edges: Json | null
+          id: string
+          instruction_text: string
+          is_global: boolean | null
+          label: string
+          node_id: string
+          node_type: string
+          organization_id: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          edges?: Json | null
+          id?: string
+          instruction_text?: string
+          is_global?: boolean | null
+          label: string
+          node_id: string
+          node_type?: string
+          organization_id: string
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          edges?: Json | null
+          id?: string
+          instruction_text?: string
+          is_global?: boolean | null
+          label?: string
+          node_id?: string
+          node_type?: string
+          organization_id?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retell_flow_steps_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saved_searches: {
         Row: {
           created_at: string
