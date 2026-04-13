@@ -5560,12 +5560,18 @@ export type Database = {
           agent_name: string
           auto_create_leads: boolean | null
           auto_qualify_leads: boolean | null
+          broker_assignment_mode: string | null
           created_at: string
           enabled: boolean | null
           id: string
           max_call_duration_min: number | null
+          n8n_webhook_url: string | null
+          notification_template_broker: string | null
+          notification_template_client: string | null
           organization_id: string
+          post_call_analysis_prompt: string | null
           qualification_prompt: string | null
+          score_criteria: Json | null
           transfer_keywords: string[] | null
           updated_at: string
           working_hours_end: string | null
@@ -5576,12 +5582,18 @@ export type Database = {
           agent_name?: string
           auto_create_leads?: boolean | null
           auto_qualify_leads?: boolean | null
+          broker_assignment_mode?: string | null
           created_at?: string
           enabled?: boolean | null
           id?: string
           max_call_duration_min?: number | null
+          n8n_webhook_url?: string | null
+          notification_template_broker?: string | null
+          notification_template_client?: string | null
           organization_id: string
+          post_call_analysis_prompt?: string | null
           qualification_prompt?: string | null
+          score_criteria?: Json | null
           transfer_keywords?: string[] | null
           updated_at?: string
           working_hours_end?: string | null
@@ -5592,12 +5604,18 @@ export type Database = {
           agent_name?: string
           auto_create_leads?: boolean | null
           auto_qualify_leads?: boolean | null
+          broker_assignment_mode?: string | null
           created_at?: string
           enabled?: boolean | null
           id?: string
           max_call_duration_min?: number | null
+          n8n_webhook_url?: string | null
+          notification_template_broker?: string | null
+          notification_template_client?: string | null
           organization_id?: string
+          post_call_analysis_prompt?: string | null
           qualification_prompt?: string | null
+          score_criteria?: Json | null
           transfer_keywords?: string[] | null
           updated_at?: string
           working_hours_end?: string | null

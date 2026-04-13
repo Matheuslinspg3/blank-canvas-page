@@ -16,6 +16,12 @@ export interface RetellAgentConfig {
   auto_qualify_leads: boolean;
   auto_create_leads: boolean;
   enabled: boolean;
+  notification_template_broker: string;
+  notification_template_client: string;
+  broker_assignment_mode: string;
+  score_criteria: Record<string, number>;
+  n8n_webhook_url: string;
+  post_call_analysis_prompt: string;
   updated_at: string;
 }
 
@@ -30,6 +36,18 @@ const DEFAULTS: Partial<RetellAgentConfig> = {
   auto_qualify_leads: false,
   auto_create_leads: false,
   enabled: false,
+  notification_template_broker: "Novo lead qualificado via chamada de voz!\n\nNome: {{lead_name}}\nTelefone: {{lead_phone}}\nScore: {{score}}/100\nResumo: {{summary}}",
+  notification_template_client: "Obrigado pela sua ligação! Um corretor especializado entrará em contato em breve.",
+  broker_assignment_mode: "round_robin",
+  score_criteria: {
+    interesse_compra: 30,
+    orcamento_definido: 25,
+    prazo_definido: 20,
+    regiao_definida: 15,
+    documentacao_pronta: 10,
+  },
+  n8n_webhook_url: "",
+  post_call_analysis_prompt: "Analise a transcrição da chamada e extraia: nome do cliente, telefone, orçamento, região de interesse, tipo de imóvel, prazo para compra e nível de interesse (1-10). Retorne em JSON.",
 };
 
 export function useRetellConfig() {
