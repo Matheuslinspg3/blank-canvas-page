@@ -29,14 +29,15 @@ serve(async (req) => {
 
     const sb = createServiceClient();
 
-    // Call the atomic deduction function
-    const { data, error } = await sb.rpc("deduct_ai_credits", {
+    // Use the automation credits system (BRL-based, separate from AI credits)
+    const { data, error } = await sb.rpc("deduct_automation_credits", {
       p_organization_id: organization_id,
       p_provider: provider,
       p_model: model,
       p_tokens_input: tokens_input || 0,
       p_tokens_output: tokens_output || 0,
       p_raw_cost_usd: raw_cost_usd || 0,
+      p_usd_to_brl_rate: 5.50,
     });
 
     if (error) throw error;
