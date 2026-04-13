@@ -50,6 +50,16 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Get organization_id from existing call record
+    let organizationId: string | null = null;
+    const { data: existingCall } = await supabase
+      .from("voice_calls")
+      .select("organization_id")
+      .eq("call_id", callData.call_id)
+      .maybeSingle();
+
+    organizationId = existingCall?.organization_id ?? null;
+
     if (Object.keys(updates).length > 0) {
       const { error } = await supabase
         .from("voice_calls")
@@ -62,6 +72,46 @@ Deno.serve(async (req) => {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+    }
+
+    // Trigger n8n workflow after call_ended or call_analyzed (when transcript is available)
+    if ((event === "call_ended" || event === "call_analyzed") && organizationId) {
+      try {
+        // Get org config to check for n8n webhook URL
+        const { data: config } = await supabase
+          .from("retell_agent_config")
+          .select("n8n_webhook_url, enabled")
+          .eq("organization_id", organizationId)
+          .maybeSingle();
+
+        if (config?.enabled && config?.n8n_webhook_url) {
+          const webhookSecret = Deno.env.get("WEBHOOK_SECRET");
+          const n8nPayload = {
+            event,
+            call_id: callData.call_id,
+            organization_id: organizationId,
+            transcript: callData.transcript ?? null,
+            duration_ms: callData.duration_ms ?? null,
+            sentiment: callData.call_analysis?.user_sentiment ?? null,
+          };
+
+          console.log("Triggering n8n webhook for call:", callData.call_id);
+
+          const n8nResponse = await fetch(config.n8n_webhook_url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(webhookSecret ? { "X-Webhook-Secret": webhookSecret } : {}),
+            },
+            body: JSON.stringify(n8nPayload),
+          });
+
+          console.log("n8n webhook response:", n8nResponse.status);
+        }
+      } catch (n8nErr) {
+        // Don't fail the webhook response if n8n trigger fails
+        console.error("n8n webhook trigger failed:", n8nErr);
       }
     }
 
