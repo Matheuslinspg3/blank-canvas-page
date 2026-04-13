@@ -5554,6 +5554,65 @@ export type Database = {
           },
         ]
       }
+      retell_agent_config: {
+        Row: {
+          agent_id: string
+          agent_name: string
+          auto_create_leads: boolean | null
+          auto_qualify_leads: boolean | null
+          created_at: string
+          enabled: boolean | null
+          id: string
+          max_call_duration_min: number | null
+          organization_id: string
+          qualification_prompt: string | null
+          transfer_keywords: string[] | null
+          updated_at: string
+          working_hours_end: string | null
+          working_hours_start: string | null
+        }
+        Insert: {
+          agent_id?: string
+          agent_name?: string
+          auto_create_leads?: boolean | null
+          auto_qualify_leads?: boolean | null
+          created_at?: string
+          enabled?: boolean | null
+          id?: string
+          max_call_duration_min?: number | null
+          organization_id: string
+          qualification_prompt?: string | null
+          transfer_keywords?: string[] | null
+          updated_at?: string
+          working_hours_end?: string | null
+          working_hours_start?: string | null
+        }
+        Update: {
+          agent_id?: string
+          agent_name?: string
+          auto_create_leads?: boolean | null
+          auto_qualify_leads?: boolean | null
+          created_at?: string
+          enabled?: boolean | null
+          id?: string
+          max_call_duration_min?: number | null
+          organization_id?: string
+          qualification_prompt?: string | null
+          transfer_keywords?: string[] | null
+          updated_at?: string
+          working_hours_end?: string | null
+          working_hours_start?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retell_agent_config_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saved_searches: {
         Row: {
           created_at: string
@@ -6373,6 +6432,75 @@ export type Database = {
           verified?: boolean | null
         }
         Relationships: []
+      }
+      voice_calls: {
+        Row: {
+          agent_id: string
+          call_id: string
+          call_status: string | null
+          call_type: string | null
+          created_at: string
+          duration_ms: number | null
+          ended_at: string | null
+          id: string
+          lead_id: string | null
+          metadata: Json | null
+          organization_id: string
+          recording_url: string | null
+          sentiment: string | null
+          started_at: string | null
+          transcript: string | null
+        }
+        Insert: {
+          agent_id: string
+          call_id: string
+          call_status?: string | null
+          call_type?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          ended_at?: string | null
+          id?: string
+          lead_id?: string | null
+          metadata?: Json | null
+          organization_id: string
+          recording_url?: string | null
+          sentiment?: string | null
+          started_at?: string | null
+          transcript?: string | null
+        }
+        Update: {
+          agent_id?: string
+          call_id?: string
+          call_status?: string | null
+          call_type?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          ended_at?: string | null
+          id?: string
+          lead_id?: string | null
+          metadata?: Json | null
+          organization_id?: string
+          recording_url?: string | null
+          sentiment?: string | null
+          started_at?: string | null
+          transcript?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_calls_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_calls_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       website_settings: {
         Row: {
