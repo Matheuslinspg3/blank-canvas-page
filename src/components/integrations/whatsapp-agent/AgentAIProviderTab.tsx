@@ -95,7 +95,8 @@ export function AgentAIProviderTab() {
 
   return (
     <div className="space-y-4">
-      {/* Mode Selection */}
+      {/* Credit Wallet - only in platform mode */}
+      {!isByok && <AICreditWalletCard />}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
