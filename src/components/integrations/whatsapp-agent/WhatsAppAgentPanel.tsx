@@ -1,5 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wifi, Bot, Building2, UserCheck, ArrowRightLeft, MessageCircle, Volume2, Sparkles } from "lucide-react";
+import { Wifi, Bot, Building2, UserCheck, ArrowRightLeft, MessageCircle, Volume2, Sparkles, Brain } from "lucide-react";
 import { WhatsAppIntegrationCard } from "@/components/integrations/WhatsAppIntegrationCard";
 import { AgentBehaviorTab } from "./AgentBehaviorTab";
 import { AgentPropertiesTab } from "./AgentPropertiesTab";
