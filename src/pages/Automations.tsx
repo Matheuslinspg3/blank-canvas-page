@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Zap, BarChart3, History, LayoutTemplate, MessageSquare, UserCheck, Loader2 } from "lucide-react";
+import { Plus, Zap, BarChart3, History, LayoutTemplate, MessageSquare, UserCheck, Loader2, Phone } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,6 +13,7 @@ import { AutomationTemplates } from "@/components/automations/AutomationTemplate
 import { LeadScoreConfig } from "@/components/automations/LeadScoreConfig";
 import { WhatsAppAgentPanel } from "@/components/integrations/whatsapp-agent/WhatsAppAgentPanel";
 import { FollowUpConfigPanel } from "@/components/automations/FollowUpConfigPanel";
+import { RetellVoicePanel } from "@/components/automations/retell/RetellVoicePanel";
 import { FeatureFlagGate } from "@/components/FeatureGate";
 import { useAutomations } from "@/hooks/useAutomations";
 import { useAuth } from "@/contexts/AuthContext";
@@ -154,6 +155,9 @@ export default function Automations() {
               <TabsTrigger value="followup" className="gap-1.5 shrink-0">
                 <UserCheck className="h-3.5 w-3.5" /> Follow-up
               </TabsTrigger>
+              <TabsTrigger value="retell-voice" className="gap-1.5 shrink-0">
+                <Phone className="h-3.5 w-3.5" /> Voz (Retell)
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="automations" className="space-y-6">
@@ -213,6 +217,9 @@ export default function Automations() {
               <FeatureFlagGate featureKey="has_whatsapp">
                 <FollowUpConfigPanel />
               </FeatureFlagGate>
+            </TabsContent>
+            <TabsContent value="retell-voice">
+              <RetellVoicePanel />
             </TabsContent>
           </Tabs>
         )}
