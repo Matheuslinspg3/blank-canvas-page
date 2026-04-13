@@ -10,7 +10,18 @@ import { Save, Brain, Key, Eye, EyeOff, AlertTriangle, CheckCircle2, Cpu } from 
 import { useWhatsAppAgentConfig } from "@/hooks/useWhatsAppAgentConfig";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-const AI_PROVIDERS = {
+interface AIModel {
+  id: string;
+  label: string;
+  description: string;
+}
+
+interface AIProviderInfo {
+  label: string;
+  models: AIModel[];
+}
+
+const AI_PROVIDERS: Record<string, AIProviderInfo> = {
   openai: {
     label: "OpenAI",
     models: [
@@ -45,9 +56,9 @@ const AI_PROVIDERS = {
       { id: "mixtral-8x7b-32768", label: "Mixtral 8x7B", description: "Bom equilíbrio" },
     ],
   },
-} as const;
+};
 
-type ProviderKey = keyof typeof AI_PROVIDERS;
+type ProviderKey = string;
 
 export function AgentAIProviderTab() {
   const { config, saveConfig, isSaving, isLoading } = useWhatsAppAgentConfig();
