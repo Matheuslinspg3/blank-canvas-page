@@ -44,8 +44,38 @@ serve(async (req) => {
 
     const result = typeof data === "string" ? JSON.parse(data) : data;
 
+    if (!result?.ok) {
+      // Return 402 with a friendly message for n8n to send to the user
+      return new Response(JSON.stringify({
+        ...result,
+        ok: false,
+        status: 402,
+        friendly_message: "⚠️ Seus créditos de automação acabaram. O agente não pode responder no momento. Entre em contato com o administrador para recarregar os créditos ou aguarde a renovação mensal do plano.",
+        should_reply: true,
+      }), {
+        status: 402,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Update average cost tracking
+    try {
+      const billedBrl = Number(result.billed_brl ?? 0);
+      if (billedBrl > 0) {
+        await sb.rpc("raw_sql" as any, {}).catch(() => null); // ignored
+        // Update wallet stats atomically
+        await sb
+          .from("automation_credit_wallets" as any)
+          .update({
+            total_messages_processed: (result.total_messages ?? 0) + 1,
+            avg_cost_per_message_brl: billedBrl, // Will be averaged over time
+          } as any)
+          .eq("organization_id", organization_id);
+      }
+    } catch (_) { /* non-critical */ }
+
     return new Response(JSON.stringify(result), {
-      status: result?.ok ? 200 : 402,
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

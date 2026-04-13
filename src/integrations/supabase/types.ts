@@ -1545,6 +1545,7 @@ export type Database = {
       }
       automation_credit_wallets: {
         Row: {
+          avg_cost_per_message_brl: number | null
           balance_brl: number
           created_at: string
           id: string
@@ -1553,10 +1554,12 @@ export type Database = {
           organization_id: string
           plan_monthly_allowance_brl: number
           total_consumed_brl: number
+          total_messages_processed: number | null
           total_recharged_brl: number
           updated_at: string
         }
         Insert: {
+          avg_cost_per_message_brl?: number | null
           balance_brl?: number
           created_at?: string
           id?: string
@@ -1565,10 +1568,12 @@ export type Database = {
           organization_id: string
           plan_monthly_allowance_brl?: number
           total_consumed_brl?: number
+          total_messages_processed?: number | null
           total_recharged_brl?: number
           updated_at?: string
         }
         Update: {
+          avg_cost_per_message_brl?: number | null
           balance_brl?: number
           created_at?: string
           id?: string
@@ -1577,6 +1582,7 @@ export type Database = {
           organization_id?: string
           plan_monthly_allowance_brl?: number
           total_consumed_brl?: number
+          total_messages_processed?: number | null
           total_recharged_brl?: number
           updated_at?: string
         }
