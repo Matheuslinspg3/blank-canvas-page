@@ -13,6 +13,7 @@ import { AutomationTemplates } from "@/components/automations/AutomationTemplate
 import { LeadScoreConfig } from "@/components/automations/LeadScoreConfig";
 import { WhatsAppAgentPanel } from "@/components/integrations/whatsapp-agent/WhatsAppAgentPanel";
 import { FollowUpConfigPanel } from "@/components/automations/FollowUpConfigPanel";
+import { RetellVoicePanel } from "@/components/automations/retell/RetellVoicePanel";
 import { FeatureFlagGate } from "@/components/FeatureGate";
 import { useAutomations } from "@/hooks/useAutomations";
 import { useAuth } from "@/contexts/AuthContext";
@@ -153,6 +154,9 @@ export default function Automations() {
               </TabsTrigger>
               <TabsTrigger value="followup" className="gap-1.5 shrink-0">
                 <UserCheck className="h-3.5 w-3.5" /> Follow-up
+              </TabsTrigger>
+              <TabsTrigger value="retell-voice" className="gap-1.5 shrink-0">
+                <Phone className="h-3.5 w-3.5" /> Voz (Retell)
               </TabsTrigger>
             </TabsList>
 
