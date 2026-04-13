@@ -118,10 +118,10 @@ export function RetellCallWidget() {
               <Button
                 size="lg"
                 onClick={startCall}
-                disabled={status === "connecting" || status === "ended"}
+                disabled={status === "ended"}
                 className="gap-2"
               >
-                {status === "connecting" ? (
+                {status === "ended" ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
                   <Phone className="h-5 w-5" />
