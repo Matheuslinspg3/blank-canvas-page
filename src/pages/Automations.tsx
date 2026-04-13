@@ -218,6 +218,9 @@ export default function Automations() {
                 <FollowUpConfigPanel />
               </FeatureFlagGate>
             </TabsContent>
+            <TabsContent value="retell-voice">
+              <RetellVoicePanel />
+            </TabsContent>
           </Tabs>
         )}
       </div>
