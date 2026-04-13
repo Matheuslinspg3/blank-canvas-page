@@ -6,6 +6,7 @@ import { AgentPropertiesTab } from "./AgentPropertiesTab";
 import { AgentQualificationTab } from "./AgentQualificationTab";
 import { AgentTransferTab } from "./AgentTransferTab";
 import { AgentWelcomeTab } from "./AgentWelcomeTab";
+import { AgentAIProviderTab } from "./AgentAIProviderTab";
 import { WhatsAppChatPanel } from "./WhatsAppChatPanel";
 import { VoiceChatWidget } from "./VoiceChatWidget";
 import { useWhatsAppInstance } from "@/hooks/useWhatsAppInstance";
