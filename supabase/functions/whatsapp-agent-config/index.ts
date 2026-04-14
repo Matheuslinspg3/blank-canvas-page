@@ -127,11 +127,11 @@ serve(async (req) => {
       propertyTypeMap[pt.id] = pt.name;
     });
 
-    const propertyTypesPrompt = Object.entries(propertyTypeMap).length
-      ? `Use o seguinte mapeamento de tipos de imóvel (ID => Nome):\n${Object.entries(propertyTypeMap)
-          .map(([id, name]) => `- ${id}: ${name}`)
-          .join("\n")}`
-      : "Não há mapeamento de tipos de imóvel disponível para esta organização.";
+    // Deduplicate: only list unique type names for the prompt
+    const uniqueTypeNames = [...new Set(Object.values(propertyTypeMap))];
+    const propertyTypesPrompt = uniqueTypeNames.length
+      ? `Tipos de imóvel disponíveis: ${uniqueTypeNames.join(", ")}`
+      : "Não há tipos de imóvel disponíveis.";
 
     const composed_system_prompt = [
       config.system_prompt?.trim() ?? "",
