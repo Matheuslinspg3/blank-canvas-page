@@ -40,8 +40,19 @@ serve(async (req) => {
       });
     }
 
-    const body = await req.json();
-    const { organization_id, instance_name, phone, contact_name, is_lead, campaign_tag } = body;
+    let body: Record<string, unknown> = {};
+    try {
+      const text = await req.text();
+      if (text && text.trim().length > 0) {
+        body = JSON.parse(text);
+      }
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const { organization_id, instance_name, phone, contact_name, is_lead, campaign_tag } = body as any;
 
     if (!organization_id && !instance_name) {
       return new Response(JSON.stringify({ error: "organization_id ou instance_name obrigatório" }), {
