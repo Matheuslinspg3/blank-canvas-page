@@ -162,14 +162,44 @@ export function AgentQualificationTab() {
               />
             </div>
             {form.auto_create_leads && (
-              <div className="pl-4 border-l-2 border-primary/30">
-                <Label className="text-sm">Prompt de criação de lead</Label>
-                <Textarea
-                  className="mt-1 min-h-[80px]"
-                  value={form.prompt_create_leads}
-                  onChange={(e) => setForm((f) => ({ ...f, prompt_create_leads: e.target.value }))}
-                  placeholder="Instrução para a IA criar leads no CRM..."
-                />
+              <div className="pl-4 border-l-2 border-primary/30 space-y-3">
+                <div>
+                  <Label className="text-sm">Estágio inicial do lead</Label>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Em qual estágio do funil o lead será criado automaticamente
+                  </p>
+                  <Select
+                    value={form.default_lead_stage_id ?? "__auto__"}
+                    onValueChange={(v) => setForm((f) => ({ ...f, default_lead_stage_id: v === "__auto__" ? null : v }))}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Selecione o estágio" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__auto__">Automático (primeiro estágio)</SelectItem>
+                      {leadStages
+                        .filter((s) => !s.is_loss)
+                        .sort((a, b) => a.position - b.position)
+                        .map((stage) => (
+                          <SelectItem key={stage.id} value={stage.id}>
+                            <span className="flex items-center gap-2">
+                              <span className="h-2 w-2 rounded-full inline-block" style={{ backgroundColor: stage.color }} />
+                              {stage.name}
+                            </span>
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-sm">Prompt de criação de lead</Label>
+                  <Textarea
+                    className="mt-1 min-h-[80px]"
+                    value={form.prompt_create_leads}
+                    onChange={(e) => setForm((f) => ({ ...f, prompt_create_leads: e.target.value }))}
+                    placeholder="Instrução para a IA criar leads no CRM..."
+                  />
+                </div>
               </div>
             )}
           </div>
