@@ -45,6 +45,7 @@ const BROKER_MODES = [
 
 export function AgentQualificationTab() {
   const { config, saveConfig, isSaving, isLoading } = useQualificationConfig();
+  const { leadStages } = useLeadStages();
   const [form, setForm] = useState({
     auto_qualify_leads: false,
     auto_create_leads: false,
@@ -60,6 +61,7 @@ export function AgentQualificationTab() {
     auto_scoring: false,
     score_criteria: DEFAULT_SCORE_CRITERIA as ScoreCriterion[],
     temperature_thresholds: { cold_max: 30, warm_max: 69 } as TemperatureThresholds,
+    default_lead_stage_id: null as string | null,
   });
 
   useEffect(() => {
