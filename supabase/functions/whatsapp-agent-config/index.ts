@@ -336,6 +336,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       agent_config: {
+        organization_id: orgId,
         agent_name: config.agent_name,
         tone: config.tone,
         system_prompt: config.system_prompt,
