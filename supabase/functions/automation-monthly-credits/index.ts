@@ -47,7 +47,7 @@ serve(async (req) => {
         p_organization_id: sub.organization_id,
         p_amount_brl: totalAllowance,
         p_description: `Crédito mensal do plano ${plan.name}${addonAllowance > 0 ? ' + Addon Automações' : ''}`,
-        p_type: "plan_monthly",
+        p_type: "plan_allowance",
       });
 
       if (addErr) {
