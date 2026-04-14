@@ -12,6 +12,7 @@ import { useQualificationConfig, DEFAULT_SCORE_CRITERIA } from "@/hooks/useQuali
 import type { ScoreCriterion, TemperatureThresholds } from "@/hooks/useQualificationConfig";
 import { ScoreTemperatureCard } from "./ScoreTemperatureCard";
 import { cn } from "@/lib/utils";
+import { useLeadStages } from "@/hooks/useLeadStages";
 
 const DAYS = [
   { value: "seg", label: "Seg" },
