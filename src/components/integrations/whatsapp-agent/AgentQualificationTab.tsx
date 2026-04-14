@@ -81,6 +81,7 @@ export function AgentQualificationTab() {
         auto_scoring: config.auto_scoring ?? false,
         score_criteria: (config.score_criteria as ScoreCriterion[] | undefined) ?? DEFAULT_SCORE_CRITERIA,
         temperature_thresholds: (config.temperature_thresholds as TemperatureThresholds | undefined) ?? { cold_max: 30, warm_max: 69 },
+        default_lead_stage_id: (config as any).default_lead_stage_id ?? null,
       });
     }
   }, [config]);
