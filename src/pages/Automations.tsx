@@ -12,6 +12,8 @@ import { AutomationExecutionLog, type ExecutionLogEntry } from "@/components/aut
 import { AutomationTemplates } from "@/components/automations/AutomationTemplates";
 import { LeadScoreConfig } from "@/components/automations/LeadScoreConfig";
 import { WhatsAppAgentPanel } from "@/components/integrations/whatsapp-agent/WhatsAppAgentPanel";
+import { AutomationCreditWalletCard } from "@/components/integrations/whatsapp-agent/AutomationCreditWalletCard";
+import { AutomationCreditEstimationCard } from "@/components/integrations/whatsapp-agent/AutomationCreditEstimationCard";
 import { FollowUpConfigPanel } from "@/components/automations/FollowUpConfigPanel";
 import { RetellVoicePanel } from "@/components/automations/retell/RetellVoicePanel";
 import { FeatureFlagGate } from "@/components/FeatureGate";
@@ -208,7 +210,11 @@ export default function Automations() {
               <LeadScoreConfig />
             </TabsContent>
 
-            <TabsContent value="whatsapp-agent">
+            <TabsContent value="whatsapp-agent" className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <AutomationCreditWalletCard />
+                <AutomationCreditEstimationCard />
+              </div>
               <FeatureFlagGate featureKey="has_whatsapp">
                 <WhatsAppAgentPanel />
               </FeatureFlagGate>
