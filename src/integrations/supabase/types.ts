@@ -706,6 +706,7 @@ export type Database = {
           auto_scoring: boolean
           broker_assignment_mode: string
           created_at: string
+          default_lead_stage_id: string | null
           id: string
           organization_id: string
           prompt_create_leads: string | null
@@ -726,6 +727,7 @@ export type Database = {
           auto_scoring?: boolean
           broker_assignment_mode?: string
           created_at?: string
+          default_lead_stage_id?: string | null
           id?: string
           organization_id: string
           prompt_create_leads?: string | null
@@ -746,6 +748,7 @@ export type Database = {
           auto_scoring?: boolean
           broker_assignment_mode?: string
           created_at?: string
+          default_lead_stage_id?: string | null
           id?: string
           organization_id?: string
           prompt_create_leads?: string | null
@@ -761,6 +764,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ai_qualification_config_default_lead_stage_id_fkey"
+            columns: ["default_lead_stage_id"]
+            isOneToOne: false
+            referencedRelation: "lead_stages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ai_qualification_config_organization_id_fkey"
             columns: ["organization_id"]

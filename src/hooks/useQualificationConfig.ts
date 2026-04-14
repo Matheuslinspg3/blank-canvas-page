@@ -32,6 +32,7 @@ export interface QualificationConfig {
   auto_scoring: boolean;
   score_criteria: ScoreCriterion[];
   temperature_thresholds: TemperatureThresholds;
+  default_lead_stage_id: string | null;
 }
 
 export const DEFAULT_SCORE_CRITERIA: ScoreCriterion[] = [
@@ -58,6 +59,7 @@ const DEFAULTS: Omit<QualificationConfig, "id" | "organization_id"> = {
   auto_scoring: false,
   score_criteria: DEFAULT_SCORE_CRITERIA,
   temperature_thresholds: { cold_max: 30, warm_max: 69 },
+  default_lead_stage_id: null,
 };
 
 export function useQualificationConfig() {
