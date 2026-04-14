@@ -127,11 +127,11 @@ serve(async (req) => {
       propertyTypeMap[pt.id] = pt.name;
     });
 
-    const propertyTypesPrompt = Object.entries(propertyTypeMap).length
-      ? `Use o seguinte mapeamento de tipos de imóvel (ID => Nome):\n${Object.entries(propertyTypeMap)
-          .map(([id, name]) => `- ${id}: ${name}`)
-          .join("\n")}`
-      : "Não há mapeamento de tipos de imóvel disponível para esta organização.";
+    // Deduplicate: only list unique type names for the prompt
+    const uniqueTypeNames = [...new Set(Object.values(propertyTypeMap))];
+    const propertyTypesPrompt = uniqueTypeNames.length
+      ? `Tipos de imóvel disponíveis: ${uniqueTypeNames.join(", ")}`
+      : "Não há tipos de imóvel disponíveis.";
 
     const composed_system_prompt = [
       config.system_prompt?.trim() ?? "",
@@ -339,14 +339,14 @@ serve(async (req) => {
         organization_id: orgId,
         agent_name: config.agent_name,
         tone: config.tone,
-        system_prompt: config.system_prompt,
-        welcome_message: config.welcome_message,
         away_message: config.away_message,
         working_hours_start: config.working_hours_start,
         working_hours_end: config.working_hours_end,
         transfer_keywords: config.transfer_keywords,
         max_messages_before_transfer: config.max_messages_before_transfer,
         broker_assignment_mode: config.broker_assignment_mode,
+        transfer_phone: config.transfer_phone,
+        transfer_message: config.transfer_message,
       },
       ai_config: aiConfig,
       voice_config: {
@@ -356,14 +356,6 @@ serve(async (req) => {
         tts_endpoint: `${Deno.env.get("SUPABASE_URL")}/functions/v1/elevenlabs-tts`,
       },
       composed_system_prompt,
-      prompt_variables: {
-        qualify: prompt_qualify,
-        create_lead: prompt_create_lead,
-        schedule: prompt_schedule,
-        properties: prompt_properties,
-        property_types: propertyTypesPrompt,
-      },
-      property_types: propertyTypeMap,
       neighborhoods,
       properties: {
         enabled: !!config.is_property_db_enabled,
