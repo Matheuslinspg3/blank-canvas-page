@@ -106,34 +106,100 @@ export default function LandingPage() {
       </nav>
 
       {/* ─── Hero ─── */}
-      <Section className="pt-20 md:pt-32 pb-12 md:pb-20 text-center">
-        <Badge variant="secondary" className="mb-6 px-4 py-1.5 text-sm font-medium">
-          <Rocket className="h-3.5 w-3.5 mr-1.5" />
-          Plataforma #1 para corretores de imóveis
-        </Badge>
-        <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-[1.1] max-w-3xl mx-auto">
-          Gerencie sua imobiliária com{" "}
-          <span className="text-accent">Inteligência Artificial</span>
-        </h1>
-        <p className="mt-6 text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-          CRM, marketplace, automações e IA — tudo em uma plataforma feita para
-          corretores que querem vender mais e trabalhar menos.
-        </p>
-        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Button variant="gold" size="xl" asChild>
-            <Link to="/auth?tab=cadastro">
-              Comece grátis — 15 dias sem compromisso
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Link>
-          </Button>
-          <Button variant="outline" size="lg" asChild>
-            <Link to="/planos">Ver planos</Link>
-          </Button>
+      <section className="relative overflow-hidden pt-20 md:pt-28 pb-16 md:pb-28 px-4">
+        {/* Background gradient + decorative elements */}
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/5" />
+        <div className="absolute top-20 left-1/4 w-72 h-72 bg-accent/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse delay-1000" />
+        {/* Grid pattern overlay */}
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: "radial-gradient(circle, hsl(var(--foreground)) 1px, transparent 1px)",
+            backgroundSize: "32px 32px",
+          }}
+        />
+
+        <div className="container relative z-10 max-w-6xl mx-auto text-center">
+          {/* Top badge */}
+          <div className="inline-flex items-center gap-2 mb-8 px-4 py-2 rounded-full border border-accent/30 bg-accent/5 backdrop-blur-sm">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-accent" />
+            </span>
+            <span className="text-sm font-medium text-accent">
+              +500 corretores já usam o Porta
+            </span>
+          </div>
+
+          {/* Main heading */}
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.08] max-w-4xl mx-auto">
+            O CRM com{" "}
+            <span className="relative inline-block">
+              <span className="relative z-10 bg-gradient-to-r from-accent via-primary to-accent bg-clip-text text-transparent">
+                Inteligência Artificial
+              </span>
+              <span className="absolute -bottom-1 left-0 right-0 h-3 bg-accent/15 rounded-sm -skew-x-3" />
+            </span>{" "}
+            feito para corretores
+          </h1>
+
+          {/* Subtitle */}
+          <p className="mt-6 md:mt-8 text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+            Gerencie imóveis, qualifique leads com IA, automatize follow-ups
+            e feche mais negócios — tudo em uma única plataforma.
+          </p>
+
+          {/* Feature pills */}
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-2 md:gap-3">
+            {[
+              { icon: Bot, label: "IA Integrada" },
+              { icon: MessageCircle, label: "WhatsApp CRM" },
+              { icon: Workflow, label: "Automações" },
+              { icon: Globe, label: "Marketplace" },
+            ].map((pill) => (
+              <div
+                key={pill.label}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/60 border border-border/50 text-xs sm:text-sm font-medium text-muted-foreground"
+              >
+                <pill.icon className="h-3.5 w-3.5 text-accent" />
+                {pill.label}
+              </div>
+            ))}
+          </div>
+
+          {/* CTA buttons */}
+          <div className="mt-10 md:mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Button variant="gold" size="xl" className="shadow-xl shadow-accent/20 hover:shadow-accent/30 transition-shadow" asChild>
+              <Link to="/auth?tab=cadastro">
+                Comece grátis — 15 dias
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Link>
+            </Button>
+            <Button variant="outline" size="lg" className="group" asChild>
+              <Link to="/planos">
+                Ver planos e preços
+                <ChevronDown className="ml-1 h-4 w-4 group-hover:translate-y-0.5 transition-transform" />
+              </Link>
+            </Button>
+          </div>
+
+          {/* Trust line */}
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-5 text-sm text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <Shield className="h-3.5 w-3.5 text-accent" /> Sem cartão de crédito
+            </span>
+            <span className="hidden sm:inline text-border">•</span>
+            <span className="flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 text-accent" /> Setup em 2 minutos
+            </span>
+            <span className="hidden sm:inline text-border">•</span>
+            <span className="flex items-center gap-1.5">
+              <Star className="h-3.5 w-3.5 text-accent" /> 4.9/5 de satisfação
+            </span>
+          </div>
         </div>
-        <p className="mt-4 text-sm text-muted-foreground flex items-center justify-center gap-1.5">
-          <Shield className="h-3.5 w-3.5" /> Sem cartão de crédito · Cancele quando quiser
-        </p>
-      </Section>
+      </section>
 
       {/* ─── Social Proof ─── */}
       <div className="border-y border-border bg-muted/50">
