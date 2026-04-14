@@ -7232,6 +7232,7 @@ export type Database = {
           message_text: string | null
           message_type: string | null
           organization_id: string
+          phone: string | null
           remote_jid: string
           sender_type: string
           timestamp: string
@@ -7252,6 +7253,7 @@ export type Database = {
           message_text?: string | null
           message_type?: string | null
           organization_id: string
+          phone?: string | null
           remote_jid: string
           sender_type?: string
           timestamp?: string
@@ -7272,6 +7274,7 @@ export type Database = {
           message_text?: string | null
           message_type?: string | null
           organization_id?: string
+          phone?: string | null
           remote_jid?: string
           sender_type?: string
           timestamp?: string
