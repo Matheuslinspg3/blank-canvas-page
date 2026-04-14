@@ -76,13 +76,31 @@ export function AgentWelcomeTab() {
   };
 
   const addMessage = async () => {
-    if (!orgId) return;
+    if (!orgId) {
+      toast({ title: "Erro", description: "Organização não encontrada.", variant: "destructive" });
+      return;
+    }
     const { data, error } = await supabase
       .from("whatsapp_welcome_messages")
-      .insert({ organization_id: orgId, message: "", position: messages.length, is_active: true } as any)
+      .insert({
+        organization_id: orgId,
+        message: "Olá {{nome}}! 👋 Como posso ajudar?",
+        position: messages.length,
+        is_active: true,
+        time_period: "all",
+        target_audience: "all",
+      } as any)
       .select()
       .single();
-    if (!error && data) setMessages([...messages, data as any as WelcomeMessage]);
+    if (error) {
+      console.error("addMessage error:", error);
+      toast({ title: "Erro ao adicionar", description: error.message, variant: "destructive" });
+      return;
+    }
+    if (data) {
+      setMessages([...messages, data as any as WelcomeMessage]);
+      toast({ title: "Mensagem adicionada!", description: "Edite o texto e salve." });
+    }
   };
 
   const updateMessage = (id: string, field: Partial<WelcomeMessage>) => {
