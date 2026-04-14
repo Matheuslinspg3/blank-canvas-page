@@ -4,6 +4,29 @@ import { createServiceClient } from "../_shared/auth.ts";
 
 const WEBHOOK_SECRET = Deno.env.get("WHATSAPP_AGENT_SECRET");
 
+// ── Welcome helpers ──
+
+function getTimePeriod(): string {
+  const hour = new Date().getUTCHours() - 3; // BRT = UTC-3
+  const h = hour < 0 ? hour + 24 : hour;
+  if (h >= 6 && h < 12) return "morning";
+  if (h >= 12 && h < 18) return "afternoon";
+  return "night";
+}
+
+function weightedRandomSelect(messages: any[]): any {
+  if (Math.random() < 0.2 || messages.every((m: any) => (m.reply_rate ?? 0) === 0)) {
+    return messages[Math.floor(Math.random() * messages.length)];
+  }
+  const totalRate = messages.reduce((sum: number, m: any) => sum + Math.max(m.reply_rate ?? 0, 0.1), 0);
+  let rand = Math.random() * totalRate;
+  for (const m of messages) {
+    rand -= Math.max(m.reply_rate ?? 0, 0.1);
+    if (rand <= 0) return m;
+  }
+  return messages[messages.length - 1];
+}
+
 serve(async (req) => {
   const cors = handleCors(req);
   if (cors) return cors;
@@ -18,7 +41,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { organization_id, instance_name } = body;
+    const { organization_id, instance_name, phone, contact_name, is_lead, campaign_tag } = body;
 
     if (!organization_id && !instance_name) {
       return new Response(JSON.stringify({ error: "organization_id ou instance_name obrigatório" }), {
@@ -54,6 +77,8 @@ serve(async (req) => {
     }
 
     const orgId = config.organization_id;
+
+    // ── Prompt composition (existing logic) ──
 
     const dayLabels: Record<string, string> = {
       seg: "Segunda", ter: "Terça", qua: "Quarta", qui: "Quinta",
@@ -107,7 +132,8 @@ serve(async (req) => {
       `• ${propertyTypesPrompt}`,
     ].filter(Boolean).join("\n");
 
-    // Fetch properties if enabled + build neighborhoods
+    // ── Properties + neighborhoods (existing logic) ──
+
     let properties: any[] = [];
     const neighborhoods: Record<string, string[]> = {};
 
@@ -137,17 +163,165 @@ serve(async (req) => {
       }
     }
 
-    // Resolve AI provider config for N8N consumption
+    // ── AI provider config (existing logic) ──
+
     const aiConfig: Record<string, unknown> = {
       provider: config.ai_provider ?? "openai",
       model: config.ai_model ?? "gpt-4o",
       mode: config.ai_mode ?? "platform",
     };
 
-    // Only include BYOK key if mode is byok
     if (config.ai_mode === "byok" && config.byok_api_key) {
       aiConfig.api_key = config.byok_api_key;
     }
+
+    // ── NEW: Credits check ──
+
+    let credits: Record<string, unknown> = { has_credits: false, balance_brl: 0, friendly_message: "Sem carteira de créditos configurada." };
+
+    const { data: wallet } = await sb
+      .from("automation_credit_wallets")
+      .select("balance_brl")
+      .eq("organization_id", orgId)
+      .maybeSingle();
+
+    if (wallet) {
+      const bal = wallet.balance_brl ?? 0;
+      credits = {
+        has_credits: bal > 0,
+        balance_brl: bal,
+        friendly_message: bal > 0 ? null : "Seus créditos de automação acabaram. Recarregue para continuar usando o agente IA.",
+      };
+    }
+
+    // ── NEW: Welcome message selection ──
+
+    let welcome: Record<string, unknown> = { message: null, message_id: null, media_url: null, media_type: null, delay_seconds: 0, reason: "not_requested" };
+
+    // Only run welcome logic if phone is provided (indicates new conversation context)
+    if (phone !== undefined) {
+      const cleanPhone = phone ? phone.replace("@s.whatsapp.net", "") : null;
+
+      // Anti-spam check via welcome_log
+      let skipWelcome = false;
+      let skipReason: string | null = null;
+
+      if (cleanPhone) {
+        const { data: lastWelcome } = await sb
+          .from("whatsapp_welcome_log")
+          .select("*")
+          .eq("organization_id", orgId)
+          .eq("phone", cleanPhone)
+          .order("sent_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (lastWelcome) {
+          if (lastWelcome.had_dialogue) {
+            const daysSinceActivity = lastWelcome.last_activity_at
+              ? (Date.now() - new Date(lastWelcome.last_activity_at).getTime()) / (1000 * 60 * 60 * 24)
+              : 999;
+            if (daysSinceActivity < 30) {
+              skipWelcome = true;
+              skipReason = "returning_contact_with_dialogue";
+            }
+          }
+          if (!skipWelcome) {
+            const hoursSinceSent = (Date.now() - new Date(lastWelcome.sent_at).getTime()) / (1000 * 60 * 60);
+            if (hoursSinceSent < 24) {
+              skipWelcome = true;
+              skipReason = "recent_welcome_no_spam";
+            }
+          }
+        }
+      }
+
+      if (skipWelcome) {
+        welcome = { message: null, message_id: null, media_url: null, media_type: null, delay_seconds: 0, reason: skipReason };
+      } else {
+        const abTest = config.welcome_ab_test ?? false;
+        const delayMin = config.welcome_delay_min ?? 3;
+        const delayMax = config.welcome_delay_max ?? 8;
+
+        const { data: allMessages } = await sb
+          .from("whatsapp_welcome_messages")
+          .select("id, message, position, usage_count, time_period, media_url, media_type, target_audience, campaign_tag, reply_count, reply_rate")
+          .eq("organization_id", orgId)
+          .eq("is_active", true)
+          .order("position", { ascending: true });
+
+        if (!allMessages || allMessages.length === 0) {
+          welcome = { message: null, message_id: null, media_url: null, media_type: null, delay_seconds: 0, reason: "no_messages" };
+        } else {
+          // Filter by time period
+          const currentPeriod = getTimePeriod();
+          let filtered = allMessages.filter(
+            (m: any) => !m.time_period || m.time_period === "all" || m.time_period === currentPeriod
+          );
+
+          // Filter by target audience
+          if (is_lead === true) {
+            filtered = filtered.filter((m: any) => !m.target_audience || m.target_audience === "all" || m.target_audience === "leads_only");
+          } else if (is_lead === false) {
+            filtered = filtered.filter((m: any) => !m.target_audience || m.target_audience === "all" || m.target_audience === "new_only");
+          }
+
+          // Filter/prioritize by campaign tag
+          if (campaign_tag) {
+            const campaignMatches = filtered.filter((m: any) => m.campaign_tag === campaign_tag);
+            if (campaignMatches.length > 0) {
+              filtered = campaignMatches;
+            }
+          }
+
+          if (filtered.length === 0) {
+            filtered = allMessages;
+          }
+
+          // Select message: A/B weighted or round-robin
+          let selected: any;
+          if (abTest) {
+            selected = weightedRandomSelect(filtered);
+          } else {
+            const currentIndex = config.welcome_next_index ?? 0;
+            const selectedIndex = currentIndex % filtered.length;
+            selected = filtered[selectedIndex];
+          }
+
+          // Replace {{nome}}
+          let finalMessage = selected.message;
+          if (contact_name) {
+            finalMessage = finalMessage.replace(/\{\{nome\}\}/gi, contact_name);
+          } else {
+            finalMessage = finalMessage.replace(/\{\{nome\}\}/gi, "").replace(/\s{2,}/g, " ").trim();
+          }
+
+          const delaySeconds = Math.floor(Math.random() * (delayMax - delayMin + 1)) + delayMin;
+
+          // Update index, usage count, and log
+          const nextIndex = ((config.welcome_next_index ?? 0) + 1) % allMessages.length;
+
+          await Promise.all([
+            sb.from("whatsapp_agent_config").update({ welcome_next_index: nextIndex }).eq("organization_id", orgId),
+            sb.from("whatsapp_welcome_messages").update({ usage_count: selected.usage_count + 1 }).eq("id", selected.id),
+            ...(cleanPhone
+              ? [sb.from("whatsapp_welcome_log").insert({ organization_id: orgId, phone: cleanPhone, welcome_message_id: selected.id })]
+              : []),
+          ]);
+
+          welcome = {
+            message: finalMessage,
+            message_id: selected.id,
+            media_url: selected.media_url || null,
+            media_type: selected.media_type || null,
+            delay_seconds: delaySeconds,
+            reason: null,
+          };
+        }
+      }
+    }
+
+    // ── Build final response ──
 
     return new Response(JSON.stringify({
       agent_config: {
@@ -184,6 +358,8 @@ serve(async (req) => {
         items: properties,
         total: properties.length,
       },
+      credits,
+      welcome,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
