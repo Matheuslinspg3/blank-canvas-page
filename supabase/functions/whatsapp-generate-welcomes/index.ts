@@ -101,7 +101,8 @@ Exemplo de formato:
 
     const aiResult = await routerResponse.json();
     if (!aiResult.success || !aiResult.text) {
-      return new Response(JSON.stringify({ error: "Erro ao gerar mensagens" }), { status: 500, headers: corsHeaders });
+      console.error("ai-router failed:", JSON.stringify(aiResult));
+      return new Response(JSON.stringify({ error: "Erro ao gerar mensagens", detail: aiResult.error || "ai-router returned no text", fallback: true }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Parse AI response - extract JSON array
