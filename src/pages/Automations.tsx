@@ -12,6 +12,8 @@ import { AutomationExecutionLog, type ExecutionLogEntry } from "@/components/aut
 import { AutomationTemplates } from "@/components/automations/AutomationTemplates";
 import { LeadScoreConfig } from "@/components/automations/LeadScoreConfig";
 import { WhatsAppAgentPanel } from "@/components/integrations/whatsapp-agent/WhatsAppAgentPanel";
+import { AutomationCreditWalletCard } from "@/components/integrations/whatsapp-agent/AutomationCreditWalletCard";
+import { AutomationCreditEstimationCard } from "@/components/integrations/whatsapp-agent/AutomationCreditEstimationCard";
 import { FollowUpConfigPanel } from "@/components/automations/FollowUpConfigPanel";
 import { RetellVoicePanel } from "@/components/automations/retell/RetellVoicePanel";
 import { FeatureFlagGate } from "@/components/FeatureGate";
