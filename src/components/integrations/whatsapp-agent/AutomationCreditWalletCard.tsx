@@ -1,14 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ColorProgress } from "@/components/ui/color-progress";
-import { Wallet, TrendingDown, TrendingUp, Activity, Zap } from "lucide-react";
+import { Wallet, TrendingDown, TrendingUp, Activity, Zap, ShoppingCart } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useToast } from "@/hooks/use-toast";
 
 export function AutomationCreditWalletCard() {
+  const { toast } = useToast();
   const { profile } = useAuth();
   const orgId = profile?.organization_id;
 
@@ -154,6 +157,22 @@ export function AutomationCreditWalletCard() {
         )}
         </>)}
       </CardContent>
+      <CardFooter className="justify-center">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          onClick={() => {
+            toast({
+              title: "Em breve!",
+              description: "A compra de créditos extras estará disponível em breve. Entre em contato com o suporte para adquirir agora.",
+            });
+          }}
+        >
+          <ShoppingCart className="h-4 w-4" />
+          Comprar Créditos Extras
+        </Button>
+      </CardFooter>
     </Card>
   );
 }
