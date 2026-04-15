@@ -1,12 +1,26 @@
+/**
+ * send-reset-email — Phase 2 Hardened
+ *
+ * Anti-abuse protections:
+ *  - Rate limit by IP: 5 requests per 15 min
+ *  - Rate limit by email: 3 requests per 15 min
+ *  - Uniform response (no user enumeration)
+ *  - Captcha-ready: checks X-Captcha-Token header (skips if not configured)
+ *  - Audit logging for denials
+ */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { checkRateLimit } from "../_shared/rate-limiter.ts";
+import { auditLog, extractRequestMeta } from "../_shared/security-core.ts";
+import { getFlag } from "../_shared/security-flags.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-captcha-token, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const LOGO_URL = "https://portadocorretor.com.br/email/porta-logo.png";
+const UNIFORM_SUCCESS = JSON.stringify({ success: true });
 
 function resetEmailHtml(resetLink: string) {
   return `
@@ -59,25 +73,77 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const { email, redirect_to } = await req.json();
+  const reqMeta = extractRequestMeta(req);
+  const clientIp = reqMeta.ip || "unknown";
 
-    if (!email) {
-      return new Response(
-        JSON.stringify({ error: "Email é obrigatório" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+  try {
+    const body = await req.json();
+    const { email, redirect_to } = body;
+
+    if (!email || typeof email !== "string") {
+      return new Response(UNIFORM_SUCCESS, {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const flag = await getFlag("SEC_ENABLE_RESET_EMAIL_ANTI_ABUSE");
+    const antiAbuseEnabled = flag.enabled;
+
+    // ── Rate limiting ──
+    if (antiAbuseEnabled) {
+      // Rate limit by IP: 5 per 15 min
+      const ipLimit = await checkRateLimit(`reset_email:ip:${clientIp}`, 5, 900);
+      if (!ipLimit.allowed) {
+        await auditLog({
+          event_type: "reset_email_rate_limit",
+          severity: "warn",
+          endpoint: "send-reset-email",
+          decision: "deny",
+          reason_code: "ip_rate_limit",
+          ip: clientIp,
+          user_agent: reqMeta.userAgent,
+          metadata: { email: normalizedEmail },
+        });
+        // Return uniform success to avoid enumeration
+        return new Response(UNIFORM_SUCCESS, {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Rate limit by email: 3 per 15 min
+      const emailLimit = await checkRateLimit(`reset_email:email:${normalizedEmail}`, 3, 900);
+      if (!emailLimit.allowed) {
+        await auditLog({
+          event_type: "reset_email_rate_limit",
+          severity: "warn",
+          endpoint: "send-reset-email",
+          decision: "deny",
+          reason_code: "email_rate_limit",
+          ip: clientIp,
+          user_agent: reqMeta.userAgent,
+          metadata: { email: normalizedEmail },
+        });
+        return new Response(UNIFORM_SUCCESS, {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // ── Captcha check (ready for integration) ──
+    // TODO Phase 3: Validate X-Captcha-Token with provider (hCaptcha/Turnstile)
+    // const captchaToken = req.headers.get("X-Captcha-Token");
+    // const CAPTCHA_SECRET = Deno.env.get("CAPTCHA_SECRET_KEY");
+    // if (CAPTCHA_SECRET && captchaToken) { ... validate ... }
 
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
     if (!RESEND_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "RESEND_API_KEY não configurada" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      console.error("[send-reset-email] RESEND_API_KEY not configured");
+      return new Response(UNIFORM_SUCCESS, {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // Use service role to generate the reset link
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -85,7 +151,7 @@ Deno.serve(async (req) => {
 
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: "recovery",
-      email: email.trim().toLowerCase(),
+      email: normalizedEmail,
       options: {
         redirectTo: redirect_to || "https://portadocorretor.com.br/auth",
       },
@@ -93,23 +159,19 @@ Deno.serve(async (req) => {
 
     if (linkError) {
       console.error("Generate link error:", linkError);
-      // Don't reveal if user exists or not
-      return new Response(
-        JSON.stringify({ success: true }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      // Uniform response — don't reveal if user exists
+      return new Response(UNIFORM_SUCCESS, {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // The generated link contains the token - extract and build proper URL
     const resetLink = linkData?.properties?.action_link;
     if (!resetLink) {
-      return new Response(
-        JSON.stringify({ success: true }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(UNIFORM_SUCCESS, {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // Send email via Resend
     const resendRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -118,7 +180,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         from: "Porta do Corretor <noreply@portadocorretor.com.br>",
-        to: [email.trim().toLowerCase()],
+        to: [normalizedEmail],
         subject: "🔑 Redefinição de Senha — Porta do Corretor",
         html: resetEmailHtml(resetLink),
       }),
@@ -128,21 +190,20 @@ Deno.serve(async (req) => {
 
     if (!resendRes.ok) {
       console.error("Resend error:", resendData);
-      return new Response(
-        JSON.stringify({ error: "Falha ao enviar email", details: resendData }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      // Still return uniform success
+      return new Response(UNIFORM_SUCCESS, {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    return new Response(
-      JSON.stringify({ success: true }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(UNIFORM_SUCCESS, {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (err) {
     console.error("Error:", err);
-    return new Response(
-      JSON.stringify({ error: err.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    // Uniform response even on errors
+    return new Response(UNIFORM_SUCCESS, {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

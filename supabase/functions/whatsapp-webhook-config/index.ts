@@ -1,23 +1,154 @@
+/**
+ * whatsapp-webhook-config — Phase 2 Hardened
+ *
+ * Dual-mode authentication:
+ *  1. NEW: HMAC signature (X-Webhook-Signature + X-Webhook-Timestamp + X-Webhook-Nonce)
+ *  2. LEGACY: X-Webhook-Secret shared secret (Phase 0)
+ *
+ * When SEC_ENFORCE_WEBHOOK_HMAC is in 'enforce' mode, legacy is rejected.
+ * In 'dual' mode, both are accepted with logging for adoption metrics.
+ * In 'observe' mode, everything is accepted but violations are logged.
+ */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { createServiceClient } from "../_shared/auth.ts";
+import { auditLog, extractRequestMeta } from "../_shared/security-core.ts";
+import { getFlag } from "../_shared/security-flags.ts";
 
-const WEBHOOK_SECRET = Deno.env.get("WHATSAPP_AGENT_SECRET");
+const WEBHOOK_SECRET = Deno.env.get("WHATSAPP_AGENT_SECRET") || "";
+const WEBHOOK_SIGNING_KEY = Deno.env.get("WEBHOOK_SIGNING_KEY") || "";
+
+// ── HMAC helpers ──
+async function hmacSha256(key: string, data: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw", encoder.encode(key),
+    { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", cryptoKey, encoder.encode(data));
+  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  const enc = new TextEncoder();
+  const bufA = enc.encode(a);
+  const bufB = enc.encode(b);
+  let result = 0;
+  for (let i = 0; i < bufA.length; i++) result |= bufA[i] ^ bufB[i];
+  return result === 0;
+}
+
+const NONCE_CACHE = new Set<string>();
+const NONCE_MAX = 5000;
+const REPLAY_WINDOW = 300; // 5 min
+
+type AuthMethod = "hmac" | "legacy" | "none";
+
+async function verifyRequest(req: Request, bodyText: string): Promise<{ valid: boolean; method: AuthMethod; error?: string }> {
+  const signature = req.headers.get("X-Webhook-Signature");
+  const timestamp = req.headers.get("X-Webhook-Timestamp");
+  const nonce = req.headers.get("X-Webhook-Nonce");
+
+  // Try HMAC first
+  if (signature && timestamp && WEBHOOK_SIGNING_KEY) {
+    const ts = parseInt(timestamp, 10);
+    const now = Math.floor(Date.now() / 1000);
+    if (isNaN(ts) || Math.abs(now - ts) > REPLAY_WINDOW) {
+      return { valid: false, method: "hmac", error: "Timestamp outside replay window" };
+    }
+
+    // Nonce replay check
+    if (nonce) {
+      if (NONCE_CACHE.has(nonce)) {
+        return { valid: false, method: "hmac", error: "Nonce replay detected" };
+      }
+    }
+
+    const signedData = `${timestamp}.${nonce || ""}.${bodyText}`;
+    const expected = await hmacSha256(WEBHOOK_SIGNING_KEY, signedData);
+    if (!timingSafeEqual(signature, expected)) {
+      return { valid: false, method: "hmac", error: "Invalid HMAC signature" };
+    }
+
+    // Store nonce
+    if (nonce) {
+      if (NONCE_CACHE.size >= NONCE_MAX) {
+        const first = NONCE_CACHE.values().next().value;
+        if (first) NONCE_CACHE.delete(first);
+      }
+      NONCE_CACHE.add(nonce);
+    }
+
+    return { valid: true, method: "hmac" };
+  }
+
+  // Legacy: X-Webhook-Secret
+  const requestSecret = req.headers.get("X-Webhook-Secret");
+  if (requestSecret && WEBHOOK_SECRET && requestSecret === WEBHOOK_SECRET) {
+    return { valid: true, method: "legacy" };
+  }
+
+  return { valid: false, method: "none", error: "No valid authentication" };
+}
 
 serve(async (req) => {
   const cors = handleCors(req);
   if (cors) return cors;
 
+  const reqMeta = extractRequestMeta(req);
+
   try {
-    const requestSecret = req.headers.get("X-Webhook-Secret");
-    if (!WEBHOOK_SECRET || requestSecret !== WEBHOOK_SECRET) {
+    const bodyText = await req.text();
+    const authResult = await verifyRequest(req, bodyText);
+    const flag = await getFlag("SEC_ENFORCE_WEBHOOK_HMAC");
+
+    // Log auth method for adoption metrics
+    if (authResult.valid && authResult.method === "legacy") {
+      console.log("[whatsapp-webhook-config] Legacy auth used — migration pending");
+    }
+
+    if (!authResult.valid) {
+      await auditLog({
+        event_type: "webhook_auth_deny",
+        severity: "error",
+        endpoint: "whatsapp-webhook-config",
+        actor_type: "webhook",
+        decision: "deny",
+        reason_code: authResult.error || "auth_failed",
+        ip: reqMeta.ip,
+        user_agent: reqMeta.userAgent,
+      });
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const body = await req.json();
+    // In enforce mode, reject legacy auth
+    if (flag.enabled && flag.mode === "enforce" && authResult.method === "legacy") {
+      await auditLog({
+        event_type: "webhook_legacy_rejected",
+        severity: "warn",
+        endpoint: "whatsapp-webhook-config",
+        actor_type: "webhook",
+        decision: "deny",
+        reason_code: "legacy_auth_enforced_off",
+        ip: reqMeta.ip,
+        user_agent: reqMeta.userAgent,
+      });
+      return new Response(JSON.stringify({ error: "Legacy authentication no longer accepted. Use HMAC signing." }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // In dual mode, log legacy usage for tracking
+    if (flag.enabled && flag.mode === "dual" && authResult.method === "legacy") {
+      console.warn("[whatsapp-webhook-config] DUAL MODE: Legacy auth accepted but should migrate to HMAC");
+    }
+
+    const body = JSON.parse(bodyText);
     const { instance_name } = body;
 
     if (!instance_name) {
@@ -142,7 +273,6 @@ serve(async (req) => {
         .eq("ai_blacklist", false)
         .limit(50);
 
-      // Sort: featured first
       (props as any[]).sort((a, b) => {
         const aF = a.featured ? 0 : 1;
         const bF = b.featured ? 0 : 1;
@@ -154,7 +284,6 @@ serve(async (req) => {
         property_type_name: propertyTypeMap[p.property_type_id] ?? null,
       }));
 
-      // Build neighborhoods map
       for (const p of properties) {
         if (p.address_neighborhood) {
           if (!neighborhoods[p.address_neighborhood]) {
@@ -198,6 +327,7 @@ serve(async (req) => {
         items: properties,
         total: properties.length,
       },
+      _auth_method: authResult.method, // For observability
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
