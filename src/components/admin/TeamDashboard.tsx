@@ -261,7 +261,6 @@ export function TeamDashboard() {
                             >
                               {changeRole.isPending ? "Salvando..." : "Confirmar"}
                             </Button>
-                            </Button>
                           </DialogFooter>
                         </DialogContent>
                       </Dialog>
