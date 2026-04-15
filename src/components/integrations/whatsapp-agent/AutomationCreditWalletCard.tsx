@@ -156,6 +156,7 @@ export function AutomationCreditWalletCard() {
           </div>
         )}
         </>)}
+      </CardContent>
       <CardFooter className="justify-center">
         <Button
           variant="outline"
