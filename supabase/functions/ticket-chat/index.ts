@@ -1,5 +1,12 @@
+/**
+ * ticket-chat — Phase 0 Hardened
+ *
+ * Security: validates that the ticket belongs to the caller's organization.
+ * Exception: developer role can access any ticket (explicit escape hatch).
+ */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkAiRateLimitRedis } from "../_shared/rate-limiter.ts";
+import { resolveAuthContext, requireRole } from "../_shared/auth-helpers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,23 +28,23 @@ Deno.serve(async (req) => {
       });
     }
 
-    const authHeader = req.headers.get("Authorization");
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
-    const token = authHeader?.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await anonClient.auth.getUser(token);
-    if (userError || !user) {
+    // --- Auth: resolve user context via JWT ---
+    const { ctx, error: authError } = await resolveAuthContext(req);
+    if (authError || !ctx) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    const user = { id: ctx.userId, email: ctx.email || "" };
+
     // Rate limit: 30 req/hour (Upstash Redis)
     const rateLimited = await checkAiRateLimitRedis(user.id, "ticket-chat", corsHeaders);
     if (rateLimited) return rateLimited;
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Get ticket info
     const { data: ticket, error: ticketError } = await supabase
@@ -46,6 +53,29 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Ticket not found" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // --- Org ownership check ---
+    // DEVELOPER EXCEPTION: developers can access any ticket for support purposes.
+    const isDeveloper = requireRole(ctx, ["developer"]);
+    if (!isDeveloper) {
+      // Derive ticket's org: prefer ticket.organization_id, fallback to ticket creator's profile
+      let ticketOrgId = ticket.organization_id || null;
+      if (!ticketOrgId && ticket.user_id) {
+        const { data: ticketOwnerProfile } = await supabase
+          .from("profiles")
+          .select("organization_id")
+          .eq("user_id", ticket.user_id)
+          .maybeSingle();
+        ticketOrgId = ticketOwnerProfile?.organization_id || null;
+      }
+
+      if (!ticketOrgId || ticketOrgId !== ctx.organizationId) {
+        console.warn(`[ticket-chat] Cross-org denied: caller_org=${ctx.organizationId} ticket_org=${ticketOrgId} ticket=${ticket_id}`);
+        return new Response(JSON.stringify({ error: "Forbidden: ticket belongs to another organization" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // Save user message
@@ -64,7 +94,6 @@ Deno.serve(async (req) => {
 
     const systemPrompt = buildSystemPrompt(ticket, aiMessageCount, questionsRemaining, isLastQuestion);
 
-    // Build conversation for ai-router (combine system + history into a single prompt)
     const conversationMessages = (history || []).map((m: any) =>
       `${m.sender_role === "user" ? "Usuário" : "Assistente"}: ${m.content}`
     ).join("\n\n");
@@ -72,6 +101,7 @@ Deno.serve(async (req) => {
     const prompt = `${conversationMessages}\n\nUsuário: ${message}`;
 
     // Call ai-router
+    const authHeader = req.headers.get("Authorization");
     const routerResponse = await fetch(`${supabaseUrl}/functions/v1/ai-router`, {
       method: "POST",
       headers: {

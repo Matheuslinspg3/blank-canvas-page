@@ -1,5 +1,13 @@
+/**
+ * send-push — Phase 0 Hardened
+ *
+ * Two auth paths:
+ *  1. Internal (n8n/triggers): X-Webhook-Secret or service_role_key — org scope not enforced.
+ *  2. User JWT: requires admin/sub_admin/developer role + target user must be in same org.
+ */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { NotificationService } from "../_shared/notification-service.ts";
+import { resolveAuthContext, requireRole, isInternalCall, createServiceClient } from "../_shared/auth-helpers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,16 +26,11 @@ interface PushPayload {
 
 function getEntityLink(entityType?: string, entityId?: string): string {
   if (!entityType || !entityId) return "/dashboard";
-
   switch (entityType) {
-    case "lead":
-      return `/crm?lead=${entityId}`;
-    case "property":
-      return `/imoveis/${entityId}`;
-    case "appointment":
-      return `/agenda?appointment=${entityId}`;
-    default:
-      return "/dashboard";
+    case "lead": return `/crm?lead=${entityId}`;
+    case "property": return `/imoveis/${entityId}`;
+    case "appointment": return `/agenda?appointment=${entityId}`;
+    default: return "/dashboard";
   }
 }
 
@@ -37,44 +40,39 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // --- Authentication: service-role key, valid user JWT, or internal trigger call ---
-    const authHeader = req.headers.get("Authorization");
-    const apiKeyHeader = req.headers.get("apikey");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    // --- Determine auth method ---
+    const internal = isInternalCall(req);
+    let callerUserId: string | null = null;
+    let callerOrgId: string | null = null;
+    let authMethod: string;
 
-    let isAuthorized = false;
-    const isInternalApiKey = !!apiKeyHeader && apiKeyHeader === anonKey;
-
-    if (authHeader) {
-      const token = authHeader.replace("Bearer ", "").trim();
-      if (token === serviceRoleKey || token === anonKey) {
-        // Called with service-role key or internal API keys used by DB trigger/gateway.
-        isAuthorized = true;
-      } else {
-        // Validate as user JWT
-        const supabase = createClient(
-          Deno.env.get("SUPABASE_URL") ?? "",
-          anonKey,
-          { global: { headers: { Authorization: authHeader } } },
-        );
-        const { data, error } = await supabase.auth.getUser();
-        if (!error && data?.user) {
-          isAuthorized = true;
-        }
+    if (internal) {
+      // INTERNAL CALL: trusted (n8n, DB triggers, service_role_key)
+      authMethod = "internal";
+      console.log("[send-push] Internal call authorized");
+    } else {
+      // USER CALL: validate JWT and require role
+      const { ctx, error: authError } = await resolveAuthContext(req);
+      if (authError || !ctx) {
+        console.warn("[send-push] Auth failed:", authError);
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
-    }
 
-    if (!isAuthorized && isInternalApiKey) {
-      // Internal call from DB trigger via net.http_post
-      isAuthorized = true;
-    }
+      // Require admin/sub_admin/developer role for user calls
+      if (!requireRole(ctx, ["admin", "sub_admin", "developer"])) {
+        console.warn(`[send-push] Forbidden: user=${ctx.userId} roles=${ctx.roles.join(",")}`);
+        return new Response(JSON.stringify({ error: "Forbidden: insufficient role" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
-    if (!isAuthorized) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      callerUserId = ctx.userId;
+      callerOrgId = ctx.organizationId;
+      authMethod = "user_jwt";
     }
 
     const body: PushPayload = await req.json();
@@ -85,6 +83,24 @@ Deno.serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // --- Org scope validation for user calls ---
+    if (!internal && callerOrgId) {
+      const supabase = createServiceClient();
+      const { data: targetProfile } = await supabase
+        .from("profiles")
+        .select("organization_id")
+        .eq("user_id", user_id)
+        .maybeSingle();
+
+      if (!targetProfile?.organization_id || targetProfile.organization_id !== callerOrgId) {
+        console.warn(`[send-push] Cross-org denied: caller_org=${callerOrgId} target_user=${user_id} target_org=${targetProfile?.organization_id}`);
+        return new Response(JSON.stringify({ error: "Forbidden: target user not in your organization" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     const APP_URL = Deno.env.get("APP_URL")?.trim() || "https://portadocorretor.com.br";
@@ -100,18 +116,25 @@ Deno.serve(async (req) => {
       web_url: webUrl,
     });
 
+    console.log(JSON.stringify({
+      event: "send-push",
+      auth_method: authMethod,
+      caller_id: callerUserId,
+      target_user_id: user_id,
+      sent: result.recipientsCount ?? 0,
+      ok: result.ok,
+    }));
+
     if (result.ok && result.recipientsCount === 0) {
-      console.log(
-        JSON.stringify({
-          event: "send-push-no-recipients",
-          user_id,
-          reason: result.reason ?? null,
-          resolvedDeviceCount: result.resolvedDeviceCount ?? null,
-          attemptedIds: result.attemptedIds ?? null,
-          invalidIdsRemoved: result.invalidIdsRemoved ?? null,
-          providerErrors: result.raw?.errors ?? null,
-        }),
-      );
+      console.log(JSON.stringify({
+        event: "send-push-no-recipients",
+        user_id,
+        reason: result.reason ?? null,
+        resolvedDeviceCount: result.resolvedDeviceCount ?? null,
+        attemptedIds: result.attemptedIds ?? null,
+        invalidIdsRemoved: result.invalidIdsRemoved ?? null,
+        providerErrors: result.raw?.errors ?? null,
+      }));
     }
 
     if (!result.ok) {
@@ -132,6 +155,7 @@ Deno.serve(async (req) => {
     );
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Unknown error";
+    console.error("[send-push] Error:", msg);
     return new Response(JSON.stringify({ error: msg }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
