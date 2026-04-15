@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useChangeRole } from "@/hooks/useTeamMembers";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ import {
 } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
-import { Trash2, AlertTriangle, Users, Search, KeyRound, Loader2, Settings2, Plus, X } from "lucide-react";
+import { Trash2, AlertTriangle, Users, Search, KeyRound, Loader2, Plus, X } from "lucide-react";
 import { useState } from "react";
 
 const ALL_ROLES = ["developer", "admin", "sub_admin", "leader", "corretor", "assistente"] as const;
@@ -39,6 +40,7 @@ const roleBadgeVariant = (role: string) => {
 
 export function UsersTab() {
   const queryClient = useQueryClient();
+  const changeRole = useChangeRole();
   const [search, setSearch] = useState("");
   const [passwordTarget, setPasswordTarget] = useState<{ userId: string; name: string } | null>(null);
   const [newPassword, setNewPassword] = useState("");
@@ -88,20 +90,18 @@ export function UsersTab() {
     try {
       const existing = currentRoles.find(r => r.role === role);
       if (existing) {
-        // Remove role
-        const { error } = await supabase.from("user_roles").delete().eq("id", existing.id);
-        if (error) throw error;
-        toast({ title: `Cargo "${roleLabel[role]}" removido` });
+        // Remove role → set to corretor (default)
+        changeRole.mutate({ userId, newRole: "corretor" }, {
+          onSettled: () => setUpdatingRoles(null),
+        });
       } else {
-        // Add role
-        const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: role as any });
-        if (error) throw error;
-        toast({ title: `Cargo "${roleLabel[role]}" adicionado` });
+        // Add/change role
+        changeRole.mutate({ userId, newRole: role }, {
+          onSettled: () => setUpdatingRoles(null),
+        });
       }
-      queryClient.invalidateQueries({ queryKey: ["all-user-roles"] });
     } catch (e) {
       toast({ title: "Erro ao alterar cargo", description: (e as Error).message, variant: "destructive" });
-    } finally {
       setUpdatingRoles(null);
     }
   };

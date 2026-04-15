@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import type { Database } from "@/integrations/supabase/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,9 +7,8 @@ import { PillBadge } from "@/components/ui/pill-badge";
 import { Building2, User, Crown, Shield } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRoles } from "@/hooks/useUserRole";
+import { useChangeRole } from "@/hooks/useTeamMembers";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { toastError } from "@/lib/toastError";
 import { TeamInviteSection } from "@/components/settings/TeamInviteSection";
 
 interface TeamMember {
@@ -23,6 +21,7 @@ interface TeamMember {
 export function SettingsTeamTab() {
   const { user, profile, organizationType } = useAuth();
   const { isAdmin, isDeveloper } = useUserRoles();
+  const changeRole = useChangeRole();
 
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loadingTeam, setLoadingTeam] = useState(true);
@@ -69,13 +68,11 @@ export function SettingsTeamTab() {
   ];
 
   const handleChangeRole = async (memberId: string, newRole: string) => {
-    const { error: deleteError } = await supabase.from("user_roles").delete().eq("user_id", memberId);
-    if (deleteError) { toastError("Erro ao alterar cargo", undefined, { module: "Settings" }); return; }
-    const { error: insertError } = await supabase.from("user_roles").insert({ user_id: memberId, role: newRole as Database["public"]["Enums"]["app_role"] });
-    if (insertError) { toastError("Erro ao alterar cargo", undefined, { module: "Settings" }); return; }
-    setTeamMembers(prev => prev.map(m => m.user_id === memberId ? { ...m, role: newRole } : m));
-    const member = teamMembers.find(m => m.user_id === memberId);
-    toast.success(`Cargo de ${member?.full_name} alterado para ${roleLabel(newRole)}`);
+    changeRole.mutate({ userId: memberId, newRole }, {
+      onSuccess: (data: any) => {
+        setTeamMembers(prev => prev.map(m => m.user_id === memberId ? { ...m, role: newRole } : m));
+      },
+    });
   };
 
   return (

@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AppRole } from "@/hooks/useUserRole";
+import { useChangeRole } from "@/hooks/useTeamMembers";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,7 @@ const roleBadgeVariant = (role: string) => {
 };
 
 export function RolesTab() {
-  const queryClient = useQueryClient();
+  const changeRole = useChangeRole();
   const [newRoleUserId, setNewRoleUserId] = useState("");
   const [newRoleType, setNewRoleType] = useState<AppRole>("leader");
 
@@ -46,33 +47,23 @@ export function RolesTab() {
     return allProfiles.find((p) => p.user_id === userId)?.full_name || userId.slice(0, 8) + "...";
   };
 
-  const addRole = useMutation({
-    mutationFn: async () => {
-      const profile = allProfiles.find(
-        (p) => p.full_name?.toLowerCase().includes(newRoleUserId.toLowerCase()) || p.user_id === newRoleUserId
-      );
-      if (!profile) throw new Error("Usuário não encontrado");
-      const { error } = await supabase.from("user_roles").insert({ user_id: profile.user_id, role: newRoleType });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["all-user-roles"] });
-      toast({ title: "Role adicionado com sucesso" });
-      setNewRoleUserId("");
-    },
-    onError: (e: Error) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
-  });
+  const handleAddRole = () => {
+    const profile = allProfiles.find(
+      (p) => p.full_name?.toLowerCase().includes(newRoleUserId.toLowerCase()) || p.user_id === newRoleUserId
+    );
+    if (!profile) {
+      toast({ title: "Erro", description: "Usuário não encontrado", variant: "destructive" });
+      return;
+    }
+    changeRole.mutate({ userId: profile.user_id, newRole: newRoleType }, {
+      onSuccess: () => setNewRoleUserId(""),
+    });
+  };
 
-  const removeRole = useMutation({
-    mutationFn: async (roleId: string) => {
-      const { error } = await supabase.from("user_roles").delete().eq("id", roleId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["all-user-roles"] });
-      toast({ title: "Role removido" });
-    },
-  });
+  const handleRemoveRole = (userId: string) => {
+    // Removing a role = setting to "corretor" (default/no special role)
+    changeRole.mutate({ userId, newRole: "corretor" });
+  };
 
   return (
     <div className="space-y-4">
@@ -102,7 +93,7 @@ export function RolesTab() {
                   <SelectItem value="leader">Leader</SelectItem>
                 </SelectContent>
               </Select>
-              <Button onClick={() => addRole.mutate()} disabled={!newRoleUserId || addRole.isPending} size="sm">
+              <Button onClick={handleAddRole} disabled={!newRoleUserId || changeRole.isPending} size="sm">
                 <Plus className="h-4 w-4 mr-1" /> Adicionar
               </Button>
             </div>
@@ -137,7 +128,7 @@ export function RolesTab() {
                       {new Date(r.created_at).toLocaleDateString("pt-BR")}
                     </TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeRole.mutate(r.id)} disabled={removeRole.isPending}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleRemoveRole(r.user_id)} disabled={changeRole.isPending}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </TableCell>

@@ -6003,6 +6003,69 @@ export type Database = {
         }
         Relationships: []
       }
+      security_audit_events: {
+        Row: {
+          actor_org_id: string | null
+          actor_type: string
+          actor_user_id: string | null
+          created_at: string
+          decision: string
+          endpoint: string | null
+          event_hash: string | null
+          event_type: string
+          id: string
+          ip: unknown
+          metadata: Json | null
+          prev_hash: string | null
+          reason_code: string | null
+          request_id: string | null
+          severity: string
+          target_id: string | null
+          target_type: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          actor_org_id?: string | null
+          actor_type?: string
+          actor_user_id?: string | null
+          created_at?: string
+          decision: string
+          endpoint?: string | null
+          event_hash?: string | null
+          event_type: string
+          id?: string
+          ip?: unknown
+          metadata?: Json | null
+          prev_hash?: string | null
+          reason_code?: string | null
+          request_id?: string | null
+          severity?: string
+          target_id?: string | null
+          target_type?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          actor_org_id?: string | null
+          actor_type?: string
+          actor_user_id?: string | null
+          created_at?: string
+          decision?: string
+          endpoint?: string | null
+          event_hash?: string | null
+          event_type?: string
+          id?: string
+          ip?: unknown
+          metadata?: Json | null
+          prev_hash?: string | null
+          reason_code?: string | null
+          request_id?: string | null
+          severity?: string
+          target_id?: string | null
+          target_type?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       simulacoes_financiamento: {
         Row: {
           aprovado: boolean

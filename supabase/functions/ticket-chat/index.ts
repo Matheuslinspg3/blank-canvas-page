@@ -7,6 +7,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkAiRateLimitRedis } from "../_shared/rate-limiter.ts";
 import { resolveAuthContext, requireRole } from "../_shared/auth-helpers.ts";
+import { auditLog, extractRequestMeta } from "../_shared/security-core.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -71,6 +72,21 @@ Deno.serve(async (req) => {
       }
 
       if (!ticketOrgId || ticketOrgId !== ctx.organizationId) {
+        const reqMeta = extractRequestMeta(req);
+        await auditLog({
+          event_type: "cross_org_ticket_access",
+          severity: "error",
+          endpoint: "ticket-chat",
+          actor_user_id: ctx.userId,
+          actor_org_id: ctx.organizationId || undefined,
+          target_type: "ticket",
+          target_id: ticket_id,
+          decision: "deny",
+          reason_code: "cross_org",
+          metadata: { ticket_org: ticketOrgId },
+          ip: reqMeta.ip,
+          user_agent: reqMeta.userAgent,
+        });
         console.warn(`[ticket-chat] Cross-org denied: caller_org=${ctx.organizationId} ticket_org=${ticketOrgId} ticket=${ticket_id}`);
         return new Response(JSON.stringify({ error: "Forbidden: ticket belongs to another organization" }), {
           status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
