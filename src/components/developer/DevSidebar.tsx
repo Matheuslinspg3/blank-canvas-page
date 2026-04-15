@@ -14,7 +14,7 @@ import { useState } from "react";
 export type DevSection =
   | "overview" | "database" | "storage" | "imports"
   | "users" | "subscriptions"
-  | "ai" | "ai-router" | "billing"
+  | "ai" | "ai-router" | "billing" | "cost-monitor"
   | "tickets" | "tools" | "migration" | "setup";
 
 interface NavGroup {
@@ -50,6 +50,7 @@ const navGroups: NavGroup[] = [
       { id: "ai", label: "Provedores & Logs", icon: Bot },
       { id: "ai-router", label: "AI Router", icon: Route },
       { id: "billing", label: "Billing IA", icon: Receipt },
+      { id: "cost-monitor", label: "Custos por Org", icon: BarChart3 },
     ],
   },
   {
