@@ -6066,6 +6066,63 @@ export type Database = {
         }
         Relationships: []
       }
+      security_feature_flags: {
+        Row: {
+          created_at: string
+          description: string | null
+          enabled: boolean
+          flag_key: string
+          id: string
+          mode: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          flag_key: string
+          id?: string
+          mode?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          flag_key?: string
+          id?: string
+          mode?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      signup_attempt_log: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          invite_id: string | null
+          ip_address: string
+          success: boolean
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          invite_id?: string | null
+          ip_address: string
+          success?: boolean
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          invite_id?: string | null
+          ip_address?: string
+          success?: boolean
+        }
+        Relationships: []
+      }
       simulacoes_financiamento: {
         Row: {
           aprovado: boolean

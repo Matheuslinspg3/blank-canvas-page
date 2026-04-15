@@ -38,6 +38,8 @@ export {
   corsHeaders,
 } from "./security-errors.ts";
 export { checkRateLimit, checkAiRateLimitRedis } from "./security-rate-limit.ts";
+export { verifyM2MSignature, generateM2MHeaders, determineCallerType, type M2MVerifyResult, type CallerType } from "./security-m2m.ts";
+export { getFlag, isEnforced, isObserving, isDualMode } from "./security-flags.ts";
 
 /**
  * Authenticates the request via JWT. Returns AuthContext or an error Response.
