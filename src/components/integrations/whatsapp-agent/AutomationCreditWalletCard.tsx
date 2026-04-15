@@ -11,6 +11,7 @@ import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 
 export function AutomationCreditWalletCard() {
+  const { toast } = useToast();
   const { profile } = useAuth();
   const orgId = profile?.organization_id;
 
