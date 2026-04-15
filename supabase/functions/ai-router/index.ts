@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { trackAiBilling } from "../_shared/ai-billing.ts";
+import { auditLog, extractRequestMeta } from "../_shared/security-core.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -684,6 +685,19 @@ Deno.serve(async (req) => {
     // Log divergence if body tried to spoof a different org/user
     if (body.organization_id && body.organization_id !== orgId) {
       console.warn(`[ai-router] SECURITY: body.organization_id="${body.organization_id}" ignored, derived="${orgId}" for user=${authUserId}`);
+      const reqMeta = extractRequestMeta(req);
+      auditLog({
+        event_type: "org_spoofing_attempt",
+        severity: "warn",
+        endpoint: "ai-router",
+        actor_user_id: authUserId,
+        actor_org_id: orgId || undefined,
+        decision: "deny",
+        reason_code: "org_id_mismatch",
+        metadata: { body_org_id: body.organization_id, derived_org_id: orgId },
+        ip: reqMeta.ip,
+        user_agent: reqMeta.userAgent,
+      });
     }
     if (body.user_id && body.user_id !== authUserId) {
       console.warn(`[ai-router] SECURITY: body.user_id="${body.user_id}" ignored, using JWT user="${authUserId}"`);
