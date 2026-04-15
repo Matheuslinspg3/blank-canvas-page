@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import { ColorProgress } from "@/components/ui/color-progress";
 import { Wallet, TrendingDown, TrendingUp, Activity, Zap } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -50,21 +50,38 @@ export function AutomationCreditWalletCard() {
   const consumed = Number(wallet?.total_consumed_brl ?? 0);
   const recharged = Number(wallet?.total_recharged_brl ?? 0);
   const allowance = Number(wallet?.plan_monthly_allowance_brl ?? 0);
-  const markup = Number(wallet?.markup_multiplier ?? 3);
 
   const totalAvailable = allowance + recharged;
   const usagePercent = totalAvailable > 0 ? Math.min(100, (consumed / totalAvailable) * 100) : 0;
+  const balancePercent = totalAvailable > 0 ? (balance / totalAvailable) * 100 : 0;
+
+  // Status badge logic
+  const isCritical = balance <= 0.01;
+  const isLow = !isCritical && totalAvailable > 0 && balancePercent < 20;
+  const isWarning = !isCritical && !isLow && totalAvailable > 0 && balancePercent < 50;
+
+  // Progress bar color
+  const progressColor = isCritical
+    ? "hsl(0, 84%, 60%)"
+    : isLow
+      ? "hsl(38, 92%, 50%)"
+      : isWarning
+        ? "hsl(45, 93%, 47%)"
+        : "hsl(142, 71%, 45%)";
 
   const fmt = (v: number) => `R$ ${v.toFixed(2)}`;
 
   return (
-    <Card>
+    <Card className={isCritical ? "border-destructive" : isLow ? "border-yellow-500" : ""}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Zap className="h-4 w-4" /> Créditos de Automação
+          {isCritical && <Badge variant="destructive" className="text-[10px]">Esgotado</Badge>}
+          {isLow && <Badge variant="outline" className="text-[10px] border-yellow-500 text-yellow-600">Saldo Baixo</Badge>}
+          {!isCritical && !isLow && wallet && <Badge variant="outline" className="text-[10px] border-green-500 text-green-600">Ativo</Badge>}
         </CardTitle>
         <CardDescription>
-          Saldo para automações e agente WhatsApp. Markup: {markup}x sobre custo real.
+          Saldo do seu agente IA para automações e WhatsApp
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -97,7 +114,7 @@ export function AutomationCreditWalletCard() {
               <span>Uso do período</span>
               <span>{usagePercent.toFixed(0)}%</span>
             </div>
-            <Progress value={usagePercent} className="h-2" />
+            <ColorProgress value={usagePercent} indicatorColor={progressColor} className="h-2" />
           </div>
         )}
 
