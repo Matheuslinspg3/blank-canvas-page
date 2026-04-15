@@ -19,14 +19,10 @@ import {
   Users, Search, UserMinus, Activity, Home, FileText, Clock,
   TrendingUp, CircleDot, Shield,
 } from "lucide-react";
-import { useTeamMembers, useRemoveMember, TeamMember } from "@/hooks/useTeamMembers";
+import { useTeamMembers, useRemoveMember, useChangeRole, TeamMember } from "@/hooks/useTeamMembers";
 import { useCustomRoles } from "@/hooks/useCustomRoles";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRoles, AppRole } from "@/hooks/useUserRole";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { toastError } from "@/lib/toastError";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -75,7 +71,7 @@ export function TeamDashboard() {
   const { data: members = [], isLoading } = useTeamMembers();
   const { data: customRoles = [] } = useCustomRoles();
   const removeMember = useRemoveMember();
-  const queryClient = useQueryClient();
+  const changeRole = useChangeRole();
   const [removeReason, setRemoveReason] = useState("");
   const [roleDialogMember, setRoleDialogMember] = useState<TeamMember | null>(null);
   const [selectedRole, setSelectedRole] = useState<string>("");
@@ -105,25 +101,7 @@ export function TeamDashboard() {
 
   const manageableRoles = getManageableRoles(currentUserRoles);
 
-  const changeRole = useMutation({
-    mutationFn: async ({ userId, newRole }: { userId: string; newRole: string }) => {
-      // Delete existing roles then insert new one
-      const { error: deleteError } = await supabase.from("user_roles").delete().eq("user_id", userId);
-      if (deleteError) throw deleteError;
-      const { error: insertError } = await supabase.from("user_roles").insert({ user_id: userId, role: newRole as any });
-      if (insertError) throw insertError;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["team-members-stats"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-team"] });
-      toast.success("Cargo alterado com sucesso");
-      setRoleDialogMember(null);
-      setSelectedRole("");
-    },
-    onError: (err: Error) => {
-      toastError("Erro ao alterar cargo", err, { module: "TeamDashboard" });
-    },
-  });
+  // changeRole is now provided by useChangeRole hook
 
   const getCustomRoleName = (id: string | null) => {
     if (!id) return null;
