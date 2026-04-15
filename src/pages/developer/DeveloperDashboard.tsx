@@ -18,6 +18,7 @@ import { AiRouterTab } from "@/components/developer/ai-router/AiRouterTab";
 import { SetupChecklistTab } from "@/components/developer/SetupChecklistTab";
 import { ToolsSection } from "@/components/developer/ToolsSection";
 import { UsersAndOrgsSection } from "@/components/developer/UsersAndOrgsSection";
+import { CostMonitorTab } from "@/components/developer/CostMonitorTab";
 
 const sectionTitles: Record<DevSection, string> = {
   overview: "Dashboard",
@@ -29,6 +30,7 @@ const sectionTitles: Record<DevSection, string> = {
   ai: "Inteligência Artificial",
   "ai-router": "AI Router",
   billing: "Billing IA",
+  "cost-monitor": "Custos por Organização",
   tickets: "Tickets de Suporte",
   tools: "Ferramentas",
   migration: "Migração",
@@ -60,6 +62,8 @@ function SectionContent({ section, onNavigate }: { section: DevSection; onNaviga
       return <AiRouterTab />;
     case "billing":
       return <BillingDashboardTab />;
+    case "cost-monitor":
+      return <CostMonitorTab />;
     case "tickets":
       return <TicketsTab />;
     case "tools":
