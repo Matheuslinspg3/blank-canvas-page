@@ -8,6 +8,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { NotificationService } from "../_shared/notification-service.ts";
 import { resolveAuthContext, requireRole, isInternalCall, createServiceClient } from "../_shared/auth-helpers.ts";
+import { auditLog, extractRequestMeta } from "../_shared/security-core.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -95,7 +96,22 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (!targetProfile?.organization_id || targetProfile.organization_id !== callerOrgId) {
-        console.warn(`[send-push] Cross-org denied: caller_org=${callerOrgId} target_user=${user_id} target_org=${targetProfile?.organization_id}`);
+        const reqMeta = extractRequestMeta(req);
+        await auditLog({
+          event_type: "cross_org_push",
+          severity: "error",
+          endpoint: "send-push",
+          actor_user_id: callerUserId || undefined,
+          actor_org_id: callerOrgId || undefined,
+          target_type: "user",
+          target_id: user_id,
+          decision: "deny",
+          reason_code: "cross_org",
+          metadata: { target_org: targetProfile?.organization_id },
+          ip: reqMeta.ip,
+          user_agent: reqMeta.userAgent,
+        });
+        console.warn(`[send-push] Cross-org denied: caller_org=${callerOrgId} target_user=${user_id}`);
         return new Response(JSON.stringify({ error: "Forbidden: target user not in your organization" }), {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },

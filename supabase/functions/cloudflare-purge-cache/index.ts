@@ -1,54 +1,64 @@
 /**
- * cloudflare-purge-cache — Phase 0 Hardened
+ * cloudflare-purge-cache — Phase 1 Hardened
  *
  * Security: Only developer role OR admin_allowlist emails can purge.
  * Rate limit: 3 req/hour per user.
- * Audit: Every execution is logged to audit_events.
+ * Audit: Every execution is logged to security_audit_events.
  */
-import { resolveAuthContext, requireRole, isAdminAllowlisted, createServiceClient } from "../_shared/auth-helpers.ts";
-import { checkRateLimit } from "../_shared/rate-limiter.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import { requireAuth, requireRole, isAdminAllowlisted, createServiceClient, auditLog, extractRequestMeta } from "../_shared/security-core.ts";
+import { checkRateLimit } from "../_shared/security-rate-limit.ts";
+import { corsHeaders } from "../_shared/security-errors.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const reqMeta = extractRequestMeta(req);
+
   try {
-    // --- Auth: resolve user context ---
-    const { ctx, error: authError } = await resolveAuthContext(req);
-    if (authError || !ctx) {
-      console.warn("[cloudflare-purge-cache] Auth failed:", authError);
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // --- Auth ---
+    const authResult = await requireAuth(req);
+    if (authResult.error) return authResult.error;
+    const ctx = authResult.ctx;
 
     // --- Authz: only developer role OR admin_allowlist ---
     const isDeveloper = requireRole(ctx, ["developer"]);
     const isAllowlisted = ctx.email ? await isAdminAllowlisted(ctx.email) : false;
 
     if (!isDeveloper && !isAllowlisted) {
-      console.warn(`[cloudflare-purge-cache] Access denied for user=${ctx.userId} roles=${ctx.roles.join(",")}`);
+      await auditLog({
+        event_type: "cache_purge",
+        severity: "warn",
+        endpoint: "cloudflare-purge-cache",
+        actor_user_id: ctx.userId,
+        actor_org_id: ctx.organizationId || undefined,
+        decision: "deny",
+        reason_code: "insufficient_role",
+        ip: reqMeta.ip,
+        user_agent: reqMeta.userAgent,
+      });
       return new Response(JSON.stringify({ error: "Forbidden: requires developer role or admin allowlist" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // --- Rate limit: 3 req/hour per user ---
+    // --- Rate limit ---
     const { allowed } = await checkRateLimit(`cache-purge:${ctx.userId}`, 3, 3600);
     if (!allowed) {
-      console.warn(`[cloudflare-purge-cache] Rate limited user=${ctx.userId}`);
+      await auditLog({
+        event_type: "rate_limit",
+        severity: "warn",
+        endpoint: "cloudflare-purge-cache",
+        actor_user_id: ctx.userId,
+        actor_org_id: ctx.organizationId || undefined,
+        decision: "deny",
+        reason_code: "rate_limit_exceeded",
+        ip: reqMeta.ip,
+        user_agent: reqMeta.userAgent,
+      });
       return new Response(JSON.stringify({ error: "Rate limit exceeded (3/hour)" }), {
-        status: 429,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -77,23 +87,24 @@ Deno.serve(async (req) => {
 
     const cfData = await cfResponse.json();
 
-    // --- Audit log (fire and forget) ---
-    const supabase = createServiceClient();
-    supabase.from("audit_events").insert({
-      action: "cache_purge",
-      action_category: "infrastructure",
-      entity_type: "cloudflare_cache",
-      entity_id: zoneId,
-      user_id: ctx.userId,
-      organization_id: ctx.organizationId,
-      description: `Cache purge ${cfData.success ? "succeeded" : "failed"}`,
+    // --- Audit log ---
+    await auditLog({
+      event_type: "cache_purge",
+      severity: "info",
+      endpoint: "cloudflare-purge-cache",
+      actor_user_id: ctx.userId,
+      actor_org_id: ctx.organizationId || undefined,
+      target_type: "cloudflare_zone",
+      target_id: zoneId,
+      decision: cfData.success ? "allow" : "deny",
+      reason_code: cfData.success ? "purge_success" : "purge_failed",
       metadata: {
-        cf_success: cfData.success,
         auth_method: isDeveloper ? "developer_role" : "admin_allowlist",
+        cf_success: cfData.success,
       },
-      risk_level: "medium",
-      source: "edge_function",
-    }).then(() => {});
+      ip: reqMeta.ip,
+      user_agent: reqMeta.userAgent,
+    });
 
     if (!cfData.success) {
       return new Response(
@@ -102,7 +113,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[cloudflare-purge-cache] Success by user=${ctx.userId} method=${isDeveloper ? "developer_role" : "admin_allowlist"}`);
+    console.log(`[cloudflare-purge-cache] Success by user=${ctx.userId}`);
 
     return new Response(
       JSON.stringify({ success: true, message: "Cache purged successfully" }),
@@ -111,8 +122,7 @@ Deno.serve(async (req) => {
   } catch (err) {
     console.error("[cloudflare-purge-cache] Error:", err);
     return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
