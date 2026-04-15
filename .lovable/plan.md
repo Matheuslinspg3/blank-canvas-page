@@ -1,76 +1,56 @@
 
+# Plano: Gerar Documento Técnico Completo do Projeto Habitae
 
-# Plano: Refatorar System Prompt base e corrigir envio de fotos de imóveis
+## Objetivo
+Criar um documento DOCX profissional com 11 seções técnicas cobrindo arquitetura, stack, modelagem de dados, permissões, automações, IA, integrações, dívida técnica e roadmap.
 
-## Problemas identificados
+## Conteúdo a ser gerado
 
-### 1. System Prompt base incompleto
-O `composed_system_prompt` em `whatsapp-webhook-config` é montado assim:
-```
-[prompt do usuário]
---- Instruções ---
-• qualificação
-• criação de lead
-• agendamento
-• imóveis
-• tipos de imóvel
-```
+O documento será construído com base em toda a informação coletada:
 
-**Faltam instruções fundamentais** para o agente:
-- Não instrui a IA a **enviar fotos** quando apresentar imóveis
-- Não explica que a IA tem **ferramentas (tools)** disponíveis como `whatsapp-send-property-photos`, `whatsapp-property-images`, `whatsapp-agent-properties`
-- Não orienta formato de apresentação de imóveis (listar com dados relevantes)
-- Não instrui a IA sobre como usar `cover_image_url` já retornado por `whatsapp-agent-properties`
+### 1. ARQUITETURA GERAL
+- SPA React/Vite → Supabase (Postgres + Auth + Edge Functions + Storage)
+- N8N como orquestrador fino chamando Edge Functions via HTTP
+- Multi-tenant via RLS com `get_user_organization_id()`
+- Storage tri-provider: Supabase (docs RLS), R2 (mídia imóveis, pHash), Cloudinary (logos/brand)
+- WhatsApp via Evolution API + wa-worker (Baileys 6+)
+- Wildcard DNS via Cloudflare Worker para subdomínios white-label
 
-### 2. Fotos não são enviadas pela IA
-A cadeia de envio de fotos existe e está funcional:
-- `whatsapp-agent-properties` já retorna `cover_image_url` para cada imóvel
-- `whatsapp-property-images` busca URLs de imagens
-- `whatsapp-send-property-photos` faz busca + envio unificado
-- `whatsapp-send-media` envia imagens avulsas
+### 2. STACK E TECNOLOGIAS
+React 18, TypeScript, Vite 5, Tailwind CSS v3, shadcn/ui, Supabase (Postgres, Auth, Edge Functions Deno, Storage), N8N v2.15.0, Cloudflare R2/Workers, Cloudinary, Google Maps Embed, OneSignal, PostHog, Upstash Redis, Evolution API, Retell AI, ElevenLabs, OpenAI/Anthropic/Gemini/Groq, Firecrawl, vite-plugin-pwa
 
-**O problema é no n8n**: o Agente IA precisa ter uma **tool** configurada que chame `whatsapp-send-property-photos` quando apresentar imóveis. Se a tool existe no n8n mas a IA não sabe que deve usá-la, é porque o system prompt não instrui.
+### 3. MODELAGEM DE DADOS
+~40+ tabelas detalhadas: organizations, profiles, user_roles, properties, property_images, leads, lead_stages, contracts, commissions, transactions, invoices, whatsapp_agent_config, whatsapp_messages, follow_up_queue, subscription_plans, marketplace_properties, etc.
 
-## Plano de implementação
+### 4. RELACIONAMENTOS
+Org→Profiles→User_roles, Properties→Property_images, Leads→Lead_stages→Interactions, Contracts→Properties+Leads+Commissions, etc.
 
-### Passo 1: Refatorar `composed_system_prompt` em `whatsapp-webhook-config`
-Adicionar um bloco de instruções base **antes** do prompt do usuário, com:
+### 5. PERMISSÕES E PAPÉIS
+6 roles: developer > admin > sub_admin > leader > corretor > assistente. RLS strict, Security Definer functions.
 
-```
---- Identidade ---
-Você é {agent_name}, assistente virtual da imobiliária {org_name}.
-Tom de comunicação: {tone}.
+### 6. AUTOMAÇÕES
+~120+ Edge Functions mapeadas, n8n workflows, pg_cron jobs, triggers (handle_new_user, auto_create_lead, lead dedup, follow-up sync)
 
---- Ferramentas disponíveis ---
-• Quando apresentar imóveis ao cliente, SEMPRE use a ferramenta de envio de fotos para enviar a imagem de capa de cada imóvel mencionado.
-• Para buscar imóveis use a ferramenta de busca de propriedades com os filtros adequados.
-• Para enviar fotos dos imóveis apresentados, use a ferramenta de envio de fotos informando os property_ids.
-• Para criar/atualizar leads, use as ferramentas de lead.
-• Para transferir para humano, use a ferramenta de transbordo.
+### 7. IA NO DETALHE
+Agente WhatsApp (tools: busca imóveis, create/update lead, transfer broker, envio fotos), Retell Voice (Sofia), ElevenLabs TTS, Gemini PDF extraction, AI site generation, ad content generation, lead summarization, photo quality analysis. Billing via créditos BRL com markup 1.5x.
 
---- Regras de apresentação de imóveis ---
-• Ao recomendar imóveis, apresente de forma resumida: título, tipo, bairro/cidade, preço e metragem.
-• SEMPRE envie a foto de capa junto com a apresentação do imóvel.
-• Não liste mais de 5 imóveis por vez; pergunte se quer ver mais.
+### 8. INTEGRAÇÕES
+WhatsApp (Evolution API), Meta Ads (OAuth), RD Station CRM, Imobzi, portais XML (ZAP/Viva Real), Retell AI, ElevenLabs, Cloudinary, Cloudflare R2, OneSignal, Firecrawl, Stripe/billing
 
---- Instruções operacionais ---
-• {qualificação}
-• {criação de lead}
-• {agendamento}
-• {imóveis}
-• {tipos de imóvel}
-```
+### 9. PONTOS FRÁGEIS
+N8N version lock, prompt engineering contínuo, complexidade DNS/SSL, custo tokens, falta de testes automatizados, dependência de provedores externos
 
-### Passo 2: Garantir que a tool `whatsapp-send-property-photos` esteja configurada no n8n
-Isso é no lado n8n (workflow HyoHStUv2ZhXnnTG). A tool precisa:
-- Receber `property_ids`, `phone`, `instance_name`
-- Chamar a Edge Function `whatsapp-send-property-photos` com `mode: "cover"`
+### 10. ROADMAP
+4 fases: Fundamentos → Eficiência → Inteligência → Escala
 
-### Arquivos alterados
-- `supabase/functions/whatsapp-webhook-config/index.ts` — refatorar montagem do `composed_system_prompt`
+### 11. RESUMO TÉCNICO FINAL
 
-### Impacto
-- O prompt base passa a instruir a IA sobre as ferramentas disponíveis e sobre o envio obrigatório de fotos
-- O `config.system_prompt` do usuário continua sendo respeitado (injetado dentro do prompt composto)
-- Sem breaking changes no payload de saída
+## Implementação
+- Script Node.js usando biblioteca `docx` (já instalada em /tmp)
+- Documento formatado com tabelas, bullets, headings, page breaks
+- Output: `/mnt/documents/Habitae_Documentacao_Tecnica.docx`
+- QA via parse_document para verificar completude
 
+## Arquivos alterados
+- Nenhum arquivo do projeto será modificado
+- Apenas geração de artefato em `/mnt/documents/`
