@@ -72,19 +72,25 @@ export function AutomationCreditWalletCard() {
   const fmt = (v: number) => `R$ ${v.toFixed(2)}`;
 
   return (
-    <Card className={isCritical ? "border-destructive" : isLow ? "border-yellow-500" : ""}>
+    <Card className={wallet && isCritical ? "border-destructive" : wallet && isLow ? "border-yellow-500" : ""}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Zap className="h-4 w-4" /> Créditos de Automação
-          {isCritical && <Badge variant="destructive" className="text-[10px]">Esgotado</Badge>}
-          {isLow && <Badge variant="outline" className="text-[10px] border-yellow-500 text-yellow-600">Saldo Baixo</Badge>}
-          {!isCritical && !isLow && wallet && <Badge variant="outline" className="text-[10px] border-green-500 text-green-600">Ativo</Badge>}
+          {wallet && isCritical && <Badge variant="destructive" className="text-[10px]">Esgotado</Badge>}
+          {wallet && isLow && <Badge variant="outline" className="text-[10px] border-yellow-500 text-yellow-600">Saldo Baixo</Badge>}
+          {wallet && !isCritical && !isLow && <Badge variant="outline" className="text-[10px] border-green-500 text-green-600">Ativo</Badge>}
+          {!wallet && <Badge variant="outline" className="text-[10px]">Pendente</Badge>}
         </CardTitle>
         <CardDescription>
           Saldo do seu agente IA para automações e WhatsApp
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {!wallet ? (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            Nenhuma carteira de automação configurada. Os créditos serão criados automaticamente no primeiro uso.
+          </p>
+        ) : (<>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="p-3 bg-muted/50 rounded-lg text-center">
             <Wallet className="h-4 w-4 mx-auto mb-1 text-green-500" />
@@ -118,12 +124,6 @@ export function AutomationCreditWalletCard() {
           </div>
         )}
 
-        {!wallet && (
-          <p className="text-sm text-muted-foreground text-center py-2">
-            Nenhuma carteira de automação configurada. Os créditos serão criados automaticamente no primeiro uso.
-          </p>
-        )}
-
         {recentTx.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground">Últimas Transações</p>
@@ -152,6 +152,7 @@ export function AutomationCreditWalletCard() {
             </div>
           </div>
         )}
+        </>)}
       </CardContent>
     </Card>
   );
