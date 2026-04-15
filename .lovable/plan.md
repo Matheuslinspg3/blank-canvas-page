@@ -1,31 +1,76 @@
 
 
-# Melhorar o Sistema de Créditos do Agente IA
+# Plano: Refatorar System Prompt base e corrigir envio de fotos de imóveis
 
-## Problema
-O card "Créditos de Automação" expõe detalhes técnicos internos ao usuário (markup 3x, custo médio por mensagem em BRL, etc.). O usuário final não precisa saber sobre markup — ele só quer entender quanto saldo tem, quanto usou, e quantas mensagens ainda pode enviar.
+## Problemas identificados
 
-## Alterações
+### 1. System Prompt base incompleto
+O `composed_system_prompt` em `whatsapp-webhook-config` é montado assim:
+```
+[prompt do usuário]
+--- Instruções ---
+• qualificação
+• criação de lead
+• agendamento
+• imóveis
+• tipos de imóvel
+```
 
-### 1. Refatorar `AutomationCreditWalletCard.tsx`
-- Remover menção a "Markup: 3x sobre custo real" da `CardDescription`
-- Trocar descrição para algo amigável: "Saldo do seu agente IA para automações e WhatsApp"
-- Manter os 4 cards de métricas (Saldo Atual, Total Consumido, Total Recarregado, Incluso no Plano) mas sem expor markup
-- Melhorar visual: adicionar cores mais claras nos badges de status (verde = saldo ok, amarelo = baixo, vermelho = sem créditos)
-- Adicionar badge de status no header do card (ex: "Ativo", "Saldo Baixo", "Esgotado")
+**Faltam instruções fundamentais** para o agente:
+- Não instrui a IA a **enviar fotos** quando apresentar imóveis
+- Não explica que a IA tem **ferramentas (tools)** disponíveis como `whatsapp-send-property-photos`, `whatsapp-property-images`, `whatsapp-agent-properties`
+- Não orienta formato de apresentação de imóveis (listar com dados relevantes)
+- Não instrui a IA sobre como usar `cover_image_url` já retornado por `whatsapp-agent-properties`
 
-### 2. Refatorar `AutomationCreditEstimationCard.tsx`
-- Remover "Custo Médio/Msg" do grid visível (dado técnico interno)
-- Manter: Mensagens Restantes, Dias Restantes, Msgs/Dia (7d) — são dados úteis ao usuário
-- Substituir o 4º card por "Total Processado" (quantidade de mensagens, não valor)
-- Manter alertas de saldo baixo e esgotado como estão (são bons)
+### 2. Fotos não são enviadas pela IA
+A cadeia de envio de fotos existe e está funcional:
+- `whatsapp-agent-properties` já retorna `cover_image_url` para cada imóvel
+- `whatsapp-property-images` busca URLs de imagens
+- `whatsapp-send-property-photos` faz busca + envio unificado
+- `whatsapp-send-media` envia imagens avulsas
 
-### 3. Melhorar UX geral
-- Unificar os dois cards em uma experiência mais coesa com seções claras: "Seu Saldo" + "Previsão de Uso"
-- Progress bar com cores dinâmicas (verde >50%, amarelo 20-50%, vermelho <20%)
-- Texto do rodapé sem mencionar custo médio em BRL
+**O problema é no n8n**: o Agente IA precisa ter uma **tool** configurada que chame `whatsapp-send-property-photos` quando apresentar imóveis. Se a tool existe no n8n mas a IA não sabe que deve usá-la, é porque o system prompt não instrui.
 
-## Arquivos a editar
-- `src/components/integrations/whatsapp-agent/AutomationCreditWalletCard.tsx` — remover markup, melhorar labels
-- `src/components/integrations/whatsapp-agent/AutomationCreditEstimationCard.tsx` — remover custo médio visível, melhorar UX
+## Plano de implementação
+
+### Passo 1: Refatorar `composed_system_prompt` em `whatsapp-webhook-config`
+Adicionar um bloco de instruções base **antes** do prompt do usuário, com:
+
+```
+--- Identidade ---
+Você é {agent_name}, assistente virtual da imobiliária {org_name}.
+Tom de comunicação: {tone}.
+
+--- Ferramentas disponíveis ---
+• Quando apresentar imóveis ao cliente, SEMPRE use a ferramenta de envio de fotos para enviar a imagem de capa de cada imóvel mencionado.
+• Para buscar imóveis use a ferramenta de busca de propriedades com os filtros adequados.
+• Para enviar fotos dos imóveis apresentados, use a ferramenta de envio de fotos informando os property_ids.
+• Para criar/atualizar leads, use as ferramentas de lead.
+• Para transferir para humano, use a ferramenta de transbordo.
+
+--- Regras de apresentação de imóveis ---
+• Ao recomendar imóveis, apresente de forma resumida: título, tipo, bairro/cidade, preço e metragem.
+• SEMPRE envie a foto de capa junto com a apresentação do imóvel.
+• Não liste mais de 5 imóveis por vez; pergunte se quer ver mais.
+
+--- Instruções operacionais ---
+• {qualificação}
+• {criação de lead}
+• {agendamento}
+• {imóveis}
+• {tipos de imóvel}
+```
+
+### Passo 2: Garantir que a tool `whatsapp-send-property-photos` esteja configurada no n8n
+Isso é no lado n8n (workflow HyoHStUv2ZhXnnTG). A tool precisa:
+- Receber `property_ids`, `phone`, `instance_name`
+- Chamar a Edge Function `whatsapp-send-property-photos` com `mode: "cover"`
+
+### Arquivos alterados
+- `supabase/functions/whatsapp-webhook-config/index.ts` — refatorar montagem do `composed_system_prompt`
+
+### Impacto
+- O prompt base passa a instruir a IA sobre as ferramentas disponíveis e sobre o envio obrigatório de fotos
+- O `config.system_prompt` do usuário continua sendo respeitado (injetado dentro do prompt composto)
+- Sem breaking changes no payload de saída
 
