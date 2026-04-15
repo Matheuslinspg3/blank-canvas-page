@@ -1,12 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ColorProgress } from "@/components/ui/color-progress";
-import { Wallet, TrendingDown, TrendingUp, Activity, Zap } from "lucide-react";
+import { Wallet, TrendingDown, TrendingUp, Activity, Zap, ShoppingCart } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useToast } from "@/hooks/use-toast";
 
 export function AutomationCreditWalletCard() {
   const { profile } = useAuth();
