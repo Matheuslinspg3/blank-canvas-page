@@ -22,18 +22,18 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // --- SECURITY: Validate JWT via getClaims (replaces insecure atob decode) ---
     const token = authHeader.replace("Bearer ", "");
-    const payloadB64 = token.split(".")[1];
-    if (!payloadB64) {
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const authClient = createClient(Deno.env.get("SUPABASE_URL")!, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      console.error("[meta-sync-entities] JWT validation failed:", claimsError?.message);
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
-    const payload = JSON.parse(atob(payloadB64));
-    const userId = payload.sub;
-    const exp = payload.exp;
-    if (!userId || (exp && exp < Math.floor(Date.now() / 1000))) {
-      console.error("[meta-sync-entities] Token expired or invalid");
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
-    }
+    const userId = claimsData.claims.sub as string;
     console.log("[meta-sync-entities] Auth OK, user:", userId);
 
     const { data: profile } = await supabase

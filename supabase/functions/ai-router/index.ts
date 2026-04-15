@@ -671,9 +671,23 @@ Deno.serve(async (req) => {
     const allProviders = (providersRes.data || []) as Provider[];
     const allStats = (statsRes.data || []) as ProviderStats[];
 
-    // Resolve org + load pricing + check budget in parallel
-    const orgId = body.organization_id || null;
-    const userId = body.user_id || authUserId;
+    // --- SECURITY: Derive org from JWT context, NEVER from body ---
+    // body.organization_id is intentionally ignored to prevent org spoofing.
+    const { data: authProfile } = await supabase
+      .from("profiles")
+      .select("organization_id")
+      .eq("user_id", authUserId)
+      .maybeSingle();
+    const orgId = authProfile?.organization_id || null;
+    const userId = authUserId; // Always use JWT-derived userId
+
+    // Log divergence if body tried to spoof a different org/user
+    if (body.organization_id && body.organization_id !== orgId) {
+      console.warn(`[ai-router] SECURITY: body.organization_id="${body.organization_id}" ignored, derived="${orgId}" for user=${authUserId}`);
+    }
+    if (body.user_id && body.user_id !== authUserId) {
+      console.warn(`[ai-router] SECURITY: body.user_id="${body.user_id}" ignored, using JWT user="${authUserId}"`);
+    }
 
     const [pricing, budgetResult] = await Promise.all([
       loadPricing(supabase),
