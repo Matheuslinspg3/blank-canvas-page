@@ -253,9 +253,14 @@ export function TeamDashboard() {
                             </Button>
                             <Button
                               disabled={!selectedRole || selectedRole === m.roles[0] || changeRole.isPending}
-                              onClick={() => changeRole.mutate({ userId: m.user_id, newRole: selectedRole })}
+                              onClick={() => {
+                                changeRole.mutate({ userId: m.user_id, newRole: selectedRole }, {
+                                  onSuccess: () => { setRoleDialogMember(null); setSelectedRole(""); },
+                                });
+                              }}
                             >
                               {changeRole.isPending ? "Salvando..." : "Confirmar"}
+                            </Button>
                             </Button>
                           </DialogFooter>
                         </DialogContent>
