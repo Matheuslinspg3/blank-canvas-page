@@ -156,7 +156,22 @@ export function AutomationCreditWalletCard() {
           </div>
         )}
         </>)}
-      </CardContent>
+      <CardFooter className="justify-center">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          onClick={() => {
+            toast({
+              title: "Em breve!",
+              description: "A compra de créditos extras estará disponível em breve. Entre em contato com o suporte para adquirir agora.",
+            });
+          }}
+        >
+          <ShoppingCart className="h-4 w-4" />
+          Comprar Créditos Extras
+        </Button>
+      </CardFooter>
     </Card>
   );
 }
