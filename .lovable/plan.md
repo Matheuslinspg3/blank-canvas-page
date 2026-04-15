@@ -1,26 +1,31 @@
 
 
-# Reduzir franquia de automação do plano Profissional
+# Melhorar o Sistema de Créditos do Agente IA
 
-## Contexto
-O plano **Profissional** (slug: `profissional`, R$ 299,90/mês) possui atualmente uma franquia de automação de **R$ 900,00**. Com markup de 1.5x, o custo real ao usar 100% é R$ 600 — gerando prejuízo de ~R$ 369.
+## Problema
+O card "Créditos de Automação" expõe detalhes técnicos internos ao usuário (markup 3x, custo médio por mensagem em BRL, etc.). O usuário final não precisa saber sobre markup — ele só quer entender quanto saldo tem, quanto usou, e quantas mensagens ainda pode enviar.
 
-## Alteração
+## Alterações
 
-**Passo único**: Atualizar o campo `automation_allowance_brl` de `900.00` para `300.00` na tabela `subscription_plans` para o registro com id `ed05def6-a64e-4839-94f3-54cd33c6bd2b`.
+### 1. Refatorar `AutomationCreditWalletCard.tsx`
+- Remover menção a "Markup: 3x sobre custo real" da `CardDescription`
+- Trocar descrição para algo amigável: "Saldo do seu agente IA para automações e WhatsApp"
+- Manter os 4 cards de métricas (Saldo Atual, Total Consumido, Total Recarregado, Incluso no Plano) mas sem expor markup
+- Melhorar visual: adicionar cores mais claras nos badges de status (verde = saldo ok, amarelo = baixo, vermelho = sem créditos)
+- Adicionar badge de status no header do card (ex: "Ativo", "Saldo Baixo", "Esgotado")
 
-```sql
-UPDATE subscription_plans
-SET automation_allowance_brl = 300.0000
-WHERE id = 'ed05def6-a64e-4839-94f3-54cd33c6bd2b';
-```
+### 2. Refatorar `AutomationCreditEstimationCard.tsx`
+- Remover "Custo Médio/Msg" do grid visível (dado técnico interno)
+- Manter: Mensagens Restantes, Dias Restantes, Msgs/Dia (7d) — são dados úteis ao usuário
+- Substituir o 4º card por "Total Processado" (quantidade de mensagens, não valor)
+- Manter alertas de saldo baixo e esgotado como estão (são bons)
 
-## Impacto financeiro (uso 100%)
-- **Antes**: Custo real R$ 600 → Margem: -R$ 300
-- **Depois**: Custo real R$ 200 → Margem: +R$ 100
+### 3. Melhorar UX geral
+- Unificar os dois cards em uma experiência mais coesa com seções claras: "Seu Saldo" + "Previsão de Uso"
+- Progress bar com cores dinâmicas (verde >50%, amarelo 20-50%, vermelho <20%)
+- Texto do rodapé sem mencionar custo médio em BRL
 
-## Observações
-- Nenhuma alteração de código necessária — o valor é lido dinamicamente do banco.
-- A renovação mensal de créditos (`automation-monthly-credits`) já usa `automation_allowance_brl` da tabela, então refletirá automaticamente.
-- Organizações existentes manterão o saldo atual até a próxima renovação mensal.
+## Arquivos a editar
+- `src/components/integrations/whatsapp-agent/AutomationCreditWalletCard.tsx` — remover markup, melhorar labels
+- `src/components/integrations/whatsapp-agent/AutomationCreditEstimationCard.tsx` — remover custo médio visível, melhorar UX
 
