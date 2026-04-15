@@ -1,0 +1,1 @@
+UPDATE subscription_plans SET automation_allowance_brl = 300.0000 WHERE id = 'ed05def6-a64e-4839-94f3-54cd33c6bd2b';
