@@ -133,9 +133,36 @@ serve(async (req) => {
       ? `Tipos de imóvel disponíveis: ${uniqueTypeNames.join(", ")}`
       : "Não há tipos de imóvel disponíveis.";
 
+    // Fetch org name for identity block
+    const { data: orgData } = await sb
+      .from("organizations")
+      .select("name")
+      .eq("id", orgId)
+      .maybeSingle();
+
+    const orgName = orgData?.name ?? "a imobiliária";
+
     const composed_system_prompt = [
+      `--- Identidade ---`,
+      `Você é ${config.agent_name ?? "a assistente virtual"}, assistente virtual da imobiliária ${orgName}.`,
+      `Tom de comunicação: ${config.tone ?? "profissional e amigável"}.`,
+      ``,
+      `--- Personalidade e contexto (definido pela imobiliária) ---`,
       config.system_prompt?.trim() ?? "",
-      "\n--- Instruções ---",
+      ``,
+      `--- Ferramentas disponíveis ---`,
+      `• BUSCA DE IMÓVEIS: Use a ferramenta de busca de propriedades para encontrar imóveis com base nos filtros do cliente (bairro, preço, quartos, tipo).`,
+      `• ENVIO DE FOTOS: Quando apresentar imóveis ao cliente, SEMPRE use a ferramenta de envio de fotos (whatsapp-send-property-photos) informando os property_ids dos imóveis mencionados. Isso envia a foto de capa automaticamente.`,
+      `• CRIAÇÃO DE LEAD: Use a ferramenta de lead para registrar o contato no CRM quando apropriado.`,
+      `• TRANSBORDO: Use a ferramenta de transferência para encaminhar a conversa a um corretor humano quando necessário.`,
+      ``,
+      `--- Regras de apresentação de imóveis ---`,
+      `• Ao recomendar imóveis, apresente de forma resumida: título, tipo do imóvel, bairro/cidade, preço e metragem.`,
+      `• OBRIGATÓRIO: Após listar imóveis na mensagem, chame a ferramenta de envio de fotos com os property_ids para que o cliente receba as imagens.`,
+      `• Não liste mais de 5 imóveis por vez; pergunte se o cliente deseja ver mais opções.`,
+      `• Se o cliente demonstrar interesse em um imóvel específico, envie a foto dele novamente e ofereça agendar uma visita (se habilitado).`,
+      ``,
+      `--- Instruções operacionais ---`,
       `• ${prompt_qualify}`,
       `• ${prompt_create_lead}`,
       `• ${prompt_schedule}`,
