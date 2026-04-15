@@ -82,6 +82,19 @@ export function requireRole(ctx: AuthContext, requiredRoles: string[]): boolean 
 /**
  * Checks if the request is an internal call authenticated via X-Webhook-Secret.
  * Also accepts service_role_key in the Authorization header as an internal call.
+ *
+ * ⚠️  PHASE 0 TRANSITIONAL SOLUTION — DO NOT treat as final security standard.
+ *
+ * This helper uses a shared secret (INTERNAL_WEBHOOK_SECRET) or service_role_key
+ * comparison for internal service-to-service authentication. It is sufficient as
+ * a P0 hotfix but lacks:
+ *   - Request signing (HMAC) to prevent replay attacks
+ *   - Per-service identity (all internal callers share the same secret)
+ *   - Token expiration / rotation
+ *
+ * PHASE 1 TODO: Replace with signed M2M authentication (HMAC or short-lived
+ * service JWTs) that provides per-caller identity, replay protection, and
+ * automatic key rotation.
  */
 export function isInternalCall(req: Request): boolean {
   // Check X-Webhook-Secret header
