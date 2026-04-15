@@ -1,14 +1,61 @@
+/**
+ * manage-member — Phase 1 Hardened
+ *
+ * Centralized endpoint for team member management:
+ *  - get_member_stats: list team members with activity stats
+ *  - remove_member: remove a member from the organization
+ *  - change_role: change a member's role (server-side permission matrix)
+ *
+ * All role mutations go through this endpoint. Frontend no longer writes
+ * directly to user_roles.
+ */
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { auditLog, extractRequestMeta } from "../_shared/security-core.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const VALID_ROLES = ["admin", "sub_admin", "corretor", "assistente", "developer", "leader"] as const;
+type AppRole = typeof VALID_ROLES[number];
+
+/**
+ * Server-side permission matrix for role assignment.
+ * Key = caller's highest role, Value = roles they can assign.
+ */
+const ROLE_ASSIGNMENT_MATRIX: Record<string, AppRole[]> = {
+  developer: ["admin", "sub_admin", "corretor", "assistente", "leader", "developer"],
+  admin: ["sub_admin", "corretor", "assistente"],
+  sub_admin: ["corretor", "assistente"],
+  leader: [], // read-only in Phase 1
+  corretor: [],
+  assistente: [],
+};
+
+function getHighestRole(roles: string[]): string {
+  const hierarchy = ["assistente", "corretor", "leader", "sub_admin", "admin", "developer"];
+  let highest = "corretor";
+  for (const role of roles) {
+    if (hierarchy.indexOf(role) > hierarchy.indexOf(highest)) {
+      highest = role;
+    }
+  }
+  return highest;
+}
+
+function canAssignRole(callerRoles: string[], targetNewRole: string): boolean {
+  const highest = getHighestRole(callerRoles);
+  const allowed = ROLE_ASSIGNMENT_MATRIX[highest] || [];
+  return allowed.includes(targetNewRole as AppRole);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const reqMeta = extractRequestMeta(req);
 
   try {
     const authHeader = req.headers.get("Authorization");
@@ -28,32 +75,63 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceKey);
 
-    // Get caller's profile and role
-    const { data: callerProfile } = await adminClient
-      .from("profiles")
-      .select("organization_id")
-      .eq("user_id", callerId)
-      .single();
+    // Get caller's profile and roles
+    const [profileRes, rolesRes] = await Promise.all([
+      adminClient.from("profiles").select("organization_id").eq("user_id", callerId).single(),
+      adminClient.from("user_roles").select("role").eq("user_id", callerId),
+    ]);
 
+    const callerProfile = profileRes.data;
     if (!callerProfile?.organization_id) throw new Error("No organization");
 
-    // Check caller is admin or above
-    const { data: callerRoles } = await adminClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", callerId);
-
-    const callerRoleList = (callerRoles || []).map((r: any) => r.role);
-    const isAdmin = callerRoleList.some((r: string) => ["admin", "sub_admin", "developer", "leader"].includes(r));
-    if (!isAdmin) throw new Error("Forbidden");
+    const callerRoleList = (rolesRes.data || []).map((r: any) => r.role);
+    const isCallerAdmin = callerRoleList.some((r: string) =>
+      ["admin", "sub_admin", "developer", "leader"].includes(r)
+    );
+    if (!isCallerAdmin) throw new Error("Forbidden");
 
     const body = await req.json();
     const { action } = body;
 
-    if (action === "remove_member") {
-      const { user_id: targetId, reason } = body;
-      if (!targetId) throw new Error("user_id required");
-      if (targetId === callerId) throw new Error("Cannot remove yourself");
+    // ═══════════════════════════════════════════════════════
+    // ACTION: change_role
+    // ═══════════════════════════════════════════════════════
+    if (action === "change_role") {
+      const { user_id: targetId, new_role: newRole, reason } = body;
+
+      if (!targetId || !newRole) {
+        return new Response(JSON.stringify({ error: "user_id and new_role are required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Validate role enum
+      if (!VALID_ROLES.includes(newRole as AppRole)) {
+        return new Response(JSON.stringify({ error: `Invalid role: ${newRole}` }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Cannot change own role
+      if (targetId === callerId) {
+        await auditLog({
+          event_type: "role_change",
+          severity: "warn",
+          endpoint: "manage-member",
+          actor_user_id: callerId,
+          actor_org_id: callerProfile.organization_id,
+          target_type: "user",
+          target_id: targetId,
+          decision: "deny",
+          reason_code: "self_modification",
+          metadata: { new_role: newRole },
+          ip: reqMeta.ip,
+          user_agent: reqMeta.userAgent,
+        });
+        return new Response(JSON.stringify({ error: "Cannot change your own role" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       // Check target is in same org
       const { data: targetProfile } = await adminClient
@@ -63,17 +141,145 @@ Deno.serve(async (req) => {
         .single();
 
       if (!targetProfile || targetProfile.organization_id !== callerProfile.organization_id) {
-        throw new Error("User not in your organization");
+        await auditLog({
+          event_type: "role_change",
+          severity: "error",
+          endpoint: "manage-member",
+          actor_user_id: callerId,
+          actor_org_id: callerProfile.organization_id,
+          target_type: "user",
+          target_id: targetId,
+          decision: "deny",
+          reason_code: "cross_org",
+          ip: reqMeta.ip,
+          user_agent: reqMeta.userAgent,
+        });
+        return new Response(JSON.stringify({ error: "User not in your organization" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
-      // Check target's role - can't remove developer/leader unless caller is developer
+      // Get target's current roles
       const { data: targetRoles } = await adminClient
         .from("user_roles")
         .select("role")
         .eq("user_id", targetId);
+      const targetRoleList = (targetRoles || []).map((r: any) => r.role);
+      const oldRole = targetRoleList.length > 0 ? getHighestRole(targetRoleList) : "corretor";
 
+      // Permission matrix check
+      if (!canAssignRole(callerRoleList, newRole)) {
+        await auditLog({
+          event_type: "role_change",
+          severity: "warn",
+          endpoint: "manage-member",
+          actor_user_id: callerId,
+          actor_org_id: callerProfile.organization_id,
+          target_type: "user",
+          target_id: targetId,
+          decision: "deny",
+          reason_code: "insufficient_privilege",
+          metadata: { caller_roles: callerRoleList, old_role: oldRole, new_role: newRole },
+          ip: reqMeta.ip,
+          user_agent: reqMeta.userAgent,
+        });
+        return new Response(JSON.stringify({ error: "Insufficient privileges to assign this role" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Additional guard: only developers can assign developer role
+      if (newRole === "developer" && !callerRoleList.includes("developer")) {
+        return new Response(JSON.stringify({ error: "Only developers can assign developer role" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Execute: delete existing roles, insert new one
+      await adminClient.from("user_roles").delete().eq("user_id", targetId);
+      const { error: insertError } = await adminClient.from("user_roles").insert({
+        user_id: targetId,
+        role: newRole,
+      });
+
+      if (insertError) {
+        console.error("[manage-member] role insert error:", insertError);
+        return new Response(JSON.stringify({ error: "Failed to update role" }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Audit: successful role change
+      await auditLog({
+        event_type: "role_change",
+        severity: "warn",
+        endpoint: "manage-member",
+        actor_user_id: callerId,
+        actor_org_id: callerProfile.organization_id,
+        target_type: "user",
+        target_id: targetId,
+        decision: "allow",
+        reason_code: "role_changed",
+        metadata: {
+          old_role: oldRole,
+          new_role: newRole,
+          target_name: targetProfile.full_name,
+          reason: reason || null,
+        },
+        ip: reqMeta.ip,
+        user_agent: reqMeta.userAgent,
+      });
+
+      console.log(`[manage-member] Role changed: ${targetProfile.full_name} ${oldRole} → ${newRole} by ${callerId}`);
+
+      return new Response(JSON.stringify({
+        success: true,
+        name: targetProfile.full_name,
+        old_role: oldRole,
+        new_role: newRole,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // ACTION: remove_member (existing, now with audit)
+    // ═══════════════════════════════════════════════════════
+    if (action === "remove_member") {
+      const { user_id: targetId, reason } = body;
+      if (!targetId) throw new Error("user_id required");
+      if (targetId === callerId) throw new Error("Cannot remove yourself");
+
+      const { data: targetProfile } = await adminClient
+        .from("profiles")
+        .select("organization_id, full_name")
+        .eq("user_id", targetId)
+        .single();
+
+      if (!targetProfile || targetProfile.organization_id !== callerProfile.organization_id) {
+        await auditLog({
+          event_type: "member_removal",
+          severity: "error",
+          endpoint: "manage-member",
+          actor_user_id: callerId,
+          actor_org_id: callerProfile.organization_id,
+          target_type: "user",
+          target_id: targetId,
+          decision: "deny",
+          reason_code: "cross_org",
+          ip: reqMeta.ip,
+          user_agent: reqMeta.userAgent,
+        });
+        throw new Error("User not in your organization");
+      }
+
+      const { data: targetRoles } = await adminClient
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", targetId);
       const targetRoleList = (targetRoles || []).map((r: any) => r.role);
       const isDeveloper = callerRoleList.includes("developer");
+
       if (targetRoleList.includes("developer") && !isDeveloper) {
         throw new Error("Cannot remove a developer");
       }
@@ -91,38 +297,56 @@ Deno.serve(async (req) => {
         metadata: { member_name: targetProfile.full_name, roles: targetRoleList },
       });
 
-      // Remove from organization (set org_id to null, set removed_at)
       await adminClient
         .from("profiles")
         .update({ organization_id: null, removed_at: new Date().toISOString(), custom_role_id: null })
         .eq("user_id", targetId);
 
-      // Remove roles
       await adminClient.from("user_roles").delete().eq("user_id", targetId);
 
-      // Unassign from leads
       await adminClient
         .from("leads")
         .update({ broker_id: null })
         .eq("broker_id", targetId)
         .eq("organization_id", callerProfile.organization_id);
 
-      // Unassign from tasks
       await adminClient
         .from("tasks")
         .update({ assigned_to: null } as any)
         .eq("assigned_to", targetId)
         .eq("organization_id", callerProfile.organization_id);
 
+      // Security audit
+      await auditLog({
+        event_type: "member_removal",
+        severity: "warn",
+        endpoint: "manage-member",
+        actor_user_id: callerId,
+        actor_org_id: callerProfile.organization_id,
+        target_type: "user",
+        target_id: targetId,
+        decision: "allow",
+        reason_code: "member_removed",
+        metadata: {
+          target_name: targetProfile.full_name,
+          target_roles: targetRoleList,
+          reason: reason || null,
+        },
+        ip: reqMeta.ip,
+        user_agent: reqMeta.userAgent,
+      });
+
       return new Response(JSON.stringify({ success: true, name: targetProfile.full_name }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // ═══════════════════════════════════════════════════════
+    // ACTION: get_member_stats (existing, unchanged)
+    // ═══════════════════════════════════════════════════════
     if (action === "get_member_stats") {
       const orgId = callerProfile.organization_id;
 
-      // Get all members with their stats
       const { data: profiles } = await adminClient
         .from("profiles")
         .select("user_id, full_name, created_at, custom_role_id")
@@ -136,17 +360,14 @@ Deno.serve(async (req) => {
 
       const userIds = profiles.map((p: any) => p.user_id);
 
-      // Get auth info (last sign in)
       const { data: { users } } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
       const authMap = new Map(users.map((u) => [u.id, { last_sign_in_at: u.last_sign_in_at, email: u.email }]));
 
-      // Get roles
       const { data: roles } = await adminClient
         .from("user_roles")
         .select("user_id, role")
         .in("user_id", userIds);
 
-      // Get activity counts (last 30 days)
       const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
       const { data: activities } = await adminClient
         .from("activity_log")
@@ -155,7 +376,6 @@ Deno.serve(async (req) => {
         .gte("created_at", thirtyDaysAgo)
         .in("user_id", userIds);
 
-      // Get leads per broker
       const { data: leads } = await adminClient
         .from("leads")
         .select("broker_id")
@@ -163,14 +383,12 @@ Deno.serve(async (req) => {
         .eq("is_active", true)
         .in("broker_id", userIds);
 
-      // Get contracts per broker
       const { data: contracts } = await adminClient
         .from("contracts")
         .select("broker_id")
         .eq("organization_id", orgId)
         .in("broker_id", userIds);
 
-      // Get properties created
       const { data: properties } = await adminClient
         .from("properties")
         .select("created_by")

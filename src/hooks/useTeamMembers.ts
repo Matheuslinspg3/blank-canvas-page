@@ -88,3 +88,45 @@ export function useRemoveMember() {
     },
   });
 }
+
+/**
+ * Phase 1: Centralized role change via manage-member endpoint.
+ * Replaces direct writes to user_roles table.
+ */
+export function useChangeRole() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ userId, newRole, reason }: { userId: string; newRole: string; reason?: string }) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-member`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ action: "change_role", user_id: userId, new_role: newRole, reason }),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to change role");
+      }
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["team-members-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-team"] });
+      queryClient.invalidateQueries({ queryKey: ["all-user-roles"] });
+      queryClient.invalidateQueries({ queryKey: ["user-roles"] });
+      toast.success(`Cargo de ${data.name || "membro"} alterado para ${data.new_role}`);
+    },
+    onError: (err: Error) => {
+      toastError("Erro ao alterar cargo", err, { module: "useTeamMembers" });
+    },
+  });
+}
