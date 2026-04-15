@@ -124,12 +124,6 @@ export function AutomationCreditWalletCard() {
           </div>
         )}
 
-        {!wallet && (
-          <p className="text-sm text-muted-foreground text-center py-2">
-            Nenhuma carteira de automação configurada. Os créditos serão criados automaticamente no primeiro uso.
-          </p>
-        )}
-
         {recentTx.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground">Últimas Transações</p>
@@ -158,6 +152,7 @@ export function AutomationCreditWalletCard() {
             </div>
           </div>
         )}
+        </>)}
       </CardContent>
     </Card>
   );
