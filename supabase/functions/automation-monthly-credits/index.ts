@@ -16,7 +16,7 @@ serve(async (req) => {
     const { data: subscriptions, error: subErr } = await supabase
       .from("subscriptions")
       .select("organization_id, plan_id, subscription_plans!inner(automation_allowance_brl, name)")
-      .eq("status", "active");
+      .in("status", ["active", "trial"]);
 
     if (subErr) throw subErr;
 
