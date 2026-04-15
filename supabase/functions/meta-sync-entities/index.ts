@@ -1,5 +1,6 @@
-// v2 - force redeploy
+// v3 - Phase 0 Hardened: JWT validation via getClaims + rate limit
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { checkRateLimit } from "../_shared/rate-limiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,6 +48,16 @@ Deno.serve(async (req) => {
     }
 
     const orgId = profile.organization_id;
+
+    // --- Rate limit: 10 req/hour per org ---
+    const { allowed } = await checkRateLimit(`meta-sync-entities:${orgId}`, 10, 3600);
+    if (!allowed) {
+      console.warn(`[meta-sync-entities] Rate limited org=${orgId}`);
+      return new Response(JSON.stringify({ error: "Rate limit exceeded (10/hour)" }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const supa = supabase;
 
     const { data: account } = await supa
