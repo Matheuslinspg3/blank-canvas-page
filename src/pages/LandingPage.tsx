@@ -1,6 +1,8 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useIsMobile } from "@/hooks/use-mobile";
+import portaLogo3D from "@/assets/porta-logo-3d.jpg";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
@@ -57,6 +59,92 @@ const faqs = [
   { q: "Posso cancelar a qualquer momento?", a: "Sim, sem multa e sem burocracia. Seus dados ficam disponíveis para exportação." },
 ];
 
+/* ─── Hero with 3D Parallax Logo ─── */
+function HeroSection() {
+  const isMobile = useIsMobile();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number>(0);
+  const [transform, setTransform] = useState("translate3d(0,0,0) scale(1.05)");
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (isMobile) return;
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(() => {
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const dx = ((e.clientX - cx) / (rect.width / 2)) * 15;
+        const dy = ((e.clientY - cy) / (rect.height / 2)) * 10;
+        setTransform(`translate3d(${dx}px, ${dy}px, 0) scale(1.05)`);
+      });
+    },
+    [isMobile]
+  );
+
+  const handleMouseLeave = useCallback(() => {
+    cancelAnimationFrame(rafRef.current);
+    setTransform("translate3d(0,0,0) scale(1.05)");
+  }, []);
+
+  useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
+
+  return (
+    <section
+      ref={containerRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      className="relative overflow-hidden py-20 md:py-32 px-4 text-center"
+    >
+      {/* Layer 1 — 3D Logo background */}
+      <img
+        src={portaLogo3D}
+        alt=""
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute inset-0 w-full h-full object-contain opacity-[0.12]",
+          "transition-transform duration-150 ease-out",
+          isMobile && "animate-float-3d"
+        )}
+        style={{ transform: isMobile ? undefined : transform }}
+      />
+
+      {/* Layer 2 — Overlay gradient for legibility */}
+      <div className="absolute inset-0 z-10 bg-gradient-to-b from-background/80 via-background/60 to-background" />
+
+      {/* Layer 3 — Content */}
+      <div className="relative z-20 container max-w-6xl mx-auto">
+        <Badge variant="secondary" className="mb-6 px-4 py-1.5 text-sm font-medium">
+          <Rocket className="h-3.5 w-3.5 mr-1.5" />
+          Plataforma #1 para corretores de imóveis
+        </Badge>
+        <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-[1.1] max-w-3xl mx-auto">
+          Gerencie sua imobiliária com{" "}
+          <span className="text-accent">Inteligência Artificial</span>
+        </h1>
+        <p className="mt-6 text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+          CRM, marketplace, automações e IA — tudo em uma plataforma feita para
+          corretores que querem vender mais e trabalhar menos.
+        </p>
+        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+          <Button variant="gold" size="xl" asChild>
+            <Link to="/auth?tab=cadastro">
+              Comece grátis — 15 dias sem compromisso
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Link>
+          </Button>
+          <Button variant="outline" size="lg" asChild>
+            <Link to="/planos">Ver planos</Link>
+          </Button>
+        </div>
+        <p className="mt-4 text-sm text-muted-foreground flex items-center justify-center gap-1.5">
+          <Shield className="h-3.5 w-3.5" /> Sem cartão de crédito · Cancele quando quiser
+        </p>
+      </div>
+    </section>
+  );
+}
 export default function LandingPage() {
   const { session, loading } = useAuth();
   const navigate = useNavigate();
@@ -106,34 +194,7 @@ export default function LandingPage() {
       </nav>
 
       {/* ─── Hero ─── */}
-      <Section className="pt-20 md:pt-32 pb-12 md:pb-20 text-center">
-        <Badge variant="secondary" className="mb-6 px-4 py-1.5 text-sm font-medium">
-          <Rocket className="h-3.5 w-3.5 mr-1.5" />
-          Plataforma #1 para corretores de imóveis
-        </Badge>
-        <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-[1.1] max-w-3xl mx-auto">
-          Gerencie sua imobiliária com{" "}
-          <span className="text-accent">Inteligência Artificial</span>
-        </h1>
-        <p className="mt-6 text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-          CRM, marketplace, automações e IA — tudo em uma plataforma feita para
-          corretores que querem vender mais e trabalhar menos.
-        </p>
-        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Button variant="gold" size="xl" asChild>
-            <Link to="/auth?tab=cadastro">
-              Comece grátis — 15 dias sem compromisso
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Link>
-          </Button>
-          <Button variant="outline" size="lg" asChild>
-            <Link to="/planos">Ver planos</Link>
-          </Button>
-        </div>
-        <p className="mt-4 text-sm text-muted-foreground flex items-center justify-center gap-1.5">
-          <Shield className="h-3.5 w-3.5" /> Sem cartão de crédito · Cancele quando quiser
-        </p>
-      </Section>
+      <HeroSection />
 
       {/* ─── Social Proof ─── */}
       <div className="border-y border-border bg-muted/50">
