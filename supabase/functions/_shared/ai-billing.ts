@@ -30,8 +30,36 @@ const PRICING_PER_1K: Record<string, { input: number; output: number }> = {
 
 const DEFAULT_MARKUP = 30; // 30% markup
 
+/**
+ * Resolves a model name that might be a raw n8n expression or prefixed string.
+ * E.g. "={{ $('IDENTIDADE').item.json.ai_config.model }}" → null (needs DB lookup)
+ * E.g. "openai/gpt-4o-mini" → "gpt-4o-mini"
+ */
+function resolveModelName(raw: string): string | null {
+  if (!raw || raw.includes("={{") || raw.includes("$('")) return null;
+  // Strip provider prefix like "openai/gpt-4o-mini" → "gpt-4o-mini"
+  const cleaned = raw.includes("/") ? raw.split("/").pop()! : raw;
+  return cleaned;
+}
+
 function estimateCostPerModel(model: string, inputTokens: number, outputTokens: number): number {
-  const p = PRICING_PER_1K[model];
+  // Direct match first
+  let p = PRICING_PER_1K[model];
+  if (!p) {
+    // Try resolving (strip prefix, etc.)
+    const resolved = resolveModelName(model);
+    if (resolved) p = PRICING_PER_1K[resolved];
+  }
+  if (!p) {
+    // Fuzzy: find any key that contains the model or vice-versa
+    const lower = (model || "").toLowerCase();
+    for (const [key, val] of Object.entries(PRICING_PER_1K)) {
+      if (lower.includes(key.toLowerCase()) || key.toLowerCase().includes(lower)) {
+        p = val;
+        break;
+      }
+    }
+  }
   if (!p) return 0;
   return (inputTokens / 1000) * p.input + (outputTokens / 1000) * p.output;
 }
