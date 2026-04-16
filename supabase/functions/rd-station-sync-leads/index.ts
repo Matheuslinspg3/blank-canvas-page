@@ -790,6 +790,7 @@ async function processContacts(
         "Lead RD Station";
 
       // At this point we know it's a new contact (duplicates were filtered above)
+      if (settings.auto_send_to_crm) {
         const source = settings.default_source || "RD Station";
         const notes = buildNotes(contact);
         const propertyId = await matchProperty(supabase, orgId, contact);
@@ -799,17 +800,12 @@ async function processContacts(
         const { data: newLead, error: insertError } = await supabase
           .from("leads")
           .insert({
-            organization_id: orgId,
-            name,
-            email,
-            phone,
-            source,
+            organization_id: orgId, name, email, phone, source,
             lead_stage_id: settings.default_stage_id,
             created_by: userId,
             external_id: contact.uuid || null,
             external_source: "rdstation",
-            notes,
-            property_id: propertyId,
+            notes, property_id: propertyId,
             conversion_identifier: conversionId,
             traffic_source: trafficSource,
           })
@@ -820,10 +816,8 @@ async function processContacts(
           console.error("Insert lead error:", insertError);
           errors++;
           await supabase.from("rd_station_webhook_logs").insert({
-            organization_id: orgId,
-            event_type: "api_sync",
-            payload: { name, email, phone },
-            status: "error",
+            organization_id: orgId, event_type: "api_sync",
+            payload: { name, email, phone }, status: "error",
             error_message: insertError.message,
           });
           continue;
@@ -831,10 +825,10 @@ async function processContacts(
 
         created++;
 
-        // Import activities/events from RD Station
+        // Import activities/events from RD Station (with rate limit awareness)
         if (newLead?.id && contact.uuid && apiHeaders) {
           await importContactEvents(supabase, contact.uuid, newLead.id, orgId, userId, apiHeaders);
-          await sleep(200);
+          await sleep(500);
         }
 
         // Notify org managers about new RD Station lead
@@ -867,16 +861,13 @@ async function processContacts(
         }
 
         await supabase.from("rd_station_webhook_logs").insert({
-          organization_id: orgId,
-          event_type: "api_sync",
+          organization_id: orgId, event_type: "api_sync",
           payload: { name, email, phone, rd_uuid: contact.uuid },
-          lead_id: newLead?.id,
-          status: "created",
+          lead_id: newLead?.id, status: "created",
         });
       } else {
         await supabase.from("rd_station_webhook_logs").insert({
-          organization_id: orgId,
-          event_type: "api_sync",
+          organization_id: orgId, event_type: "api_sync",
           payload: { name, email, phone, rd_uuid: contact.uuid },
           status: "received_not_sent",
         });
