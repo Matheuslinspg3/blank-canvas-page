@@ -28,11 +28,11 @@ Deno.serve(async (req) => {
     // Find an admin user for this org to use as created_by
     const { data: members } = await supabase
       .from("profiles")
-      .select("id")
+      .select("user_id")
       .eq("organization_id", organization_id)
       .limit(1);
 
-    const createdBy = members?.[0]?.id;
+    const createdBy = members?.[0]?.user_id;
     if (!createdBy) {
       return new Response(JSON.stringify({ error: "Organization not found" }), {
         status: 404,
@@ -40,13 +40,24 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Get the first lead stage for this org
+    const { data: stages } = await supabase
+      .from("lead_stages")
+      .select("id")
+      .eq("organization_id", organization_id)
+      .order("position", { ascending: true })
+      .limit(1);
+
+    const stageId = stages?.[0]?.id || null;
+
     const { error } = await supabase.from("leads").insert({
       name: name || "Visitante do site",
       email: email || null,
       phone: phone || null,
-      notes: message || null,
+      notes: message ? `[Site] ${message}` : null,
       source: "site",
       organization_id,
+      lead_stage_id: stageId,
       created_by: createdBy,
     });
 
