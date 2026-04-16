@@ -332,7 +332,7 @@ export function WhatsAppChatPanel() {
                         }
 
                         const fromMe = msg.from_me;
-                        const isAgent = fromMe && (msg.sender_type === "agent" || msg.sender_type === "ai");
+                        const isAgent = fromMe && (msg.sender_type === "agent" || (msg.sender_type as string) === "ai");
                         const captionMsg = galleryMsgs.find(m => m.message_text && m.message_text !== "[Imagem enviada]");
 
                         return (
@@ -382,7 +382,7 @@ export function WhatsAppChatPanel() {
                           className={cn("flex", msg.from_me ? "justify-end" : "justify-start")}
                         >
                           <div className={cn("max-w-[80%] rounded-lg px-3 py-2 text-sm", msg.from_me ? "bg-primary text-primary-foreground" : "bg-muted text-foreground")}>
-                            {msg.from_me && (msg.sender_type === "agent" || msg.sender_type === "ai") && (
+                            {msg.from_me && (msg.sender_type === "agent" || (msg.sender_type as string) === "ai") && (
                               <Badge variant="outline" className="mb-1 text-[10px] px-1.5 py-0 border-primary-foreground/30 text-primary-foreground/80">
                                 <Bot className="h-3 w-3 mr-0.5" /> Agente IA
                               </Badge>
