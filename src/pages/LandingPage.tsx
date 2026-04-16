@@ -1,6 +1,8 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useIsMobile } from "@/hooks/use-mobile";
+import portaLogo3D from "@/assets/porta-logo-3d.jpg";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
@@ -106,34 +108,7 @@ export default function LandingPage() {
       </nav>
 
       {/* ─── Hero ─── */}
-      <Section className="pt-20 md:pt-32 pb-12 md:pb-20 text-center">
-        <Badge variant="secondary" className="mb-6 px-4 py-1.5 text-sm font-medium">
-          <Rocket className="h-3.5 w-3.5 mr-1.5" />
-          Plataforma #1 para corretores de imóveis
-        </Badge>
-        <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-[1.1] max-w-3xl mx-auto">
-          Gerencie sua imobiliária com{" "}
-          <span className="text-accent">Inteligência Artificial</span>
-        </h1>
-        <p className="mt-6 text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-          CRM, marketplace, automações e IA — tudo em uma plataforma feita para
-          corretores que querem vender mais e trabalhar menos.
-        </p>
-        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Button variant="gold" size="xl" asChild>
-            <Link to="/auth?tab=cadastro">
-              Comece grátis — 15 dias sem compromisso
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Link>
-          </Button>
-          <Button variant="outline" size="lg" asChild>
-            <Link to="/planos">Ver planos</Link>
-          </Button>
-        </div>
-        <p className="mt-4 text-sm text-muted-foreground flex items-center justify-center gap-1.5">
-          <Shield className="h-3.5 w-3.5" /> Sem cartão de crédito · Cancele quando quiser
-        </p>
-      </Section>
+      <HeroSection />
 
       {/* ─── Social Proof ─── */}
       <div className="border-y border-border bg-muted/50">
