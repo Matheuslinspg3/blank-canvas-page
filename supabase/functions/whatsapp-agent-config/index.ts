@@ -362,6 +362,7 @@ serve(async (req) => {
     // ── Build final response ──
 
     return new Response(JSON.stringify({
+      instance_name: config.instance_name,
       agent_config: {
         organization_id: orgId,
         agent_name: config.agent_name,
