@@ -1000,26 +1000,35 @@ async function fetchContactConversionEvents(
   uuid: string,
   apiHeaders: Record<string, string>
 ): Promise<any[]> {
-  try {
-    let res = await fetchWithTimeout(
-      `https://api.rd.services/platform/contacts/${uuid}/events?event_type=CONVERSION&page=1&page_size=10`,
-      apiHeaders,
-      10000
-    );
-    if (res.status === 400) {
-      res = await fetchWithTimeout(
-        `https://api.rd.services/platform/contacts/${uuid}/events?page=1&page_size=10`,
+  let delay = 1000;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      let res = await fetchWithTimeout(
+        `https://api.rd.services/platform/contacts/${uuid}/events?event_type=CONVERSION&page=1&page_size=10`,
         apiHeaders,
         10000
       );
+      if (res.status === 400) {
+        res = await fetchWithTimeout(
+          `https://api.rd.services/platform/contacts/${uuid}/events?page=1&page_size=10`,
+          apiHeaders,
+          10000
+        );
+      }
+      if (res.status === 429) {
+        await sleep(delay);
+        delay *= 2;
+        continue;
+      }
+      if (!res.ok) return [];
+      const data = await res.json();
+      const events = Array.isArray(data?.events) ? data.events : (Array.isArray(data) ? data : []);
+      return events.slice(0, 10);
+    } catch {
+      return [];
     }
-    if (!res.ok) return [];
-    const data = await res.json();
-    const events = Array.isArray(data?.events) ? data.events : (Array.isArray(data) ? data : []);
-    return events.slice(0, 10);
-  } catch {
-    return [];
   }
+  return [];
 }
 
 function extractFromEvents(events: any[]): { conversionId: string | null; trafficSource: string | null } {
