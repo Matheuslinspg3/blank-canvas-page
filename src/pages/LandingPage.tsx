@@ -287,7 +287,7 @@ export default function LandingPage() {
         {plans && plans.length > 0 ? (
           <>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
-              {plans.slice(0, 3).map((plan) => {
+              {(plans.filter(p => p.slug !== 'correspondente').slice(0, 3)).map((plan) => {
                 const highlighted = plan.slug === "essencial" || plan.slug === "profissional";
                 return (
                   <Card
@@ -422,7 +422,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-6">
             <Link to="/planos" className="hover:text-foreground transition-colors">Planos</Link>
             <Link to="/privacidade" className="hover:text-foreground transition-colors">Privacidade</Link>
-            <a href="https://wa.me/5500000000000" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">WhatsApp</a>
+            <a href="https://wa.me/5511999999999" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">Suporte</a>
           </div>
           <span>© {new Date().getFullYear()} Porta do Corretor</span>
         </div>
