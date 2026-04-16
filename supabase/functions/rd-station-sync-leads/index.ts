@@ -681,10 +681,57 @@ async function processContacts(
   for (const rawContact of contacts) {
     try {
       let contact = rawContact;
-      let phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
+      const rawEmail = contact.email || null;
+      let rawPhone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
 
-      // ALWAYS fetch full contact details — the segmentation endpoint returns very limited data
-      // Preserve conversion data from segmentation before merging
+      // ── CHECK DUPLICATES FIRST (before expensive API calls) ──
+      let existingLead: any = null;
+
+      // Check by external_id
+      if (contact.uuid) {
+        const { data: byExtId } = await supabase
+          .from("leads").select("id").eq("organization_id", orgId)
+          .eq("external_id", contact.uuid).maybeSingle();
+        if (byExtId) existingLead = byExtId;
+      }
+
+      // Check by email
+      if (!existingLead && rawEmail) {
+        const { data: byEmail } = await supabase
+          .from("leads").select("id").eq("organization_id", orgId)
+          .eq("email", rawEmail).maybeSingle();
+        if (byEmail) existingLead = byEmail;
+      }
+
+      // Check by phone (basic match)
+      if (!existingLead && rawPhone) {
+        const normalizedPhone = rawPhone.replace(/\D/g, "");
+        if (normalizedPhone.length >= 8) {
+          const { data: existingLeads } = await supabase
+            .from("leads").select("id, phone").eq("organization_id", orgId)
+            .not("phone", "is", null);
+          const phoneMatch = (existingLeads || []).find((l: any) => {
+            const lPhone = (l.phone || "").replace(/\D/g, "");
+            return lPhone.length >= 8 && (lPhone === normalizedPhone || lPhone.endsWith(normalizedPhone) || normalizedPhone.endsWith(lPhone));
+          });
+          if (phoneMatch) existingLead = phoneMatch;
+        }
+      }
+
+      // If duplicate, skip expensive API calls entirely
+      if (existingLead) {
+        // Lightweight update: just mark external_id if missing
+        if (contact.uuid) {
+          await supabase.from("leads").update({
+            external_id: contact.uuid,
+            external_source: "rdstation",
+          }).eq("id", existingLead.id);
+        }
+        duplicates++;
+        continue;
+      }
+
+      // ── ONLY FOR NEW CONTACTS: fetch full details ──
       const segConversionData = {
         first_conversion: rawContact.first_conversion,
         last_conversion: rawContact.last_conversion,
@@ -692,28 +739,19 @@ async function processContacts(
         traffic_source: rawContact.traffic_source,
       };
       if (contact.uuid && apiHeaders) {
-        const fullContact = await fetchFullContactDetails(contact.uuid, apiHeaders);
+        const fullContact = await fetchFullContactWithBackoff(contact.uuid, apiHeaders);
         if (fullContact) {
           contact = { ...contact, ...fullContact };
-          // Restore conversion data from segmentation if fullContact didn't provide it
-          if (!contact.first_conversion && segConversionData.first_conversion) {
-            contact.first_conversion = segConversionData.first_conversion;
-          }
-          if (!contact.last_conversion && segConversionData.last_conversion) {
-            contact.last_conversion = segConversionData.last_conversion;
-          }
-          if (!contact.conversion_identifier && segConversionData.conversion_identifier) {
-            contact.conversion_identifier = segConversionData.conversion_identifier;
-          }
-          if (!contact.traffic_source && segConversionData.traffic_source) {
-            contact.traffic_source = segConversionData.traffic_source;
-          }
-          phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
+          if (!contact.first_conversion && segConversionData.first_conversion) contact.first_conversion = segConversionData.first_conversion;
+          if (!contact.last_conversion && segConversionData.last_conversion) contact.last_conversion = segConversionData.last_conversion;
+          if (!contact.conversion_identifier && segConversionData.conversion_identifier) contact.conversion_identifier = segConversionData.conversion_identifier;
+          if (!contact.traffic_source && segConversionData.traffic_source) contact.traffic_source = segConversionData.traffic_source;
+          rawPhone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
         }
-        await sleep(200);
+        await sleep(500);
       }
 
-      // Fetch conversion events to enrich conversion_identifier and traffic_source
+      // Fetch conversion events only for new contacts
       let eventConversionId: string | null = null;
       let eventTrafficSource: string | null = null;
       if (contact.uuid && apiHeaders) {
@@ -722,9 +760,8 @@ async function processContacts(
           const extracted = extractFromEvents(convEvents);
           eventConversionId = extracted.conversionId;
           eventTrafficSource = extracted.trafficSource;
-          console.log(`[sync] Events for ${contact.uuid}: convId=${eventConversionId}, src=${eventTrafficSource}`);
         }
-        await sleep(200);
+        await sleep(500);
       }
 
       const email = contact.email || null;
