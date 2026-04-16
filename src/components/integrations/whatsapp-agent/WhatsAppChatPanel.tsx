@@ -313,138 +313,99 @@ export function WhatsAppChatPanel() {
 
                 <ScrollArea className="flex-1 px-4 py-3">
                   <div className="space-y-2">
-                    {(() => {
-                      // Group consecutive image messages from same sender into galleries
-                      const groups: Array<{ type: "single"; msg: typeof selectedMessages[0] } | { type: "gallery"; msgs: typeof selectedMessages }> = [];
-                      
-                      for (let i = 0; i < selectedMessages.length; i++) {
-                        const msg = selectedMessages[i];
-                        if (msg.message_type === "image" && msg.media_url) {
-                          // Check if previous group is a gallery from same sender
-                          const lastGroup = groups[groups.length - 1];
-                          if (lastGroup?.type === "gallery" && lastGroup.msgs[0].from_me === msg.from_me) {
-                            lastGroup.msgs.push(msg);
-                          } else if (lastGroup?.type === "single" && lastGroup.msg.message_type === "image" && lastGroup.msg.media_url && lastGroup.msg.from_me === msg.from_me) {
-                            // Convert previous single image to gallery
-                            groups[groups.length - 1] = { type: "gallery", msgs: [lastGroup.msg, msg] };
-                          } else {
-                            groups.push({ type: "single", msg });
-                          }
-                        } else {
-                          groups.push({ type: "single", msg });
+                    {selectedMessages.map((msg, idx) => {
+                      // Skip images that are part of a gallery (handled by the first image in the group)
+                      if (msg.message_type === "image" && msg.media_url) {
+                        // Check if previous message was also an image from the same sender
+                        const prev = idx > 0 ? selectedMessages[idx - 1] : null;
+                        if (prev && prev.message_type === "image" && prev.media_url && prev.from_me === msg.from_me) {
+                          return null; // Already rendered as part of gallery
                         }
-                      }
 
-                      return groups.map((group, gi) => {
-                        if (group.type === "gallery") {
-                          const msgs = group.msgs;
-                          const fromMe = msgs[0].from_me;
-                          const isAgent = fromMe && msgs[0].sender_type === "agent";
-                          // Find caption from first message that has one
-                          const captionMsg = msgs.find(m => m.message_text && m.message_text !== "[Imagem enviada]");
-                          
-                          return (
-                            <div key={`gallery-${gi}`} className={cn("flex", fromMe ? "justify-end" : "justify-start")}>
-                              <div className={cn("max-w-[85%] rounded-lg px-2 py-2 text-sm", fromMe ? "bg-primary text-primary-foreground" : "bg-muted text-foreground")}>
-                                {isAgent && (
-                                  <Badge variant="outline" className="mb-1 text-[10px] px-1.5 py-0 border-primary-foreground/30 text-primary-foreground/80">
-                                    <Bot className="h-3 w-3 mr-0.5" /> Agente IA
-                                  </Badge>
-                                )}
-                                {captionMsg?.message_text && (
-                                  <p className="whitespace-pre-wrap break-words text-xs mb-1.5 px-1">{captionMsg.message_text}</p>
-                                )}
-                                <div className={cn(
-                                  "grid gap-1 rounded overflow-hidden",
-                                  msgs.length === 2 ? "grid-cols-2" : msgs.length >= 3 ? "grid-cols-3" : "grid-cols-1"
-                                )}>
-                                  {msgs.map((m) => (
-                                    <img
-                                      key={m.id}
-                                      src={m.media_url!}
-                                      alt="Imagem"
-                                      className="w-full h-24 object-cover cursor-pointer rounded-sm hover:opacity-90 transition-opacity"
-                                      onClick={() => window.open(m.media_url!, "_blank")}
-                                      loading="lazy"
-                                    />
-                                  ))}
-                                </div>
-                                <div className="flex items-center justify-between gap-2 mt-1 px-1">
-                                  <p className={cn("text-[10px]", fromMe ? "text-primary-foreground/70" : "text-muted-foreground")}>
-                                    {format(new Date(msgs[msgs.length - 1].timestamp), "HH:mm")} · {msgs.length} fotos
-                                  </p>
-                                </div>
+                        // Collect consecutive images from same sender
+                        const galleryMsgs = [msg];
+                        for (let j = idx + 1; j < selectedMessages.length; j++) {
+                          const next = selectedMessages[j];
+                          if (next.message_type === "image" && next.media_url && next.from_me === msg.from_me) {
+                            galleryMsgs.push(next);
+                          } else break;
+                        }
+
+                        const fromMe = msg.from_me;
+                        const isAgent = fromMe && (msg.sender_type === "agent" || (msg.sender_type as string) === "ai");
+                        const captionMsg = galleryMsgs.find(m => m.message_text && m.message_text !== "[Imagem enviada]");
+
+                        return (
+                          <div key={msg.id} className={cn("flex", fromMe ? "justify-end" : "justify-start")}>
+                            <div className={cn("max-w-[85%] rounded-lg px-2 py-2 text-sm", fromMe ? "bg-primary text-primary-foreground" : "bg-muted text-foreground")}>
+                              {isAgent && (
+                                <Badge variant="outline" className="mb-1 text-[10px] px-1.5 py-0 border-primary-foreground/30 text-primary-foreground/80">
+                                  <Bot className="h-3 w-3 mr-0.5" /> Agente IA
+                                </Badge>
+                              )}
+                              {captionMsg?.message_text && (
+                                <p className="whitespace-pre-wrap break-words text-xs mb-1.5 px-1">{captionMsg.message_text}</p>
+                              )}
+                              <div className={cn(
+                                "grid gap-1 rounded overflow-hidden",
+                                galleryMsgs.length === 1 ? "grid-cols-1" : galleryMsgs.length === 2 ? "grid-cols-2" : "grid-cols-3"
+                              )}>
+                                {galleryMsgs.map((m) => (
+                                  <img
+                                    key={m.id}
+                                    src={m.media_url!}
+                                    alt="Imagem"
+                                    className={cn(
+                                      "w-full object-cover cursor-pointer rounded-sm hover:opacity-90 transition-opacity",
+                                      galleryMsgs.length === 1 ? "max-h-64" : "h-24"
+                                    )}
+                                    onClick={() => window.open(m.media_url!, "_blank")}
+                                    loading="lazy"
+                                  />
+                                ))}
+                              </div>
+                              <div className="flex items-center justify-between gap-2 mt-1 px-1">
+                                <p className={cn("text-[10px]", fromMe ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                                  {format(new Date(galleryMsgs[galleryMsgs.length - 1].timestamp), "HH:mm")}
+                                  {galleryMsgs.length > 1 && ` · ${galleryMsgs.length} fotos`}
+                                </p>
                               </div>
                             </div>
-                          );
-                        }
+                          </div>
+                        );
+                      }
 
-                        const msg = group.msg;
-                        return (
-                      <div
-                        key={msg.id}
-                        className={cn(
-                          "flex",
-                          msg.from_me ? "justify-end" : "justify-start"
-                        )}
-                      >
+                      // Non-image messages
+                      return (
                         <div
-                          className={cn(
-                            "max-w-[80%] rounded-lg px-3 py-2 text-sm",
-                            msg.from_me
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-muted text-foreground"
-                          )}
+                          key={msg.id}
+                          className={cn("flex", msg.from_me ? "justify-end" : "justify-start")}
                         >
-                          {msg.from_me && msg.sender_type === "agent" && (
-                            <Badge variant="outline" className="mb-1 text-[10px] px-1.5 py-0 border-primary-foreground/30 text-primary-foreground/80">
-                              <Bot className="h-3 w-3 mr-0.5" /> Agente IA
-                            </Badge>
-                          )}
-                          {msg.message_type === "audio" && msg.media_url ? (
-                            <AudioMessageBubble url={msg.media_url} fromMe={msg.from_me} transcription={msg.message_text} />
-                          ) : msg.message_type === "image" && msg.media_url ? (
-                            <div className="space-y-1">
-                              <img
-                                src={msg.media_url}
-                                alt={msg.message_text || "Imagem"}
-                                className="rounded-md max-w-full max-h-64 object-cover cursor-pointer"
-                                onClick={() => window.open(msg.media_url!, "_blank")}
-                                loading="lazy"
-                              />
-                              {msg.message_text && msg.message_text !== "[Imagem enviada]" && (
-                                <p className="whitespace-pre-wrap break-words text-xs opacity-80">{msg.message_text}</p>
+                          <div className={cn("max-w-[80%] rounded-lg px-3 py-2 text-sm", msg.from_me ? "bg-primary text-primary-foreground" : "bg-muted text-foreground")}>
+                            {msg.from_me && (msg.sender_type === "agent" || (msg.sender_type as string) === "ai") && (
+                              <Badge variant="outline" className="mb-1 text-[10px] px-1.5 py-0 border-primary-foreground/30 text-primary-foreground/80">
+                                <Bot className="h-3 w-3 mr-0.5" /> Agente IA
+                              </Badge>
+                            )}
+                            {msg.message_type === "audio" && msg.media_url ? (
+                              <AudioMessageBubble url={msg.media_url} fromMe={msg.from_me} transcription={msg.message_text} />
+                            ) : (
+                              <p className="whitespace-pre-wrap break-words">{msg.message_text}</p>
+                            )}
+                            <div className="flex items-center justify-between gap-2 mt-1">
+                              <p className={cn("text-[10px]", msg.from_me ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                                {format(new Date(msg.timestamp), "HH:mm")}
+                              </p>
+                              {canSeeCosts && msg.estimated_cost_usd != null && msg.estimated_cost_usd > 0 && (
+                                <span className={cn("text-[10px] font-mono", msg.from_me ? "text-primary-foreground/50" : "text-muted-foreground/60")}>
+                                  {formatCost(msg.estimated_cost_usd)}
+                                </span>
                               )}
                             </div>
-                          ) : (
-                            <p className="whitespace-pre-wrap break-words">{msg.message_text}</p>
-                          )}
-                          <div className="flex items-center justify-between gap-2 mt-1">
-                            <p
-                              className={cn(
-                                "text-[10px]",
-                                msg.from_me ? "text-primary-foreground/70" : "text-muted-foreground"
-                              )}
-                            >
-                              {format(new Date(msg.timestamp), "HH:mm")}
-                            </p>
-                            {canSeeCosts && msg.estimated_cost_usd != null && msg.estimated_cost_usd > 0 && (
-                              <span
-                                className={cn(
-                                  "text-[10px] font-mono",
-                                  msg.from_me ? "text-primary-foreground/50" : "text-muted-foreground/60"
-                                )}
-                              >
-                                {formatCost(msg.estimated_cost_usd)}
-                              </span>
-                            )}
                           </div>
                         </div>
-                      </div>
-                        );
-                      });
-
-                    })()}
+                      );
+                    })}
                     <div ref={messagesEndRef} />
                   </div>
                 </ScrollArea>
