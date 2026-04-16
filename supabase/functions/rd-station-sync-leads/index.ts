@@ -481,8 +481,8 @@ async function syncOrgContacts(
   let duplicates = 0;
   let errors = 0;
   let page = 1;
-  const pageSize = 125;
-  const maxPages = 10;
+  const pageSize = 50; // Reduced from 125 to stay within RD Station rate limits
+  const maxPages = 5;  // Reduced from 10 to avoid 429 on large orgs
   let hasMore = true;
 
   let rateLimitBackoff = 2000; // start at 2s, exponential
