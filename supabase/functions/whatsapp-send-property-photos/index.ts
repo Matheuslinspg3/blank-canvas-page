@@ -151,19 +151,21 @@ serve(async (req) => {
       }
     }
 
-    // --- Fetch property titles for captions ---
+    // --- Fetch property info for captions ---
     const allPropertyIds = Object.keys(grouped);
-    let propertyInfo: Record<string, { title: string; neighborhood: string }> = {};
+    let propertyInfo: Record<string, { property_code: string; title: string; neighborhood: string; city: string }> = {};
     if (allPropertyIds.length > 0) {
       const { data: props } = await sb
         .from("properties")
-        .select("id, title, address_neighborhood")
+        .select("id, property_code, title, address_neighborhood, address_city")
         .in("id", allPropertyIds);
 
       for (const p of (props || [])) {
         propertyInfo[p.id] = {
+          property_code: p.property_code || "",
           title: p.title || "Imóvel",
           neighborhood: p.address_neighborhood || "",
+          city: p.address_city || "",
         };
       }
     }
@@ -177,21 +179,28 @@ serve(async (req) => {
     // Flatten all images into a send queue
     const sendQueue: Array<{ url: string; caption: string; property_id: string }> = [];
     for (const pid of allPropertyIds) {
-      const info = propertyInfo[pid] || { title: "Imóvel", neighborhood: "" };
+      const info = propertyInfo[pid] || { property_code: "", title: "Imóvel", neighborhood: "", city: "" };
       const imgs = grouped[pid] || [];
       for (let i = 0; i < imgs.length; i++) {
         let caption = "";
         if (caption_template) {
           caption = caption_template
+            .replace("{property_code}", info.property_code)
             .replace("{title}", info.title)
             .replace("{neighborhood}", info.neighborhood)
+            .replace("{city}", info.city)
             .replace("{index}", String(i + 1))
             .replace("{total}", String(imgs.length));
-        } else if (mode === "cover") {
-          caption = info.neighborhood ? `${info.title} - ${info.neighborhood}` : info.title;
-        } else {
-          caption = i === 0 ? info.title : `${info.title} (${i + 1}/${imgs.length})`;
+        } else if (mode === "cover" || (mode === "all" && i === 0)) {
+          // Cover image caption: "CODE Title - Neighborhood - City"
+          const parts = [info.title];
+          if (info.neighborhood) parts.push(info.neighborhood);
+          if (info.city) parts.push(info.city);
+          caption = info.property_code
+            ? `${info.property_code} ${parts.join(" - ")}`
+            : parts.join(" - ");
         }
+        // Non-cover images in "all" mode: no caption (empty string)
         sendQueue.push({ url: imgs[i].url, caption, property_id: pid });
       }
     }
