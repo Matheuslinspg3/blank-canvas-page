@@ -1,49 +1,40 @@
 
 
-# Adicionar Logo 3D com Parallax atrás do Hero
+# Problemas Encontrados na Landing Page
 
-## O que será feito
-Inserir a imagem 3D da logo (enviada anteriormente) como background do Hero section, com efeito parallax no mouse, opacidade baixa e overlay gradiente escuro para manter legibilidade.
+## Problema 1: Warning "Function components cannot be given refs" no Badge
+**Causa:** O componente `Badge` (`src/components/ui/badge.tsx`) e uma plain function sem `React.forwardRef`. Quando usado dentro do `Section` (que usa `forwardRef`), o React emite um warning no console.
+**Solucao:** Nao e necessario corrigir - o `Badge` nao recebe ref diretamente. O warning e benigno e vem do React validando componentes filhos. Porem, para eliminar completamente, podemos envolver `Badge` com `forwardRef`.
 
-## Arquivos
+## Problema 2: Planos exibidos incorretamente
+**Causa:** `plans.slice(0, 3)` pega os 3 primeiros por preco (Gratuito, Correspondente Bancario, Starter). A logica `highlighted` busca slugs "essencial" ou "profissional", que nao estao nos 3 primeiros. Resultado: nenhum plano aparece como "Popular".
+**Solucao:** Filtrar planos da linha principal (`line: "main"`) e selecionar Gratuito, Essencial e Profissional (ou os 3 mais relevantes), garantindo que o destaque funcione.
 
-### 1. `src/assets/porta-logo-3d.png` (novo)
-Copiar a imagem 3D enviada anteriormente (`seedream-4.5_...jpg`).
+## Problema 3: Link WhatsApp com numero falso
+**Causa:** Linha 425 tem `wa.me/5500000000000` - numero placeholder.
+**Solucao:** Substituir pelo numero real de suporte ou remover o link.
 
-### 2. `src/pages/LandingPage.tsx` (edição do Hero section, linhas 108-136)
+## Arquivos a editar
 
-Transformar o Hero em `position: relative` com overflow hidden. Adicionar dentro dele:
+### 1. `src/components/ui/badge.tsx`
+- Envolver `Badge` com `React.forwardRef` para eliminar o warning do console.
 
-**Camada 1 — Logo 3D (z-0):**
-- `<img>` com `absolute inset-0 w-full h-full object-contain opacity-[0.12]` e `pointer-events-none`
-- Transform controlado por `onMouseMove` no container: `translate3d(±15px, ±10px, 0) scale(1.05)`
-- `transition: transform 0.15s ease-out` para suavidade
-- Em mobile (< 768px): parallax desativado, leve animação CSS float
+### 2. `src/pages/LandingPage.tsx`
+- **Planos:** Filtrar `plans` para excluir o plano "correspondente" (linha ERP) e mostrar apenas planos da linha principal. Selecionar Gratuito + 2 planos populares.
+- **WhatsApp:** Atualizar ou remover o link placeholder.
 
-**Camada 2 — Overlay gradiente (z-10):**
-- `absolute inset-0 bg-gradient-to-b from-background/80 via-background/60 to-background`
+## Detalhes tecnicos
 
-**Camada 3 — Conteúdo existente (z-20):**
-- Todo o conteúdo atual (Badge, h1, p, botões) com `relative z-20`
+```typescript
+// Badge com forwardRef
+const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(
+  ({ className, variant, ...props }, ref) => (
+    <div ref={ref} className={cn(badgeVariants({ variant }), className)} {...props} />
+  )
+);
 
-**Hook inline `useMouseParallax`:**
+// Filtro de planos - excluir linha ERP
+const mainPlans = plans?.filter(p => p.slug !== 'correspondente') || [];
+const displayPlans = mainPlans.slice(0, 3);
 ```
-const [transform, setTransform] = useState('translate3d(0,0,0)')
-// onMouseMove: calcular offset do centro, aplicar translate3d e rotateX/Y
-// requestAnimationFrame para performance
-// useEffect cleanup
-```
-
-### 3. `src/index.css` (adição mínima)
-Keyframe `@keyframes float-3d` para mobile:
-```css
-@keyframes float-3d {
-  0%, 100% { transform: translateY(0) scale(1.05); }
-  50% { transform: translateY(-10px) scale(1.07); }
-}
-```
-
-## O que NÃO muda
-- Nenhuma outra seção da landing page
-- Routing, auth, queries, design system global
 
