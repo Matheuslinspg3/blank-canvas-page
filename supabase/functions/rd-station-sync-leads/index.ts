@@ -481,9 +481,11 @@ async function syncOrgContacts(
   let duplicates = 0;
   let errors = 0;
   let page = 1;
-  const pageSize = 125;
-  const maxPages = 10;
+  const pageSize = 50; // Reduced from 125 to stay within RD Station rate limits
+  const maxPages = 5;  // Reduced from 10 to avoid 429 on large orgs
   let hasMore = true;
+
+  let rateLimitBackoff = 2000; // start at 2s, exponential
 
   while (hasMore && page <= maxPages) {
     const contactsUrl = `https://api.rd.services/platform/segmentations/${segmentation.id}/contacts?page=${page}&page_size=${pageSize}`;
@@ -500,11 +502,22 @@ async function syncOrgContacts(
     }
 
     if (contactsRes.status === 429) {
+      // Exponential backoff - wait and retry same page up to 3 times
+      if (rateLimitBackoff <= 16000) {
+        console.log(`[sync] Rate limited on page ${page}, backing off ${rateLimitBackoff}ms...`);
+        await sleep(rateLimitBackoff);
+        rateLimitBackoff *= 2;
+        continue;
+      }
+      console.log(`[sync] Rate limit exceeded after backoff, returning partial results.`);
       return {
         error: "Limite de requisições atingido.",
         partial: { created, duplicates, errors, pages_processed: page },
       };
     }
+
+    // Reset backoff on success
+    rateLimitBackoff = 2000;
 
     if (!contactsRes.ok) {
       const errText = await contactsRes.text();
@@ -537,6 +550,9 @@ async function syncOrgContacts(
     } else {
       page++;
     }
+
+    // Delay between pages to respect rate limits
+    if (hasMore) await sleep(1500);
   }
 
   return {
@@ -627,27 +643,45 @@ async function refreshToken(
   }
 }
 
-// ─── FETCH FULL CONTACT DETAILS from /platform/contacts/{uuid} ───
+// ─── FETCH FULL CONTACT DETAILS with retry on 429 ───
 
+async function fetchFullContactWithBackoff(
+  uuid: string,
+  apiHeaders: Record<string, string>
+): Promise<Record<string, any> | null> {
+  let delay = 1000;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetchWithTimeout(
+        `https://api.rd.services/platform/contacts/${uuid}`,
+        apiHeaders,
+        10000
+      );
+      if (res.status === 429) {
+        console.log(`[fetchFull] 429 for ${uuid}, backing off ${delay}ms (attempt ${attempt + 1})`);
+        await sleep(delay);
+        delay *= 2;
+        continue;
+      }
+      if (!res.ok) {
+        console.log(`[fetchFull] Failed for ${uuid}: ${res.status}`);
+        return null;
+      }
+      return await res.json();
+    } catch (err: any) {
+      console.log(`[fetchFull] Error for ${uuid}: ${err.message}`);
+      return null;
+    }
+  }
+  return null;
+}
+
+// Legacy alias
 async function fetchFullContactDetails(
   uuid: string,
   apiHeaders: Record<string, string>
 ): Promise<Record<string, any> | null> {
-  try {
-    const res = await fetchWithTimeout(
-      `https://api.rd.services/platform/contacts/${uuid}`,
-      apiHeaders,
-      10000
-    );
-    if (!res.ok) {
-      console.log(`[fetchFull] Failed for ${uuid}: ${res.status}`);
-      return null;
-    }
-    return await res.json();
-  } catch (err: any) {
-    console.log(`[fetchFull] Error for ${uuid}: ${err.message}`);
-    return null;
-  }
+  return fetchFullContactWithBackoff(uuid, apiHeaders);
 }
 
 async function processContacts(
@@ -665,10 +699,57 @@ async function processContacts(
   for (const rawContact of contacts) {
     try {
       let contact = rawContact;
-      let phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
+      const rawEmail = contact.email || null;
+      let rawPhone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
 
-      // ALWAYS fetch full contact details — the segmentation endpoint returns very limited data
-      // Preserve conversion data from segmentation before merging
+      // ── CHECK DUPLICATES FIRST (before expensive API calls) ──
+      let existingLead: any = null;
+
+      // Check by external_id
+      if (contact.uuid) {
+        const { data: byExtId } = await supabase
+          .from("leads").select("id").eq("organization_id", orgId)
+          .eq("external_id", contact.uuid).maybeSingle();
+        if (byExtId) existingLead = byExtId;
+      }
+
+      // Check by email
+      if (!existingLead && rawEmail) {
+        const { data: byEmail } = await supabase
+          .from("leads").select("id").eq("organization_id", orgId)
+          .eq("email", rawEmail).maybeSingle();
+        if (byEmail) existingLead = byEmail;
+      }
+
+      // Check by phone (basic match)
+      if (!existingLead && rawPhone) {
+        const normalizedPhone = rawPhone.replace(/\D/g, "");
+        if (normalizedPhone.length >= 8) {
+          const { data: existingLeads } = await supabase
+            .from("leads").select("id, phone").eq("organization_id", orgId)
+            .not("phone", "is", null);
+          const phoneMatch = (existingLeads || []).find((l: any) => {
+            const lPhone = (l.phone || "").replace(/\D/g, "");
+            return lPhone.length >= 8 && (lPhone === normalizedPhone || lPhone.endsWith(normalizedPhone) || normalizedPhone.endsWith(lPhone));
+          });
+          if (phoneMatch) existingLead = phoneMatch;
+        }
+      }
+
+      // If duplicate, skip expensive API calls entirely
+      if (existingLead) {
+        // Lightweight update: just mark external_id if missing
+        if (contact.uuid) {
+          await supabase.from("leads").update({
+            external_id: contact.uuid,
+            external_source: "rdstation",
+          }).eq("id", existingLead.id);
+        }
+        duplicates++;
+        continue;
+      }
+
+      // ── ONLY FOR NEW CONTACTS: fetch full details ──
       const segConversionData = {
         first_conversion: rawContact.first_conversion,
         last_conversion: rawContact.last_conversion,
@@ -676,28 +757,19 @@ async function processContacts(
         traffic_source: rawContact.traffic_source,
       };
       if (contact.uuid && apiHeaders) {
-        const fullContact = await fetchFullContactDetails(contact.uuid, apiHeaders);
+        const fullContact = await fetchFullContactWithBackoff(contact.uuid, apiHeaders);
         if (fullContact) {
           contact = { ...contact, ...fullContact };
-          // Restore conversion data from segmentation if fullContact didn't provide it
-          if (!contact.first_conversion && segConversionData.first_conversion) {
-            contact.first_conversion = segConversionData.first_conversion;
-          }
-          if (!contact.last_conversion && segConversionData.last_conversion) {
-            contact.last_conversion = segConversionData.last_conversion;
-          }
-          if (!contact.conversion_identifier && segConversionData.conversion_identifier) {
-            contact.conversion_identifier = segConversionData.conversion_identifier;
-          }
-          if (!contact.traffic_source && segConversionData.traffic_source) {
-            contact.traffic_source = segConversionData.traffic_source;
-          }
-          phone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
+          if (!contact.first_conversion && segConversionData.first_conversion) contact.first_conversion = segConversionData.first_conversion;
+          if (!contact.last_conversion && segConversionData.last_conversion) contact.last_conversion = segConversionData.last_conversion;
+          if (!contact.conversion_identifier && segConversionData.conversion_identifier) contact.conversion_identifier = segConversionData.conversion_identifier;
+          if (!contact.traffic_source && segConversionData.traffic_source) contact.traffic_source = segConversionData.traffic_source;
+          rawPhone = contact.personal_phone || contact.mobile_phone || contact.phone || contact.cellphone || extractPhoneFromCustomFields(contact) || null;
         }
-        await sleep(200);
+        await sleep(500);
       }
 
-      // Fetch conversion events to enrich conversion_identifier and traffic_source
+      // Fetch conversion events only for new contacts
       let eventConversionId: string | null = null;
       let eventTrafficSource: string | null = null;
       if (contact.uuid && apiHeaders) {
@@ -706,101 +778,18 @@ async function processContacts(
           const extracted = extractFromEvents(convEvents);
           eventConversionId = extracted.conversionId;
           eventTrafficSource = extracted.trafficSource;
-          console.log(`[sync] Events for ${contact.uuid}: convId=${eventConversionId}, src=${eventTrafficSource}`);
         }
-        await sleep(200);
+        await sleep(500);
       }
 
       const email = contact.email || null;
+      const phone = rawPhone;
       const name =
         contact.name ||
         `${contact.first_name || ""} ${contact.last_name || ""}`.trim() ||
         "Lead RD Station";
 
-      // Check duplicate by email
-      if (email) {
-        const { data: existingByEmail } = await supabase
-          .from("leads")
-          .select("id")
-          .eq("organization_id", orgId)
-          .eq("email", email)
-          .limit(1)
-          .maybeSingle();
-
-        if (existingByEmail) {
-          // Update existing lead with missing data (phone, external_id, notes, conversion)
-          const updateData: Record<string, any> = {};
-          if (phone) updateData.phone = phone;
-          if (contact.uuid) {
-            updateData.external_id = contact.uuid;
-            updateData.external_source = "rdstation";
-          }
-          const notes = buildNotes(contact);
-          if (notes && notes !== "[Sincronizado via RD Station API]") updateData.notes = notes;
-          const convId = extractConversionIdentifier(contact) || eventConversionId;
-          if (convId) updateData.conversion_identifier = convId;
-          const tSrc = extractTrafficSource(contact) || eventTrafficSource;
-          if (tSrc) updateData.traffic_source = tSrc;
-          if (Object.keys(updateData).length > 0) {
-            await supabase.from("leads").update(updateData).eq("id", existingByEmail.id);
-          }
-          // Import activities for existing lead too
-          if (contact.uuid && apiHeaders) {
-            await importContactEvents(supabase, contact.uuid, existingByEmail.id, orgId, userId, apiHeaders);
-            await sleep(200);
-          }
-          duplicates++;
-          continue;
-        }
-      }
-
-      // Check duplicate by phone (normalized, digits only, min 8 chars)
-      if (phone) {
-        const normalizedPhone = phone.replace(/\D/g, "");
-        if (normalizedPhone.length >= 8) {
-          const { data: existingLeads } = await supabase
-            .from("leads")
-            .select("id, phone")
-            .eq("organization_id", orgId)
-            .not("phone", "is", null);
-
-          const phoneMatch = (existingLeads || []).find((l: any) => {
-            const lPhone = (l.phone || "").replace(/\D/g, "");
-            return lPhone.length >= 8 && (
-              lPhone === normalizedPhone ||
-              lPhone.endsWith(normalizedPhone) ||
-              normalizedPhone.endsWith(lPhone)
-            );
-          });
-
-          if (phoneMatch) {
-            // Update existing lead with missing data
-            const updateData: Record<string, any> = {};
-            if (email) updateData.email = email;
-            if (contact.uuid) {
-              updateData.external_id = contact.uuid;
-              updateData.external_source = "rdstation";
-            }
-            const notes = buildNotes(contact);
-            if (notes && notes !== "[Sincronizado via RD Station API]") updateData.notes = notes;
-            const convId = extractConversionIdentifier(contact) || eventConversionId;
-            if (convId) updateData.conversion_identifier = convId;
-            const tSrc = extractTrafficSource(contact) || eventTrafficSource;
-            if (tSrc) updateData.traffic_source = tSrc;
-            if (Object.keys(updateData).length > 0) {
-              await supabase.from("leads").update(updateData).eq("id", phoneMatch.id);
-            }
-            // Import activities for existing lead
-            if (contact.uuid && apiHeaders) {
-              await importContactEvents(supabase, contact.uuid, phoneMatch.id, orgId, userId, apiHeaders);
-              await sleep(200);
-            }
-            duplicates++;
-            continue;
-          }
-        }
-      }
-
+      // At this point we know it's a new contact (duplicates were filtered above)
       if (settings.auto_send_to_crm) {
         const source = settings.default_source || "RD Station";
         const notes = buildNotes(contact);
@@ -811,17 +800,12 @@ async function processContacts(
         const { data: newLead, error: insertError } = await supabase
           .from("leads")
           .insert({
-            organization_id: orgId,
-            name,
-            email,
-            phone,
-            source,
+            organization_id: orgId, name, email, phone, source,
             lead_stage_id: settings.default_stage_id,
             created_by: userId,
             external_id: contact.uuid || null,
             external_source: "rdstation",
-            notes,
-            property_id: propertyId,
+            notes, property_id: propertyId,
             conversion_identifier: conversionId,
             traffic_source: trafficSource,
           })
@@ -832,10 +816,8 @@ async function processContacts(
           console.error("Insert lead error:", insertError);
           errors++;
           await supabase.from("rd_station_webhook_logs").insert({
-            organization_id: orgId,
-            event_type: "api_sync",
-            payload: { name, email, phone },
-            status: "error",
+            organization_id: orgId, event_type: "api_sync",
+            payload: { name, email, phone }, status: "error",
             error_message: insertError.message,
           });
           continue;
@@ -843,10 +825,10 @@ async function processContacts(
 
         created++;
 
-        // Import activities/events from RD Station
+        // Import activities/events from RD Station (with rate limit awareness)
         if (newLead?.id && contact.uuid && apiHeaders) {
           await importContactEvents(supabase, contact.uuid, newLead.id, orgId, userId, apiHeaders);
-          await sleep(200);
+          await sleep(500);
         }
 
         // Notify org managers about new RD Station lead
@@ -879,16 +861,13 @@ async function processContacts(
         }
 
         await supabase.from("rd_station_webhook_logs").insert({
-          organization_id: orgId,
-          event_type: "api_sync",
+          organization_id: orgId, event_type: "api_sync",
           payload: { name, email, phone, rd_uuid: contact.uuid },
-          lead_id: newLead?.id,
-          status: "created",
+          lead_id: newLead?.id, status: "created",
         });
       } else {
         await supabase.from("rd_station_webhook_logs").insert({
-          organization_id: orgId,
-          event_type: "api_sync",
+          organization_id: orgId, event_type: "api_sync",
           payload: { name, email, phone, rd_uuid: contact.uuid },
           status: "received_not_sent",
         });
@@ -927,6 +906,10 @@ async function importContactEvents(
         apiHeaders,
         10000
       );
+    }
+    if (res.status === 429) {
+      console.log(`[events] 429 for ${uuid}, skipping event import`);
+      return;
     }
     if (!res.ok) {
       console.log(`[events] Failed for ${uuid}: ${res.status}`);
@@ -1012,26 +995,35 @@ async function fetchContactConversionEvents(
   uuid: string,
   apiHeaders: Record<string, string>
 ): Promise<any[]> {
-  try {
-    let res = await fetchWithTimeout(
-      `https://api.rd.services/platform/contacts/${uuid}/events?event_type=CONVERSION&page=1&page_size=10`,
-      apiHeaders,
-      10000
-    );
-    if (res.status === 400) {
-      res = await fetchWithTimeout(
-        `https://api.rd.services/platform/contacts/${uuid}/events?page=1&page_size=10`,
+  let delay = 1000;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      let res = await fetchWithTimeout(
+        `https://api.rd.services/platform/contacts/${uuid}/events?event_type=CONVERSION&page=1&page_size=10`,
         apiHeaders,
         10000
       );
+      if (res.status === 400) {
+        res = await fetchWithTimeout(
+          `https://api.rd.services/platform/contacts/${uuid}/events?page=1&page_size=10`,
+          apiHeaders,
+          10000
+        );
+      }
+      if (res.status === 429) {
+        await sleep(delay);
+        delay *= 2;
+        continue;
+      }
+      if (!res.ok) return [];
+      const data = await res.json();
+      const events = Array.isArray(data?.events) ? data.events : (Array.isArray(data) ? data : []);
+      return events.slice(0, 10);
+    } catch {
+      return [];
     }
-    if (!res.ok) return [];
-    const data = await res.json();
-    const events = Array.isArray(data?.events) ? data.events : (Array.isArray(data) ? data : []);
-    return events.slice(0, 10);
-  } catch {
-    return [];
   }
+  return [];
 }
 
 function extractFromEvents(events: any[]): { conversionId: string | null; trafficSource: string | null } {
