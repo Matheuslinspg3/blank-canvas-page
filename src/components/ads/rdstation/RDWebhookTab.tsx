@@ -58,16 +58,43 @@ export default function RDWebhookTab() {
         throw new Error("Webhook do RD Station não está configurado.");
       }
 
-      const payload = targetLog.payload;
-      const { data, error } = await supabase.functions.invoke("rd-station-webhook", {
-        body: payload,
-        headers: {
-          "Content-Type": "application/json",
-          "X-RD-Reprocess-Log-Id": logId,
-        },
-      });
+      if (!orgId) {
+        throw new Error("Organização não identificada.");
+      }
 
-      if (error) throw error;
+      const payload = targetLog.payload;
+      if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+        throw new Error("Payload do webhook inválido para reprocessamento.");
+      }
+
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) {
+        throw new Error("Sessão expirada. Faça login novamente para ressincronizar.");
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rd-station-webhook?org=${orgId.slice(0, 8)}&token=${settings.webhook_secret}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            "X-RD-Reprocess-Log-Id": logId,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.error || `Erro HTTP ${response.status}`);
+      }
+
       if (data?.error) throw new Error(data.error);
 
       return data;
@@ -279,7 +306,15 @@ export default function RDWebhookTab() {
         </CardContent>
       </Card>
 
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <AlertDialog
+        open={confirmOpen}
+        onOpenChange={(open) => {
+          setConfirmOpen(open);
+          if (!open && !reprocessWebhook.isPending) {
+            setSelectedLogId(null);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Ressincronizar lead com erro?</AlertDialogTitle>
