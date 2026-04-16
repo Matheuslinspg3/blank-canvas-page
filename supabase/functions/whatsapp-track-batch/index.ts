@@ -80,6 +80,64 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Resolve unresolved model expressions (e.g. "={{ $('IDENTIDADE')... }}")
+    let resolvedModelName: string | null = null;
+    const hasUnresolvedModel = steps.some((s: any) =>
+      typeof s.model === "string" && (s.model.includes("={{") || s.model.includes("$('"))
+    );
+
+    if (hasUnresolvedModel) {
+      // Fetch actual model from the org's agent config
+      const { data: agentCfg } = await supabase
+        .from("whatsapp_agent_config")
+        .select("ai_model")
+        .eq("organization_id", orgId)
+        .maybeSingle();
+      resolvedModelName = agentCfg?.ai_model || null;
+      console.log(`[whatsapp-track-batch] Resolved model from config: ${resolvedModelName}`);
+    }
+
+    // Fix steps with unresolved model names
+    const fixedSteps = steps.map((s: any) => {
+      let model = s.model || "unknown";
+      if (typeof model === "string" && (model.includes("={{") || model.includes("$('")) )) {
+        model = resolvedModelName || "gpt-4o-mini";
+      }
+      return { ...s, model };
+    });
+
+    // Recalculate costs for steps that had zero cost
+    const { estimateCostForStep } = (() => {
+      const PRICING: Record<string, { input: number; output: number }> = {
+        "gpt-4o": { input: 0.0025, output: 0.01 },
+        "gpt-4o-mini": { input: 0.00015, output: 0.0006 },
+        "gpt-5": { input: 0.005, output: 0.015 },
+        "gpt-5-mini": { input: 0.001, output: 0.004 },
+      };
+      return {
+        estimateCostForStep: (model: string, inTok: number, outTok: number) => {
+          const p = PRICING[model];
+          if (!p) return 0;
+          return (inTok / 1000) * p.input + (outTok / 1000) * p.output;
+        },
+      };
+    })();
+
+    // Recalculate totals with correct costs
+    let recalcTotalCost = 0;
+    for (const s of fixedSteps) {
+      if (!s.cost_usd || s.cost_usd === 0) {
+        s.cost_usd = estimateCostForStep(s.model, s.input_tokens || 0, s.output_tokens || 0);
+      }
+      recalcTotalCost += s.cost_usd || 0;
+    }
+
+    const fixedTotals = {
+      ...totals,
+      cost_usd: recalcTotalCost > 0 ? recalcTotalCost : totals.cost_usd || 0,
+      cost_brl: recalcTotalCost > 0 ? recalcTotalCost * 5.5 : totals.cost_brl || 0,
+    };
+
     // 1. Insert granular row
     const { error: insertErr } = await supabase.from("whatsapp_ai_usage").insert({
       organization_id: orgId,
@@ -87,11 +145,11 @@ Deno.serve(async (req) => {
       remote_jid,
       message_id: message_id || null,
       message_type,
-      steps,
-      total_input_tokens: totals.input_tokens || 0,
-      total_output_tokens: totals.output_tokens || 0,
-      total_cost_usd: totals.cost_usd || 0,
-      total_cost_brl: totals.cost_brl || 0,
+      steps: fixedSteps,
+      total_input_tokens: fixedTotals.input_tokens || 0,
+      total_output_tokens: fixedTotals.output_tokens || 0,
+      total_cost_usd: fixedTotals.cost_usd || 0,
+      total_cost_brl: fixedTotals.cost_brl || 0,
       voice_enabled,
     });
 
