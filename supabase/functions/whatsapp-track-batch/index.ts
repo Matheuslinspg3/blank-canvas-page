@@ -158,10 +158,10 @@ Deno.serve(async (req) => {
     }
 
     // 1b. Update estimated_cost_usd on the whatsapp_messages row
-    if (message_id && totals.cost_usd > 0) {
+    if (message_id && fixedTotals.cost_usd > 0) {
       const { error: updateErr } = await supabase
         .from("whatsapp_messages")
-        .update({ estimated_cost_usd: totals.cost_usd })
+        .update({ estimated_cost_usd: fixedTotals.cost_usd })
         .eq("message_id", message_id);
       if (updateErr) {
         console.error("[whatsapp-track-batch] Message cost update error:", updateErr);
@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
     }
 
     // 2. Also track each step in billing system for budget enforcement
-    const billingPromises = steps.map((s: any) =>
+    const billingPromises = fixedSteps.map((s: any) =>
       trackAiBilling(supabase, {
         userId: "system",
         organizationId: orgId,
@@ -201,7 +201,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (budget) {
-      const newSpend = (budget.current_month_spend_usd || 0) + (totals.cost_usd || 0);
+      const newSpend = (budget.current_month_spend_usd || 0) + (fixedTotals.cost_usd || 0);
       const pct = (newSpend / budget.monthly_budget_usd) * 100;
 
       if (pct >= 100) {
@@ -215,8 +215,10 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         organization_id: orgId,
-        tracked_steps: steps.length,
-        total_cost_usd: totals.cost_usd,
+        tracked_steps: fixedSteps.length,
+        total_cost_usd: fixedTotals.cost_usd,
+        total_cost_brl: fixedTotals.cost_brl,
+        model_resolved: resolvedModelName || null,
         budget_warning: budgetWarning,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
