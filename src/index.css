@@ -944,3 +944,12 @@
 .low-end-mode .carnival-samba-pulse {
   animation: none !important;
 }
+
+/* ─── Float animation for 3D logo on mobile ─── */
+@keyframes float-3d {
+  0%, 100% { transform: translateY(0) scale(1.05); }
+  50% { transform: translateY(-10px) scale(1.07); }
+}
+.animate-float-3d {
+  animation: float-3d 4s ease-in-out infinite;
+}
