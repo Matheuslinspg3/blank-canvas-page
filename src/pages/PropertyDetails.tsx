@@ -860,7 +860,7 @@ export default function PropertyDetails() {
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">Comissão</span>
                       <span className="text-sm font-medium">
-                        {(property as any).commission_type === "porcentagem"
+                        {(property as any).commission_type === "percentual"
                           ? `${(property as any).commission_value}%`
                           : formatPrice((property as any).commission_value)}
                       </span>
