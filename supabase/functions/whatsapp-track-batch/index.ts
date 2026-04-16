@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
     // Fix steps with unresolved model names
     const fixedSteps = steps.map((s: any) => {
       let model = s.model || "unknown";
-      if (typeof model === "string" && (model.includes("={{") || model.includes("$('")) )) {
+      if (typeof model === "string" && (model.includes("={{") || model.includes("$("))) {
         model = resolvedModelName || "gpt-4o-mini";
       }
       return { ...s, model };
