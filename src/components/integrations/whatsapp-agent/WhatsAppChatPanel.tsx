@@ -358,7 +358,6 @@ export function WhatsAppChatPanel() {
                                       src={imgUrl}
                                       alt="Foto do imóvel"
                                       referrerPolicy="no-referrer"
-                                      crossOrigin="anonymous"
                                       className={cn(
                                         "w-full object-cover cursor-pointer rounded-sm hover:opacity-90 transition-opacity bg-muted",
                                         galleryMsgs.length === 1 ? "max-h-64" : "h-24"
