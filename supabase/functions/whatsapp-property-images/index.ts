@@ -102,7 +102,6 @@ serve(async (req) => {
           .from("property_images")
           .select("id, property_id, url, r2_key_full, r2_key_thumb, storage_provider, is_cover, display_order, cached_thumbnail_url")
           .in("property_id", missingCover)
-          .eq("organization_id", organization_id)
           .order("display_order", { ascending: true })
           .limit(missingCover.length);
 
