@@ -313,7 +313,74 @@ export function WhatsAppChatPanel() {
 
                 <ScrollArea className="flex-1 px-4 py-3">
                   <div className="space-y-2">
-                    {selectedMessages.map((msg) => (
+                    {(() => {
+                      // Group consecutive image messages from same sender into galleries
+                      const groups: Array<{ type: "single"; msg: typeof selectedMessages[0] } | { type: "gallery"; msgs: typeof selectedMessages }> = [];
+                      
+                      for (let i = 0; i < selectedMessages.length; i++) {
+                        const msg = selectedMessages[i];
+                        if (msg.message_type === "image" && msg.media_url) {
+                          // Check if previous group is a gallery from same sender
+                          const lastGroup = groups[groups.length - 1];
+                          if (lastGroup?.type === "gallery" && lastGroup.msgs[0].from_me === msg.from_me) {
+                            lastGroup.msgs.push(msg);
+                          } else if (lastGroup?.type === "single" && lastGroup.msg.message_type === "image" && lastGroup.msg.media_url && lastGroup.msg.from_me === msg.from_me) {
+                            // Convert previous single image to gallery
+                            groups[groups.length - 1] = { type: "gallery", msgs: [lastGroup.msg, msg] };
+                          } else {
+                            groups.push({ type: "single", msg });
+                          }
+                        } else {
+                          groups.push({ type: "single", msg });
+                        }
+                      }
+
+                      return groups.map((group, gi) => {
+                        if (group.type === "gallery") {
+                          const msgs = group.msgs;
+                          const fromMe = msgs[0].from_me;
+                          const isAgent = fromMe && msgs[0].sender_type === "agent";
+                          // Find caption from first message that has one
+                          const captionMsg = msgs.find(m => m.message_text && m.message_text !== "[Imagem enviada]");
+                          
+                          return (
+                            <div key={`gallery-${gi}`} className={cn("flex", fromMe ? "justify-end" : "justify-start")}>
+                              <div className={cn("max-w-[85%] rounded-lg px-2 py-2 text-sm", fromMe ? "bg-primary text-primary-foreground" : "bg-muted text-foreground")}>
+                                {isAgent && (
+                                  <Badge variant="outline" className="mb-1 text-[10px] px-1.5 py-0 border-primary-foreground/30 text-primary-foreground/80">
+                                    <Bot className="h-3 w-3 mr-0.5" /> Agente IA
+                                  </Badge>
+                                )}
+                                {captionMsg?.message_text && (
+                                  <p className="whitespace-pre-wrap break-words text-xs mb-1.5 px-1">{captionMsg.message_text}</p>
+                                )}
+                                <div className={cn(
+                                  "grid gap-1 rounded overflow-hidden",
+                                  msgs.length === 2 ? "grid-cols-2" : msgs.length >= 3 ? "grid-cols-3" : "grid-cols-1"
+                                )}>
+                                  {msgs.map((m) => (
+                                    <img
+                                      key={m.id}
+                                      src={m.media_url!}
+                                      alt="Imagem"
+                                      className="w-full h-24 object-cover cursor-pointer rounded-sm hover:opacity-90 transition-opacity"
+                                      onClick={() => window.open(m.media_url!, "_blank")}
+                                      loading="lazy"
+                                    />
+                                  ))}
+                                </div>
+                                <div className="flex items-center justify-between gap-2 mt-1 px-1">
+                                  <p className={cn("text-[10px]", fromMe ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                                    {format(new Date(msgs[msgs.length - 1].timestamp), "HH:mm")} · {msgs.length} fotos
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        const msg = group.msg;
+                        return (
                       <div
                         key={msg.id}
                         className={cn(
