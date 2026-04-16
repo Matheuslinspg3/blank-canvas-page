@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get the first lead stage for this org (or create a default)
+    // Get the first lead stage for this org
     const { data: stages } = await supabaseAdmin
       .from("lead_stages")
       .select("id")
@@ -35,6 +35,21 @@ Deno.serve(async (req) => {
 
     const stageId = stages?.[0]?.id || null;
 
+    // Get an org member for created_by (required NOT NULL column)
+    const { data: members } = await supabaseAdmin
+      .from("profiles")
+      .select("user_id")
+      .eq("organization_id", organizationId)
+      .limit(1);
+
+    const createdBy = members?.[0]?.user_id;
+    if (!createdBy) {
+      return new Response(JSON.stringify({ error: "Organization not found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Insert lead
     const { error } = await supabaseAdmin.from("leads").insert({
       organization_id: organizationId,
@@ -43,8 +58,8 @@ Deno.serve(async (req) => {
       phone: phone || null,
       notes: message ? `[Site] ${message}` : null,
       source: source || "website",
-      stage_id: stageId,
-      created_by: null,
+      lead_stage_id: stageId,
+      created_by: createdBy,
     });
 
     if (error) throw error;
