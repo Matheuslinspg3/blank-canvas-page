@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
       .from("lead_stages")
       .select("id")
       .eq("organization_id", organizationId)
-      .order("order_index", { ascending: true })
+      .order("position", { ascending: true })
       .limit(1);
 
     const stageId = stages?.[0]?.id || null;
