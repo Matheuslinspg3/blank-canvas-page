@@ -16,9 +16,22 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, serviceKey);
 
   try {
+    if (req.method === "POST") {
+      const contentType = req.headers.get("content-type") || "";
+      if (!contentType.toLowerCase().includes("application/json")) {
+        return new Response(
+          JSON.stringify({ error: "Unsupported content type" }),
+          { status: 415, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     const url = new URL(req.url);
     const secret = url.searchParams.get("token");
     const orgParam = url.searchParams.get("org");
+    const reprocessLogId = req.headers.get("x-rd-reprocess-log-id");
+    const authHeader = req.headers.get("authorization");
+    const isInternalReprocess = Boolean(reprocessLogId && authHeader);
 
     if (!secret) {
       return new Response(
@@ -52,7 +65,39 @@ Deno.serve(async (req) => {
 
     const orgId = settings.organization_id;
 
+    if (isInternalReprocess && authHeader) {
+      const accessToken = authHeader.replace("Bearer ", "");
+      const { data: { user }, error: userError } = await supabase.auth.getUser(accessToken);
+
+      if (userError || !user) {
+        return new Response(
+          JSON.stringify({ error: "Unauthorized reprocess" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const profileOrganizationId = await resolveUserOrganizationId(supabase, user.id);
+
+      if (!profileOrganizationId || profileOrganizationId !== orgId) {
+        return new Response(
+          JSON.stringify({ error: "Forbidden reprocess" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     const payload = await req.json();
+
+    if (isInternalReprocess && reprocessLogId) {
+      await supabase
+        .from("rd_station_webhook_logs")
+        .update({
+          status: "reprocessing",
+          error_message: null,
+        })
+        .eq("id", reprocessLogId)
+        .eq("organization_id", orgId);
+    }
 
     // RD Station Marketing webhook payload structure
     // https://developers.rdstation.com/reference/webhooks
@@ -69,6 +114,7 @@ Deno.serve(async (req) => {
       let leadId: string | null = null;
       let status = "processed";
       let errorMessage: string | null = null;
+      let existingLogUpdated = false;
 
       try {
         // Extract lead fields from RD Station format
@@ -121,6 +167,14 @@ Deno.serve(async (req) => {
         if (existingLead) {
           leadId = existingLead.id;
           status = "duplicate";
+          if (isInternalReprocess && reprocessLogId) {
+            await updateExistingWebhookLog(supabase, reprocessLogId, orgId, {
+              lead_id: leadId,
+              status,
+              error_message: null,
+            });
+            existingLogUpdated = true;
+          }
           results.push({ name, email, status: "duplicate", leadId });
           continue;
         }
@@ -215,22 +269,41 @@ Deno.serve(async (req) => {
           status = "received_not_sent";
         }
 
+        if (isInternalReprocess && reprocessLogId) {
+          await updateExistingWebhookLog(supabase, reprocessLogId, orgId, {
+            lead_id: leadId,
+            status,
+            error_message: null,
+          });
+          existingLogUpdated = true;
+        }
+
         results.push({ name, email, status, leadId });
       } catch (err: any) {
         errorMessage = err.message || "Unknown error";
         status = "error";
+        if (isInternalReprocess && reprocessLogId) {
+          await updateExistingWebhookLog(supabase, reprocessLogId, orgId, {
+            lead_id: leadId,
+            status,
+            error_message: errorMessage,
+          });
+          existingLogUpdated = true;
+        }
         results.push({ status: "error", error: errorMessage });
       }
 
       // Log webhook — store FULL payload so we can debug conversion data
-      await supabase.from("rd_station_webhook_logs").insert({
-        organization_id: orgId,
-        event_type: topLevelEventType || payload.event_type || "conversion",
-        payload: payload,
-        lead_id: leadId,
-        status,
-        error_message: errorMessage,
-      });
+      if (!existingLogUpdated) {
+        await supabase.from("rd_station_webhook_logs").insert({
+          organization_id: orgId,
+          event_type: topLevelEventType || payload.event_type || "conversion",
+          payload: payload,
+          lead_id: leadId,
+          status,
+          error_message: errorMessage,
+        });
+      }
     }
 
     return new Response(JSON.stringify({ success: true, results }), {
@@ -245,6 +318,52 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+async function updateExistingWebhookLog(
+  supabase: any,
+  logId: string,
+  orgId: string,
+  updates: {
+    lead_id?: string | null;
+    status: string;
+    error_message?: string | null;
+  }
+) {
+  const payload: Record<string, unknown> = {
+    status: updates.status,
+    error_message: updates.error_message ?? null,
+  };
+
+  if (updates.lead_id !== undefined) {
+    payload.lead_id = updates.lead_id;
+  }
+
+  await supabase
+    .from("rd_station_webhook_logs")
+    .update(payload)
+    .eq("id", logId)
+    .eq("organization_id", orgId);
+}
+
+async function resolveUserOrganizationId(supabase: any, userId: string): Promise<string | null> {
+  const { data: profileById } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileById?.organization_id) {
+    return profileById.organization_id;
+  }
+
+  const { data: profileByUserId } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  return profileByUserId?.organization_id || null;
+}
 
 function extractConversionIdentifier(data: Record<string, any>): string | null {
   // Try last_conversion first (most recent), then first_conversion
