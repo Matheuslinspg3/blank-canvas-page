@@ -64,7 +64,8 @@ function HeroSection() {
   const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number>(0);
-  const [transform, setTransform] = useState("translate3d(0,0,0) scale(1.05)");
+  const [rotateX, setRotateX] = useState(0);
+  const [rotateY, setRotateY] = useState(0);
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -75,9 +76,9 @@ function HeroSection() {
         if (!rect) return;
         const cx = rect.left + rect.width / 2;
         const cy = rect.top + rect.height / 2;
-        const dx = ((e.clientX - cx) / (rect.width / 2)) * 15;
-        const dy = ((e.clientY - cy) / (rect.height / 2)) * 10;
-        setTransform(`translate3d(${dx}px, ${dy}px, 0) scale(1.05)`);
+        // rotateY follows X axis, rotateX follows Y axis (inverted)
+        setRotateY(((e.clientX - cx) / (rect.width / 2)) * 25);
+        setRotateX(-((e.clientY - cy) / (rect.height / 2)) * 15);
       });
     },
     [isMobile]
@@ -85,10 +86,15 @@ function HeroSection() {
 
   const handleMouseLeave = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
-    setTransform("translate3d(0,0,0) scale(1.05)");
+    setRotateX(0);
+    setRotateY(0);
   }, []);
 
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
+
+  const logoTransform = isMobile
+    ? undefined
+    : `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.05)`;
 
   return (
     <section
@@ -96,22 +102,32 @@ function HeroSection() {
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       className="relative overflow-hidden py-20 md:py-32 px-4 text-center"
+      style={{ perspective: "1200px" }}
     >
       {/* Layer 1 — 3D Logo background */}
-      <img
-        src={portaLogo3D}
-        alt=""
-        aria-hidden
-        className={cn(
-          "pointer-events-none absolute inset-0 w-full h-full object-contain opacity-[0.12]",
-          "transition-transform duration-150 ease-out",
-          isMobile && "animate-float-3d"
-        )}
-        style={{ transform: isMobile ? undefined : transform }}
-      />
+      <div
+        className="pointer-events-none absolute inset-0 flex items-center justify-center"
+        style={{ transformStyle: "preserve-3d" }}
+      >
+        <img
+          src={portaLogo3D}
+          alt=""
+          aria-hidden
+          className={cn(
+            "pointer-events-none max-w-[70%] max-h-[80%] object-contain opacity-[0.35]",
+            "transition-transform duration-300 ease-out will-change-transform",
+            "drop-shadow-[0_0_60px_hsl(var(--accent)/0.3)]",
+            isMobile && "animate-float-3d"
+          )}
+          style={{
+            transform: logoTransform,
+            transformStyle: "preserve-3d",
+          }}
+        />
+      </div>
 
       {/* Layer 2 — Overlay gradient for legibility */}
-      <div className="absolute inset-0 z-10 bg-gradient-to-b from-background/80 via-background/60 to-background" />
+      <div className="absolute inset-0 z-10 bg-gradient-to-b from-background/60 via-background/40 to-background/80" />
 
       {/* Layer 3 — Content */}
       <div className="relative z-20 container max-w-6xl mx-auto">
