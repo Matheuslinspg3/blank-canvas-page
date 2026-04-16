@@ -145,8 +145,7 @@ function HeroSection() {
     </section>
   );
 }
-
-
+export default function LandingPage() {
   const { session, loading } = useAuth();
   const navigate = useNavigate();
 
