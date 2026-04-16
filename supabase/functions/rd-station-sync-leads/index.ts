@@ -907,6 +907,10 @@ async function importContactEvents(
         10000
       );
     }
+    if (res.status === 429) {
+      console.log(`[events] 429 for ${uuid}, skipping event import`);
+      return;
+    }
     if (!res.ok) {
       console.log(`[events] Failed for ${uuid}: ${res.status}`);
       return;
