@@ -336,6 +336,19 @@ export function WhatsAppChatPanel() {
                           )}
                           {msg.message_type === "audio" && msg.media_url ? (
                             <AudioMessageBubble url={msg.media_url} fromMe={msg.from_me} transcription={msg.message_text} />
+                          ) : msg.message_type === "image" && msg.media_url ? (
+                            <div className="space-y-1">
+                              <img
+                                src={msg.media_url}
+                                alt={msg.message_text || "Imagem"}
+                                className="rounded-md max-w-full max-h-64 object-cover cursor-pointer"
+                                onClick={() => window.open(msg.media_url!, "_blank")}
+                                loading="lazy"
+                              />
+                              {msg.message_text && msg.message_text !== "[Imagem enviada]" && (
+                                <p className="whitespace-pre-wrap break-words text-xs opacity-80">{msg.message_text}</p>
+                              )}
+                            </div>
                           ) : (
                             <p className="whitespace-pre-wrap break-words">{msg.message_text}</p>
                           )}
