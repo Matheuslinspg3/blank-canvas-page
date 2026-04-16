@@ -440,8 +440,9 @@ export function WhatsAppChatPanel() {
                             )}
                           </div>
                         </div>
-                      </div>
-                    ))}
+                        );
+                      });
+                    })()}
                     <div ref={messagesEndRef} />
                   </div>
                 </ScrollArea>
