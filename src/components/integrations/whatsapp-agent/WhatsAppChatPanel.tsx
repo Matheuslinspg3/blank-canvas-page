@@ -350,19 +350,32 @@ export function WhatsAppChatPanel() {
                                 "grid gap-1 rounded overflow-hidden",
                                 galleryMsgs.length === 1 ? "grid-cols-1" : galleryMsgs.length === 2 ? "grid-cols-2" : "grid-cols-3"
                               )}>
-                                {galleryMsgs.map((m) => (
-                                  <img
-                                    key={m.id}
-                                    src={m.media_url!}
-                                    alt="Imagem"
-                                    className={cn(
-                                      "w-full object-cover cursor-pointer rounded-sm hover:opacity-90 transition-opacity",
-                                      galleryMsgs.length === 1 ? "max-h-64" : "h-24"
-                                    )}
-                                    onClick={() => window.open(m.media_url!, "_blank")}
-                                    loading="lazy"
-                                  />
-                                ))}
+                                {galleryMsgs.map((m) => {
+                                  const imgUrl = m.media_url!;
+                                  return (
+                                    <img
+                                      key={m.id}
+                                      src={imgUrl}
+                                      alt="Foto do imóvel"
+                                      referrerPolicy="no-referrer"
+                                      className={cn(
+                                        "w-full object-cover cursor-pointer rounded-sm hover:opacity-90 transition-opacity bg-muted",
+                                        galleryMsgs.length === 1 ? "max-h-64" : "h-24"
+                                      )}
+                                      onClick={() => window.open(imgUrl, "_blank")}
+                                      loading="lazy"
+                                      onError={(e) => {
+                                        const el = e.currentTarget;
+                                        if (!el.dataset.retried) {
+                                          el.dataset.retried = "1";
+                                          el.src = imgUrl + (imgUrl.includes("?") ? "&" : "?") + "t=" + Date.now();
+                                        } else {
+                                          el.style.display = "none";
+                                        }
+                                      }}
+                                    />
+                                  );
+                                })}
                               </div>
                               <div className="flex items-center justify-between gap-2 mt-1 px-1">
                                 <p className={cn("text-[10px]", fromMe ? "text-primary-foreground/70" : "text-muted-foreground")}>
