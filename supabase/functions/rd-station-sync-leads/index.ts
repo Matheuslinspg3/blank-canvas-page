@@ -485,6 +485,8 @@ async function syncOrgContacts(
   const maxPages = 10;
   let hasMore = true;
 
+  let rateLimitBackoff = 2000; // start at 2s, exponential
+
   while (hasMore && page <= maxPages) {
     const contactsUrl = `https://api.rd.services/platform/segmentations/${segmentation.id}/contacts?page=${page}&page_size=${pageSize}`;
     const contactsRes = await fetchWithTimeout(contactsUrl, apiHeaders, 15000);
@@ -500,11 +502,22 @@ async function syncOrgContacts(
     }
 
     if (contactsRes.status === 429) {
+      // Exponential backoff - wait and retry same page up to 3 times
+      if (rateLimitBackoff <= 16000) {
+        console.log(`[sync] Rate limited on page ${page}, backing off ${rateLimitBackoff}ms...`);
+        await sleep(rateLimitBackoff);
+        rateLimitBackoff *= 2;
+        continue;
+      }
+      console.log(`[sync] Rate limit exceeded after backoff, returning partial results.`);
       return {
         error: "Limite de requisições atingido.",
         partial: { created, duplicates, errors, pages_processed: page },
       };
     }
+
+    // Reset backoff on success
+    rateLimitBackoff = 2000;
 
     if (!contactsRes.ok) {
       const errText = await contactsRes.text();
@@ -537,6 +550,9 @@ async function syncOrgContacts(
     } else {
       page++;
     }
+
+    // Delay between pages to respect rate limits
+    if (hasMore) await sleep(1500);
   }
 
   return {
