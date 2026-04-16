@@ -765,96 +765,13 @@ async function processContacts(
       }
 
       const email = contact.email || null;
+      const phone = rawPhone;
       const name =
         contact.name ||
         `${contact.first_name || ""} ${contact.last_name || ""}`.trim() ||
         "Lead RD Station";
 
-      // Check duplicate by email
-      if (email) {
-        const { data: existingByEmail } = await supabase
-          .from("leads")
-          .select("id")
-          .eq("organization_id", orgId)
-          .eq("email", email)
-          .limit(1)
-          .maybeSingle();
-
-        if (existingByEmail) {
-          // Update existing lead with missing data (phone, external_id, notes, conversion)
-          const updateData: Record<string, any> = {};
-          if (phone) updateData.phone = phone;
-          if (contact.uuid) {
-            updateData.external_id = contact.uuid;
-            updateData.external_source = "rdstation";
-          }
-          const notes = buildNotes(contact);
-          if (notes && notes !== "[Sincronizado via RD Station API]") updateData.notes = notes;
-          const convId = extractConversionIdentifier(contact) || eventConversionId;
-          if (convId) updateData.conversion_identifier = convId;
-          const tSrc = extractTrafficSource(contact) || eventTrafficSource;
-          if (tSrc) updateData.traffic_source = tSrc;
-          if (Object.keys(updateData).length > 0) {
-            await supabase.from("leads").update(updateData).eq("id", existingByEmail.id);
-          }
-          // Import activities for existing lead too
-          if (contact.uuid && apiHeaders) {
-            await importContactEvents(supabase, contact.uuid, existingByEmail.id, orgId, userId, apiHeaders);
-            await sleep(200);
-          }
-          duplicates++;
-          continue;
-        }
-      }
-
-      // Check duplicate by phone (normalized, digits only, min 8 chars)
-      if (phone) {
-        const normalizedPhone = phone.replace(/\D/g, "");
-        if (normalizedPhone.length >= 8) {
-          const { data: existingLeads } = await supabase
-            .from("leads")
-            .select("id, phone")
-            .eq("organization_id", orgId)
-            .not("phone", "is", null);
-
-          const phoneMatch = (existingLeads || []).find((l: any) => {
-            const lPhone = (l.phone || "").replace(/\D/g, "");
-            return lPhone.length >= 8 && (
-              lPhone === normalizedPhone ||
-              lPhone.endsWith(normalizedPhone) ||
-              normalizedPhone.endsWith(lPhone)
-            );
-          });
-
-          if (phoneMatch) {
-            // Update existing lead with missing data
-            const updateData: Record<string, any> = {};
-            if (email) updateData.email = email;
-            if (contact.uuid) {
-              updateData.external_id = contact.uuid;
-              updateData.external_source = "rdstation";
-            }
-            const notes = buildNotes(contact);
-            if (notes && notes !== "[Sincronizado via RD Station API]") updateData.notes = notes;
-            const convId = extractConversionIdentifier(contact) || eventConversionId;
-            if (convId) updateData.conversion_identifier = convId;
-            const tSrc = extractTrafficSource(contact) || eventTrafficSource;
-            if (tSrc) updateData.traffic_source = tSrc;
-            if (Object.keys(updateData).length > 0) {
-              await supabase.from("leads").update(updateData).eq("id", phoneMatch.id);
-            }
-            // Import activities for existing lead
-            if (contact.uuid && apiHeaders) {
-              await importContactEvents(supabase, contact.uuid, phoneMatch.id, orgId, userId, apiHeaders);
-              await sleep(200);
-            }
-            duplicates++;
-            continue;
-          }
-        }
-      }
-
-      if (settings.auto_send_to_crm) {
+      // At this point we know it's a new contact (duplicates were filtered above)
         const source = settings.default_source || "RD Station";
         const notes = buildNotes(contact);
         const propertyId = await matchProperty(supabase, orgId, contact);
