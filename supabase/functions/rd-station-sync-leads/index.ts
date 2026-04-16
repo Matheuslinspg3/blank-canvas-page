@@ -643,27 +643,45 @@ async function refreshToken(
   }
 }
 
-// ─── FETCH FULL CONTACT DETAILS from /platform/contacts/{uuid} ───
+// ─── FETCH FULL CONTACT DETAILS with retry on 429 ───
 
+async function fetchFullContactWithBackoff(
+  uuid: string,
+  apiHeaders: Record<string, string>
+): Promise<Record<string, any> | null> {
+  let delay = 1000;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetchWithTimeout(
+        `https://api.rd.services/platform/contacts/${uuid}`,
+        apiHeaders,
+        10000
+      );
+      if (res.status === 429) {
+        console.log(`[fetchFull] 429 for ${uuid}, backing off ${delay}ms (attempt ${attempt + 1})`);
+        await sleep(delay);
+        delay *= 2;
+        continue;
+      }
+      if (!res.ok) {
+        console.log(`[fetchFull] Failed for ${uuid}: ${res.status}`);
+        return null;
+      }
+      return await res.json();
+    } catch (err: any) {
+      console.log(`[fetchFull] Error for ${uuid}: ${err.message}`);
+      return null;
+    }
+  }
+  return null;
+}
+
+// Legacy alias
 async function fetchFullContactDetails(
   uuid: string,
   apiHeaders: Record<string, string>
 ): Promise<Record<string, any> | null> {
-  try {
-    const res = await fetchWithTimeout(
-      `https://api.rd.services/platform/contacts/${uuid}`,
-      apiHeaders,
-      10000
-    );
-    if (!res.ok) {
-      console.log(`[fetchFull] Failed for ${uuid}: ${res.status}`);
-      return null;
-    }
-    return await res.json();
-  } catch (err: any) {
-    console.log(`[fetchFull] Error for ${uuid}: ${err.message}`);
-    return null;
-  }
+  return fetchFullContactWithBackoff(uuid, apiHeaders);
 }
 
 async function processContacts(
