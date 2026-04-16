@@ -30,9 +30,8 @@ Deno.serve(async (req) => {
     const secret = url.searchParams.get("token");
     const orgParam = url.searchParams.get("org");
     const reprocessLogId = req.headers.get("x-rd-reprocess-log-id");
-    const systemSecret = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const authHeader = req.headers.get("authorization");
-    const isInternalReprocess = Boolean(reprocessLogId) && authHeader === `Bearer ${systemSecret}`;
+    const isInternalReprocess = Boolean(reprocessLogId && authHeader);
 
     if (!secret) {
       return new Response(
@@ -65,6 +64,27 @@ Deno.serve(async (req) => {
     }
 
     const orgId = settings.organization_id;
+
+    if (isInternalReprocess && authHeader) {
+      const accessToken = authHeader.replace("Bearer ", "");
+      const { data: { user }, error: userError } = await supabase.auth.getUser(accessToken);
+
+      if (userError || !user) {
+        return new Response(
+          JSON.stringify({ error: "Unauthorized reprocess" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const profileOrganizationId = await resolveUserOrganizationId(supabase, user.id);
+
+      if (!profileOrganizationId || profileOrganizationId !== orgId) {
+        return new Response(
+          JSON.stringify({ error: "Forbidden reprocess" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
 
     const payload = await req.json();
 
@@ -323,6 +343,26 @@ async function updateExistingWebhookLog(
     .update(payload)
     .eq("id", logId)
     .eq("organization_id", orgId);
+}
+
+async function resolveUserOrganizationId(supabase: any, userId: string): Promise<string | null> {
+  const { data: profileById } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileById?.organization_id) {
+    return profileById.organization_id;
+  }
+
+  const { data: profileByUserId } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  return profileByUserId?.organization_id || null;
 }
 
 function extractConversionIdentifier(data: Record<string, any>): string | null {
