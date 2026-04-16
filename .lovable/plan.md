@@ -1,57 +1,49 @@
 
 
-# Diagnóstico Completo e Plano de Correção — Leads Perdidos
+# Adicionar Logo 3D com Parallax atrás do Hero
 
-## Causas raiz identificadas (3 problemas distintos)
+## O que será feito
+Inserir a imagem 3D da logo (enviada anteriormente) como background do Hero section, com efeito parallax no mouse, opacidade baixa e overlay gradiente escuro para manter legibilidade.
 
-### Problema 1: `website-lead` NÃO FOI DEPLOYED
-O código no repositório está correto (`lead_stage_id`), mas a versão **em produção** ainda usa `stage_id`. Os logs confirmam:
+## Arquivos
+
+### 1. `src/assets/porta-logo-3d.png` (novo)
+Copiar a imagem 3D enviada anteriormente (`seedream-4.5_...jpg`).
+
+### 2. `src/pages/LandingPage.tsx` (edição do Hero section, linhas 108-136)
+
+Transformar o Hero em `position: relative` com overflow hidden. Adicionar dentro dele:
+
+**Camada 1 — Logo 3D (z-0):**
+- `<img>` com `absolute inset-0 w-full h-full object-contain opacity-[0.12]` e `pointer-events-none`
+- Transform controlado por `onMouseMove` no container: `translate3d(±15px, ±10px, 0) scale(1.05)`
+- `transition: transform 0.15s ease-out` para suavidade
+- Em mobile (< 768px): parallax desativado, leve animação CSS float
+
+**Camada 2 — Overlay gradiente (z-10):**
+- `absolute inset-0 bg-gradient-to-b from-background/80 via-background/60 to-background`
+
+**Camada 3 — Conteúdo existente (z-20):**
+- Todo o conteúdo atual (Badge, h1, p, botões) com `relative z-20`
+
+**Hook inline `useMouseParallax`:**
 ```
-"Could not find the 'stage_id' column of 'leads' in the schema cache"
+const [transform, setTransform] = useState('translate3d(0,0,0)')
+// onMouseMove: calcular offset do centro, aplicar translate3d e rotateX/Y
+// requestAnimationFrame para performance
+// useEffect cleanup
 ```
-Isso significa que **nenhum lead de formulário do site** entrou desde o último deploy que quebrou.
 
-### Problema 2: `website-lead` usa `order_index` (coluna inexistente)
-O código atual consulta `lead_stages` com `.order("order_index")`, mas a coluna real é `position`. Mesmo após deploy, a query de stage falharia silenciosamente (retornaria null, lead entraria sem stage — não fatal, mas incorreto).
+### 3. `src/index.css` (adição mínima)
+Keyframe `@keyframes float-3d` para mobile:
+```css
+@keyframes float-3d {
+  0%, 100% { transform: translateY(0) scale(1.05); }
+  50% { transform: translateY(-10px) scale(1.07); }
+}
+```
 
-### Problema 3: `rd-station-sync-leads` bloqueado por trigger de dedup
-O trigger `trg_check_lead_duplicate` rejeita leads com phone ou email já existente na org. Leads do RD Station que já existiam como contatos manuais são bloqueados com `RAISE EXCEPTION`. Isso explica leads do RD Station não entrando.
-
-## Impacto
-
-- **website/site leads**: Zero entradas desde o fim de semana — todos falharam com erro 500
-- **RD Station leads**: Parcialmente bloqueados pela dedup trigger (apenas leads novos passaram)
-- **facebook/anuncio/manual**: Não afetados (inseridos via frontend/outras funções)
-
-## Plano de correção
-
-### 1. Deploy imediato de `website-lead` (já corrigido no repo)
-Apenas deploiar. O código já tem `lead_stage_id` e `user_id` corretos.
-
-### 2. Corrigir `order_index` → `position` em `website-lead`
-Linha 33: `.order("order_index")` → `.order("position")`
-
-### 3. Corrigir `order_index` → `position` em `create-site-lead`
-Verificar se o mesmo bug existe nesta função (usada pelo site builder contact form).
-
-### 4. Deploy de `create-site-lead` e `website-lead`
-
-### 5. Recuperar leads perdidos
-- Consultar logs de acesso ao endpoint `website-lead` dos últimos dias para identificar payloads
-- Como os logs de request body não são persistidos pelo Supabase, a recuperação direta não é possível
-- **Alternativa**: Verificar se há dados no RD Station, Meta Ads, ou analytics que possam indicar leads que tentaram se cadastrar
-- Inserir um lead de teste para confirmar que o fluxo funciona
-
-### 6. Tornar a dedup trigger mais tolerante para syncs
-Em vez de `RAISE EXCEPTION`, fazer um `UPDATE` do lead existente (enriquecer dados) ou simplesmente retornar `NEW` com um log, para que syncs não percam dados silenciosamente. **Isto fica como melhoria futura** — o fix prioritário é o deploy.
-
-## Arquivos alterados
-1. `supabase/functions/website-lead/index.ts` — corrigir `order_index` → `position`
-2. `supabase/functions/create-site-lead/index.ts` — verificar/corrigir mesmo problema
-3. Deploy imediato de ambas as funções
-
-## Validação pós-fix
-- Chamar `website-lead` via curl com payload de teste
-- Confirmar lead inserido no banco
-- Confirmar que aparece no CRM
+## O que NÃO muda
+- Nenhuma outra seção da landing page
+- Routing, auth, queries, design system global
 
