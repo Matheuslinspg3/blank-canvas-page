@@ -1,0 +1,1 @@
+DELETE FROM whatsapp_messages WHERE remote_jid = '5513996666432@s.whatsapp.net';
