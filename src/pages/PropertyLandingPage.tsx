@@ -631,7 +631,46 @@ export default function PropertyLandingPage() {
 
           {/* Contact Form Sidebar */}
           <div className="lg:col-span-1">
-            <div className="sticky top-20">
+            <div className="sticky top-20 space-y-3">
+              {/* Broker contact card (attribution) */}
+              {(contact?.broker_name || contact?.broker_phone || contact?.org_phone) && (
+                <Card className="border border-primary/20">
+                  <CardContent className="pt-5 pb-5">
+                    <div className="flex items-center gap-3">
+                      {contact?.broker_avatar ? (
+                        <img src={contact.broker_avatar} alt={contact.broker_name || "Corretor"}
+                          className="h-12 w-12 rounded-full object-cover border" />
+                      ) : (
+                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Phone className="h-5 w-5 text-primary" />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-muted-foreground">Seu contato</p>
+                        <p className="font-semibold truncate">{contact?.broker_name || contact?.org_name || "Corretor responsável"}</p>
+                        {contact?.org_name && contact?.broker_name && (
+                          <p className="text-xs text-muted-foreground truncate">{contact.org_name}</p>
+                        )}
+                      </div>
+                    </div>
+                    {(contact?.broker_phone || contact?.org_phone) && (
+                      <Button
+                        className="w-full mt-4"
+                        size="sm"
+                        onClick={() => {
+                          const phone = (contact?.broker_phone || contact?.org_phone || "").replace(/\D/g, "");
+                          const msg = `Olá${contact?.broker_name ? ` ${contact.broker_name.split(" ")[0]}` : ""}! Tenho interesse no imóvel: ${aiContent?.headline || property.title} - ${window.location.href}`;
+                          window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
+                        }}
+                      >
+                        <MessageCircle className="h-4 w-4 mr-2" />
+                        Falar no WhatsApp
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
               <Card className="border-2 border-primary/20 shadow-lg">
                 <CardHeader className="bg-primary/5 rounded-t-xl">
                   <CardTitle className="text-center text-lg">
@@ -672,12 +711,6 @@ export default function PropertyLandingPage() {
                   )}
                 </CardContent>
               </Card>
-
-              <Button variant="outline" className="w-full mt-3"
-                onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`Olá! Tenho interesse no imóvel: ${aiContent?.headline || property.title} - ${window.location.href}`)}`, "_blank")}>
-                <MessageCircle className="h-4 w-4 mr-2" />
-                Contato via WhatsApp
-              </Button>
             </div>
           </div>
         </div>
