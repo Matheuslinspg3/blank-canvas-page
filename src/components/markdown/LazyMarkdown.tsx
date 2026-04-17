@@ -1,6 +1,9 @@
 import { lazy, Suspense } from "react";
+import { lazyWithRetry } from "@/utils/lazyWithRetry";
 
-const ReactMarkdown = lazy(() => import("react-markdown"));
+const ReactMarkdown = lazy(() =>
+  lazyWithRetry(() => import("react-markdown"), { moduleName: "react-markdown" }),
+);
 
 interface LazyMarkdownProps {
   children: string;

@@ -52,6 +52,18 @@ export default defineConfig(({ mode }) => ({
             urlPattern: /\/version\.json/,
             handler: "NetworkOnly",
           },
+          // Hashed JS/CSS chunks — StaleWhileRevalidate so a missing precache entry
+          // (e.g. after a partial deploy) still gets a network fetch fallback.
+          // Only cache 200s — never cache 404/HTML SPA fallbacks for JS assets.
+          {
+            urlPattern: /\/assets\/.*\.(?:js|css)$/i,
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "app-assets-cache",
+              expiration: { maxEntries: 100, maxAgeSeconds: 7 * 24 * 3600 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: "CacheFirst",

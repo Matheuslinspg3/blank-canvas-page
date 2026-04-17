@@ -1,10 +1,15 @@
 import { lazy, Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { lazyWithRetry } from "@/utils/lazyWithRetry";
 
 const RichTextEditor = lazy(() =>
-  import("@/components/contracts/RichTextEditor").then((m) => ({
-    default: m.RichTextEditor,
-  }))
+  lazyWithRetry(
+    () =>
+      import("@/components/contracts/RichTextEditor").then((m) => ({
+        default: m.RichTextEditor,
+      })),
+    { moduleName: "RichTextEditor" },
+  ),
 );
 
 export { AVAILABLE_VARIABLES } from "@/components/contracts/RichTextEditor";
