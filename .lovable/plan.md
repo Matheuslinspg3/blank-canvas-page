@@ -1,97 +1,65 @@
 
 
-## Diagnóstico — Landing pública `/i/:orgSlug/:propertyCode` quebra para deslogados
+## Plano — Gerar Formulários Bancários sem precisar do Pipeline
 
-### Causa raiz
-**Conflito de rotas + acesso direto a tabelas com RLS.** Em `src/App.tsx`:
-- L179: `/i/:orgSlug/:propertyCode` → `PropertyLandingPage` ← ganha (vem antes)
-- L183: `/i/:orgSlug/:code` → `PublicPropertyBySlug` ← morto, nunca matcha
+### Problema
+Em `Correspondente → Formulários`, hoje o usuário só vê um **catálogo informativo**. A mensagem diz "para usar, crie um processo no Pipeline e clique em Formulários". Isso obriga um cadastro completo no Kanban só para gerar 1 PDF — fricção desnecessária para uso pontual (cliente avulso, simulação rápida, prova de conceito).
 
-`PropertyLandingPage` resolve `orgSlug→orgId→propertyId` indo **direto nas tabelas** (linhas 205-212):
-```ts
-supabase.from("organizations").select("id").eq("slug", orgSlug)
-supabase.from("properties").select("id").eq("organization_id", org.id).eq("property_code", ...)
-```
-RLS de `organizations` exige `is_member_of_org(id)` e `properties` exige membership → **anônimo recebe `null` em ambas** → `resolvedId=null` → "Imóvel não encontrado".
+### Solução — Modo "Geração Avulsa" (ad-hoc)
 
-Confirmado no DB: org `portocaicaraimoveis` existe, imóvel `1557` existe e está `disponivel`. RPCs `SECURITY DEFINER` adequadas já existem (`get_public_property_by_org_code`, `get_public_org_by_slug`, `get_public_property`).
+Transformar a aba **Formulários** em uma ferramenta funcional, mantendo 100% de compatibilidade com o fluxo Pipeline existente.
 
-### Bugs secundários encontrados
-1. **Rota duplicada** `/i/:orgSlug/:propertyCode` (179) e `/i/:orgSlug/:code` (183) — segunda nunca executa.
-2. **`PropertyLandingPage` não suporta busca por código sem login**, mesmo que o `useLandingContent`/`useLandingOverrides` rodem com RLS (precisam de IDs corretos).
-3. **Faltam guardrails** para detectar regressões: nenhum log/telemetria quando a resolução falha.
-4. **SEO/OG** quebra também: bots crawlers (WhatsApp/Facebook) batem na mesma rota e veem "Imóvel não encontrado".
-
-### Solução
-
-**1. Corrigir rotas em `src/App.tsx`**
-- Remover linha 183 (duplicada e morta).
-- Manter `/i/:orgSlug/:propertyCode` e `/i/:orgSlug/:propertyCode/:brokerToken` apontando para `PropertyLandingPage` (mantém atribuição via token e overrides).
-- `/i/:slug` (legacy) continua em `PublicPropertyBySlug`.
-
-**2. Refatorar resolução em `PropertyLandingPage` (linhas 200-216)**
-
-Cadeia de fallbacks (3 camadas):
-```
-[Camada A] RPC pública get_public_property_by_org_code(orgSlug, code)
-   ↳ retorna o objeto inteiro (property+images+broker) já público
-   ↳ extrai property.id e popula state — pula re-fetch
-   
-[Camada B] Se A falhar → RPC get_public_org_by_slug(orgSlug)
-   ↳ obtém orgId
-   ↳ chama supabase.rpc('get_property_id_by_org_code', { org_id, code })
-   ↳ usa esse id no fluxo atual (get_public_property)
-
-[Camada C] Se B falhar → Se usuário ESTÁ logado, tenta from('properties') 
-            (mantém comportamento legado para previews internos)
-
-Se todas falharem → tela "Imóvel não encontrado" com botão "Tentar novamente" + link p/ home
-```
-
-**3. Nova RPC pública `get_property_id_by_org_code`**
-Pequena, retorna apenas `uuid`, usada como fallback enxuto:
-```sql
-CREATE FUNCTION public.get_property_id_by_org_code(p_org_slug text, p_code text)
-RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$
-  SELECT p.id FROM properties p
-  JOIN organizations o ON o.id = p.organization_id
-  WHERE o.slug = p_org_slug AND p.property_code = p_code
-    AND p.status = 'disponivel'
-  LIMIT 1;
-$$;
-GRANT EXECUTE ON FUNCTION public.get_property_id_by_org_code(text,text) TO anon, authenticated;
-```
-
-**4. Otimização: usar dados da camada A direto**
-Quando `get_public_property_by_org_code` resolve, o JSON já traz tudo (property+images+broker+media). Hidrata o estado sem precisar de outras chamadas. Reduz 4 round-trips para 1.
-
-**5. Guardrails (evitar regressão)**
-
-a. **Lint de rotas** — comentário no `App.tsx` marcando o bloco `/i/...` como crítico, com TODO de teste E2E.
-
-b. **Telemetria silenciosa** — quando todas as camadas falharem, dispara `console.warn` estruturado + chama edge function `track-landing-visit` com flag `not_found=true` (já existe a fn, só estender). Permite alarme se a taxa de 404 subir.
-
-c. **Teste de fumaça** — script Deno em `supabase/functions/_tests/landing-public-access.test.ts` que faz fetch anônimo de `/i/portocaicaraimoveis/1557` e valida que NÃO retorna o estado not_found. Roda a cada deploy.
-
-d. **RLS guardrail no resolver** — a nova RPC só retorna se `status='disponivel'` (alinhada com `get_public_property`), evitando vazamento de imóveis arquivados.
-
-e. **Comentário JSDoc** em `PropertyLandingPage` documentando: "NUNCA usar `supabase.from('organizations'/'properties')` no resolver — RLS bloqueia anônimo. Sempre RPC pública."
-
-**6. SEO/OG bot fallback**
-A `og-metadata` edge function já cobre crawlers, mas a URL canônica gerada por `usePropertyPublicUrl` aponta para `/i/...` direto. Sem mudança aqui — os crawlers continuam indo para `og-metadata`, e usuários reais agora terão a página funcional.
+**Fluxo novo:**
+1. Usuário abre `Formulários` → vê os bancos com seus formulários, cada um com botão **"Preencher e gerar"**.
+2. Clica → abre `QuickFormDialog` (novo) com os campos mínimos necessários para aquele formulário específico.
+3. Preenche → clica **"Gerar PDF"** → reusa `generateBankForm()` existente → download imediato.
+4. Banner discreto no topo: *"Quer salvar este cliente? Crie um processo no Pipeline."* (link opcional, não bloqueante).
 
 ### Arquivos
 
-- `src/App.tsx` — remover linha 183 duplicada.
-- `src/pages/PropertyLandingPage.tsx` — refatorar `useEffect` de resolução (linhas 200-216) com cadeia A→B→C; hidratar estado direto quando A resolve.
-- `supabase/migrations/<novo>.sql` — `get_property_id_by_org_code` + GRANT anon/authenticated.
-- `supabase/functions/track-landing-visit/index.ts` — aceitar `not_found:boolean` opcional para telemetria.
-- `supabase/functions/_tests/landing-public-access.test.ts` (novo) — smoke test E2E anônimo.
+**1. `src/components/financing/QuickFormDialog.tsx`** (novo, ~150 linhas)
+- Dialog reutilizável que recebe `bankCode` + `formId` + `formName`.
+- Campos agrupados por seção (Cliente / Imóvel / Financiamento) usando os mesmos componentes shadcn.
+- **Schema dinâmico por tipo de formulário** (mapa interno):
+  - `*_proposta` → todos os campos
+  - `*_saude` (DPS) → só dados pessoais básicos
+  - `caixa_fgts` → dados pessoais + imóvel
+  - `*_ficha` / `*_declaracao` → cadastro completo
+- Validação leve (Zod) com **defaults seguros** vindos de `EMPTY_FORM`.
+- Botão "Gerar PDF" chama `generateBankForm({ ...EMPTY_FORM, ...formData, id: crypto.randomUUID(), stage: "ad_hoc", createdAt: new Date() }, formId)`.
+
+**2. `src/components/financing/CorrespondenteTab.tsx`** (refator de `FormulariosSection`, linhas 134-169)
+- Cada formulário vira um card clicável com botão `Preencher e gerar`.
+- Banner informativo no topo com link "Ir para Pipeline" (sem forçar).
+- Mantém o catálogo visual atual, só adiciona ação.
+
+**3. `src/components/financing/BankFormGenerator.ts`** (1 ajuste defensivo)
+- Função `generateBankForm` já tolera campos vazios (linha 50: `value || "________"`). Só vamos **garantir defaults** quando `proc.id` for curto: usar `proc.id?.slice(0,8) ?? "AVULSO"` para não quebrar.
+
+### Fallbacks & Guardrails
+
+**Fallback 1 — Campos vazios não quebram o PDF**
+`BankFormGenerator` já desenha `________` para valores ausentes. Confirmado nas linhas 91, 116, 50 do gerador. O usuário pode gerar mesmo com 1 campo só preenchido (ex: nome do cliente).
+
+**Fallback 2 — `formId` desconhecido**
+Já existe `default: generateProposta(proc, bankCode)` no switch (linha ~340). Se o ID for novo/desconhecido, gera proposta genérica em vez de quebrar.
+
+**Fallback 3 — jsPDF indisponível / erro de geração**
+Wrap com `try/catch` (já está no `BankFormDialog` linha 21-28, replicar no `QuickFormDialog`). Mostra `toast.error("Erro ao gerar formulário")` em vez de tela branca.
+
+**Fallback 4 — Validação opcional, não obrigatória**
+Zod schema marca **todos os campos como `.optional()`**. O usuário pode gerar PDF mesmo "em branco" (útil para imprimir formulário em branco e preencher à mão). Apenas exibe aviso visual amarelo se < 3 campos preenchidos: *"PDF será gerado com campos em branco para preenchimento manual."*
+
+**Guardrails (impedir falha logo de início):**
+- **G1 — Sanitização do nome do arquivo:** `proc.clientName.replace(/\s/g, "_")` já existe; adicionar `|| "cliente_avulso"` para evitar `cliente_.pdf` quando vazio.
+- **G2 — `crypto.randomUUID()` sempre disponível:** fallback `Date.now().toString()` para ambientes sem `crypto`.
+- **G3 — Comentário JSDoc** em `QuickFormDialog`: *"Modo ad-hoc — não persiste em DB. Para histórico, usar Pipeline."*
+- **G4 — Telemetria leve:** `console.info("[corban] form_generated", { bankCode, formId, mode: "ad_hoc" })` para futuro acompanhamento de adoção.
+- **G5 — Mobile-first:** Dialog `max-w-2xl` + `max-h-[90vh] overflow-y-auto` para funcionar bem em telas pequenas (segue padrão do projeto).
 
 ### Resultado
-- Link `/i/portocaicaraimoveis/1557` abre normal sem login.
-- 3 camadas de fallback impedem que uma única falha quebre tudo.
-- Smoke test detecta regressões no deploy.
-- Telemetria alerta se taxa de 404 subir.
-- Crawlers continuam recebendo OG metadata correto.
+- Usuário gera formulários **sem nenhum cadastro no Pipeline**.
+- Pipeline continua sendo o caminho recomendado para gestão recorrente (link no banner).
+- 5 fallbacks garantem que mesmo entradas vazias / parciais / inválidas produzam algo útil.
+- Zero alterações em DB, edge functions ou RLS — feature 100% client-side.
 
