@@ -13,6 +13,9 @@ import { gerarPdfSimulacao } from "./SimulationPdfGenerator";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import type { ResultadoSimulacao } from "./utils/simulationCalc";
 import { COMPROMETIMENTO_MAX_RENDA } from "@/constants/bancos-financiamento";
+import type { ItbiCalculation } from "@/lib/itbi/types";
+import { describeBase } from "@/lib/itbi/calculate";
+import { ItbiBadge } from "./results/ItbiBadge";
 
 const fmtBRL = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -24,9 +27,11 @@ interface Props {
   itbiRate: number;
   itbiValue: number;
   state: string;
+  itbiCalc?: ItbiCalculation | null;
+  cityName?: string | null;
 }
 
-export function SimulationResults({ resultado: r, itbiRate, itbiValue, state }: Props) {
+export function SimulationResults({ resultado: r, itbiRate, itbiValue, state, itbiCalc, cityName }: Props) {
   const [showAllRows, setShowAllRows] = useState(false);
 
   const pieData = useMemo(() => [
