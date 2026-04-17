@@ -50,6 +50,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  forgotPassword: (email: string) => Promise<{ error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -250,6 +251,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
+  // Envia email de recuperação de senha. Mensagem genérica no UI evita enumeração de emails.
+  const forgotPassword = useCallback(async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    return { error: error as Error | null };
+  }, []);
+
   const contextValue = useMemo(() => ({ 
     user, 
     session, 
@@ -260,8 +269,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signUp, 
     signIn, 
     signOut, 
-    refreshProfile
-  }), [user, session, profile, organizationType, trialInfo, loading, signUp, signIn, signOut, refreshProfile]);
+    refreshProfile,
+    forgotPassword,
+  }), [user, session, profile, organizationType, trialInfo, loading, signUp, signIn, signOut, refreshProfile, forgotPassword]);
 
   return (
     <AuthContext.Provider value={contextValue}>
@@ -287,6 +297,7 @@ export function useAuth() {
         signIn: async () => ({ error: new Error('Auth not ready') }),
         signOut: async () => {},
         refreshProfile: async () => {},
+        forgotPassword: async () => ({ error: new Error('Auth not ready') }),
       } as AuthContextType;
     }
     throw new Error('useAuth must be used within an AuthProvider');
