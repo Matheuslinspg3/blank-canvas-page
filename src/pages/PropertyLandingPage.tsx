@@ -197,23 +197,94 @@ export default function PropertyLandingPage() {
     fetchProperty();
   }, [id]);
 
-  // Resolve property id from orgSlug+propertyCode
+  /**
+   * Resolve property id from orgSlug+propertyCode with 3-layer fallback.
+   *
+   * ⚠️ CRITICAL: NUNCA usar `supabase.from('organizations'/'properties')` aqui.
+   * RLS bloqueia anônimos → landing pública quebra. Sempre usar RPC SECURITY DEFINER.
+   *
+   * Layer A: get_public_property_by_org_code (1 round-trip, retorna tudo)
+   * Layer B: get_property_id_by_org_code → get_public_property (fallback enxuto)
+   * Layer C: from('properties') APENAS se usuário logado (preview interno)
+   */
   useEffect(() => {
     if (paramId) { setResolvedId(paramId); return; }
     if (!orgSlug || !propertyCode) return;
+
+    let cancelled = false;
     (async () => {
-      const { data: org } = await supabase
-        .from("organizations").select("id").eq("slug", orgSlug).maybeSingle();
-      if (!org) { setResolvedId(null); setLoading(false); return; }
-      const { data: prop } = await supabase
-        .from("properties").select("id")
-        .eq("organization_id", org.id)
-        .eq("property_code", propertyCode)
-        .maybeSingle();
-      setResolvedId(prop?.id ?? null);
-      if (!prop) setLoading(false);
+      // Layer A — RPC pública combinada
+      try {
+        const { data: combined, error: errA } = await (supabase.rpc as any)(
+          "get_public_property_by_org_code",
+          { p_org_slug: orgSlug, p_code: propertyCode }
+        );
+        if (!cancelled && !errA && combined && (combined.id || combined.property?.id)) {
+          const propId = combined.id ?? combined.property?.id;
+          setResolvedId(propId);
+          return;
+        }
+      } catch (e) {
+        console.warn("[landing] Layer A failed", e);
+      }
+
+      // Layer B — RPC de ID enxuta
+      try {
+        const { data: propId, error: errB } = await (supabase.rpc as any)(
+          "get_property_id_by_org_code",
+          { p_org_slug: orgSlug, p_code: propertyCode }
+        );
+        if (!cancelled && !errB && propId) {
+          setResolvedId(propId as string);
+          return;
+        }
+      } catch (e) {
+        console.warn("[landing] Layer B failed", e);
+      }
+
+      // Layer C — fallback autenticado (preview interno)
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        if (session?.session?.user) {
+          const { data: org } = await supabase
+            .from("organizations").select("id").eq("slug", orgSlug).maybeSingle();
+          if (org) {
+            const { data: prop } = await supabase
+              .from("properties").select("id")
+              .eq("organization_id", org.id)
+              .eq("property_code", propertyCode)
+              .maybeSingle();
+            if (!cancelled && prop?.id) {
+              setResolvedId(prop.id);
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("[landing] Layer C failed", e);
+      }
+
+      if (cancelled) return;
+
+      // Todas falharam — telemetria + estado not-found
+      console.warn("[landing] not_found", { orgSlug, propertyCode });
+      supabase.functions.invoke("track-landing-visit", {
+        body: {
+          broker_token: brokerToken ?? null,
+          property_id: null,
+          referrer: typeof document !== "undefined" ? document.referrer || null : null,
+          not_found: true,
+          org_slug: orgSlug,
+          property_code: propertyCode,
+        },
+      }).catch(() => {});
+
+      setResolvedId(null);
+      setLoading(false);
     })();
-  }, [paramId, orgSlug, propertyCode]);
+
+    return () => { cancelled = true; };
+  }, [paramId, orgSlug, propertyCode, brokerToken]);
 
   // Fetch attribution contact + record visit
   useEffect(() => {
