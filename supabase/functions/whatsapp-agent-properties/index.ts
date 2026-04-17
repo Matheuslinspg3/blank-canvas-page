@@ -159,40 +159,10 @@ serve(async (req) => {
       return aH - bH;
     });
 
-    // Fetch cover images for all properties
-    const propIds = filtered.map((p) => p.id);
-    const R2_PUBLIC_URL = (Deno.env.get("R2_PUBLIC_URL") ?? "").trim().replace(/\/$/, "");
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-
-    let coverMap: Record<string, string> = {};
-    if (propIds.length > 0) {
-      const { data: coverImgs } = await sb
-        .from("property_images")
-        .select("property_id, url, r2_key_full, storage_provider, is_cover, display_order, cached_thumbnail_url")
-        .in("property_id", propIds)
-        .order("is_cover", { ascending: false })
-        .order("display_order", { ascending: true });
-
-      // Pick one cover per property
-      const seen = new Set<string>();
-      for (const img of (coverImgs || [])) {
-        if (seen.has(img.property_id)) continue;
-        seen.add(img.property_id);
-        if (img.storage_provider === "r2" && img.r2_key_full && R2_PUBLIC_URL) {
-          coverMap[img.property_id] = `${R2_PUBLIC_URL}/${img.r2_key_full}`;
-        } else if (img.url?.includes("res.cloudinary.com")) {
-          coverMap[img.property_id] = `${SUPABASE_URL}/functions/v1/cloudinary-image-proxy?url=${encodeURIComponent(img.url)}`;
-        } else if (img.url) {
-          coverMap[img.property_id] = img.url;
-        }
-      }
-    }
-
     const result = filtered.map((p) => ({
       ...p,
       property_type_name: propertyTypeMap[p.property_type_id] ?? null,
       is_highlighted: highlightIds.has(p.id),
-      cover_image_url: coverMap[p.id] || null,
     }));
 
     return new Response(JSON.stringify({ properties: result, total: result.length, property_types: propertyTypeMap }), {
