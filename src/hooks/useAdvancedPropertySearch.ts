@@ -56,6 +56,11 @@ export function useAdvancedPropertySearch(
         p_offset: 0,
         p_min_suites: filters.minSuites,
         p_min_parking: filters.minParking,
+        p_min_area: filters.minArea,
+        p_limit: 500,
+        p_offset: 0,
+        p_min_suites: filters.minSuites,
+        p_min_parking: filters.minParking,
         p_max_area: filters.maxArea,
         p_min_condominium: filters.minCondominium,
         p_max_condominium: filters.maxCondominium,
@@ -77,6 +82,6 @@ export function useAdvancedPropertySearch(
       return (data || []) as SearchResult[];
     },
     enabled: enabled && !!profile?.organization_id,
-    staleTime: 30000,
+    staleTime: 2 * 60_000,
   });
 }
