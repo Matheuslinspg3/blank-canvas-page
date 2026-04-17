@@ -36,30 +36,45 @@ export function useShareLink() {
         return null;
       }
 
-      // Ensure a share link record exists for tracking (broker attribution)
+      // Reuse existing share link record for this broker+property (stable token per broker)
       const { data: existing } = await (supabase
         .from("property_share_links" as any)
-        .select("id")
+        .select("id, broker_token")
         .eq("property_id", propertyId)
         .eq("broker_id", profile.user_id)
         .eq("active", true)
         .maybeSingle() as any);
 
+      let brokerToken: string | null = existing?.broker_token ?? null;
+
       if (!existing) {
-        // Create share link record for broker tracking
         const slug = `${orgData.slug}-${propData.property_code}`;
-        await supabase
+        const { data: inserted, error: insertErr } = await (supabase
           .from("property_share_links" as any)
           .insert({
             property_id: propertyId,
             broker_id: profile.user_id,
             slug,
             active: true,
-          });
+          })
+          .select("broker_token")
+          .single() as any);
+
+        if (insertErr) {
+          // Trigger may reject if broker has no phone
+          const msg = insertErr.message?.includes("telefone")
+            ? "Cadastre seu telefone no perfil antes de compartilhar a landing page."
+            : "Não foi possível gerar o link.";
+          toast({ title: "Erro", description: msg, variant: "destructive" });
+          return null;
+        }
+        brokerToken = inserted?.broker_token ?? null;
       }
 
       trackEvent('imovel_compartilhado', { propertyId });
-      return `${window.location.origin}/i/${orgData.slug}/${propData.property_code}`;
+
+      const base = `${window.location.origin}/i/${orgData.slug}/${propData.property_code}`;
+      return brokerToken ? `${base}/${brokerToken}` : base;
     } catch (err) {
       console.error("Error generating share link:", err);
       toast({ title: "Erro", description: "Não foi possível gerar o link.", variant: "destructive" });
