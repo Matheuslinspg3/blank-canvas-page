@@ -15,10 +15,15 @@ import {
 } from "lucide-react";
 import { useTaxaReferencial } from "@/hooks/useTaxaReferencial";
 import { useSelicRate } from "@/hooks/financing/useSelicRate";
+import { useItbiRule } from "@/hooks/financing/useItbiRule";
+import { useAuth } from "@/contexts/AuthContext";
 import { simularTodosBancos, type ResultadoSimulacao } from "./utils/simulationCalc";
 import { BankComparisonView } from "./BankComparisonView";
 import { SimulationResults } from "./SimulationResults";
 import { EvolutionChart } from "./EvolutionChart";
+import { CityAutocomplete } from "./inputs/CityAutocomplete";
+import { ItbiBadge } from "./results/ItbiBadge";
+import type { IbgeMunicipio } from "@/hooks/financing/useIbgeMunicipios";
 import {
   TETO_SFH, IDADE_MAX_FIM_CONTRATO, COMPROMETIMENTO_MAX_RENDA,
   ITBI_RATES,
