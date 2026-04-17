@@ -71,6 +71,7 @@ const propertySchema = z.object({
   owner_email: z.string().email().optional().nullable().or(z.literal("")),
   owner_document: z.string().optional().nullable(),
   owner_notes: z.string().optional().nullable(),
+  marketplace_contact_phone: z.string().trim().regex(/^[0-9+()\-\s]{8,20}$/, 'Telefone inválido (8 a 20 dígitos, com +, -, () permitidos)').optional().nullable().or(z.literal("")),
 }).refine((data) => {
   if (data.transaction_type === "venda" && !data.sale_price) return false;
   if (data.transaction_type === "aluguel" && !data.rent_price) return false;
@@ -125,6 +126,7 @@ const DEFAULT_VALUES: FormData = {
   address_neighborhood: "", address_city: "", address_state: "",
   description: "", youtube_url: "", amenities: [], payment_options: [],
   owner_name: "", owner_phone: "", owner_email: "", owner_document: "", owner_notes: "",
+  marketplace_contact_phone: "",
 };
 
 export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitting, prefillData, isPublished = false }: PropertyFormProps) {
@@ -232,6 +234,7 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
           amenities: property.amenities || [], payment_options: (property as any).payment_options || [],
           owner_name: ownerName, owner_phone: ownerPhone, owner_email: ownerEmail,
           owner_document: ownerDocument, owner_notes: ownerNotes,
+          marketplace_contact_phone: (property as any).marketplace_contact_phone || "",
         });
         setImages(allImages);
       };
@@ -273,10 +276,11 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
       );
       if (!ok) return;
     }
-    const { owner_name, owner_phone, owner_email, owner_document, owner_notes, area_useful, sale_price_financed, ...restData } = data;
+    const { owner_name, owner_phone, owner_email, owner_document, owner_notes, area_useful, sale_price_financed, marketplace_contact_phone, ...restData } = data;
     const selectedType = propertyTypes.find(t => t.id === restData.property_type_id);
     const autoTitle = [selectedType?.name, restData.address_neighborhood, restData.address_city].filter(Boolean).join(' - ') || 'Imóvel sem título';
-    const propertyData = { ...restData, title: autoTitle, area_useful: area_useful as any, sale_price_financed: sale_price_financed as any };
+    const normalizedMpPhone = marketplace_contact_phone && String(marketplace_contact_phone).trim() !== "" ? String(marketplace_contact_phone).trim() : null;
+    const propertyData = { ...restData, title: autoTitle, area_useful: area_useful as any, sale_price_financed: sale_price_financed as any, marketplace_contact_phone: normalizedMpPhone as any };
     const ownerData: OwnerData | undefined = owner_name ? {
       name: owner_name, phone: owner_phone || undefined, email: owner_email || undefined,
       document: owner_document || undefined, notes: owner_notes || undefined,
