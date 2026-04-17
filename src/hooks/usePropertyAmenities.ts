@@ -9,6 +9,7 @@ export interface PropertyAmenity {
   name: string;
   category: string;
   is_default: boolean;
+  created_by: string | null;
 }
 
 export function usePropertyAmenities() {
@@ -22,7 +23,7 @@ export function usePropertyAmenities() {
 
       const { data, error } = await supabase
         .from("property_amenities")
-        .select("id, name, category, is_default")
+        .select("id, name, category, is_default, created_by")
         .eq("organization_id", orgId)
         .order("category")
         .order("name");
@@ -33,6 +34,11 @@ export function usePropertyAmenities() {
     enabled: !!orgId,
     staleTime: 5 * 60 * 1000,
   });
+}
+
+function invalidateAll(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ["property-amenities"] });
+  qc.invalidateQueries({ queryKey: ["property-amenities-filter"] });
 }
 
 export function useCreateAmenity() {
@@ -52,7 +58,7 @@ export function useCreateAmenity() {
           is_default: false,
           created_by: profile.user_id,
         })
-        .select("id, name, category, is_default")
+        .select("id, name, category, is_default, created_by")
         .single();
 
       if (error) {
@@ -62,11 +68,69 @@ export function useCreateAmenity() {
       return data as PropertyAmenity;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["property-amenities"] });
+      invalidateAll(queryClient);
       toast.success("Característica criada!");
     },
     onError: (err: Error) => {
       toastError("Erro ao criar característica", err, { module: "usePropertyAmenities" });
     },
   });
+}
+
+export function useUpdateAmenity() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, name, category }: { id: string; name: string; category: string }) => {
+      const { data, error } = await supabase
+        .from("property_amenities")
+        .update({ name: name.trim(), category: category.trim() || "Geral" })
+        .eq("id", id)
+        .select("id, name, category, is_default, created_by")
+        .single();
+
+      if (error) {
+        if (error.code === "23505") throw new Error("Já existe uma característica com esse nome");
+        throw error;
+      }
+      return data as PropertyAmenity;
+    },
+    onSuccess: () => {
+      invalidateAll(queryClient);
+      toast.success("Característica atualizada!");
+    },
+    onError: (err: Error) => {
+      toastError("Erro ao atualizar característica", err, { module: "usePropertyAmenities" });
+    },
+  });
+}
+
+export function useDeleteAmenity() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, name, removeFromProperties }: { id: string; name: string; removeFromProperties: boolean }) => {
+      if (removeFromProperties) {
+        const { error: rpcErr } = await supabase.rpc("remove_amenity_from_properties", { p_name: name });
+        if (rpcErr) throw rpcErr;
+      }
+      const { error } = await supabase.from("property_amenities").delete().eq("id", id);
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: () => {
+      invalidateAll(queryClient);
+      queryClient.invalidateQueries({ queryKey: ["properties"] });
+      toast.success("Característica excluída!");
+    },
+    onError: (err: Error) => {
+      toastError("Erro ao excluir característica", err, { module: "usePropertyAmenities" });
+    },
+  });
+}
+
+export async function countAmenityUsage(name: string): Promise<number> {
+  const { data, error } = await supabase.rpc("count_amenity_usage", { p_name: name });
+  if (error) throw error;
+  return (data as number) ?? 0;
 }

@@ -9259,6 +9259,7 @@ export type Database = {
         }
         Returns: Json
       }
+      count_amenity_usage: { Args: { p_name: string }; Returns: number }
       count_new_ad_leads: {
         Args: { p_external_ad_id?: string; p_organization_id: string }
         Returns: number
@@ -9762,6 +9763,10 @@ export type Database = {
           p_session_token: string
         }
         Returns: Json
+      }
+      remove_amenity_from_properties: {
+        Args: { p_name: string }
+        Returns: number
       }
       search_properties_advanced: {
         Args: {
