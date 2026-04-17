@@ -1,79 +1,83 @@
 
 
-## Plano — Número exclusivo para contato no Marketplace (corretor↔corretor)
+## Plano — Gestão completa de Comodidades por corretor
 
-### Contexto
-Atualmente o Marketplace é interno (corretor↔corretor entre imobiliárias). O contato hoje sai do telefone da organização. O usuário quer um campo opcional **por imóvel** com um telefone específico para esse fluxo, sem interferir com:
-- Landing pages públicas (que usam token do corretor → cliente final).
-- Telefone público da organização.
+### Estado atual
+- Tabela `property_amenities` (org-level) já existe com seed de defaults (Piscina, Academia, etc).
+- `AmenitiesPickerDialog` permite **criar** novas, mas **não editar nem excluir**.
+- Filtro de imóveis (`PropertyFilters` → `useAdvancedPropertySearch`) já consome `availableAmenities` via `usePropertyFilters` — então **comodidades novas já aparecem no filtro automaticamente**. Ponto OK.
+- RLS atual: `Members can view`, `Managers can manage` (qualquer membro da org pode insert/update/delete via FOR ALL — política está frouxa).
 
-### Design
-
-**1 campo novo em `properties`:** `marketplace_contact_phone text NULL`
-- Opcional. Se preenchido → é o número que aparece no card do Marketplace.
-- Se vazio → fallback atual (telefone da org).
-- **Não** afeta landing page, share links, leads do site público.
+### O que falta
+1. **UI de edição e exclusão** dentro do `AmenitiesPickerDialog`.
+2. **Regra de quem pode mexer**: corretor edita/apaga **só o que ele criou**; admin/sub_admin pode tudo. Defaults (`is_default = true`) ninguém apaga (mas admin pode renomear).
+3. Hook `usePropertyAmenities` ganha `updateAmenity` e `deleteAmenity`.
+4. Avisar antes de excluir uma comodidade que está em uso por imóveis (mostrar contagem).
 
 ### Mudanças
 
-**1. Migration**
+**1. Migration — RLS granular + helper de uso**
 ```sql
-ALTER TABLE public.properties
-  ADD COLUMN IF NOT EXISTS marketplace_contact_phone text;
+-- Substituir política única "Managers can manage" por políticas por ação
+DROP POLICY "Managers can manage amenities" ON property_amenities;
 
-ALTER TABLE public.marketplace_properties
-  ADD COLUMN IF NOT EXISTS marketplace_contact_phone text;
+-- INSERT: qualquer membro da org
+CREATE POLICY "Members can create amenities" ON property_amenities
+  FOR INSERT TO authenticated
+  WITH CHECK (organization_id = get_user_organization_id() AND created_by = auth.uid());
+
+-- UPDATE: dono OU admin/sub_admin; nunca permite trocar org
+CREATE POLICY "Owner or admin can update amenities" ON property_amenities
+  FOR UPDATE TO authenticated
+  USING (
+    organization_id = get_user_organization_id()
+    AND (created_by = auth.uid() OR has_role(auth.uid(),'admin') OR has_role(auth.uid(),'sub_admin'))
+  );
+
+-- DELETE: dono OU admin/sub_admin; nunca apaga is_default
+CREATE POLICY "Owner or admin can delete amenities" ON property_amenities
+  FOR DELETE TO authenticated
+  USING (
+    organization_id = get_user_organization_id()
+    AND is_default = false
+    AND (created_by = auth.uid() OR has_role(auth.uid(),'admin') OR has_role(auth.uid(),'sub_admin'))
+  );
+
+-- Função: contar quantos imóveis usam uma comodidade
+CREATE FUNCTION count_amenity_usage(p_name text) RETURNS int ...
+  SELECT count(*) FROM properties
+  WHERE organization_id = get_user_organization_id() AND p_name = ANY(amenities);
 ```
-- Atualiza trigger `trg_sync_marketplace_on_property_update` para espelhar `marketplace_contact_phone`.
-- Atualiza a view/função pública `marketplace_properties_public` para expor o campo.
-- Trigger leve de sanitização: trim + valida formato (só dígitos, +, espaço, parênteses, hífen). Vazio vira NULL.
+- Trigger leve: `BEFORE UPDATE` bloqueia mudança de `organization_id` e `created_by`.
+- Sanitização: trim no `name`; conflito (UNIQUE org+name) já existe.
 
-**2. Form de imóvel — `BasicTab.tsx` (ou nova seção em "Marketplace")**
-Adicionar bloco condicional:
-- Aparece apenas quando o usuário liga o toggle "Publicar no Marketplace".
-- Campo `Input` rotulado **"Telefone para contato no Marketplace (opcional)"**.
-- Helper text: *"Número que outros corretores verão. Se vazio, usaremos o telefone da imobiliária. Não afeta landing pages."*
-- Máscara/validação BR (`(99) 99999-9999`).
+**2. Hook `usePropertyAmenities.ts`**
+- Add `useUpdateAmenity({ id, name, category })`.
+- Add `useDeleteAmenity(id)` — chama `count_amenity_usage` antes; se >0, retorna info pra UI exibir confirm.
+- Invalidate `["property-amenities"]` e `["property-amenities-filter"]` em ambos.
 
-**3. Hook `usePropertyCRUD.ts`**
-- Incluir `marketplace_contact_phone` no payload de create/update.
-- Tipo `PropertyFormData` ganha o campo opcional.
+**3. UI `AmenitiesPickerDialog.tsx`**
+- Cada item da lista ganha menu de 3 pontinhos (visível apenas se o usuário pode editar/apagar):
+  - **Editar**: abre inline edit (input + select de categoria) → salva via update.
+  - **Excluir**: confirm dialog. Se `usage > 0`, mostra "X imóveis usam esta característica. Excluir vai removê-la deles. Continuar?" e dispara também `UPDATE properties SET amenities = array_remove(amenities, 'X')` via RPC.
+  - Defaults (`is_default = true`) escondem o botão excluir; só admin vê editar.
+- Badge "Padrão" sutil em itens default.
+- Badge "Minha" em itens criados pelo usuário atual.
 
-**4. Hook `usePropertyBulkOps.ts` — `publishToMarketplace`**
-- Ao montar o registro a inserir em `marketplace_properties`, copiar `marketplace_contact_phone` da `properties`.
+**4. RPC `remove_amenity_from_properties(p_name text)`**
+- SECURITY DEFINER, restrito a org do caller, faz `array_remove` em todos os `properties.amenities` da org. Chamada após delete confirmado com uso.
 
-**5. UI Marketplace — card e modal de contato**
-- `MarketplacePropertyCard` / botão "Falar com a imobiliária":
-  - Resolução do número: `marketplace_contact_phone` → fallback `organizations.phone`.
-  - Badge sutil "Contato direto do anúncio" quando vier do campo do imóvel.
-- `useMarketplace` retorna o novo campo no select.
-
-**6. Guardrails**
-- Trigger `marketplace_require_contact` (já existe para org) ganha um relaxamento: se `marketplace_contact_phone` está preenchido no imóvel, **não** exige telefone na org. Garante que o publish não falha por causa de phone faltando se o imóvel já tem o seu próprio.
-- Validação no front: regex BR; placeholder claro; trim antes do submit.
-- Tooltip explicando que esse número **não** aparece em landing pages para clientes finais.
-
-### Separação clara de canais
-| Canal | Telefone exibido |
-|---|---|
-| Landing page `/i/...` (cliente final) | `broker_token` → captador → org |
-| Marketplace interno (corretor↔corretor) | `properties.marketplace_contact_phone` → org |
-| WhatsApp Agent | configuração própria do agente |
-
-Sem cruzamento. Sem regressão nos fluxos atuais.
+**5. Filtro — sem mudança necessária**
+- `usePropertyFilters.availableAmenities` já agrega `property_amenities` + `properties.amenities`. Ao criar/editar/apagar, o `invalidateQueries(['property-amenities-filter'])` mantém filtro sincronizado.
 
 ### Arquivos
-- `supabase/migrations/<novo>.sql` — coluna em ambas tabelas, trigger sync, validação, ajuste em `marketplace_require_contact`.
-- `src/integrations/supabase/types.ts` — auto regenerado.
-- `src/components/properties/form/BasicTab.tsx` (ou nova `MarketplaceTab`) — campo + validação.
-- `src/hooks/usePropertyCRUD.ts` — incluir campo no payload + tipos.
-- `src/hooks/usePropertyBulkOps.ts` — propagar no `publishToMarketplace`.
-- `src/hooks/useMarketplace.ts` — incluir no `select`.
-- `src/components/marketplace/MarketplacePropertyCard.tsx` (e modal de contato) — usar fallback novo.
+- `supabase/migrations/<novo>.sql` — RLS por ação, trigger guard, `count_amenity_usage`, `remove_amenity_from_properties`.
+- `src/hooks/usePropertyAmenities.ts` — `useUpdateAmenity`, `useDeleteAmenity`, expor `created_by` no select.
+- `src/components/properties/form/AmenitiesPickerDialog.tsx` — menu por item, edit inline, delete com confirm + cleanup, badges.
 
 ### Resultado
-- Cada imóvel pode ter seu próprio número para o Marketplace, opcional.
-- Não interfere com landing pages (continua tokens A/B/C → corretor específico).
-- Fallback gracioso para telefone da org quando vazio.
-- Trigger garante consistência marketplace↔properties.
+- Corretor cria → vira "dono" → pode editar/apagar **só as próprias**.
+- Admin/sub_admin pode editar qualquer uma; defaults ficam protegidos contra delete.
+- Excluir uma comodidade em uso pede confirmação e limpa de todos os imóveis.
+- Filtro atualiza automaticamente após qualquer mudança.
 
