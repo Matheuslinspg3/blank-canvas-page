@@ -22,6 +22,11 @@ export interface RetellAgentConfig {
   score_criteria: Record<string, number>;
   n8n_webhook_url: string;
   post_call_analysis_prompt: string;
+  retell_phone_number_id: string;
+  retell_from_number: string;
+  auto_outbound_enabled: boolean;
+  max_call_attempts: number;
+  min_minutes_between_attempts: number;
   updated_at: string;
 }
 
@@ -85,6 +90,11 @@ REGRAS DE CONDUTA:
     documentacao_pronta: 15,
   },
   n8n_webhook_url: "",
+  retell_phone_number_id: "",
+  retell_from_number: "",
+  auto_outbound_enabled: false,
+  max_call_attempts: 3,
+  min_minutes_between_attempts: 30,
   post_call_analysis_prompt: `Analise a transcrição da chamada da Porto Caiçara Imóveis e extraia os seguintes dados em JSON:
 
 {
