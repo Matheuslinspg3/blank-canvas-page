@@ -5,9 +5,30 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
-import { Search, Plus, Tags, Loader2 } from "lucide-react";
-import { usePropertyAmenities, useCreateAmenity } from "@/hooks/usePropertyAmenities";
+import { Search, Plus, Tags, Loader2, MoreVertical, Pencil, Trash2, Check, X } from "lucide-react";
+import {
+  usePropertyAmenities,
+  useCreateAmenity,
+  useUpdateAmenity,
+  useDeleteAmenity,
+  countAmenityUsage,
+  type PropertyAmenity,
+} from "@/hooks/usePropertyAmenities";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useAuth } from "@/contexts/AuthContext";
+import { useUserRoles } from "@/hooks/useUserRole";
+import { toast } from "sonner";
 
 interface AmenitiesPickerDialogProps {
   selected: string[];
@@ -20,14 +41,32 @@ const CATEGORIES = [
 ];
 
 export function AmenitiesPickerDialog({ selected, onChange }: AmenitiesPickerDialogProps) {
+  const { profile } = useAuth();
+  const { isAdmin, isSubAdmin } = useUserRoles();
+  const isAdminLike = isAdmin || isSubAdmin;
+
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [newName, setNewName] = useState("");
   const [newCategory, setNewCategory] = useState("Geral");
   const [showCreate, setShowCreate] = useState(false);
 
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editCategory, setEditCategory] = useState("Geral");
+
+  const [deleteTarget, setDeleteTarget] = useState<PropertyAmenity | null>(null);
+  const [deleteUsage, setDeleteUsage] = useState<number>(0);
+  const [checkingUsage, setCheckingUsage] = useState(false);
+
   const { data: amenities = [], isLoading } = usePropertyAmenities();
   const createAmenity = useCreateAmenity();
+  const updateAmenity = useUpdateAmenity();
+  const deleteAmenity = useDeleteAmenity();
+
+  const canEdit = (a: PropertyAmenity) => isAdminLike || a.created_by === profile?.user_id;
+  const canDelete = (a: PropertyAmenity) =>
+    !a.is_default && (isAdminLike || a.created_by === profile?.user_id);
 
   const toggleAmenity = (name: string) => {
     onChange(
@@ -41,7 +80,7 @@ export function AmenitiesPickerDialog({ selected, onChange }: AmenitiesPickerDia
     const filtered = amenities.filter((a) =>
       a.name.toLowerCase().includes(search.toLowerCase())
     );
-    const groups: Record<string, typeof amenities> = {};
+    const groups: Record<string, PropertyAmenity[]> = {};
     for (const a of filtered) {
       if (!groups[a.category]) groups[a.category] = [];
       groups[a.category].push(a);
@@ -57,6 +96,64 @@ export function AmenitiesPickerDialog({ selected, onChange }: AmenitiesPickerDia
       setNewName("");
       setShowCreate(false);
     }
+  };
+
+  const startEdit = (a: PropertyAmenity) => {
+    setEditingId(a.id);
+    setEditName(a.name);
+    setEditCategory(a.category);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditName("");
+  };
+
+  const saveEdit = async (a: PropertyAmenity) => {
+    if (!editName.trim() || editName.trim() === a.name && editCategory === a.category) {
+      cancelEdit();
+      return;
+    }
+    const oldName = a.name;
+    const updated = await updateAmenity.mutateAsync({
+      id: a.id,
+      name: editName,
+      category: editCategory,
+    });
+    if (updated && selected.includes(oldName)) {
+      onChange(selected.map((n) => (n === oldName ? updated.name : n)));
+    }
+    cancelEdit();
+  };
+
+  const requestDelete = async (a: PropertyAmenity) => {
+    setDeleteTarget(a);
+    setCheckingUsage(true);
+    try {
+      const usage = await countAmenityUsage(a.name);
+      setDeleteUsage(usage);
+    } catch {
+      setDeleteUsage(0);
+      toast.error("Não foi possível verificar o uso desta característica");
+    } finally {
+      setCheckingUsage(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const name = deleteTarget.name;
+    const removeFromProperties = deleteUsage > 0;
+    await deleteAmenity.mutateAsync({
+      id: deleteTarget.id,
+      name,
+      removeFromProperties,
+    });
+    if (selected.includes(name)) {
+      onChange(selected.filter((n) => n !== name));
+    }
+    setDeleteTarget(null);
+    setDeleteUsage(0);
   };
 
   return (
@@ -118,19 +215,114 @@ export function AmenitiesPickerDialog({ selected, onChange }: AmenitiesPickerDia
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                     {category}
                   </h4>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {items.map((amenity) => (
-                      <label
-                        key={amenity.id}
-                        className="flex items-center gap-2 text-sm cursor-pointer p-1.5 rounded-md hover:bg-accent/50 transition-colors"
-                      >
-                        <Checkbox
-                          checked={selected.includes(amenity.name)}
-                          onCheckedChange={() => toggleAmenity(amenity.name)}
-                        />
-                        <span>{amenity.name}</span>
-                      </label>
-                    ))}
+                  <div className="grid grid-cols-1 gap-1.5">
+                    {items.map((amenity) => {
+                      const isEditing = editingId === amenity.id;
+                      const isMine = amenity.created_by === profile?.user_id && !amenity.is_default;
+                      const showActions = canEdit(amenity) || canDelete(amenity);
+
+                      if (isEditing) {
+                        return (
+                          <div key={amenity.id} className="flex items-center gap-2 p-1.5 rounded-md bg-accent/30">
+                            <Input
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              className="h-8 flex-1"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") saveEdit(amenity);
+                                if (e.key === "Escape") cancelEdit();
+                              }}
+                            />
+                            <Select value={editCategory} onValueChange={setEditCategory}>
+                              <SelectTrigger className="h-8 w-[140px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {CATEGORIES.map((c) => (
+                                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              onClick={() => saveEdit(amenity)}
+                              disabled={updateAmenity.isPending}
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              onClick={cancelEdit}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div
+                          key={amenity.id}
+                          className="flex items-center gap-2 p-1.5 rounded-md hover:bg-accent/50 transition-colors group"
+                        >
+                          <label className="flex items-center gap-2 text-sm cursor-pointer flex-1 min-w-0">
+                            <Checkbox
+                              checked={selected.includes(amenity.name)}
+                              onCheckedChange={() => toggleAmenity(amenity.name)}
+                            />
+                            <span className="truncate">{amenity.name}</span>
+                            {amenity.is_default && (
+                              <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4 shrink-0">
+                                Padrão
+                              </Badge>
+                            )}
+                            {isMine && (
+                              <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4 shrink-0">
+                                Minha
+                              </Badge>
+                            )}
+                          </label>
+                          {showActions && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                >
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {canEdit(amenity) && (
+                                  <DropdownMenuItem onClick={() => startEdit(amenity)}>
+                                    <Pencil className="h-4 w-4 mr-2" />
+                                    Editar
+                                  </DropdownMenuItem>
+                                )}
+                                {canDelete(amenity) && (
+                                  <DropdownMenuItem
+                                    className="text-destructive focus:text-destructive"
+                                    onClick={() => requestDelete(amenity)}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Excluir
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ))}
@@ -205,6 +397,38 @@ export function AmenitiesPickerDialog({ selected, onChange }: AmenitiesPickerDia
           </div>
         )}
       </DialogContent>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir "{deleteTarget?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {checkingUsage ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Verificando uso...
+                </span>
+              ) : deleteUsage > 0 ? (
+                <>
+                  <strong>{deleteUsage} {deleteUsage === 1 ? "imóvel usa" : "imóveis usam"}</strong> esta característica.
+                  Excluir vai removê-la de todos eles. Essa ação não pode ser desfeita.
+                </>
+              ) : (
+                <>Nenhum imóvel usa esta característica. A exclusão é segura.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={checkingUsage || deleteAmenity.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteAmenity.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
