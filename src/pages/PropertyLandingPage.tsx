@@ -251,10 +251,24 @@ export default function PropertyLandingPage() {
     e.preventDefault();
     if (!property) return;
     setSubmitting(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    toast({ title: "Mensagem enviada!", description: "Em breve entraremos em contato." });
-    setSubmitted(true);
-    setSubmitting(false);
+    try {
+      await supabase.functions.invoke("create-site-lead", {
+        body: {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          message: formData.message,
+          broker_token: brokerToken ?? null,
+          property_id: id,
+        },
+      });
+      toast({ title: "Mensagem enviada!", description: "Em breve entraremos em contato." });
+      setSubmitted(true);
+    } catch {
+      toast({ title: "Erro", description: "Não foi possível enviar. Tente novamente.", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleShare = async (platform: string) => {
