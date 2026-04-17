@@ -3,8 +3,14 @@ import { useLocation } from "react-router-dom";
 import { useTenantByHostname } from "@/hooks/useTenantByHostname";
 import { WhiteLabelStorefront } from "@/components/WhiteLabelStorefront";
 import { Loader2 } from "lucide-react";
+import { lazyWithRetry } from "@/utils/lazyWithRetry";
+import { ChunkLoadErrorBoundary } from "@/components/ChunkLoadErrorBoundary";
 
-const PropertyLandingPage = lazy(() => import("@/pages/PropertyLandingPage"));
+const PropertyLandingPage = lazy(() =>
+  lazyWithRetry(() => import("@/pages/PropertyLandingPage"), {
+    moduleName: "PropertyLandingPage",
+  }),
+);
 
 interface Props {
   children: React.ReactNode;
@@ -48,15 +54,17 @@ export function TenantRouter({ children }: Props) {
   const imovelMatch = pathname.match(/^\/imovel\/([^/]+)\/?$/);
   if (imovelMatch) {
     return (
-      <Suspense
-        fallback={
-          <div className="flex items-center justify-center min-h-screen">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        }
-      >
-        <PropertyLandingPage />
-      </Suspense>
+      <ChunkLoadErrorBoundary>
+        <Suspense
+          fallback={
+            <div className="flex items-center justify-center min-h-screen">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          }
+        >
+          <PropertyLandingPage />
+        </Suspense>
+      </ChunkLoadErrorBoundary>
     );
   }
 
