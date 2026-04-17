@@ -9912,6 +9912,15 @@ export type Database = {
       normalize_location_text: { Args: { val: string }; Returns: string }
       normalize_phone: { Args: { phone: string }; Returns: string }
       normalize_phone_br_e164: { Args: { p: string }; Returns: string }
+      notify_marketplace_interest: {
+        Args: {
+          p_consumer_name?: string
+          p_consumer_phone?: string
+          p_message?: string
+          p_property_id: string
+        }
+        Returns: Json
+      }
       org_has_active_subscription: {
         Args: { p_organization_id: string }
         Returns: boolean
