@@ -383,7 +383,7 @@ export function FinancingSimulator() {
             <div className="flex items-center gap-2 mb-3">
               <Receipt className="h-4 w-4 text-primary" />
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Custo Total da Operação ({selectedResult.bancoNome})
+                Custo Total da Operação ({selectedResult.banco})
               </span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
