@@ -3525,6 +3525,7 @@ export type Database = {
           ai_summary: string | null
           ai_summary_at: string | null
           broker_id: string | null
+          consent_voice_call: boolean
           conversion_identifier: string | null
           created_at: string
           created_by: string
@@ -3571,6 +3572,7 @@ export type Database = {
           ai_summary?: string | null
           ai_summary_at?: string | null
           broker_id?: string | null
+          consent_voice_call?: boolean
           conversion_identifier?: string | null
           created_at?: string
           created_by: string
@@ -3617,6 +3619,7 @@ export type Database = {
           ai_summary?: string | null
           ai_summary_at?: string | null
           broker_id?: string | null
+          consent_voice_call?: boolean
           conversion_identifier?: string | null
           created_at?: string
           created_by?: string
@@ -5807,18 +5810,23 @@ export type Database = {
           agent_id: string
           agent_name: string
           auto_create_leads: boolean | null
+          auto_outbound_enabled: boolean
           auto_qualify_leads: boolean | null
           broker_assignment_mode: string | null
           created_at: string
           enabled: boolean | null
           id: string
+          max_call_attempts: number
           max_call_duration_min: number | null
+          min_minutes_between_attempts: number
           n8n_webhook_url: string | null
           notification_template_broker: string | null
           notification_template_client: string | null
           organization_id: string
           post_call_analysis_prompt: string | null
           qualification_prompt: string | null
+          retell_from_number: string | null
+          retell_phone_number_id: string | null
           score_criteria: Json | null
           transfer_keywords: string[] | null
           updated_at: string
@@ -5829,18 +5837,23 @@ export type Database = {
           agent_id?: string
           agent_name?: string
           auto_create_leads?: boolean | null
+          auto_outbound_enabled?: boolean
           auto_qualify_leads?: boolean | null
           broker_assignment_mode?: string | null
           created_at?: string
           enabled?: boolean | null
           id?: string
+          max_call_attempts?: number
           max_call_duration_min?: number | null
+          min_minutes_between_attempts?: number
           n8n_webhook_url?: string | null
           notification_template_broker?: string | null
           notification_template_client?: string | null
           organization_id: string
           post_call_analysis_prompt?: string | null
           qualification_prompt?: string | null
+          retell_from_number?: string | null
+          retell_phone_number_id?: string | null
           score_criteria?: Json | null
           transfer_keywords?: string[] | null
           updated_at?: string
@@ -5851,18 +5864,23 @@ export type Database = {
           agent_id?: string
           agent_name?: string
           auto_create_leads?: boolean | null
+          auto_outbound_enabled?: boolean
           auto_qualify_leads?: boolean | null
           broker_assignment_mode?: string | null
           created_at?: string
           enabled?: boolean | null
           id?: string
+          max_call_attempts?: number
           max_call_duration_min?: number | null
+          min_minutes_between_attempts?: number
           n8n_webhook_url?: string | null
           notification_template_broker?: string | null
           notification_template_client?: string | null
           organization_id?: string
           post_call_analysis_prompt?: string | null
           qualification_prompt?: string | null
+          retell_from_number?: string | null
+          retell_phone_number_id?: string | null
           score_criteria?: Json | null
           transfer_keywords?: string[] | null
           updated_at?: string
@@ -6871,6 +6889,66 @@ export type Database = {
           verified?: boolean | null
         }
         Relationships: []
+      }
+      voice_call_queue: {
+        Row: {
+          attempt_count: number
+          call_id: string | null
+          created_at: string
+          id: string
+          last_error: string | null
+          lead_id: string
+          metadata: Json
+          next_attempt_at: string
+          organization_id: string
+          phone_e164: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempt_count?: number
+          call_id?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          lead_id: string
+          metadata?: Json
+          next_attempt_at?: string
+          organization_id: string
+          phone_e164: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempt_count?: number
+          call_id?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          lead_id?: string
+          metadata?: Json
+          next_attempt_at?: string
+          organization_id?: string
+          phone_e164?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_call_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_call_queue_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       voice_calls: {
         Row: {
@@ -8630,6 +8708,7 @@ export type Database = {
       }
       normalize_location_text: { Args: { val: string }; Returns: string }
       normalize_phone: { Args: { phone: string }; Returns: string }
+      normalize_phone_br_e164: { Args: { p: string }; Returns: string }
       org_has_active_subscription: {
         Args: { p_organization_id: string }
         Returns: boolean
