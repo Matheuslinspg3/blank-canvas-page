@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { FinancingSimulator } from "./FinancingSimulator";
 import { FinancingPipeline } from "./FinancingPipeline";
 import { FinancingDocsChecklist } from "./FinancingDocsChecklist";
+import { QuickFormDialog } from "./QuickFormDialog";
 import { InvestmentCalculator } from "./InvestmentCalculator";
 import { BANK_FORMS, BANK_COLORS } from "./types";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -132,15 +133,26 @@ function CorbanDashboard() {
 }
 
 function FormulariosSection() {
+  const [quickForm, setQuickForm] = useState<{ bankCode: string; formId: string; formName: string } | null>(null);
+
   return (
     <div className="space-y-4">
       <div>
         <h3 className="text-lg font-semibold">Formulários Bancários</h3>
         <p className="text-sm text-muted-foreground">
-          Gere automaticamente formulários oficiais dos bancos preenchidos com os dados do seu cliente.
-          Para usar, crie um processo no Pipeline e clique em "Formulários" no card do processo.
+          Gere formulários oficiais dos bancos sem precisar cadastrar nada no Pipeline.
+          Clique em <strong>Preencher e gerar</strong> para abrir o formulário avulso.
         </p>
       </div>
+
+      <div className="flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+        <AlertCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+        <p className="text-xs text-muted-foreground">
+          Modo avulso não salva o cliente no histórico. Para acompanhar processos recorrentes,
+          cadastre no <button onClick={() => {}} className="text-primary underline-offset-2 hover:underline font-medium">Pipeline</button>.
+        </p>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {Object.entries(BANK_FORMS).map(([bankCode, forms]) => {
           const bank = BANK_COLORS[bankCode];
@@ -151,11 +163,19 @@ function FormulariosSection() {
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: bank?.primary }} />
                   <span className="font-medium text-sm">{bank?.name || bankCode}</span>
                 </div>
-                <ul className="space-y-1">
+                <ul className="space-y-2">
                   {forms.map((f) => (
-                    <li key={f.id} className="flex items-start gap-2 text-xs text-muted-foreground">
-                      <FileText className="h-3 w-3 mt-0.5 shrink-0" />
-                      <span>{f.name}</span>
+                    <li key={f.id} className="flex items-start justify-between gap-2 border-t border-border pt-2 first:border-t-0 first:pt-0">
+                      <div className="flex items-start gap-2 min-w-0">
+                        <FileText className="h-3 w-3 mt-1 shrink-0 text-muted-foreground" />
+                        <span className="text-xs">{f.name}</span>
+                      </div>
+                      <button
+                        onClick={() => setQuickForm({ bankCode, formId: f.id, formName: f.name })}
+                        className="text-xs font-medium text-primary hover:underline shrink-0"
+                      >
+                        Preencher e gerar
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -164,6 +184,16 @@ function FormulariosSection() {
           );
         })}
       </div>
+
+      {quickForm && (
+        <QuickFormDialog
+          open={!!quickForm}
+          onOpenChange={(o) => !o && setQuickForm(null)}
+          bankCode={quickForm.bankCode}
+          formId={quickForm.formId}
+          formName={quickForm.formName}
+        />
+      )}
     </div>
   );
 }
