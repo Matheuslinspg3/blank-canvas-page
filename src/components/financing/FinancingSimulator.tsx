@@ -376,6 +376,40 @@ export function FinancingSimulator() {
         )}
       </div>
 
+      {/* ── Custo Total da Operação (parcelas + custos extras) ── */}
+      {selectedResult && custosAdicionais > 0 && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="pt-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Receipt className="h-4 w-4 text-primary" />
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Custo Total da Operação ({selectedResult.bancoNome})
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase">Total parcelas</p>
+                <p className="text-base font-semibold">{fmtBRL(selectedResult.totalPago)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase">Custos extras</p>
+                <p className="text-base font-semibold">{fmtBRL(custosAdicionais)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase">Custo total real</p>
+                <p className="text-lg font-bold text-primary">
+                  {fmtBRL(selectedResult.totalPago + custosAdicionais)}
+                </p>
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-3 leading-relaxed">
+              Soma das parcelas (juros + amortização) acrescida de cartório, taxa adm., consultoria e despachante.
+              Não inclui ITBI nem entrada.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* ── Bank Comparison ── */}
       {resultados.length > 0 && (
         <BankComparisonView
