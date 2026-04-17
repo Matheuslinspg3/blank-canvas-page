@@ -52,7 +52,7 @@ export function useAdvancedPropertySearch(
         p_neighborhoods: filters.neighborhoods.length > 0 ? filters.neighborhoods : null,
         p_cities: filters.cities.length > 0 ? filters.cities : null,
         p_min_area: filters.minArea,
-        p_limit: 2000,
+        p_limit: 500,
         p_offset: 0,
         p_min_suites: filters.minSuites,
         p_min_parking: filters.minParking,
@@ -77,6 +77,6 @@ export function useAdvancedPropertySearch(
       return (data || []) as SearchResult[];
     },
     enabled: enabled && !!profile?.organization_id,
-    staleTime: 30000,
+    staleTime: 2 * 60_000,
   });
 }
