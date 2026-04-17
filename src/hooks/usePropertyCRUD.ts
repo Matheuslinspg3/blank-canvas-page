@@ -68,7 +68,7 @@ export function usePropertyCRUD() {
             latitude, longitude,
             description, property_type_id, organization_id, created_by, created_at, updated_at,
             featured, amenities, property_condition, launch_stage, development_name,
-            beach_distance_meters, captador_id, payment_options, youtube_url,
+            beach_distance_meters, captador_id, payment_options, youtube_url, marketplace_contact_phone,
             property_type:property_types(id, name),
             images:property_images!left(id, url, is_cover, display_order, r2_key_full, r2_key_thumb, storage_provider, cached_thumbnail_url)
           `)
