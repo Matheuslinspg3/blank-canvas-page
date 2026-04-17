@@ -1,117 +1,210 @@
 
 
-## Revisão de bugs — implementações de hoje
+## Diagnóstico — `TypeError: Importing a module script failed`
 
-Auditei `ContactDialog`, `notify_marketplace_interest`, `AcceptInvite`, `QuickFormDialog`, `FormulariosSection`, `FinancingSimulator` e `FinancingDocsChecklist`. Encontrei **7 bugs** (1 crítico bloqueante).
+### Causa raiz mais provável (95% confiança)
 
-### 🔴 BUG 1 — CRÍTICO: ContactDialog mostra fallback invertido
+**Stale client após deploy.** A versão atual em produção é `3.3.0.1`, mas `public/version.json` está em `3.3.0`. Quando um usuário com a aba aberta recebe um deploy novo:
 
-**Arquivo:** `src/components/marketplace/ContactDialog.tsx` linha 132
+1. O HTML antigo (já carregado) referencia chunks hashados antigos (ex: `vendor-react-abc123.js`)
+2. O deploy substitui esses arquivos por novos hashes (`vendor-react-xyz789.js`)
+3. Ao navegar para `/i/portocaicaraimoveis/1436` (rota lazy → `PropertyLandingPage`), o React tenta `import()` do chunk antigo
+4. CDN/host retorna 404 ou HTML do SPA fallback → Safari iOS dispara `Importing a module script failed`
 
-```tsx
-) : !hasAnyData ? (
-  // ← bloco com nome/email/logo da imobiliária + botão "Notificar"
-```
+**Evidências no código:**
+- `vite.config.ts` tem `manualChunks` com vendor splits → muitos chunks hashados
+- `TenantRouter.tsx` usa `lazy(() => import("@/pages/PropertyLandingPage"))` na rota crítica `/imovel/:id`
+- `App.tsx` provavelmente tem dezenas de rotas lazy
+- `lazyRetry.ts` existe mas **nunca é usado** (`grep` mostra zero callers — confirmar)
+- Service worker ativo em produção (Workbox), com `navigateFallbackDenylist` mas **sem tratamento de chunk stale**
+- `version.json` desatualizado → polling de versão (se existir) não detecta deploy
 
-A condição é `!hasAnyData`, mas o bloco interno **renderiza** `contactData?.org_name`, `org_email`, `org_logo`. Como `hasAnyData` já inclui `org_name` e `org_email`, esse bloco **só roda quando esses campos NÃO existem** — ou seja, nunca exibe o que pretende mostrar. O resultado: usuário sem telefone vê só "Esta imobiliária ainda não cadastrou…" sem nome/logo/email, e o botão "Notificar imobiliária" **nunca aparece quando há dados** (que é justamente quando deveria aparecer como fallback do telefone).
+### Problemas secundários encontrados
 
-**Correção:** A lógica do fallback deve ser baseada em "tem telefone?", não "tem qualquer dado?". Trocar por:
-- `hasPhone = brokerPhone || orgPhone`
-- Se `!hasPhone` → renderizar bloco com nome/logo/email (que existem) + botão Notificar
-- Renomear `!hasAnyData` para `!hasPhone` e remover a duplicação confusa
-
-### 🟠 BUG 2 — Notificação cria intent duplicada
-
-**Arquivo:** `supabase/migrations/...notify_marketplace_interest.sql` linhas 60–67
-
-A RPC `notify_marketplace_interest` insere em `marketplace_contact_intents` com `contact_type = 'org'`. Mas o frontend (`ContactDialog.openWhatsApp` linha 85) **também** chama `registerIntent()` separadamente quando o usuário clica no WhatsApp. Para o botão "Notificar" isso não duplica, mas o desenho atual cria 2 caminhos de inserção desalinhados (um via SQL, outro via `.from().insert()`). Risco: se o usuário clicar Notificar e depois WhatsApp, gera 2 registros.
-
-**Correção:** Adicionar parâmetro `p_skip_intent_log` ou simplesmente confiar que são eventos diferentes (Notificar = sinal, WhatsApp = ação) e adicionar coluna `event_type` futura — por ora, deixar como está mas **documentar** que são eventos distintos.
-
-### 🟠 BUG 3 — `notify_marketplace_interest` não checa `is_active` do user_role
-
-**Arquivo:** mesma migration, linhas 44–50
-
-```sql
-JOIN user_roles ur ON ur.user_id = pr.user_id
-WHERE pr.organization_id = v_org_id
-  AND ur.role IN ('admin', 'sub_admin')
-```
-
-Não filtra usuários desativados / perfis suspensos. Notifica admins ex-funcionários.
-
-**Correção:** Adicionar `AND COALESCE(pr.is_active, true) = true` (verificar nome real da coluna).
-
-### 🟡 BUG 4 — AcceptInvite: `useEffect` re-dispara aceitação
-
-**Arquivo:** `src/pages/AcceptInvite.tsx` linha 130–135
-
-```tsx
-useEffect(() => {
-  if (user && invite && !accepted && !isSubmitting && !acceptAttempted.current) {
-    acceptAttempted.current = true;
-    acceptInvite();
-  }
-}, [user, invite]);
-```
-
-Faltam `accepted` e `isSubmitting` nas deps. Em StrictMode (dev), o efeito roda 2x; o ref protege, mas se o usuário clicar "Tentar novamente" (linha 346 reseta o ref) **enquanto** uma aceitação ainda está rodando (`isSubmitting=true`), o ref é zerado e a próxima mudança de `user`/`invite` dispara dupla execução.
-
-**Correção:** Adicionar `accepted, isSubmitting` ao array de dependências e proteger o botão "Tentar novamente" com `disabled={isSubmitting}`.
-
-### 🟡 BUG 5 — QuickFormDialog: `filledCount` ignora 0 legítimo
-
-**Arquivo:** `src/components/financing/QuickFormDialog.tsx` linha 103–105
-
-```tsx
-const filledCount = Object.values(values).filter(
-  (v) => v !== "" && v !== undefined && v !== null && v !== 0,
-).length;
-```
-
-Trata `0` como vazio. Para `downPayment = 0` (entrada zero é válida) ou `propertyValue = 0` durante digitação, o aviso amarelo aparece incorretamente. Mas pior: no `handleChange` linha 112, `raw === ""` vira `0`, **eliminando** a possibilidade de "campo intocado" vs "campo zerado".
-
-**Correção:** Mudar `handleChange` para guardar `undefined` quando vazio (`raw === "" ? undefined : Number(raw)`) e remover `v !== 0` do filtro.
-
-### 🟡 BUG 6 — FormulariosSection: botão "Pipeline" no banner é no-op
-
-**Arquivo:** `src/components/financing/CorrespondenteTab.tsx` linha 152
-
-```tsx
-<button onClick={() => {}} className="text-primary underline-offset-2 hover:underline …">Pipeline</button>
-```
-
-`onClick={() => {}}` — clicar não faz nada.
-
-**Correção:** Levantar o `setActive` via prop ou usar contexto, ou simplesmente mudar para texto sem ação clicável.
-
-### 🟡 BUG 7 — FinancingSimulator: custos extras não entram no CET/parcela
-
-**Arquivo:** `src/components/financing/FinancingSimulator.tsx` linhas 50–56
-
-`custosAdicionais` é calculado e exibido no badge, mas **não é somado** ao financiamento, parcela, custo total nem CET. Para o usuário que quer simular "custo real da operação" (motivo do pedido), é meio caminho: mostra o número mas não impacta nenhum cálculo. Se intencional, ok; se esperado refletir no total → bug.
-
-**Correção sugerida:** Somar em `custoTotal = parcelasTotais + custosAdicionais` e exibir linha "Custo total da operação (com extras)".
-
-### 🟢 Ponto de melhoria 8 — DocsChecklist: estado não persiste
-
-`FinancingDocsChecklist` usa `useState` para o `Set<string>` de documentos marcados. Ao trocar de aba (`Pipeline` → `Documentação`) tudo é zerado. Não é bug funcional, mas frustra.
-
-**Correção:** Persistir em `localStorage` por org/cliente.
+| # | Problema | Impacto |
+|---|----------|---------|
+| S1 | `lazyRetry.ts` existe mas não é importado em lugar nenhum | Retry morto |
+| S2 | `PropertyLandingPage` lazy sem retry no `TenantRouter` | Tela branca em deploy |
+| S3 | `LazyRichTextEditor`, `LazyMarkdown` usam `lazy()` cru | Mesma vulnerabilidade |
+| S4 | `ErrorBoundary` global recarrega página sem guard anti-loop | Risco de loop infinito |
+| S5 | Sentry `ignoreErrors` não inclui variantes do erro de chunk → polui ou perde contexto | Observabilidade ruim |
+| S6 | Sem listener global `window.addEventListener("error", ...)` para `ChunkLoadError` / preload de CSS | Erros escapam do React |
+| S7 | `version.json` desatualizado (3.3.0 vs APP_VERSION 3.3.0.1) | SW update routine não dispara corretamente |
+| S8 | SW cacheia `/rest/v1/*` (NetworkFirst) mas não tem estratégia explícita para chunks JS hashados | Pode servir chunk antigo após deploy |
+| S9 | `Suspense` fallbacks são genéricos (`Skeleton h-64`) — sem mensagem de erro se demorar muito | UX ruim em rede lenta |
+| S10 | Nenhum boundary específico por rota — uma rota lazy quebrada derruba toda a SPA | Single point of failure |
 
 ---
 
-### Plano de execução (ordem de prioridade)
+## Plano de implementação
 
-1. **BUG 1** (crítico, quebra UX do marketplace) — refatorar fallback do `ContactDialog` para basear em `hasPhone`.
-2. **BUG 6** (quebrado visível) — passar `setActive` para `FormulariosSection` ou converter em texto.
-3. **BUG 4** (duplicação intermitente) — corrigir deps do `useEffect` e desabilitar botão.
-4. **BUG 5** (aviso falso) — usar `undefined` para campos intocados.
-5. **BUG 3** (segurança) — migration adicionando filtro `is_active` em `notify_marketplace_interest`.
-6. **BUG 7** (decisão produto) — somar custos extras ao total. Posso aplicar direto.
-7. **Melhoria 8** — persistir checklist em localStorage.
+### 1. Novo utilitário `src/utils/lazyWithRetry.ts` (substitui `lazyRetry.ts`)
 
-BUG 2 fica documentado mas sem mudança imediata (são eventos semanticamente distintos).
+```ts
+// - Detecta erros de chunk: "Importing a module script failed",
+//   "Failed to fetch dynamically imported module", "Unable to preload CSS"
+// - 2 retries com backoff (300ms, 800ms)
+// - Em última instância: safeReloadOnce() com sessionStorage flag
+// - Reporta ao Sentry com contexto: rota, retry count, online, SW status
+// - Exporta: lazyWithRetry, isImportChunkError, safeReloadOnce
+```
 
-Tudo client-side exceto BUG 3 (nova migration pequena). Sem mudanças de schema, sem RLS afetada.
+### 2. Novo `src/utils/safeReload.ts`
+
+```ts
+// safeReloadOnce(reason: string)
+// - Lê sessionStorage["lov_reload_attempted"]
+// - Se já recarregou nesta sessão+rota → NÃO recarrega, retorna false
+// - Se offline → não recarrega, retorna false
+// - Senão: marca flag com timestamp + rota, location.reload()
+// - TTL de 5min para permitir nova tentativa em sessão longa
+```
+
+### 3. Novo `src/utils/chunkErrorDetection.ts`
+
+```ts
+// isImportChunkError(error): boolean
+//   matches: /Importing a module script failed/i
+//            /Failed to fetch dynamically imported module/i
+//            /Unable to preload CSS/i
+//            /error loading dynamically imported module/i
+//            /ChunkLoadError/i
+```
+
+### 4. Novo `src/components/ChunkLoadErrorBoundary.tsx`
+
+- Boundary específico que detecta erro de chunk via `isImportChunkError`
+- Se for chunk error → tenta `safeReloadOnce("chunk_error_boundary")`
+- Se já recarregou → mostra fallback amigável ("Nova versão disponível, clique para atualizar")
+- Outros erros → re-throw para `Sentry.ErrorBoundary` global lidar
+
+### 5. Listener global em `src/main.tsx`
+
+```ts
+// window.addEventListener("error", (e) => {
+//   if (isImportChunkError(e.error || e.message)) {
+//     Sentry.captureException(...) com contexto rico
+//     safeReloadOnce("global_error_listener")
+//   }
+// })
+// window.addEventListener("unhandledrejection", ...) // mesmo tratamento
+// + vite:preloadError event listener (Vite 5 emite isso)
+```
+
+### 6. Aplicar `lazyWithRetry` nos pontos críticos
+
+- `src/components/TenantRouter.tsx` → `PropertyLandingPage` (rota afetada `/i/...`)
+- `src/components/editors/LazyRichTextEditor.tsx`
+- `src/components/markdown/LazyMarkdown.tsx`
+- `src/App.tsx` → mapear todas rotas lazy e converter (operação maior, listar antes de aplicar)
+
+### 7. Melhorar `src/components/ErrorBoundary.tsx`
+
+- Wrap com `ChunkLoadErrorBoundary` por dentro
+- Adicionar tags Sentry: `route`, `release`, `online`, `connection.effectiveType`, `sw_active`, `display_mode`
+- Botão "Tentar novamente" (reset boundary state) além de "Recarregar"
+- Mensagem específica se `isImportChunkError(error)` → "Nova versão disponível"
+
+### 8. Sentry — enriquecer `src/main.tsx`
+
+```ts
+// Sentry.init({
+//   ...
+//   ignoreErrors: [...existing,
+//     // Não ignorar chunk errors — queremos vê-los, mas com contexto
+//   ],
+//   beforeSend(event, hint) {
+//     const err = hint.originalException
+//     if (isImportChunkError(err)) {
+//       event.tags = { ...event.tags, chunk_error: true, route: location.pathname }
+//       event.contexts = { ...event.contexts, runtime: {
+//         online: navigator.onLine,
+//         visibility: document.visibilityState,
+//         connection: (navigator as any).connection?.effectiveType,
+//         sw_controller: !!navigator.serviceWorker?.controller,
+//       }}
+//       // dedup: só envia 1 chunk error por sessão+rota
+//       const key = `chunk_${location.pathname}`
+//       if (sessionStorage.getItem(key)) return null
+//       sessionStorage.setItem(key, "1")
+//     }
+//     return event
+//   }
+// })
+```
+
+### 9. Service Worker — ajuste em `vite.config.ts`
+
+- Adicionar `globIgnores` para nada — chunks devem ser precached normalmente
+- Adicionar runtime cache `NetworkFirst` para `*.js` e `*.css` com `networkTimeoutSeconds: 3` e fallback à cache (já que hashes mudam, garante busca de novo)
+- Atualmente assets hashados ficam em precache e nunca são re-buscados → **problema confirmado**: quando um asset não está no precache (chunk novo após deploy parcial), SW não tem fallback
+
+Correção: adicionar runtime caching para `/assets/*.{js,css}` com `StaleWhileRevalidate` + `cacheableResponse: { statuses: [200] }` (não cachear 404/HTML).
+
+### 10. Atualizar `public/version.json`
+
+- Sincronizar com `APP_VERSION` (3.3.0.1)
+- Adicionar build time correto
+
+### 11. `index.html` — meta cache hint
+
+- Adicionar `<meta http-equiv="Cache-Control" content="no-cache">` no `<head>` (defesa em profundidade — host real deve enviar header também, mas usuário não controla totalmente)
+
+---
+
+## Arquivos alterados
+
+**Novos:**
+- `src/utils/lazyWithRetry.ts`
+- `src/utils/safeReload.ts`
+- `src/utils/chunkErrorDetection.ts`
+- `src/components/ChunkLoadErrorBoundary.tsx`
+
+**Modificados:**
+- `src/main.tsx` (listeners globais + Sentry beforeSend)
+- `src/components/ErrorBoundary.tsx` (mensagem chunk-aware, tags ricas, botão "Tentar novamente")
+- `src/components/TenantRouter.tsx` (usa lazyWithRetry)
+- `src/components/editors/LazyRichTextEditor.tsx` (usa lazyWithRetry)
+- `src/components/markdown/LazyMarkdown.tsx` (usa lazyWithRetry)
+- `src/App.tsx` (rotas lazy → lazyWithRetry — apenas se houver `lazy()` direto)
+- `vite.config.ts` (runtime caching para JS/CSS)
+- `public/version.json` (sync 3.3.0.1)
+- `index.html` (meta cache-control no-cache)
+
+**Deletado:**
+- `src/utils/lazyRetry.ts` (substituído)
+
+---
+
+## Guard rails implementados
+
+| Guard | Mecanismo |
+|-------|-----------|
+| Anti-loop reload | `sessionStorage["lov_reload_attempted"]` com TTL 5min + chave por rota |
+| Anti-retry infinito | Máximo 2 retries com backoff fixo |
+| Offline guard | `safeReloadOnce` checa `navigator.onLine` antes de recarregar |
+| Sentry dedup | `beforeSend` descarta chunk errors duplicados na mesma sessão+rota |
+| Falha graciosa | `ChunkLoadErrorBoundary` mostra UI de "atualização disponível" se reload já aconteceu |
+| Boundary isolado | Componentes não críticos (markdown, editor) não derrubam página |
+
+## Riscos remanescentes
+
+1. **Cache do navegador externo** (proxy ISP, CDN intermediário) — fora do nosso controle. Mitigação: `Cache-Control` no host + meta no `index.html`.
+2. **Se o servidor responder HTML para `/assets/*.js`** (SPA fallback mal configurado) — não conseguimos detectar pelo browser, só por inspeção do response. Adicionarei verificação no `lazyWithRetry`: se `error.message` contiver "Unexpected token '<'", reportar como `mime_mismatch`.
+3. **Service Worker antigo ainda controlando a página** — `controllerchange` listener já existe em `main.tsx`, mantemos.
+
+## Checklist de testes (manual)
+
+- [ ] Em mobile Safari iOS, abrir `/i/portocaicaraimoveis/1436` após simular deploy (renomear chunk no devtools)
+- [ ] Forçar offline → recarregar → não deve fazer reload em loop, mostra mensagem
+- [ ] Ativar `Network throttling = Slow 3G` → Suspense fallback aparece, não erro
+- [ ] DevTools → Application → Service Workers → Update on reload → testar
+- [ ] Verificar Sentry: chunk error chega com tags `chunk_error: true`, `route`, `connection`
+
+## Checklist deploy/infra
+
+- [ ] Confirmar com host: `Cache-Control: no-cache, must-revalidate` para `index.html`
+- [ ] Confirmar: `Cache-Control: public, max-age=31536000, immutable` para `/assets/*`
+- [ ] Confirmar: `/assets/*.js` retorna `Content-Type: application/javascript` (nunca `text/html`)
+- [ ] Sincronizar `version.json` em cada deploy (idealmente automatizar via script post-build)
 
