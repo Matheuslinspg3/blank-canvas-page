@@ -3112,6 +3112,33 @@ export type Database = {
           },
         ]
       }
+      ibge_municipios: {
+        Row: {
+          capital: boolean
+          created_at: string
+          ibge_code: string
+          name: string
+          name_normalized: string
+          uf: string
+        }
+        Insert: {
+          capital?: boolean
+          created_at?: string
+          ibge_code: string
+          name: string
+          name_normalized: string
+          uf: string
+        }
+        Update: {
+          capital?: boolean
+          created_at?: string
+          ibge_code?: string
+          name?: string
+          name_normalized?: string
+          uf?: string
+        }
+        Relationships: []
+      }
       imobzi_api_keys: {
         Row: {
           api_key: string
@@ -3509,6 +3536,126 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_marketplace_orgs_missing_contact"
             referencedColumns: ["organization_id"]
+          },
+        ]
+      }
+      itbi_org_overrides: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          ibge_code: string
+          id: string
+          notes: string | null
+          organization_id: string
+          rule: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          ibge_code: string
+          id?: string
+          notes?: string | null
+          organization_id: string
+          rule: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          ibge_code?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          rule?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "itbi_org_overrides_ibge_code_fkey"
+            columns: ["ibge_code"]
+            isOneToOne: false
+            referencedRelation: "ibge_municipios"
+            referencedColumns: ["ibge_code"]
+          },
+          {
+            foreignKeyName: "itbi_org_overrides_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "itbi_org_overrides_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+        ]
+      }
+      itbi_rules: {
+        Row: {
+          confidence: string
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          effective_to: string | null
+          ibge_code: string | null
+          id: string
+          is_active: boolean
+          notes: string | null
+          rule: Json
+          scope: string
+          source_label: string | null
+          source_url: string | null
+          uf: string | null
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          confidence: string
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          ibge_code?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          rule: Json
+          scope: string
+          source_label?: string | null
+          source_url?: string | null
+          uf?: string | null
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          confidence?: string
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          ibge_code?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          rule?: Json
+          scope?: string
+          source_label?: string | null
+          source_url?: string | null
+          uf?: string | null
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "itbi_rules_ibge_code_fkey"
+            columns: ["ibge_code"]
+            isOneToOne: false
+            referencedRelation: "ibge_municipios"
+            referencedColumns: ["ibge_code"]
           },
         ]
       }
@@ -6854,6 +7001,11 @@ export type Database = {
           id: string
           idade_comprador: number
           imovel_id: string | null
+          itbi_confidence: string | null
+          itbi_ibge_code: string | null
+          itbi_rule_snapshot: Json | null
+          itbi_rule_version: number | null
+          itbi_value: number | null
           lead_id: string | null
           observacoes: string | null
           organization_id: string
@@ -6883,6 +7035,11 @@ export type Database = {
           id?: string
           idade_comprador: number
           imovel_id?: string | null
+          itbi_confidence?: string | null
+          itbi_ibge_code?: string | null
+          itbi_rule_snapshot?: Json | null
+          itbi_rule_version?: number | null
+          itbi_value?: number | null
           lead_id?: string | null
           observacoes?: string | null
           organization_id: string
@@ -6912,6 +7069,11 @@ export type Database = {
           id?: string
           idade_comprador?: number
           imovel_id?: string | null
+          itbi_confidence?: string | null
+          itbi_ibge_code?: string | null
+          itbi_rule_snapshot?: Json | null
+          itbi_rule_version?: number | null
+          itbi_value?: number | null
           lead_id?: string | null
           observacoes?: string | null
           organization_id?: string
@@ -9767,6 +9929,19 @@ export type Database = {
       remove_amenity_from_properties: {
         Args: { p_name: string }
         Returns: number
+      }
+      resolve_itbi: {
+        Args: { p_ibge: string; p_org: string; p_uf: string }
+        Returns: {
+          confidence: string
+          ibge_code: string
+          rule: Json
+          rule_version: number
+          source: string
+          source_label: string
+          source_url: string
+          uf: string
+        }[]
       }
       search_properties_advanced: {
         Args: {
