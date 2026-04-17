@@ -1,65 +1,117 @@
 
 
-## Plano — Gerar Formulários Bancários sem precisar do Pipeline
+## Revisão de bugs — implementações de hoje
 
-### Problema
-Em `Correspondente → Formulários`, hoje o usuário só vê um **catálogo informativo**. A mensagem diz "para usar, crie um processo no Pipeline e clique em Formulários". Isso obriga um cadastro completo no Kanban só para gerar 1 PDF — fricção desnecessária para uso pontual (cliente avulso, simulação rápida, prova de conceito).
+Auditei `ContactDialog`, `notify_marketplace_interest`, `AcceptInvite`, `QuickFormDialog`, `FormulariosSection`, `FinancingSimulator` e `FinancingDocsChecklist`. Encontrei **7 bugs** (1 crítico bloqueante).
 
-### Solução — Modo "Geração Avulsa" (ad-hoc)
+### 🔴 BUG 1 — CRÍTICO: ContactDialog mostra fallback invertido
 
-Transformar a aba **Formulários** em uma ferramenta funcional, mantendo 100% de compatibilidade com o fluxo Pipeline existente.
+**Arquivo:** `src/components/marketplace/ContactDialog.tsx` linha 132
 
-**Fluxo novo:**
-1. Usuário abre `Formulários` → vê os bancos com seus formulários, cada um com botão **"Preencher e gerar"**.
-2. Clica → abre `QuickFormDialog` (novo) com os campos mínimos necessários para aquele formulário específico.
-3. Preenche → clica **"Gerar PDF"** → reusa `generateBankForm()` existente → download imediato.
-4. Banner discreto no topo: *"Quer salvar este cliente? Crie um processo no Pipeline."* (link opcional, não bloqueante).
+```tsx
+) : !hasAnyData ? (
+  // ← bloco com nome/email/logo da imobiliária + botão "Notificar"
+```
 
-### Arquivos
+A condição é `!hasAnyData`, mas o bloco interno **renderiza** `contactData?.org_name`, `org_email`, `org_logo`. Como `hasAnyData` já inclui `org_name` e `org_email`, esse bloco **só roda quando esses campos NÃO existem** — ou seja, nunca exibe o que pretende mostrar. O resultado: usuário sem telefone vê só "Esta imobiliária ainda não cadastrou…" sem nome/logo/email, e o botão "Notificar imobiliária" **nunca aparece quando há dados** (que é justamente quando deveria aparecer como fallback do telefone).
 
-**1. `src/components/financing/QuickFormDialog.tsx`** (novo, ~150 linhas)
-- Dialog reutilizável que recebe `bankCode` + `formId` + `formName`.
-- Campos agrupados por seção (Cliente / Imóvel / Financiamento) usando os mesmos componentes shadcn.
-- **Schema dinâmico por tipo de formulário** (mapa interno):
-  - `*_proposta` → todos os campos
-  - `*_saude` (DPS) → só dados pessoais básicos
-  - `caixa_fgts` → dados pessoais + imóvel
-  - `*_ficha` / `*_declaracao` → cadastro completo
-- Validação leve (Zod) com **defaults seguros** vindos de `EMPTY_FORM`.
-- Botão "Gerar PDF" chama `generateBankForm({ ...EMPTY_FORM, ...formData, id: crypto.randomUUID(), stage: "ad_hoc", createdAt: new Date() }, formId)`.
+**Correção:** A lógica do fallback deve ser baseada em "tem telefone?", não "tem qualquer dado?". Trocar por:
+- `hasPhone = brokerPhone || orgPhone`
+- Se `!hasPhone` → renderizar bloco com nome/logo/email (que existem) + botão Notificar
+- Renomear `!hasAnyData` para `!hasPhone` e remover a duplicação confusa
 
-**2. `src/components/financing/CorrespondenteTab.tsx`** (refator de `FormulariosSection`, linhas 134-169)
-- Cada formulário vira um card clicável com botão `Preencher e gerar`.
-- Banner informativo no topo com link "Ir para Pipeline" (sem forçar).
-- Mantém o catálogo visual atual, só adiciona ação.
+### 🟠 BUG 2 — Notificação cria intent duplicada
 
-**3. `src/components/financing/BankFormGenerator.ts`** (1 ajuste defensivo)
-- Função `generateBankForm` já tolera campos vazios (linha 50: `value || "________"`). Só vamos **garantir defaults** quando `proc.id` for curto: usar `proc.id?.slice(0,8) ?? "AVULSO"` para não quebrar.
+**Arquivo:** `supabase/migrations/...notify_marketplace_interest.sql` linhas 60–67
 
-### Fallbacks & Guardrails
+A RPC `notify_marketplace_interest` insere em `marketplace_contact_intents` com `contact_type = 'org'`. Mas o frontend (`ContactDialog.openWhatsApp` linha 85) **também** chama `registerIntent()` separadamente quando o usuário clica no WhatsApp. Para o botão "Notificar" isso não duplica, mas o desenho atual cria 2 caminhos de inserção desalinhados (um via SQL, outro via `.from().insert()`). Risco: se o usuário clicar Notificar e depois WhatsApp, gera 2 registros.
 
-**Fallback 1 — Campos vazios não quebram o PDF**
-`BankFormGenerator` já desenha `________` para valores ausentes. Confirmado nas linhas 91, 116, 50 do gerador. O usuário pode gerar mesmo com 1 campo só preenchido (ex: nome do cliente).
+**Correção:** Adicionar parâmetro `p_skip_intent_log` ou simplesmente confiar que são eventos diferentes (Notificar = sinal, WhatsApp = ação) e adicionar coluna `event_type` futura — por ora, deixar como está mas **documentar** que são eventos distintos.
 
-**Fallback 2 — `formId` desconhecido**
-Já existe `default: generateProposta(proc, bankCode)` no switch (linha ~340). Se o ID for novo/desconhecido, gera proposta genérica em vez de quebrar.
+### 🟠 BUG 3 — `notify_marketplace_interest` não checa `is_active` do user_role
 
-**Fallback 3 — jsPDF indisponível / erro de geração**
-Wrap com `try/catch` (já está no `BankFormDialog` linha 21-28, replicar no `QuickFormDialog`). Mostra `toast.error("Erro ao gerar formulário")` em vez de tela branca.
+**Arquivo:** mesma migration, linhas 44–50
 
-**Fallback 4 — Validação opcional, não obrigatória**
-Zod schema marca **todos os campos como `.optional()`**. O usuário pode gerar PDF mesmo "em branco" (útil para imprimir formulário em branco e preencher à mão). Apenas exibe aviso visual amarelo se < 3 campos preenchidos: *"PDF será gerado com campos em branco para preenchimento manual."*
+```sql
+JOIN user_roles ur ON ur.user_id = pr.user_id
+WHERE pr.organization_id = v_org_id
+  AND ur.role IN ('admin', 'sub_admin')
+```
 
-**Guardrails (impedir falha logo de início):**
-- **G1 — Sanitização do nome do arquivo:** `proc.clientName.replace(/\s/g, "_")` já existe; adicionar `|| "cliente_avulso"` para evitar `cliente_.pdf` quando vazio.
-- **G2 — `crypto.randomUUID()` sempre disponível:** fallback `Date.now().toString()` para ambientes sem `crypto`.
-- **G3 — Comentário JSDoc** em `QuickFormDialog`: *"Modo ad-hoc — não persiste em DB. Para histórico, usar Pipeline."*
-- **G4 — Telemetria leve:** `console.info("[corban] form_generated", { bankCode, formId, mode: "ad_hoc" })` para futuro acompanhamento de adoção.
-- **G5 — Mobile-first:** Dialog `max-w-2xl` + `max-h-[90vh] overflow-y-auto` para funcionar bem em telas pequenas (segue padrão do projeto).
+Não filtra usuários desativados / perfis suspensos. Notifica admins ex-funcionários.
 
-### Resultado
-- Usuário gera formulários **sem nenhum cadastro no Pipeline**.
-- Pipeline continua sendo o caminho recomendado para gestão recorrente (link no banner).
-- 5 fallbacks garantem que mesmo entradas vazias / parciais / inválidas produzam algo útil.
-- Zero alterações em DB, edge functions ou RLS — feature 100% client-side.
+**Correção:** Adicionar `AND COALESCE(pr.is_active, true) = true` (verificar nome real da coluna).
+
+### 🟡 BUG 4 — AcceptInvite: `useEffect` re-dispara aceitação
+
+**Arquivo:** `src/pages/AcceptInvite.tsx` linha 130–135
+
+```tsx
+useEffect(() => {
+  if (user && invite && !accepted && !isSubmitting && !acceptAttempted.current) {
+    acceptAttempted.current = true;
+    acceptInvite();
+  }
+}, [user, invite]);
+```
+
+Faltam `accepted` e `isSubmitting` nas deps. Em StrictMode (dev), o efeito roda 2x; o ref protege, mas se o usuário clicar "Tentar novamente" (linha 346 reseta o ref) **enquanto** uma aceitação ainda está rodando (`isSubmitting=true`), o ref é zerado e a próxima mudança de `user`/`invite` dispara dupla execução.
+
+**Correção:** Adicionar `accepted, isSubmitting` ao array de dependências e proteger o botão "Tentar novamente" com `disabled={isSubmitting}`.
+
+### 🟡 BUG 5 — QuickFormDialog: `filledCount` ignora 0 legítimo
+
+**Arquivo:** `src/components/financing/QuickFormDialog.tsx` linha 103–105
+
+```tsx
+const filledCount = Object.values(values).filter(
+  (v) => v !== "" && v !== undefined && v !== null && v !== 0,
+).length;
+```
+
+Trata `0` como vazio. Para `downPayment = 0` (entrada zero é válida) ou `propertyValue = 0` durante digitação, o aviso amarelo aparece incorretamente. Mas pior: no `handleChange` linha 112, `raw === ""` vira `0`, **eliminando** a possibilidade de "campo intocado" vs "campo zerado".
+
+**Correção:** Mudar `handleChange` para guardar `undefined` quando vazio (`raw === "" ? undefined : Number(raw)`) e remover `v !== 0` do filtro.
+
+### 🟡 BUG 6 — FormulariosSection: botão "Pipeline" no banner é no-op
+
+**Arquivo:** `src/components/financing/CorrespondenteTab.tsx` linha 152
+
+```tsx
+<button onClick={() => {}} className="text-primary underline-offset-2 hover:underline …">Pipeline</button>
+```
+
+`onClick={() => {}}` — clicar não faz nada.
+
+**Correção:** Levantar o `setActive` via prop ou usar contexto, ou simplesmente mudar para texto sem ação clicável.
+
+### 🟡 BUG 7 — FinancingSimulator: custos extras não entram no CET/parcela
+
+**Arquivo:** `src/components/financing/FinancingSimulator.tsx` linhas 50–56
+
+`custosAdicionais` é calculado e exibido no badge, mas **não é somado** ao financiamento, parcela, custo total nem CET. Para o usuário que quer simular "custo real da operação" (motivo do pedido), é meio caminho: mostra o número mas não impacta nenhum cálculo. Se intencional, ok; se esperado refletir no total → bug.
+
+**Correção sugerida:** Somar em `custoTotal = parcelasTotais + custosAdicionais` e exibir linha "Custo total da operação (com extras)".
+
+### 🟢 Ponto de melhoria 8 — DocsChecklist: estado não persiste
+
+`FinancingDocsChecklist` usa `useState` para o `Set<string>` de documentos marcados. Ao trocar de aba (`Pipeline` → `Documentação`) tudo é zerado. Não é bug funcional, mas frustra.
+
+**Correção:** Persistir em `localStorage` por org/cliente.
+
+---
+
+### Plano de execução (ordem de prioridade)
+
+1. **BUG 1** (crítico, quebra UX do marketplace) — refatorar fallback do `ContactDialog` para basear em `hasPhone`.
+2. **BUG 6** (quebrado visível) — passar `setActive` para `FormulariosSection` ou converter em texto.
+3. **BUG 4** (duplicação intermitente) — corrigir deps do `useEffect` e desabilitar botão.
+4. **BUG 5** (aviso falso) — usar `undefined` para campos intocados.
+5. **BUG 3** (segurança) — migration adicionando filtro `is_active` em `notify_marketplace_interest`.
+6. **BUG 7** (decisão produto) — somar custos extras ao total. Posso aplicar direto.
+7. **Melhoria 8** — persistir checklist em localStorage.
+
+BUG 2 fica documentado mas sem mudança imediata (são eventos semanticamente distintos).
+
+Tudo client-side exceto BUG 3 (nova migration pequena). Sem mudanças de schema, sem RLS afetada.
 
