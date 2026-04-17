@@ -176,11 +176,13 @@ const App = () => (
                       <Route path="/dev/migrate-site-v2" element={<Suspense fallback={<div className="p-8">Carregando...</div>}><DevMigrateSiteV2 /></Suspense>} />
                       <Route path="/dev/site-builder-rollout" element={<Suspense fallback={<div className="p-8">Carregando...</div>}><DevSiteBuilderRollout /></Suspense>} />
                       <Route path="/imovel/:id" element={<PropertyLandingPage />} />
+                      {/* CRITICAL — landing pública (acesso anônimo). NÃO reordenar nem duplicar.
+                          A resolução em PropertyLandingPage usa RPCs públicas (RLS-safe). */}
                       <Route path="/i/:orgSlug/:propertyCode" element={<PropertyLandingPage />} />
                       <Route path="/i/:orgSlug/:propertyCode/:brokerToken" element={<PropertyLandingPage />} />
                       <Route path="/instalar" element={<Install />} />
                       <Route path="/site/:orgSlug" element={<Storefront />} />
-                      <Route path="/i/:orgSlug/:code" element={<PublicPropertyBySlug />} />
+                      {/* legacy single-segment slug → mantém PublicPropertyBySlug */}
                       <Route path="/i/:slug" element={<PublicPropertyBySlug />} />
                       <Route path="/privacidade" element={<PrivacyPolicy />} />
                       <Route path="/email-templates" element={<EmailTemplates />} />

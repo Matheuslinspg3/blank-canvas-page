@@ -17,7 +17,26 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { broker_token, property_id, referrer } = await req.json();
+    const body = await req.json();
+    const { broker_token, property_id, referrer, not_found, org_slug, property_code } = body;
+
+    // Telemetria de 404 — landing pública não resolveu (anônimo bate aqui)
+    if (not_found) {
+      console.warn(JSON.stringify({
+        level: "warn",
+        event: "landing_not_found",
+        org_slug: org_slug ?? null,
+        property_code: property_code ?? null,
+        broker_token: broker_token ?? null,
+        referrer: referrer ?? null,
+        ua: req.headers.get("user-agent") ?? null,
+        timestamp: new Date().toISOString(),
+      }));
+      return new Response(JSON.stringify({ tracked: false, reason: "not_found_logged" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (!broker_token || !property_id) {
       return new Response(JSON.stringify({ error: "broker_token and property_id required" }), {
         status: 400,
