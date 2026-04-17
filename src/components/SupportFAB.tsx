@@ -1,12 +1,22 @@
 import { useState } from "react";
+import { useLocation } from "react-router-dom";
 import { MessageCircleQuestion } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SupportTicketDialog } from "@/components/settings/SupportTicketDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 
+// Mantém em sincronia com FAB_CONFIG em MobileFAB.tsx — quando há MobileFAB
+// na rota, o SupportFAB sobe para não sobrepor.
+const ROUTES_WITH_MOBILE_FAB = ["/imoveis", "/crm", "/agenda", "/contratos"];
+
 export function SupportFAB() {
   const [pulse, setPulse] = useState(false);
   const isMobile = useIsMobile();
+  const { pathname } = useLocation();
+
+  const hasMobileFab = ROUTES_WITH_MOBILE_FAB.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`)
+  );
 
   return (
     <div
@@ -14,8 +24,10 @@ export function SupportFAB() {
         "fixed z-50 transition-all duration-300",
         // Desktop: bottom-right corner
         "right-6 bottom-6",
-        // Mobile: above the bottom nav bar to avoid overlap
-        isMobile && "right-4 bottom-[calc(5rem+env(safe-area-inset-bottom,0px))]"
+        // Mobile sem FAB de ação: acima da bottom nav
+        isMobile && !hasMobileFab && "right-4 bottom-[calc(5rem+env(safe-area-inset-bottom,0px))]",
+        // Mobile com FAB de ação (+): empilha acima do MobileFAB para não sobrepor
+        isMobile && hasMobileFab && "right-4 bottom-[calc(10.5rem+env(safe-area-inset-bottom,0px))]"
       )}
     >
       <SupportTicketDialog
