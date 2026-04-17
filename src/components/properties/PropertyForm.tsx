@@ -136,6 +136,8 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
   const [activeTab, setActiveTab] = useState("basic");
   const [publishToMarketplace, setPublishToMarketplace] = useState(false);
   const formStartRef = useRef(Date.now());
+  // Guard against double-submit (rapid double-click, Enter+click, re-renders).
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     if (open) formStartRef.current = Date.now();
@@ -265,6 +267,9 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
   };
 
   const handleSubmit = async (data: FormData) => {
+    // Guardrail: bloqueia duplo submit (clique duplo, Enter+click, re-render).
+    if (submittingRef.current) return;
+
     // Guardrail: warn if user is hiding a published property by changing its status
     if (isPublished && publishToMarketplace && data.status !== 'disponivel') {
       const statusLabels: Record<string, string> = {
@@ -285,9 +290,20 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
       name: owner_name, phone: owner_phone || undefined, email: owner_email || undefined,
       document: owner_document || undefined, notes: owner_notes || undefined,
     } : undefined;
-    await onSubmit(propertyData as PropertyFormData, images, ownerData, publishToMarketplace);
-    if (!property) trackPropertyCreated();
-    onOpenChange(false);
+
+    submittingRef.current = true;
+    try {
+      await onSubmit(propertyData as PropertyFormData, images, ownerData, publishToMarketplace);
+      if (!property) trackPropertyCreated();
+      // Só fecha o dialog em caso de sucesso — assim o usuário pode tentar
+      // novamente sem perder os dados se algo falhar.
+      onOpenChange(false);
+    } catch (err) {
+      // Erro já é tratado/toasted pelos hooks; mantemos o form aberto.
+      console.error('[PropertyForm] submit failed:', err);
+    } finally {
+      submittingRef.current = false;
+    }
   };
 
   const handleInvalidSubmit = () => {
