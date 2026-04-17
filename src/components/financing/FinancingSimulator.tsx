@@ -43,8 +43,10 @@ export function FinancingSimulator() {
   const [usarFgts, setUsarFgts] = useState(false);
   const [valorFgts, setValorFgts] = useState<number | null>(null);
   const [state, setState] = useState("SP");
+  const [city, setCity] = useState<IbgeMunicipio | null>(null);
   const [selectedBankId, setSelectedBankId] = useState<string | null>(null);
 
+  const { profile } = useAuth();
   const { data: trMensal, isLoading: trLoading, isError: trError } = useTaxaReferencial();
   const { data: selicRate } = useSelicRate();
 
