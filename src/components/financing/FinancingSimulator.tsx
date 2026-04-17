@@ -15,10 +15,15 @@ import {
 } from "lucide-react";
 import { useTaxaReferencial } from "@/hooks/useTaxaReferencial";
 import { useSelicRate } from "@/hooks/financing/useSelicRate";
+import { useItbiRule } from "@/hooks/financing/useItbiRule";
+import { useAuth } from "@/contexts/AuthContext";
 import { simularTodosBancos, type ResultadoSimulacao } from "./utils/simulationCalc";
 import { BankComparisonView } from "./BankComparisonView";
 import { SimulationResults } from "./SimulationResults";
 import { EvolutionChart } from "./EvolutionChart";
+import { CityAutocomplete } from "./inputs/CityAutocomplete";
+import { ItbiBadge } from "./results/ItbiBadge";
+import type { IbgeMunicipio } from "@/hooks/financing/useIbgeMunicipios";
 import {
   TETO_SFH, IDADE_MAX_FIM_CONTRATO, COMPROMETIMENTO_MAX_RENDA,
   ITBI_RATES,
@@ -38,8 +43,10 @@ export function FinancingSimulator() {
   const [usarFgts, setUsarFgts] = useState(false);
   const [valorFgts, setValorFgts] = useState<number | null>(null);
   const [state, setState] = useState("SP");
+  const [city, setCity] = useState<IbgeMunicipio | null>(null);
   const [selectedBankId, setSelectedBankId] = useState<string | null>(null);
 
+  const { profile } = useAuth();
   const { data: trMensal, isLoading: trLoading, isError: trError } = useTaxaReferencial();
   const { data: selicRate } = useSelicRate();
 
@@ -72,8 +79,16 @@ export function FinancingSimulator() {
 
   const handleSelectBank = useCallback((id: string) => setSelectedBankId(id), []);
 
-  const itbiRate = ITBI_RATES[state] ?? 3;
-  const itbiValue = valorImovel * (itbiRate / 100);
+  const { calculation: itbiCalc, isLoading: itbiLoading } = useItbiRule({
+    ibgeCode: city?.ibge_code,
+    uf: state,
+    organizationId: profile?.organization_id ?? null,
+    propertyValue: valorImovel,
+    financedValue: valorFinanciado,
+  });
+
+  const itbiValue = itbiCalc?.value ?? valorImovel * ((ITBI_RATES[state] ?? 3) / 100);
+  const itbiRate = itbiCalc?.effectiveRate ?? (ITBI_RATES[state] ?? 3);
 
   return (
     <div className="space-y-6">
@@ -168,15 +183,32 @@ export function FinancingSimulator() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs">Estado (ITBI)</Label>
-              <Select value={state} onValueChange={setState}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.keys(ITBI_RATES).sort().map((uf) => (
-                    <SelectItem key={uf} value={uf}>{uf} ({ITBI_RATES[uf]}%)</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs">Localização (ITBI)</Label>
+              <div className="grid grid-cols-[90px_1fr] gap-2">
+                <Select
+                  value={state}
+                  onValueChange={(v) => {
+                    setState(v);
+                    setCity(null);
+                  }}
+                >
+                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.keys(ITBI_RATES).sort().map((uf) => (
+                      <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <CityAutocomplete uf={state} value={city} onChange={setCity} />
+              </div>
+              {itbiCalc && (
+                <ItbiBadge
+                  confidence={itbiCalc.confidence}
+                  sourceLabel={itbiCalc.sourceLabel}
+                  sourceUrl={itbiCalc.sourceUrl}
+                  className="pt-1"
+                />
+              )}
             </div>
           </CardContent>
         </Card>
@@ -295,6 +327,8 @@ export function FinancingSimulator() {
           itbiRate={itbiRate}
           itbiValue={itbiValue}
           state={state}
+          itbiCalc={itbiCalc}
+          cityName={city?.name ?? null}
         />
       )}
     </div>

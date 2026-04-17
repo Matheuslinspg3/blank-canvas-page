@@ -13,6 +13,9 @@ import { gerarPdfSimulacao } from "./SimulationPdfGenerator";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import type { ResultadoSimulacao } from "./utils/simulationCalc";
 import { COMPROMETIMENTO_MAX_RENDA } from "@/constants/bancos-financiamento";
+import type { ItbiCalculation } from "@/lib/itbi/types";
+import { describeBase } from "@/lib/itbi/calculate";
+import { ItbiBadge } from "./results/ItbiBadge";
 
 const fmtBRL = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -24,9 +27,11 @@ interface Props {
   itbiRate: number;
   itbiValue: number;
   state: string;
+  itbiCalc?: ItbiCalculation | null;
+  cityName?: string | null;
 }
 
-export function SimulationResults({ resultado: r, itbiRate, itbiValue, state }: Props) {
+export function SimulationResults({ resultado: r, itbiRate, itbiValue, state, itbiCalc, cityName }: Props) {
   const [showAllRows, setShowAllRows] = useState(false);
 
   const pieData = useMemo(() => [
@@ -267,22 +272,53 @@ export function SimulationResults({ resultado: r, itbiRate, itbiValue, state }: 
           {/* ── Custos Extras ── */}
           <TabsContent value="custos" className="mt-4">
             <Card className="p-5 border-border/50">
-              <div className="flex items-center gap-2 mb-4">
-                <Receipt className="h-4 w-4 text-primary" />
-                <p className="text-sm font-semibold">Custos de Aquisição ({state})</p>
+              <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Receipt className="h-4 w-4 text-primary" />
+                  <p className="text-sm font-semibold">
+                    Custos de Aquisição ({cityName ? `${cityName} - ${state}` : state})
+                  </p>
+                </div>
+                {itbiCalc && (
+                  <ItbiBadge
+                    confidence={itbiCalc.confidence}
+                    sourceLabel={itbiCalc.sourceLabel}
+                    sourceUrl={itbiCalc.sourceUrl}
+                  />
+                )}
               </div>
               <div className="space-y-3">
                 {[
-                  { label: `ITBI (${itbiRate}%)`, value: itbiValue },
+                  {
+                    label: `ITBI (${itbiRate.toFixed(2)}%)`,
+                    value: itbiValue,
+                    sub: itbiCalc ? describeBase(itbiCalc.rule) : undefined,
+                  },
                   { label: "Escritura (~0,75%)", value: escritura },
                   { label: "Registro (~0,4%)", value: registro },
                   { label: "Avaliação do imóvel", value: avaliacao },
-                ].map(({ label, value }) => (
-                  <div key={label} className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">{label}</span>
+                ].map(({ label, value, sub }) => (
+                  <div key={label} className="flex justify-between items-start text-sm">
+                    <div className="flex flex-col">
+                      <span className="text-muted-foreground">{label}</span>
+                      {sub && <span className="text-[10px] text-muted-foreground/70">{sub}</span>}
+                    </div>
                     <span className="font-medium">{fmtBRL(value)}</span>
                   </div>
                 ))}
+                {itbiCalc && itbiCalc.breakdown.length > 1 && (
+                  <div className="rounded-md bg-muted/40 p-3 space-y-1">
+                    <p className="text-[10px] font-semibold uppercase text-muted-foreground tracking-wide">
+                      Detalhamento ITBI
+                    </p>
+                    {itbiCalc.breakdown.map((b, i) => (
+                      <div key={i} className="flex justify-between text-[11px]">
+                        <span className="text-muted-foreground">{b.label}</span>
+                        <span className="font-medium">{fmtBRL(b.value)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="border-t pt-3 flex justify-between items-center">
                   <span className="font-semibold text-sm">Total estimado</span>
                   <span className="font-bold text-primary text-base">{fmtBRL(totalCustosExtras)}</span>
