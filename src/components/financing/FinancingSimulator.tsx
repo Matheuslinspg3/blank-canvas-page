@@ -183,15 +183,32 @@ export function FinancingSimulator() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs">Estado (ITBI)</Label>
-              <Select value={state} onValueChange={setState}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.keys(ITBI_RATES).sort().map((uf) => (
-                    <SelectItem key={uf} value={uf}>{uf} ({ITBI_RATES[uf]}%)</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs">Localização (ITBI)</Label>
+              <div className="grid grid-cols-[90px_1fr] gap-2">
+                <Select
+                  value={state}
+                  onValueChange={(v) => {
+                    setState(v);
+                    setCity(null);
+                  }}
+                >
+                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.keys(ITBI_RATES).sort().map((uf) => (
+                      <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <CityAutocomplete uf={state} value={city} onChange={setCity} />
+              </div>
+              {itbiCalc && (
+                <ItbiBadge
+                  confidence={itbiCalc.confidence}
+                  sourceLabel={itbiCalc.sourceLabel}
+                  sourceUrl={itbiCalc.sourceUrl}
+                  className="pt-1"
+                />
+              )}
             </div>
           </CardContent>
         </Card>
