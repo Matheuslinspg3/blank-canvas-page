@@ -29,6 +29,7 @@ import { normalizeError, isExpectedBusinessError } from "@/lib/normalizeError";
 
 // Lazy-loaded pages with retry for stale chunk recovery
 const Auth = lazy(() => lazyRetry(() => import("./pages/Auth")));
+const ResetPassword = lazy(() => lazyRetry(() => import("./pages/ResetPassword")));
 const AcceptInvite = lazy(() => lazyRetry(() => import("./pages/AcceptInvite")));
 const Demo = lazy(() => lazyRetry(() => import("./pages/Demo")));
 const DevBlocks = lazy(() => lazyRetry(() => import("./pages/DevBlocks")));
@@ -174,6 +175,7 @@ const App = () => (
                       <Route path="/manutencao" element={<Maintenance />} />
                       <Route path="/auth" element={<Auth />} />
                       <Route path="/cadastro" element={<Auth />} />
+                      <Route path="/reset-password" element={<ResetPassword />} />
                       <Route path="/convite/:id" element={<AcceptInvite />} />
                       <Route path="/cadastro/:id" element={<PlatformSignup />} />
                       <Route path="/onboarding" element={<ProtectedRoute><OnboardingWizard /></ProtectedRoute>} />

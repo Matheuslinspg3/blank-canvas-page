@@ -79,7 +79,7 @@ const SIGNUP_OTP_LENGTH = 8;
 const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { signIn, signUp, user, loading } = useAuth();
+  const { signIn, signUp, user, loading, forgotPassword } = useAuth();
   const { toast } = useToast();
   const { isMaintenanceMode, maintenanceMessage } = useMaintenanceMode();
 
@@ -391,19 +391,18 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
     e.preventDefault();
     if (!resetEmail.trim()) return;
     setSendingReset(true);
-    try {
-      const { error } = await supabase.functions.invoke("send-reset-email", {
-        body: { email: resetEmail.trim(), redirect_to: window.location.origin + "/auth" },
-      });
-      if (error) throw error;
-      toast({ title: "Link enviado", description: "Verifique sua caixa de entrada para redefinir sua senha." });
-      setShowForgotPassword(false);
-      setResetEmail("");
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Erro", description: err.message || "Não foi possível enviar o email." });
-    } finally {
-      setSendingReset(false);
-    }
+
+    // Usa Supabase Auth nativo. Mensagem genérica para não revelar se o email existe (anti-enumeration).
+    await forgotPassword(resetEmail.trim());
+
+    // Sempre mostra sucesso, mesmo se o email não existir — segurança contra enumeração.
+    toast({
+      title: "Link enviado",
+      description: "Se este email estiver cadastrado, você receberá um link para redefinir sua senha em instantes.",
+    });
+    setShowForgotPassword(false);
+    setResetEmail("");
+    setSendingReset(false);
   };
 
   return (
