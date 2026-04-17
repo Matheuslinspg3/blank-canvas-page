@@ -11,7 +11,7 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Calculator, Wifi, WifiOff, ShieldCheck, ShieldAlert,
-  AlertTriangle, CheckCircle2, Building2, User, Banknote,
+  AlertTriangle, CheckCircle2, Building2, User, Banknote, Receipt,
 } from "lucide-react";
 import { useTaxaReferencial } from "@/hooks/useTaxaReferencial";
 import { useSelicRate } from "@/hooks/financing/useSelicRate";
@@ -45,6 +45,15 @@ export function FinancingSimulator() {
   const [state, setState] = useState("SP");
   const [city, setCity] = useState<IbgeMunicipio | null>(null);
   const [selectedBankId, setSelectedBankId] = useState<string | null>(null);
+
+  // Custos adicionais (cartório, taxas, consultoria, despachante)
+  const [valorCartorio, setValorCartorio] = useState<number | null>(null);
+  const [taxaAdmBanco, setTaxaAdmBanco] = useState<number | null>(null);
+  const [valorConsultoria, setValorConsultoria] = useState<number | null>(null);
+  const [valorDespachante, setValorDespachante] = useState<number | null>(null);
+
+  const custosAdicionais =
+    (valorCartorio ?? 0) + (taxaAdmBanco ?? 0) + (valorConsultoria ?? 0) + (valorDespachante ?? 0);
 
   const { profile } = useAuth();
   const { data: trMensal, isLoading: trLoading, isError: trError } = useTaxaReferencial();
