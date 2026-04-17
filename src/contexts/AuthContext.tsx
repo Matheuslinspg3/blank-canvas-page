@@ -48,6 +48,7 @@ interface AuthContextType {
   loading: boolean;
   signUp: (params: SignUpParams) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signInWithGoogle: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   forgotPassword: (email: string) => Promise<{ error: Error | null }>;
@@ -237,6 +238,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error as Error | null };
   }, []);
 
+  // OAuth com Google. O retorno é tratado pelo onAuthStateChange após o redirect.
+  // redirectTo usa window.location.origin para suportar multi-tenant (subdomínios + domínios custom).
+  // Cada origin precisa estar registrada em Authentication > URL Configuration no Supabase
+  // e em "Authorized JavaScript origins / redirect URIs" no Google Cloud Console.
+  const signInWithGoogle = useCallback(async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'select_account',
+        },
+      },
+    });
+    return { error: error as Error | null };
+  }, []);
+
   const signOut = useCallback(async () => {
     setProfile(null);
     setOrganizationType(null);
@@ -268,10 +287,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading, 
     signUp, 
     signIn, 
+    signInWithGoogle,
     signOut, 
     refreshProfile,
     forgotPassword,
-  }), [user, session, profile, organizationType, trialInfo, loading, signUp, signIn, signOut, refreshProfile, forgotPassword]);
+  }), [user, session, profile, organizationType, trialInfo, loading, signUp, signIn, signInWithGoogle, signOut, refreshProfile, forgotPassword]);
 
   return (
     <AuthContext.Provider value={contextValue}>
@@ -295,6 +315,7 @@ export function useAuth() {
         loading: true,
         signUp: async () => ({ error: new Error('Auth not ready') }),
         signIn: async () => ({ error: new Error('Auth not ready') }),
+        signInWithGoogle: async () => ({ error: new Error('Auth not ready') }),
         signOut: async () => {},
         refreshProfile: async () => {},
         forgotPassword: async () => ({ error: new Error('Auth not ready') }),
