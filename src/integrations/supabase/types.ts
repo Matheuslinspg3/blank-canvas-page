@@ -56,6 +56,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "activity_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       ad_accounts: {
@@ -102,6 +109,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_accounts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -152,6 +166,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_entities_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -214,6 +235,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_insights_daily_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -280,6 +308,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ad_leads_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       ad_settings: {
@@ -321,6 +356,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -435,6 +477,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ai_billing_invoices_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       ai_billing_pricing: {
@@ -540,6 +589,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ai_credit_transactions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+          {
             foreignKeyName: "ai_credit_transactions_wallet_id_fkey"
             columns: ["wallet_id"]
             isOneToOne: false
@@ -593,6 +649,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ai_credit_wallets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       ai_org_budgets: {
@@ -642,6 +705,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_org_budgets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -778,6 +848,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ai_qualification_config_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       ai_router_config: {
@@ -893,6 +970,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_router_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -1103,6 +1187,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ai_token_usage_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       ai_usage_logs: {
@@ -1159,6 +1250,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ai_usage_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       anuncios_gerados: {
@@ -1208,6 +1306,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "anuncios_gerados_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
           {
             foreignKeyName: "anuncios_gerados_property_id_fkey"
@@ -1330,6 +1435,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "appointments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+          {
             foreignKeyName: "appointments_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
@@ -1441,6 +1553,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "audit_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       audit_logs: {
@@ -1481,6 +1600,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -1545,6 +1671,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "automation_credit_transactions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+          {
             foreignKeyName: "automation_credit_transactions_wallet_id_fkey"
             columns: ["wallet_id"]
             isOneToOne: false
@@ -1604,6 +1737,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "automation_credit_wallets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       automation_executions: {
@@ -1661,6 +1801,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "automation_executions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       automations: {
@@ -1710,6 +1857,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -1769,6 +1923,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_payments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
           {
             foreignKeyName: "billing_payments_subscription_id_fkey"
@@ -1872,6 +2033,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "brand_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       buildings: {
@@ -1958,6 +2126,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "buildings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       city_codes: {
@@ -1992,6 +2167,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "city_codes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -2043,6 +2225,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commissions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -2167,6 +2356,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "contract_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       contracts: {
@@ -2246,6 +2442,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "contracts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+          {
             foreignKeyName: "contracts_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
@@ -2315,6 +2518,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "crm_import_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       custom_plan_selections: {
@@ -2353,6 +2563,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_plan_selections_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -2548,6 +2765,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "financing_bank_rates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       follow_up_log: {
@@ -2591,6 +2815,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follow_up_log_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
           {
             foreignKeyName: "follow_up_log_queue_id_fkey"
@@ -2668,6 +2899,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "follow_up_queue_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       generated_arts: {
@@ -2711,6 +2949,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_arts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
           {
             foreignKeyName: "generated_arts_property_id_fkey"
@@ -2810,6 +3055,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "generated_videos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+          {
             foreignKeyName: "generated_videos_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
@@ -2857,6 +3109,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imobzi_api_keys_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -2913,6 +3172,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imobzi_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -3070,6 +3336,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "import_runs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       import_tokens: {
@@ -3110,6 +3383,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_tokens_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -3180,6 +3460,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -3257,6 +3544,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "lead_document_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       lead_documents: {
@@ -3331,6 +3625,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_documents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
           {
             foreignKeyName: "lead_documents_template_item_id_fkey"
@@ -3435,6 +3736,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "lead_score_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       lead_stages: {
@@ -3479,6 +3787,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "lead_stages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       lead_types: {
@@ -3516,6 +3831,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_types_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -3691,6 +4013,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "leads_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+          {
             foreignKeyName: "leads_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
@@ -3779,6 +4108,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "marketplace_contact_access_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       marketplace_contact_intents: {
@@ -3843,6 +4179,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_contact_intents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -3964,6 +4307,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "marketplace_properties_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+          {
             foreignKeyName: "marketplace_properties_property_type_id_fkey"
             columns: ["property_type_id"]
             isOneToOne: false
@@ -4017,6 +4367,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "notifications_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       organization_custom_roles: {
@@ -4057,6 +4414,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_custom_roles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -4102,6 +4466,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "organization_invites_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       organization_member_events: {
@@ -4142,6 +4513,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_member_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -4303,6 +4681,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "owners_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       pdf_extract_jobs: {
@@ -4346,6 +4731,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pdf_extract_jobs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -4443,11 +4835,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "platform_invites_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+          {
             foreignKeyName: "platform_invites_used_by_organization_id_fkey"
             columns: ["used_by_organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_invites_used_by_organization_id_fkey"
+            columns: ["used_by_organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -4540,6 +4946,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "portal_feeds_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       profiles: {
@@ -4614,6 +5027,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -4848,6 +5268,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "properties_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+          {
             foreignKeyName: "properties_property_type_id_fkey"
             columns: ["property_type_id"]
             isOneToOne: false
@@ -4891,6 +5318,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_amenities_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -5093,6 +5527,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "property_landing_overrides_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+          {
             foreignKeyName: "property_landing_overrides_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: true
@@ -5184,6 +5625,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "property_media_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+          {
             foreignKeyName: "property_media_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
@@ -5249,6 +5697,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_owners_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
           {
             foreignKeyName: "property_owners_owner_id_fkey"
@@ -5319,11 +5774,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "property_partnerships_owner_organization_id_fkey"
+            columns: ["owner_organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+          {
             foreignKeyName: "property_partnerships_partner_organization_id_fkey"
             columns: ["partner_organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_partnerships_partner_organization_id_fkey"
+            columns: ["partner_organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
           {
             foreignKeyName: "property_partnerships_property_id_fkey"
@@ -5429,6 +5898,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "property_status_history_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+          {
             foreignKeyName: "property_status_history_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
@@ -5505,6 +5981,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_types_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -5635,6 +6118,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "property_visits_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+          {
             foreignKeyName: "property_visits_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
@@ -5685,6 +6175,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "push_subscriptions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -5755,6 +6252,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "rd_station_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       rd_station_webhook_logs: {
@@ -5802,6 +6306,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rd_station_webhook_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -5895,6 +6406,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "retell_agent_config_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       retell_flow_steps: {
@@ -5945,6 +6463,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "retell_flow_steps_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       saved_searches: {
@@ -5985,6 +6510,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_searches_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -6258,6 +6790,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "simulacoes_financiamento_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       site_documents: {
@@ -6307,6 +6846,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_documents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -6458,6 +7004,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "subscriptions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+          {
             foreignKeyName: "subscriptions_plan_id_fkey"
             columns: ["plan_id"]
             isOneToOne: false
@@ -6507,6 +7060,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -6571,6 +7131,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tasks_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       tenant_domains: {
@@ -6629,6 +7196,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_domains_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -6694,6 +7268,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_categories_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -6767,6 +7348,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -6948,6 +7536,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "voice_call_queue_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       voice_calls: {
@@ -7016,6 +7611,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_calls_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -7093,6 +7695,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "website_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -7273,6 +7882,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "whatsapp_agent_config_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       whatsapp_ai_usage: {
@@ -7332,6 +7948,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "whatsapp_ai_usage_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       whatsapp_audit_log: {
@@ -7366,6 +7989,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_audit_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -7413,6 +8043,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_instances_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -7488,6 +8125,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "whatsapp_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       whatsapp_property_rules: {
@@ -7519,6 +8163,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_property_rules_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
           {
             foreignKeyName: "whatsapp_property_rules_property_id_fkey"
@@ -7583,6 +8234,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_welcome_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
           {
             foreignKeyName: "whatsapp_welcome_log_welcome_message_id_fkey"
@@ -7653,6 +8311,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "whatsapp_welcome_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       zone_codes: {
@@ -7697,6 +8362,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zone_codes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -7747,6 +8419,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ad_accounts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       ai_properties_view: {
@@ -7794,6 +8473,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "properties_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -7928,6 +8614,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       v_whatsapp_ai_costs_daily: {
@@ -7951,6 +8644,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "whatsapp_ai_usage_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       v_whatsapp_ai_costs_monthly: {
@@ -7971,6 +8671,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_ai_usage_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -7994,6 +8701,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_ai_usage_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -8048,6 +8762,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "whatsapp_ai_usage_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
       }
       v_whatsapp_ai_top_conversations: {
@@ -8067,7 +8788,24 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "whatsapp_ai_usage_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
         ]
+      }
+      vw_marketplace_orgs_missing_contact: {
+        Row: {
+          has_profile_with_phone: boolean | null
+          marketplace_properties_count: number | null
+          org_phone: string | null
+          organization_id: string | null
+          organization_name: string | null
+        }
+        Relationships: []
       }
       whatsapp_ai_cost_per_conversation: {
         Row: {
@@ -8086,6 +8824,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -8108,6 +8853,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -8138,6 +8890,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
