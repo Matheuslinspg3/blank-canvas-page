@@ -5814,6 +5814,7 @@ export type Database = {
         Row: {
           active: boolean
           broker_id: string
+          broker_token: string | null
           created_at: string
           expires_at: string | null
           id: string
@@ -5824,6 +5825,7 @@ export type Database = {
         Insert: {
           active?: boolean
           broker_id: string
+          broker_token?: string | null
           created_at?: string
           expires_at?: string | null
           id?: string
@@ -5834,6 +5836,7 @@ export type Database = {
         Update: {
           active?: boolean
           broker_id?: string
+          broker_token?: string | null
           created_at?: string
           expires_at?: string | null
           id?: string
@@ -5855,6 +5858,48 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_share_visits: {
+        Row: {
+          id: string
+          ip_hash: string | null
+          referrer: string | null
+          share_link_id: string
+          user_agent: string | null
+          visited_at: string
+        }
+        Insert: {
+          id?: string
+          ip_hash?: string | null
+          referrer?: string | null
+          share_link_id: string
+          user_agent?: string | null
+          visited_at?: string
+        }
+        Update: {
+          id?: string
+          ip_hash?: string | null
+          referrer?: string | null
+          share_link_id?: string
+          user_agent?: string | null
+          visited_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_share_visits_share_link_id_fkey"
+            columns: ["share_link_id"]
+            isOneToOne: false
+            referencedRelation: "property_share_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_share_visits_share_link_id_fkey"
+            columns: ["share_link_id"]
+            isOneToOne: false
+            referencedRelation: "vw_landing_links_without_contact"
+            referencedColumns: ["share_link_id"]
           },
         ]
       }
@@ -8797,6 +8842,48 @@ export type Database = {
           },
         ]
       }
+      vw_landing_links_without_contact: {
+        Row: {
+          broker_id: string | null
+          broker_name: string | null
+          broker_phone: string | null
+          broker_token: string | null
+          org_name: string | null
+          organization_id: string | null
+          property_id: string | null
+          share_link_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "properties_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "properties_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "property_share_links_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "ai_properties_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_share_links_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vw_marketplace_orgs_missing_contact: {
         Row: {
           has_profile_with_phone: boolean | null
@@ -9090,6 +9177,19 @@ export type Database = {
         Returns: string
       }
       get_current_user_role: { Args: never; Returns: string }
+      get_landing_contact: {
+        Args: { p_broker_token?: string; p_property_id: string }
+        Returns: {
+          attribution_source: string
+          broker_avatar: string
+          broker_email: string
+          broker_name: string
+          broker_phone: string
+          org_logo: string
+          org_name: string
+          org_phone: string
+        }[]
+      }
       get_marketplace_contact: {
         Args: { p_property_id: string }
         Returns: Json
