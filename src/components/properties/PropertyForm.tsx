@@ -335,7 +335,7 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
                 ))}
               </TabsList>
 
-              <TabsContent value="basic" className="flex-1 overflow-y-auto"><BasicTab form={form} /></TabsContent>
+              <TabsContent value="basic" className="flex-1 overflow-y-auto"><BasicTab form={form} publishToMarketplace={publishToMarketplace} /></TabsContent>
               <TabsContent value="values" className="flex-1 overflow-y-auto"><ValuesTab form={form} /></TabsContent>
               <TabsContent value="features" className="flex-1 overflow-y-auto"><FeaturesTab form={form} /></TabsContent>
               <TabsContent value="location" className="flex-1 overflow-y-auto"><LocationTab form={form} /></TabsContent>
