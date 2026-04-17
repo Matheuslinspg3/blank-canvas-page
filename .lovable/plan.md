@@ -1,210 +1,215 @@
 
 
-## Diagnóstico — `TypeError: Importing a module script failed`
+## Diagnóstico — `properties_org_property_code_key` (23505)
 
-### Causa raiz mais provável (95% confiança)
+### Causa raiz (confirmada — 99%)
 
-**Stale client após deploy.** A versão atual em produção é `3.3.0.1`, mas `public/version.json` está em `3.3.0`. Quando um usuário com a aba aberta recebe um deploy novo:
+**Race condition na geração de `property_code` no trigger PostgreSQL.**
 
-1. O HTML antigo (já carregado) referencia chunks hashados antigos (ex: `vendor-react-abc123.js`)
-2. O deploy substitui esses arquivos por novos hashes (`vendor-react-xyz789.js`)
-3. Ao navegar para `/i/portocaicaraimoveis/1436` (rota lazy → `PropertyLandingPage`), o React tenta `import()` do chunk antigo
-4. CDN/host retorna 404 ou HTML do SPA fallback → Safari iOS dispara `Importing a module script failed`
+O trigger `auto_generate_property_code` (migration `20260219142609`) faz:
+```sql
+SELECT COALESCE(MAX(property_code::int), 0) + 1
+INTO v_next
+FROM properties WHERE organization_id = NEW.organization_id;
+NEW.property_code := v_next::text;
+```
+Sem `FOR UPDATE`, sem advisory lock, sem `SERIALIZABLE`. Quando dois INSERTs concorrentes da mesma org chegam (caso clássico: **react-query `mutations.retry: 1` em `App.tsx:114`**), ambos leem `MAX = N`, ambos calculam `N+1`, o primeiro vence, o segundo bate na constraint única → **23505**.
 
-**Evidências no código:**
-- `vite.config.ts` tem `manualChunks` com vendor splits → muitos chunks hashados
-- `TenantRouter.tsx` usa `lazy(() => import("@/pages/PropertyLandingPage"))` na rota crítica `/imovel/:id`
-- `App.tsx` provavelmente tem dezenas de rotas lazy
-- `lazyRetry.ts` existe mas **nunca é usado** (`grep` mostra zero callers — confirmar)
-- Service worker ativo em produção (Workbox), com `navigateFallbackDenylist` mas **sem tratamento de chunk stale**
-- `version.json` desatualizado → polling de versão (se existir) não detecta deploy
+**Por que houve `POST 201` seguido de `POST 409`:**
+1. Usuário clica "Cadastrar"
+2. Mutation faz POST → 201 (sucesso)
+3. Resposta demora a chegar OU houve um soft-error transitório
+4. **react-query retry automático** (`retry: 1`) dispara segundo POST
+5. Segundo POST tenta reusar o mesmo seq → 409 contra constraint
+6. Front mostra erro, usuário acha que "não salvou" — mas salvou na 1ª tentativa
 
-### Problemas secundários encontrados
+### Problemas secundários
 
-| # | Problema | Impacto |
+| # | Problema | Arquivo |
 |---|----------|---------|
-| S1 | `lazyRetry.ts` existe mas não é importado em lugar nenhum | Retry morto |
-| S2 | `PropertyLandingPage` lazy sem retry no `TenantRouter` | Tela branca em deploy |
-| S3 | `LazyRichTextEditor`, `LazyMarkdown` usam `lazy()` cru | Mesma vulnerabilidade |
-| S4 | `ErrorBoundary` global recarrega página sem guard anti-loop | Risco de loop infinito |
-| S5 | Sentry `ignoreErrors` não inclui variantes do erro de chunk → polui ou perde contexto | Observabilidade ruim |
-| S6 | Sem listener global `window.addEventListener("error", ...)` para `ChunkLoadError` / preload de CSS | Erros escapam do React |
-| S7 | `version.json` desatualizado (3.3.0 vs APP_VERSION 3.3.0.1) | SW update routine não dispara corretamente |
-| S8 | SW cacheia `/rest/v1/*` (NetworkFirst) mas não tem estratégia explícita para chunks JS hashados | Pode servir chunk antigo após deploy |
-| S9 | `Suspense` fallbacks são genéricos (`Skeleton h-64`) — sem mensagem de erro se demorar muito | UX ruim em rede lenta |
-| S10 | Nenhum boundary específico por rota — uma rota lazy quebrada derruba toda a SPA | Single point of failure |
+| S1 | `mutations.retry: 1` global = retry cego em **todos** os inserts | `src/App.tsx:114` |
+| S2 | `Sentry.captureException(error)` recebe objeto cru `{code,details,hint,message}` do PostgREST → "Object captured as exception with keys" | `src/App.tsx:117,138`; `usePropertyCRUD.ts:149` |
+| S3 | `onError` do mutation só faz `toast({ description: error.message })` — não traduz `23505` em mensagem amigável | `usePropertyCRUD.ts:195-197` |
+| S4 | Trigger SQL vulnerável a concorrência (causa raiz do banco) | `auto_generate_property_code` |
+| S5 | Sem dedup de submit no `PropertyForm`: `disabled={isSubmitting}` depende de `isCreating` global do hook — se Dialog fechar antes (`onOpenChange(false)` na linha 290 acontece **depois** do await mas antes do `onSuccess`), ainda há janela mínima | `PropertyForm.tsx:267-291` |
+| S6 | `MutationCache.onError` duplica o `Sentry.captureException` que já vem de `mutations.onError` → dois eventos por erro | `App.tsx:116-118` + `133-140` |
 
 ---
 
 ## Plano de implementação
 
-### 1. Novo utilitário `src/utils/lazyWithRetry.ts` (substitui `lazyRetry.ts`)
+### 1. Banco — corrigir trigger (causa raiz)
+
+Nova migration:
+```sql
+CREATE OR REPLACE FUNCTION public.auto_generate_property_code()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_next INT; v_attempts INT := 0;
+BEGIN
+  IF NEW.property_code IS NOT NULL THEN RETURN NEW; END IF;
+
+  -- Advisory lock por organization_id: serializa geração apenas dentro da mesma org
+  PERFORM pg_advisory_xact_lock(
+    hashtext('property_code_gen'),
+    hashtext(NEW.organization_id::text)
+  );
+
+  -- Loop defensivo (até 5 tentativas) caso constraint ainda colida por motivo externo
+  LOOP
+    SELECT COALESCE(MAX(property_code::int), 0) + 1
+      INTO v_next
+      FROM properties
+     WHERE organization_id = NEW.organization_id
+       AND property_code ~ '^\d+$';
+
+    NEW.property_code := v_next::text;
+
+    -- Verifica se o code está livre (defesa em profundidade)
+    IF NOT EXISTS (
+      SELECT 1 FROM properties
+       WHERE organization_id = NEW.organization_id
+         AND property_code = NEW.property_code
+    ) THEN
+      RETURN NEW;
+    END IF;
+
+    v_attempts := v_attempts + 1;
+    IF v_attempts >= 5 THEN
+      RAISE EXCEPTION 'Não foi possível gerar property_code único após 5 tentativas';
+    END IF;
+  END LOOP;
+END; $$;
+```
+Advisory lock transacional libera no commit/rollback. Performance OK porque só serializa dentro da mesma `organization_id`.
+
+### 2. Novo helper `src/lib/normalizeError.ts`
 
 ```ts
-// - Detecta erros de chunk: "Importing a module script failed",
-//   "Failed to fetch dynamically imported module", "Unable to preload CSS"
-// - 2 retries com backoff (300ms, 800ms)
-// - Em última instância: safeReloadOnce() com sessionStorage flag
-// - Reporta ao Sentry com contexto: rota, retry count, online, SW status
-// - Exporta: lazyWithRetry, isImportChunkError, safeReloadOnce
+export interface NormalizedError extends Error {
+  code?: string;
+  details?: string | null;
+  hint?: string | null;
+  isExpected?: boolean;
+  userMessage?: string;
+  constraint?: string;
+}
+
+export function normalizeError(raw: unknown): NormalizedError;
+// - se já é Error → retorna
+// - se { code, message, ... } (Postgres/PostgREST) → cria new Error(message) e
+//   anexa code/details/hint/constraint
+// - mapeia 23505 → userMessage amigável conforme constraint
+// - name = 'PostgrestError' | 'AppError'
+
+export function isUniqueViolation(err: unknown): boolean;  // code === '23505'
+export function isExpectedBusinessError(err: unknown): boolean;
 ```
 
-### 2. Novo `src/utils/safeReload.ts`
+### 3. Atualizar `App.tsx` — react-query
 
 ```ts
-// safeReloadOnce(reason: string)
-// - Lê sessionStorage["lov_reload_attempted"]
-// - Se já recarregou nesta sessão+rota → NÃO recarrega, retorna false
-// - Se offline → não recarrega, retorna false
-// - Senão: marca flag com timestamp + rota, location.reload()
-// - TTL de 5min para permitir nova tentativa em sessão longa
+mutations: {
+  retry: false,            // ← NUNCA retryar mutations cegamente
+  // (remover retryDelay; remover onError daqui — fica só no MutationCache)
+},
+mutationCache: new MutationCache({
+  onError: (error, _vars, _ctx, mutation) => {
+    const norm = normalizeError(error);
+    if (isExpectedBusinessError(norm)) return;   // não polui Sentry
+    if (norm.message?.includes('AbortError')) return;
+    Sentry.captureException(norm, {
+      tags: {
+        source: 'react-query-mutation',
+        mutation_key: JSON.stringify(mutation.options.mutationKey ?? []).slice(0, 100),
+        pg_code: norm.code,
+        pg_constraint: norm.constraint,
+      },
+      extra: { details: norm.details, hint: norm.hint },
+    });
+  },
+}),
 ```
+Remover o `mutations.onError` duplicado.
 
-### 3. Novo `src/utils/chunkErrorDetection.ts`
+### 4. `usePropertyCRUD.ts` — tratar 23505 no `createProperty`
 
 ```ts
-// isImportChunkError(error): boolean
-//   matches: /Importing a module script failed/i
-//            /Failed to fetch dynamically imported module/i
-//            /Unable to preload CSS/i
-//            /error loading dynamically imported module/i
-//            /ChunkLoadError/i
+mutationKey: ['properties', 'create'],
+mutationFn: async (...) => {
+  // ... insert ...
+  if (error) throw normalizeError(error);
+  // ...
+},
+onError: (error) => {
+  const norm = normalizeError(error);
+  if (norm.code === '23505' && norm.constraint === 'properties_org_property_code_key') {
+    toast({
+      title: 'Conflito ao gerar código',
+      description: 'O código do imóvel colidiu com outro recente. Tente salvar novamente — geramos um novo código automaticamente.',
+      variant: 'destructive',
+    });
+  } else {
+    toast({ title: 'Erro ao cadastrar imóvel', description: norm.userMessage || norm.message, variant: 'destructive' });
+  }
+},
 ```
+**Não** fazer retry automático aqui (regra do prompt: sem retry cego). Mas como o trigger agora usa advisory lock, a colisão praticamente desaparece. O toast orienta retry manual.
 
-### 4. Novo `src/components/ChunkLoadErrorBoundary.tsx`
+### 5. `PropertyForm.tsx` — guard rails de submit
 
-- Boundary específico que detecta erro de chunk via `isImportChunkError`
-- Se for chunk error → tenta `safeReloadOnce("chunk_error_boundary")`
-- Se já recarregou → mostra fallback amigável ("Nova versão disponível, clique para atualizar")
-- Outros erros → re-throw para `Sentry.ErrorBoundary` global lidar
+- Adicionar `submittingRef = useRef(false)` no componente
+- No `handleSubmit`: se `submittingRef.current` → `return` cedo
+- `submittingRef.current = true` antes do await; `false` no `finally`
+- Mover `onOpenChange(false)` para dentro de um `try/catch` — só fechar dialog em sucesso (hoje fecha mesmo após erro porque `await onSubmit(...)` lança e o `onOpenChange(false)` na linha 290 não roda — ok, mas sem proteção explícita o usuário pode reabrir e re-submetter os mesmos dados → outro 409). Adicionar `try { await onSubmit(...); onOpenChange(false); } catch { /* mantém aberto */ } finally { submittingRef.current = false }`
+- Botão `<Button type="submit" disabled={isSubmitting || submittingRef.current}>` (já tem `isSubmitting`, reforçamos)
 
-### 5. Listener global em `src/main.tsx`
+### 6. `Properties.tsx` — sucesso parcial
 
-```ts
-// window.addEventListener("error", (e) => {
-//   if (isImportChunkError(e.error || e.message)) {
-//     Sentry.captureException(...) com contexto rico
-//     safeReloadOnce("global_error_listener")
-//   }
-// })
-// window.addEventListener("unhandledrejection", ...) // mesmo tratamento
-// + vite:preloadError event listener (Vite 5 emite isso)
-```
-
-### 6. Aplicar `lazyWithRetry` nos pontos críticos
-
-- `src/components/TenantRouter.tsx` → `PropertyLandingPage` (rota afetada `/i/...`)
-- `src/components/editors/LazyRichTextEditor.tsx`
-- `src/components/markdown/LazyMarkdown.tsx`
-- `src/App.tsx` → mapear todas rotas lazy e converter (operação maior, listar antes de aplicar)
-
-### 7. Melhorar `src/components/ErrorBoundary.tsx`
-
-- Wrap com `ChunkLoadErrorBoundary` por dentro
-- Adicionar tags Sentry: `route`, `release`, `online`, `connection.effectiveType`, `sw_active`, `display_mode`
-- Botão "Tentar novamente" (reset boundary state) além de "Recarregar"
-- Mensagem específica se `isImportChunkError(error)` → "Nova versão disponível"
-
-### 8. Sentry — enriquecer `src/main.tsx`
-
-```ts
-// Sentry.init({
-//   ...
-//   ignoreErrors: [...existing,
-//     // Não ignorar chunk errors — queremos vê-los, mas com contexto
-//   ],
-//   beforeSend(event, hint) {
-//     const err = hint.originalException
-//     if (isImportChunkError(err)) {
-//       event.tags = { ...event.tags, chunk_error: true, route: location.pathname }
-//       event.contexts = { ...event.contexts, runtime: {
-//         online: navigator.onLine,
-//         visibility: document.visibilityState,
-//         connection: (navigator as any).connection?.effectiveType,
-//         sw_controller: !!navigator.serviceWorker?.controller,
-//       }}
-//       // dedup: só envia 1 chunk error por sessão+rota
-//       const key = `chunk_${location.pathname}`
-//       if (sessionStorage.getItem(key)) return null
-//       sessionStorage.setItem(key, "1")
-//     }
-//     return event
-//   }
-// })
-```
-
-### 9. Service Worker — ajuste em `vite.config.ts`
-
-- Adicionar `globIgnores` para nada — chunks devem ser precached normalmente
-- Adicionar runtime cache `NetworkFirst` para `*.js` e `*.css` com `networkTimeoutSeconds: 3` e fallback à cache (já que hashes mudam, garante busca de novo)
-- Atualmente assets hashados ficam em precache e nunca são re-buscados → **problema confirmado**: quando um asset não está no precache (chunk novo após deploy parcial), SW não tem fallback
-
-Correção: adicionar runtime caching para `/assets/*.{js,css}` com `StaleWhileRevalidate` + `cacheableResponse: { statuses: [200] }` (não cachear 404/HTML).
-
-### 10. Atualizar `public/version.json`
-
-- Sincronizar com `APP_VERSION` (3.3.0.1)
-- Adicionar build time correto
-
-### 11. `index.html` — meta cache hint
-
-- Adicionar `<meta http-equiv="Cache-Control" content="no-cache">` no `<head>` (defesa em profundidade — host real deve enviar header também, mas usuário não controla totalmente)
+No `executePropertySubmit`, capturar erro do create separadamente e **não** chamar `publishToMarketplace` se o create falhou. Já está assim implicitamente (await throws), mas adicionar log claro.
 
 ---
 
 ## Arquivos alterados
 
-**Novos:**
-- `src/utils/lazyWithRetry.ts`
-- `src/utils/safeReload.ts`
-- `src/utils/chunkErrorDetection.ts`
-- `src/components/ChunkLoadErrorBoundary.tsx`
+**Novo:**
+- `src/lib/normalizeError.ts`
+- `supabase/migrations/<timestamp>_fix_property_code_race.sql`
 
 **Modificados:**
-- `src/main.tsx` (listeners globais + Sentry beforeSend)
-- `src/components/ErrorBoundary.tsx` (mensagem chunk-aware, tags ricas, botão "Tentar novamente")
-- `src/components/TenantRouter.tsx` (usa lazyWithRetry)
-- `src/components/editors/LazyRichTextEditor.tsx` (usa lazyWithRetry)
-- `src/components/markdown/LazyMarkdown.tsx` (usa lazyWithRetry)
-- `src/App.tsx` (rotas lazy → lazyWithRetry — apenas se houver `lazy()` direto)
-- `vite.config.ts` (runtime caching para JS/CSS)
-- `public/version.json` (sync 3.3.0.1)
-- `index.html` (meta cache-control no-cache)
-
-**Deletado:**
-- `src/utils/lazyRetry.ts` (substituído)
+- `src/App.tsx` (retry: false em mutations, dedup Sentry, normalize)
+- `src/hooks/usePropertyCRUD.ts` (mutationKey, normalize no throw, onError com mensagem 23505)
+- `src/components/properties/PropertyForm.tsx` (submittingRef + try/catch + onOpenChange só em sucesso)
+- `src/lib/sentry.ts` (opcional: usar normalizeError no `captureError`)
 
 ---
 
-## Guard rails implementados
+## Guard rails entregues
 
 | Guard | Mecanismo |
 |-------|-----------|
-| Anti-loop reload | `sessionStorage["lov_reload_attempted"]` com TTL 5min + chave por rota |
-| Anti-retry infinito | Máximo 2 retries com backoff fixo |
-| Offline guard | `safeReloadOnce` checa `navigator.onLine` antes de recarregar |
-| Sentry dedup | `beforeSend` descarta chunk errors duplicados na mesma sessão+rota |
-| Falha graciosa | `ChunkLoadErrorBoundary` mostra UI de "atualização disponível" se reload já aconteceu |
-| Boundary isolado | Componentes não críticos (markdown, editor) não derrubam página |
+| Anti race-condition no banco | `pg_advisory_xact_lock` por org + loop defensivo |
+| Anti retry cego | `mutations.retry: false` global |
+| Anti duplo submit | `submittingRef` + `disabled={isSubmitting}` + dialog não fecha em erro |
+| Sentry sem objeto cru | `normalizeError()` em todo throw |
+| Sentry sem ruído | `isExpectedBusinessError()` filtra 23505 conhecido |
+| Sentry sem duplicação | Apenas `MutationCache.onError`, removido `mutations.onError` |
+| UX preserva form | Dialog só fecha em sucesso |
+| Mensagem amigável | Toast específico para 23505 + constraint reconhecida |
 
 ## Riscos remanescentes
 
-1. **Cache do navegador externo** (proxy ISP, CDN intermediário) — fora do nosso controle. Mitigação: `Cache-Control` no host + meta no `index.html`.
-2. **Se o servidor responder HTML para `/assets/*.js`** (SPA fallback mal configurado) — não conseguimos detectar pelo browser, só por inspeção do response. Adicionarei verificação no `lazyWithRetry`: se `error.message` contiver "Unexpected token '<'", reportar como `mime_mismatch`.
-3. **Service Worker antigo ainda controlando a página** — `controllerchange` listener já existe em `main.tsx`, mantemos.
+1. Imóveis criados **antes** desta correção podem ter property_code com gaps — sem impacto funcional
+2. Se trigger falhar nas 5 tentativas (cenário extremo), insert é abortado com mensagem clara — usuário pode tentar de novo
+3. Outras mutations no app que dependiam do retry: 1 podem precisar de revisão pontual — risco baixo, retry de mutation é geralmente anti-pattern
 
-## Checklist de testes (manual)
+## Checklist de testes
 
-- [ ] Em mobile Safari iOS, abrir `/i/portocaicaraimoveis/1436` após simular deploy (renomear chunk no devtools)
-- [ ] Forçar offline → recarregar → não deve fazer reload em loop, mostra mensagem
-- [ ] Ativar `Network throttling = Slow 3G` → Suspense fallback aparece, não erro
-- [ ] DevTools → Application → Service Workers → Update on reload → testar
-- [ ] Verificar Sentry: chunk error chega com tags `chunk_error: true`, `route`, `connection`
-
-## Checklist deploy/infra
-
-- [ ] Confirmar com host: `Cache-Control: no-cache, must-revalidate` para `index.html`
-- [ ] Confirmar: `Cache-Control: public, max-age=31536000, immutable` para `/assets/*`
-- [ ] Confirmar: `/assets/*.js` retorna `Content-Type: application/javascript` (nunca `text/html`)
-- [ ] Sincronizar `version.json` em cada deploy (idealmente automatizar via script post-build)
+- [ ] Criar imóvel novo → property_code sequencial correto, sem 409
+- [ ] Duplo clique rápido em "Cadastrar" → apenas 1 POST, 1 imóvel
+- [ ] Enter + click simultâneo → apenas 1 criação
+- [ ] Simular 2 inserts concorrentes (devtools throttling + 2 abas) → ambos sucedem com codes diferentes
+- [ ] Forçar 23505 (passar `property_code` manual já existente) → toast amigável, dialog fica aberto, dados preservados
+- [ ] Verificar Sentry: erro 23505 não aparece (filtrado como expected) ou aparece com `Error` real + tags `pg_code: 23505`, `pg_constraint`
+- [ ] Verificar que erro inesperado (ex: 500) ainda chega no Sentry corretamente
+- [ ] Mutation lenta + clicks repetidos → 1 request
 
