@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { OptimizedImage } from "@/components/ui/optimized-image";
 import { Badge } from "@/components/ui/badge";
 import {
-  MapPin, Bed, Bath, Car, Maximize, Phone, Star, Building, ImageIcon,
+  MapPin, Bed, Bath, Car, Maximize, Phone, Star, Building, ImageIcon, BadgeCheck,
 } from "lucide-react";
 import { formatCurrency, proxyDriveImageUrl } from "@/lib/utils";
 import type { MarketplaceProperty } from "@/hooks/useMarketplace";
