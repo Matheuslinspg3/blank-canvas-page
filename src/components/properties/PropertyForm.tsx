@@ -111,6 +111,7 @@ interface PropertyFormProps {
   onSubmit: (data: PropertyFormData, images: PropertyImage[], ownerData?: OwnerData, publishToMarketplace?: boolean) => Promise<void>;
   isSubmitting: boolean;
   prefillData?: Record<string, any> | null;
+  isPublished?: boolean;
 }
 
 const DEFAULT_VALUES: FormData = {
@@ -126,7 +127,7 @@ const DEFAULT_VALUES: FormData = {
   owner_name: "", owner_phone: "", owner_email: "", owner_document: "", owner_notes: "",
 };
 
-export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitting, prefillData }: PropertyFormProps) {
+export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitting, prefillData, isPublished = false }: PropertyFormProps) {
   const { propertyTypes } = usePropertyTypes();
   const { toast } = useToast();
   const [images, setImages] = useState<PropertyImage[]>([]);
@@ -243,8 +244,9 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
       setImages([]);
     }
     setActiveTab("basic");
-    setPublishToMarketplace(false);
-  }, [property, prefillData, form, open]);
+    // Reflect actual marketplace state when editing; default OFF for new properties.
+    setPublishToMarketplace(property ? isPublished : false);
+  }, [property, prefillData, form, open, isPublished]);
 
   const getTabHasErrors = (tabKey: string): boolean => {
     const fields = TAB_FIELDS[tabKey];
@@ -260,6 +262,17 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
   };
 
   const handleSubmit = async (data: FormData) => {
+    // Guardrail: warn if user is hiding a published property by changing its status
+    if (isPublished && publishToMarketplace && data.status !== 'disponivel') {
+      const statusLabels: Record<string, string> = {
+        reservado: 'Reservado', vendido: 'Vendido', alugado: 'Alugado',
+        inativo: 'Inativo', com_proposta: 'Com Proposta', suspenso: 'Suspenso',
+      };
+      const ok = window.confirm(
+        `Este imóvel está publicado no Marketplace. Alterar o status para "${statusLabels[data.status] || data.status}" vai escondê-lo da listagem pública (apenas imóveis com status "Disponível" aparecem). Continuar?`
+      );
+      if (!ok) return;
+    }
     const { owner_name, owner_phone, owner_email, owner_document, owner_notes, area_useful, sale_price_financed, ...restData } = data;
     const selectedType = propertyTypes.find(t => t.id === restData.property_type_id);
     const autoTitle = [selectedType?.name, restData.address_neighborhood, restData.address_city].filter(Boolean).join(' - ') || 'Imóvel sem título';
@@ -331,9 +344,12 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
             <DialogFooter className="flex-col sm:flex-row gap-3 sticky bottom-0 bg-background pt-4 pb-1">
               <div className="flex items-center gap-3 mr-auto">
                 <Switch id="publish-marketplace" checked={publishToMarketplace} onCheckedChange={setPublishToMarketplace} />
-                <Label htmlFor="publish-marketplace" className="flex items-center gap-2 cursor-pointer text-sm font-medium">
+                <Label htmlFor="publish-marketplace" className="flex items-center gap-2 cursor-pointer text-sm font-medium" title="Ligar = publica/atualiza no Marketplace. Desligar = remove do Marketplace.">
                   <Store className="h-4 w-4" />
-                  <span className="hidden sm:inline">Publicar no</span> Marketplace
+                  <span className="hidden sm:inline">{isPublished ? 'Publicado no' : 'Publicar no'}</span> Marketplace
+                  {isPublished && publishToMarketplace && property && (
+                    <span className="ml-1 inline-flex items-center rounded-full bg-success/15 text-success text-[10px] font-semibold px-2 py-0.5">ativo</span>
+                  )}
                 </Label>
               </div>
               <div className="flex gap-2 w-full sm:w-auto">
