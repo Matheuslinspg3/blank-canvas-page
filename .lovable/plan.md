@@ -1,80 +1,72 @@
 
 
-## Diagnóstico — "Contato indisponível" no Marketplace
+## Plano — Landing Page única por imóvel, múltiplos corretores via token
 
-### Causa principal — função RPC quebrada
-`get_marketplace_contact(p_property_id)` retorna apenas:
-```
-org_name, org_phone, org_email, owner_name, owner_phone
-```
-Mas o frontend (`ContactDialog.tsx` l.18-28) espera:
-```
-org_name, org_phone, org_email, org_logo,
-broker_name, broker_phone, broker_avatar,
-owner_name, owner_phone
-```
-Resultado: `broker_name`/`broker_phone`/`org_logo` chegam **sempre `undefined`**. Como o componente prioriza o telefone do corretor (`brokerPhone`), e ele nunca existe, sobra só o `org_phone` — que também está NULL para 4/4 organizações com imóveis publicados.
+### Princípio
+- **1 imóvel = 1 landing page** (conteúdo IA gerado uma só vez, custo compartilhado).
+- **N corretores** podem ter seu próprio link de compartilhamento desse mesmo imóvel.
+- Cada link injeta o contato do corretor que o gerou, sem duplicar a página.
 
-### Causa secundária — telefones vazios no banco
-Dados reais (consulta agora):
-- **4 organizações** com 526 imóveis no marketplace → **0 com `phone` preenchido**.
-- **7 profiles** dessas orgs → apenas **1 com `phone`**.
-- 974 imóveis (de 1.480 marketplace) **nem têm linha em `properties`** (importação só populou `marketplace_properties`), então não dá para resgatar contato via `properties.captador_id`.
+### Arquitetura
 
-Quando ambos (`org.phone` e `broker.phone`) faltam, o dialog cai no "Dados de contato não disponíveis".
+**URL:** `/i/{org-slug}/{property-code}/{broker-token}`
+- Sem token → fallback (captador → created_by → admin org → telefone org).
+- Com token → contato do corretor dono daquele link.
 
-### Causas terciárias
-- A RPC faz `JOIN profiles ON p.user_id = o.created_by` — se o owner da org não tiver `phone`, vira NULL silencioso. Não tenta o `captador_id` do imóvel, nem qualquer profile com `phone` da org como fallback.
-- Não há validação no formulário de organização exigindo telefone.
-- Não há aviso visual ao admin de que a org está publicando no marketplace sem contato.
+### Mudanças
 
----
-
-## Solução
-
-### 1. Reescrever `get_marketplace_contact` (migration)
-A função passa a:
-1. Buscar `marketplace_properties` + `organizations` (com `logo_url`).
-2. Tentar resolver corretor responsável via `properties.captador_id` (quando a linha em `properties` existir).
-3. Aplicar **fallback em cascata** para o telefone:
-   `properties.captador.phone` → `properties.created_by.phone` → qualquer profile admin/owner da org com phone → `organizations.phone`.
-4. Retornar todos os campos esperados pelo frontend (`broker_name`, `broker_phone`, `broker_avatar`, `org_logo`, etc.).
-
-### 2. Backfill imediato dos telefones faltantes
-Painel admin (ou script único) para preencher `organizations.phone` das 4 orgs ativas — sem isso a RPC não tem o que mostrar.
-
-### 3. Mensagem mais útil quando realmente não há contato
-Em `ContactDialog.tsx`, quando `hasAnyData=false`:
-- Mostrar `org_name`/`org_logo` mesmo sem telefone.
-- Texto: "Esta imobiliária ainda não cadastrou contato público. [Notificar imobiliária]" (envio de e-mail interno opcional).
-- Logar evento em `marketplace_contact_intents` com `target_phone=null` para a org saber.
-
-### 4. Guardrails (preventivos)
-
-**a) Trigger no banco** — bloquear publicação no marketplace sem contato resolvível:
+**1. Migration — `property_share_links`**
 ```sql
-CREATE FUNCTION trg_marketplace_require_contact() RETURNS trigger ...
--- ao INSERT em marketplace_properties, garantir que
--- organizations.phone IS NOT NULL OR existe profile da org com phone
+ALTER TABLE property_share_links
+  ADD COLUMN IF NOT EXISTS broker_token text UNIQUE;
+
+UPDATE property_share_links
+SET broker_token = 'b' || substr(md5(id::text), 1, 7)
+WHERE broker_token IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_share_links_token_active
+  ON property_share_links(broker_token) WHERE active = true;
 ```
-Erro amigável: "Cadastre o telefone da imobiliária antes de publicar no Marketplace."
+- Já há UNIQUE `(property_id, broker_id)` ativo via lógica do hook → cada corretor tem **um** token estável por imóvel. Reusar se existir.
 
-**b) UI** — validação no `OrganizationSettings`:
-- Campo "Telefone público" obrigatório (com máscara BR e `^\d{10,13}$`).
-- Banner persistente no dashboard se org tem imóveis no marketplace e `phone IS NULL`.
+**2. RPC pública `get_landing_contact(p_property_id uuid, p_broker_token text)`**
+- Se token válido + ativo → retorna profile do `broker_id` daquele share link.
+- Senão → cascata: `properties.captador_id` → `properties.created_by` → admin/sub_admin da org com phone → `organizations.phone`.
+- Retorna: `broker_name, broker_phone, broker_avatar, broker_email, org_name, org_logo, attribution_source`.
 
-**c) Health check** — view `vw_marketplace_orgs_missing_contact` + alerta no painel admin global.
+**3. Geração de landing — sem duplicação**
+- `property_landing_content` permanece chaveado por `property_id` (já é).
+- Botão "Criar landing" verifica `EXISTS` antes de chamar IA. Se existe, só cria/recupera o `property_share_links` do corretor atual e devolve URL com token dele.
+- Resultado: 2º corretor a clicar "Criar landing" **não** dispara IA — apenas ganha seu próprio token sobre a landing já existente.
 
-**d) Teste de contrato** — Deno test que invoca `get_marketplace_contact` e valida que o JSON contém **todas** as chaves esperadas, prevenindo regressão silenciosa entre RPC e frontend.
+**4. Tracking por corretor**
+- Nova tabela `property_share_visits (id, share_link_id, visited_at, ip_hash, user_agent, referrer)`.
+- Edge `track-landing-visit` chamada no mount da landing → registra visita atribuída.
+- `create-site-lead` aceita `broker_token` e atribui `leads.broker_id` automaticamente.
+
+**5. Frontend**
+- `useShareLink.ts` → retornar URL com `/{broker_token}` no final; reutilizar registro existente do corretor no imóvel.
+- `PropertyLandingPage.tsx` → ler `brokerToken` via `useParams`, chamar `get_landing_contact`, renderizar bloco de contato (foto + nome + WhatsApp + e-mail).
+- `App.tsx` → rota `/i/:orgSlug/:propertyCode/:brokerToken?` (token opcional).
+- Form de contato envia `broker_token` para o lead ser atribuído ao corretor certo.
+
+### Guardrails
+- `broker_token` UNIQUE no banco.
+- Token expirado/revogado → fallback gracioso (nunca "indisponível").
+- Trigger em `property_share_links`: recusa criar token se broker não tem `phone` (mensagem: "Cadastre seu telefone antes de compartilhar").
+- View `vw_landing_links_without_contact` para health check admin.
+- RPC `SECURITY DEFINER` com `search_path = public`.
 
 ### Arquivos
-- `supabase/migrations/<novo>.sql` — nova RPC + trigger guard + view de health check.
-- `src/components/marketplace/ContactDialog.tsx` — fallback visual + CTA "notificar imobiliária".
-- `src/pages/Settings.tsx` (ou `OrganizationSettingsTab`) — campo telefone obrigatório + banner.
-- `supabase/functions/get-marketplace-contact_test.ts` — teste de contrato (opcional mas recomendado).
+- `supabase/migrations/<novo>.sql` — coluna, índice, RPC, trigger, view.
+- `supabase/functions/create-site-lead/index.ts` — aceitar `broker_token`.
+- `supabase/functions/track-landing-visit/index.ts` (nova).
+- `src/hooks/useShareLink.ts` — URL com token, reuso por corretor.
+- `src/pages/PropertyLandingPage.tsx` — usar nova RPC + bloco de contato.
+- `src/App.tsx` — rota com `:brokerToken?`.
 
-### Resultado esperado
-- Imóveis com `properties.captador_id` preenchido passam a mostrar telefone do corretor.
-- Demais caem no telefone da org assim que o backfill rodar.
-- Novas publicações ficam bloqueadas se não houver telefone — bug não volta.
+### Resultado
+- Imóvel gera landing **1x só** (custo IA único, compartilhado entre todos os corretores).
+- Cada corretor tem **seu link próprio** com seu contato e atribuição automática de leads/visitas.
+- Sem token → fallback para captador/org. Nunca quebra.
 
