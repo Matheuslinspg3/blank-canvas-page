@@ -9,6 +9,7 @@ import { Plus, FileUp } from "lucide-react";
 import { QueryErrorState } from "@/components/QueryErrorState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProperties, PropertyWithDetails, PropertyFormData } from "@/hooks/useProperties";
+import { usePropertiesList } from "@/hooks/usePropertiesList";
 import { SelectablePropertyCard } from "@/components/properties/SelectablePropertyCard";
 import { VirtualizedPropertyGrid } from "@/components/properties/VirtualizedPropertyGrid";
 import { PropertyListItem } from "@/components/properties/PropertyListItem";
