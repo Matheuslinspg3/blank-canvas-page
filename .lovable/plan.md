@@ -1,60 +1,80 @@
 
 
-## Diagnóstico — Página /imoveis demora 2+ min
+## Diagnóstico — "Contato indisponível" no Marketplace
 
-**Volume real (org Porto Caiçara):** 1.488 imóveis · 17.892 imagens.
+### Causa principal — função RPC quebrada
+`get_marketplace_contact(p_property_id)` retorna apenas:
+```
+org_name, org_phone, org_email, owner_name, owner_phone
+```
+Mas o frontend (`ContactDialog.tsx` l.18-28) espera:
+```
+org_name, org_phone, org_email, org_logo,
+broker_name, broker_phone, broker_avatar,
+owner_name, owner_phone
+```
+Resultado: `broker_name`/`broker_phone`/`org_logo` chegam **sempre `undefined`**. Como o componente prioriza o telefone do corretor (`brokerPhone`), e ele nunca existe, sobra só o `org_phone` — que também está NULL para 4/4 organizações com imóveis publicados.
 
-### Causa principal — `usePropertyCRUD` baixa TUDO duas vezes
-`src/hooks/usePropertyCRUD.ts` (l. 47-103) faz `SELECT` paginado (200 em 200) com `images:property_images!left(...)` embutido. Para 1.488 imóveis isso são **8 round-trips sequenciais** trazendo ~17.892 linhas de imagem com colunas grandes (`url`, `cached_thumbnail_url`, `r2_key_full`…). Resultado: payload gigantesco (vários MB), parse JSON lento e re-render em cascata.
+### Causa secundária — telefones vazios no banco
+Dados reais (consulta agora):
+- **4 organizações** com 526 imóveis no marketplace → **0 com `phone` preenchido**.
+- **7 profiles** dessas orgs → apenas **1 com `phone`**.
+- 974 imóveis (de 1.480 marketplace) **nem têm linha em `properties`** (importação só populou `marketplace_properties`), então não dá para resgatar contato via `properties.captador_id`.
 
-### Causa secundária — duas queries pesadas em paralelo
-`src/pages/Properties.tsx` (l. 89-97) dispara simultaneamente:
-1. `useAdvancedPropertySearch` → RPC `search_properties_advanced` com `p_limit: 2000` (sempre, mesmo sem filtros).
-2. `useProperties` → o fetch paginado acima.
-
-Ambas concorrem pela mesma conexão Postgres + RLS, dobrando latência. `isLoading = isSearching || isLoadingAll` só libera a UI quando AMBAS terminam.
+Quando ambos (`org.phone` e `broker.phone`) faltam, o dialog cai no "Dados de contato não disponíveis".
 
 ### Causas terciárias
-- `idx_property_images_property_id` existe, mas o `!left` join hidrata todas as imagens só para mostrar a capa no card.
-- Falta índice composto `(organization_id, created_at DESC)` para o `ORDER BY` do listing.
-- `staleTime: 5min` no CRUD vs. `30s` no advanced search → cache desencontrado refaz fetch ao voltar à página.
-- Sort/filter feito no cliente sobre 1.488 itens em `useMemo` — aceitável, mas fica preso atrás do fetch.
+- A RPC faz `JOIN profiles ON p.user_id = o.created_by` — se o owner da org não tiver `phone`, vira NULL silencioso. Não tenta o `captador_id` do imóvel, nem qualquer profile com `phone` da org como fallback.
+- Não há validação no formulário de organização exigindo telefone.
+- Não há aviso visual ao admin de que a org está publicando no marketplace sem contato.
 
 ---
 
-## Plano de correção
+## Solução
 
-### 1. Hook leve para listagem (corrige causa principal)
-Criar `usePropertiesList` que substitua `useProperties()` em `Properties.tsx`:
-- Selecionar **apenas campos do card** (sem `description`, `payment_options`, `amenities`, etc.).
-- Trocar `images:property_images!left(...)` por **subquery só da capa** ou coluna materializada `cover_image_url` já existente em vários fluxos.
-- Paginar de verdade no servidor: `range(0, pageSize-1)` com `count: 'exact'` — nada de loop até esgotar.
-- Manter `useProperties()` original só para mutations e PropertyDetails.
+### 1. Reescrever `get_marketplace_contact` (migration)
+A função passa a:
+1. Buscar `marketplace_properties` + `organizations` (com `logo_url`).
+2. Tentar resolver corretor responsável via `properties.captador_id` (quando a linha em `properties` existir).
+3. Aplicar **fallback em cascata** para o telefone:
+   `properties.captador.phone` → `properties.created_by.phone` → qualquer profile admin/owner da org com phone → `organizations.phone`.
+4. Retornar todos os campos esperados pelo frontend (`broker_name`, `broker_phone`, `broker_avatar`, `org_logo`, etc.).
 
-### 2. Eliminar dupla query (corrige causa secundária)
-Em `Properties.tsx`:
-- Tornar `useAdvancedPropertySearch` **condicional**: `enabled: hasActiveFilters`.
-- Quando não há filtro, usar diretamente os dados do `usePropertiesList` paginado.
-- Quando há filtro, **desabilitar** `usePropertiesList` (ou só usar como cache de detalhes) e renderizar resultados do RPC.
+### 2. Backfill imediato dos telefones faltantes
+Painel admin (ou script único) para preencher `organizations.phone` das 4 orgs ativas — sem isso a RPC não tem o que mostrar.
 
-### 3. Índice de banco (migration)
+### 3. Mensagem mais útil quando realmente não há contato
+Em `ContactDialog.tsx`, quando `hasAnyData=false`:
+- Mostrar `org_name`/`org_logo` mesmo sem telefone.
+- Texto: "Esta imobiliária ainda não cadastrou contato público. [Notificar imobiliária]" (envio de e-mail interno opcional).
+- Logar evento em `marketplace_contact_intents` com `target_phone=null` para a org saber.
+
+### 4. Guardrails (preventivos)
+
+**a) Trigger no banco** — bloquear publicação no marketplace sem contato resolvível:
 ```sql
-CREATE INDEX IF NOT EXISTS idx_properties_org_created_desc
-  ON public.properties (organization_id, created_at DESC);
+CREATE FUNCTION trg_marketplace_require_contact() RETURNS trigger ...
+-- ao INSERT em marketplace_properties, garantir que
+-- organizations.phone IS NOT NULL OR existe profile da org com phone
 ```
+Erro amigável: "Cadastre o telefone da imobiliária antes de publicar no Marketplace."
 
-### 4. Otimização preventiva
-- Aumentar `staleTime` do advanced search para 2 min e alinhar com CRUD.
-- Reduzir `p_limit` do RPC de 2000 → 200 (paginar via `p_offset`).
-- Pré-carregar capas via `cached_thumbnail_url` (já existe) e parar de enviar `r2_key_full` para a listagem.
-- Adicionar `select('id', { count: 'exact', head: true })` separado para mostrar total sem baixar linhas.
+**b) UI** — validação no `OrganizationSettings`:
+- Campo "Telefone público" obrigatório (com máscara BR e `^\d{10,13}$`).
+- Banner persistente no dashboard se org tem imóveis no marketplace e `phone IS NULL`.
 
-### Arquivos afetados
-- `src/hooks/usePropertiesList.ts` (novo)
-- `src/pages/Properties.tsx` (trocar hooks + tornar advanced search condicional)
-- `src/hooks/useAdvancedPropertySearch.ts` (paginação + limit menor)
-- `supabase/migrations/<novo>.sql` (índice composto)
+**c) Health check** — view `vw_marketplace_orgs_missing_contact` + alerta no painel admin global.
+
+**d) Teste de contrato** — Deno test que invoca `get_marketplace_contact` e valida que o JSON contém **todas** as chaves esperadas, prevenindo regressão silenciosa entre RPC e frontend.
+
+### Arquivos
+- `supabase/migrations/<novo>.sql` — nova RPC + trigger guard + view de health check.
+- `src/components/marketplace/ContactDialog.tsx` — fallback visual + CTA "notificar imobiliária".
+- `src/pages/Settings.tsx` (ou `OrganizationSettingsTab`) — campo telefone obrigatório + banner.
+- `supabase/functions/get-marketplace-contact_test.ts` — teste de contrato (opcional mas recomendado).
 
 ### Resultado esperado
-2 min → < 3 s no first load para a org de 1.488 imóveis.
+- Imóveis com `properties.captador_id` preenchido passam a mostrar telefone do corretor.
+- Demais caem no telefone da org assim que o backfill rodar.
+- Novas publicações ficam bloqueadas se não houver telefone — bug não volta.
 
