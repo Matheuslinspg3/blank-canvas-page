@@ -9516,6 +9516,18 @@ export type Database = {
         Returns: string
       }
       get_current_user_role: { Args: never; Returns: string }
+      get_invite_for_acceptance: {
+        Args: { p_invite_id: string }
+        Returns: {
+          email: string
+          expires_at: string
+          id: string
+          org_name: string
+          organization_id: string
+          role: string
+          status: string
+        }[]
+      }
       get_landing_contact: {
         Args: { p_broker_token?: string; p_property_id: string }
         Returns: {
