@@ -130,9 +130,54 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : !hasAnyData ? (
-          <p className="text-muted-foreground text-center py-4">
-            Dados de contato não disponíveis para este imóvel.
-          </p>
+          <div className="space-y-4 py-2">
+            {contactData?.org_name && (
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                <Avatar className="h-10 w-10 shrink-0">
+                  {contactData.org_logo && <AvatarImage src={contactData.org_logo} alt={contactData.org_name} />}
+                  <AvatarFallback><Building className="h-4 w-4" /></AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm truncate">{contactData.org_name}</p>
+                  <p className="text-xs text-muted-foreground">Imobiliária</p>
+                </div>
+              </div>
+            )}
+            <p className="text-sm text-muted-foreground text-center">
+              Esta imobiliária ainda não cadastrou um contato público no Porta do Corretor.
+            </p>
+            <Button
+              className="w-full gap-2"
+              variant="outline"
+              onClick={async () => {
+                try {
+                  await supabase.from("marketplace_contact_intents" as any).insert({
+                    organization_id: property.organization_id,
+                    target_phone: null,
+                    contact_type: "org",
+                    property_id: property.id,
+                    property_title: property.title,
+                    property_code: property.external_code || null,
+                    org_name: contactData?.org_name || null,
+                  });
+                  toast({
+                    title: "Imobiliária notificada",
+                    description: "Avisamos a imobiliária do seu interesse. Em breve devem entrar em contato.",
+                  });
+                  onOpenChange(false);
+                } catch {
+                  toast({
+                    title: "Não foi possível registrar",
+                    description: "Tente novamente em instantes.",
+                    variant: "destructive",
+                  });
+                }
+              }}
+            >
+              <MessageCircle className="h-4 w-4" />
+              Notificar imobiliária do meu interesse
+            </Button>
+          </div>
         ) : (
           <div className="space-y-5">
             {/* Organization section */}
