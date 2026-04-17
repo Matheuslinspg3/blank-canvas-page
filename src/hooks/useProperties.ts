@@ -33,6 +33,7 @@ export function useProperties() {
       publishToMarketplace: async () => { demoMutate(); },
       bulkPublishToMarketplace: async () => { demoMutate(); },
       bulkHideFromMarketplace: async () => { demoMutate(); },
+      hideFromMarketplace: async () => { demoMutate(); },
       isCreating: false,
       isUpdating: false,
       isDeleting: false,
