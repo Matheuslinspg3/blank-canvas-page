@@ -1,72 +1,79 @@
 
 
-## Plano — Landing Page única por imóvel, múltiplos corretores via token
+## Diagnóstico — Toggle Marketplace bugado ao editar imóvel
 
-### Princípio
-- **1 imóvel = 1 landing page** (conteúdo IA gerado uma só vez, custo compartilhado).
-- **N corretores** podem ter seu próprio link de compartilhamento desse mesmo imóvel.
-- Cada link injeta o contato do corretor que o gerou, sem duplicar a página.
+### Causa principal — toggle nunca lê o estado real
+`PropertyForm.tsx` linha **246**: `setPublishToMarketplace(false)` em todo reset, sem consultar se o imóvel já está em `marketplace_properties`. Resultado: ao abrir "Editar", o switch sempre aparece **desligado**, mesmo para imóveis publicados.
 
-### Arquitetura
+### Causa secundária — desligar o toggle não despublica, mas o usuário não sabe
+O toggle em modo edição não tem semântica clara:
+- **OFF + publicado** → roda **auto-resync** (re-upsert silencioso, linha 544 `Properties.tsx`).
+- **ON + publicado** → roda publish (upsert idêntico).
+- **OFF para despublicar** → não existe. Não há ação de remover.
 
-**URL:** `/i/{org-slug}/{property-code}/{broker-token}`
-- Sem token → fallback (captador → created_by → admin org → telefone org).
-- Com token → contato do corretor dono daquele link.
+O usuário "ativa" achando que vai publicar, salva, e aí entra a próxima causa.
 
-### Mudanças
+### Causa terciária — status muda → some do marketplace
+`useMarketplace.ts` linha **50**: lista só `status='disponivel'`. O publish reupserta `status` da tabela `properties`. Se o usuário editou status para qualquer outra coisa (reservado, inativo, etc.) durante a mesma edição, o imóvel é "publicado" mas com status filtrado → **desaparece da listagem** e dá impressão de "saiu do marketplace".
 
-**1. Migration — `property_share_links`**
-```sql
-ALTER TABLE property_share_links
-  ADD COLUMN IF NOT EXISTS broker_token text UNIQUE;
+### Causas adicionais
+- `publishToMarketplace(...).catch(() => {})` em `Properties.tsx` (518, 545, 553) e `PropertyDetails.tsx` (184, 188) **engole todo erro**. Se o trigger `marketplace_require_contact` rejeita (sem telefone na org), o usuário recebe toast de "salvo" e nada explica o sumiço.
+- Cache `publishedIds` (`useMarketplaceStatus`) tem `staleTime: 30s` — pode estar desatualizado quando o form abre.
+- `useMarketplaceStatus` baixa **todos** os IDs publicados sem filtrar por org → lento e desnecessário.
 
-UPDATE property_share_links
-SET broker_token = 'b' || substr(md5(id::text), 1, 7)
-WHERE broker_token IS NULL;
+---
 
-CREATE INDEX IF NOT EXISTS idx_share_links_token_active
-  ON property_share_links(broker_token) WHERE active = true;
+## Solução
+
+### 1. Toggle reflete estado real (PropertyForm.tsx)
+Receber `isPublished: boolean` como prop e inicializar `publishToMarketplace = isPublished` no reset. Renomear para 3 estados visualmente claros:
+- Switch **"Publicado no Marketplace"** com tooltip explicando "ligar = publica/atualiza, desligar = remove do Marketplace".
+
+### 2. Semântica explícita: ON publica, OFF despublica
+`executePropertySubmit` (Properties.tsx) e `handleFormSubmit` (PropertyDetails.tsx):
 ```
-- Já há UNIQUE `(property_id, broker_id)` ativo via lógica do hook → cada corretor tem **um** token estável por imóvel. Reusar se existir.
+const wasPublished = publishedIds.has(id);
+if (publishMarketplace && !wasPublished) → publish (insert)
+if (publishMarketplace && wasPublished)  → publish (re-sync)
+if (!publishMarketplace && wasPublished) → hideFromMarketplace (delete) — com confirm dialog
+if (!publishMarketplace && !wasPublished) → no-op
+```
+Adicionar `hideFromMarketplace(id: string)` (single) ao `usePropertyBulkOps` reaproveitando a mesma rota.
 
-**2. RPC pública `get_landing_contact(p_property_id uuid, p_broker_token text)`**
-- Se token válido + ativo → retorna profile do `broker_id` daquele share link.
-- Senão → cascata: `properties.captador_id` → `properties.created_by` → admin/sub_admin da org com phone → `organizations.phone`.
-- Retorna: `broker_name, broker_phone, broker_avatar, broker_email, org_name, org_logo, attribution_source`.
+### 3. Tratar erros de publish (não usar `.catch(() => {})`)
+Trocar para `await` real dentro de `executePropertySubmit`, com try/catch que mostra toast de erro com a mensagem do trigger ("Cadastre o telefone público da imobiliária…"). Manter o save da propriedade mesmo se publish falhar, mas avisar.
 
-**3. Geração de landing — sem duplicação**
-- `property_landing_content` permanece chaveado por `property_id` (já é).
-- Botão "Criar landing" verifica `EXISTS` antes de chamar IA. Se existe, só cria/recupera o `property_share_links` do corretor atual e devolve URL com token dele.
-- Resultado: 2º corretor a clicar "Criar landing" **não** dispara IA — apenas ganha seu próprio token sobre a landing já existente.
+### 4. Aviso ao mudar status para não-disponível enquanto publicado
+No `handleSubmit` do form: se `isPublished && data.status !== 'disponivel'`, abrir confirm:
+> "Este imóvel está no Marketplace. Mudar status para '{status}' vai escondê-lo da listagem pública. Continuar?"
 
-**4. Tracking por corretor**
-- Nova tabela `property_share_visits (id, share_link_id, visited_at, ip_hash, user_agent, referrer)`.
-- Edge `track-landing-visit` chamada no mount da landing → registra visita atribuída.
-- `create-site-lead` aceita `broker_token` e atribui `leads.broker_id` automaticamente.
+### 5. Guardrails
 
-**5. Frontend**
-- `useShareLink.ts` → retornar URL com `/{broker_token}` no final; reutilizar registro existente do corretor no imóvel.
-- `PropertyLandingPage.tsx` → ler `brokerToken` via `useParams`, chamar `get_landing_contact`, renderizar bloco de contato (foto + nome + WhatsApp + e-mail).
-- `App.tsx` → rota `/i/:orgSlug/:propertyCode/:brokerToken?` (token opcional).
-- Form de contato envia `broker_token` para o lead ser atribuído ao corretor certo.
+**a) Banco — sincronizar status ao atualizar `properties`**
+Trigger `AFTER UPDATE ON properties` que, se existe linha em `marketplace_properties` para esse id, atualiza apenas os campos espelhados (status, title, prices, etc.). Garante que o marketplace nunca fica defasado nem inconsistente — independente do frontend.
 
-### Guardrails
-- `broker_token` UNIQUE no banco.
-- Token expirado/revogado → fallback gracioso (nunca "indisponível").
-- Trigger em `property_share_links`: recusa criar token se broker não tem `phone` (mensagem: "Cadastre seu telefone antes de compartilhar").
-- View `vw_landing_links_without_contact` para health check admin.
-- RPC `SECURITY DEFINER` com `search_path = public`.
+**b) Banco — view de health check**
+`vw_marketplace_status_drift`: lista imóveis onde `properties.updated_at > marketplace_properties.updated_at` (já existe a query, virar view).
+
+**c) UI — badge no card do imóvel**
+Mostrar selo "No Marketplace" no `PropertyCard` quando `publishedIds.has(id)`, eliminando ambiguidade visual.
+
+**d) Cache mais fresco**
+`useMarketplaceStatus` filtrando por `organization_id` + invalidar ao abrir form de edição (refetch on mount).
 
 ### Arquivos
-- `supabase/migrations/<novo>.sql` — coluna, índice, RPC, trigger, view.
-- `supabase/functions/create-site-lead/index.ts` — aceitar `broker_token`.
-- `supabase/functions/track-landing-visit/index.ts` (nova).
-- `src/hooks/useShareLink.ts` — URL com token, reuso por corretor.
-- `src/pages/PropertyLandingPage.tsx` — usar nova RPC + bloco de contato.
-- `src/App.tsx` — rota com `:brokerToken?`.
+- `src/components/properties/PropertyForm.tsx` — prop `isPublished`, init correto, tooltip.
+- `src/pages/Properties.tsx` + `src/pages/PropertyDetails.tsx` — passar `isPublished`, lógica ON/OFF explícita, await publish, confirm de status.
+- `src/hooks/usePropertyBulkOps.ts` — exportar `hideFromMarketplace` (single id).
+- `src/hooks/useProperties.ts` — repassar `hideFromMarketplace`.
+- `src/hooks/useMarketplaceStatus.ts` — filtrar por org, exportar `refetch`.
+- `src/components/properties/PropertyCard.tsx` (ou equivalente) — badge "No Marketplace".
+- `supabase/migrations/<novo>.sql` — trigger `properties → marketplace_properties` sync + view `vw_marketplace_status_drift`.
 
 ### Resultado
-- Imóvel gera landing **1x só** (custo IA único, compartilhado entre todos os corretores).
-- Cada corretor tem **seu link próprio** com seu contato e atribuição automática de leads/visitas.
-- Sem token → fallback para captador/org. Nunca quebra.
+- Toggle mostra estado real ao editar.
+- Ligar publica, desligar despublica (com confirm).
+- Mudança de status emite alerta antes de "esconder" o imóvel.
+- Erros do publish viram toasts visíveis (trigger de telefone faltando, etc.).
+- Trigger de banco mantém marketplace sempre sincronizado, mesmo se UI esquecer.
 
