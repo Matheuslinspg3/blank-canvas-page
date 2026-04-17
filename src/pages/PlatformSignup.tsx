@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Loader2, Sparkles, ArrowRight, Building2, CheckCircle2, User } from "lucide-react";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
 import { PillBadge } from "@/components/ui/pill-badge";
+import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
@@ -186,6 +187,17 @@ export default function PlatformSignup() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="space-y-3 mb-4">
+              <GoogleSignInButton />
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border/60" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-card px-2 text-muted-foreground">ou cadastre com email</span>
+                </div>
+              </div>
+            </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Account type selector */}
               <div className="space-y-2">

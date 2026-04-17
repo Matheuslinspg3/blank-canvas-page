@@ -18,6 +18,7 @@ import { REGEXP_ONLY_DIGITS } from "input-otp";
 import { cn } from "@/lib/utils";
 import { PasswordStrengthIndicator, isPasswordStrong } from "@/components/PasswordStrengthIndicator";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 
 interface SignupPlan {
   id: string;
@@ -613,6 +614,17 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                   <>Entrar na plataforma <ArrowRight className="h-5 w-5 ml-2 transition-transform group-hover:translate-x-1.5" /></>
                 )}
               </Button>
+
+              <div className="relative my-2">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border/60" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-background px-2 text-muted-foreground">ou</span>
+                </div>
+              </div>
+
+              <GoogleSignInButton disabled={isMaintenanceMode} />
             </form>
           ) : (
             /* ===== SIGNUP ===== */
