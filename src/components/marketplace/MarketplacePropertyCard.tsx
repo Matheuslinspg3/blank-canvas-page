@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { OptimizedImage } from "@/components/ui/optimized-image";
 import { Badge } from "@/components/ui/badge";
 import {
-  MapPin, Bed, Bath, Car, Maximize, Phone, Star, Building, ImageIcon, BadgeCheck,
+  MapPin, Bed, Bath, Car, Maximize, Phone, Star, Building, ImageIcon, BadgeCheck, Ruler, Sparkles, Wallet, Banknote,
 } from "lucide-react";
 import { formatCurrency, proxyDriveImageUrl } from "@/lib/utils";
 import type { MarketplaceProperty } from "@/hooks/useMarketplace";
@@ -22,6 +22,7 @@ export const MarketplacePropertyCard = React.memo(function MarketplacePropertyCa
 
   const getDisplayPrice = () => {
     if (property.sale_price) return formatCurrency(property.sale_price);
+    if (property.sale_price_financed) return formatCurrency(property.sale_price_financed);
     if (property.rent_price) return `${formatCurrency(property.rent_price)}/mês`;
     return "Sob consulta";
   };
@@ -32,14 +33,20 @@ export const MarketplacePropertyCard = React.memo(function MarketplacePropertyCa
 
   const featureItems = [
     { icon: Bed, value: property.bedrooms, label: "quartos" },
+    { icon: Sparkles, value: property.suites, label: "suítes" },
     { icon: Bath, value: property.bathrooms, label: "banh." },
     { icon: Car, value: property.parking_spots, label: "vagas" },
-    { icon: Maximize, value: property.area_total, label: "m²", suffix: "m²" },
+    { icon: Maximize, value: property.area_total, label: "m² total", suffix: "m²" },
+    { icon: Ruler, value: property.area_built, label: "m² constr.", suffix: "m² constr." },
   ].filter(f => (f.value ?? 0) > 0);
 
   const location = [property.address_neighborhood, property.address_city, property.address_state]
     .filter(Boolean)
     .join(", ");
+
+  const topAmenities = (property.amenities ?? []).slice(0, 4);
+  const extraAmenitiesCount = Math.max(0, (property.amenities?.length ?? 0) - topAmenities.length);
+  const topPayments = (property.payment_options ?? []).slice(0, 3);
 
   if (viewMode === "list") {
     return (
