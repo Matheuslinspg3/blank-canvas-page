@@ -197,7 +197,42 @@ export default function PropertyLandingPage() {
     fetchProperty();
   }, [id]);
 
-  // SEO is now handled via SEOHead in the return JSX below
+  // Resolve property id from orgSlug+propertyCode
+  useEffect(() => {
+    if (paramId) { setResolvedId(paramId); return; }
+    if (!orgSlug || !propertyCode) return;
+    (async () => {
+      const { data: org } = await supabase
+        .from("organizations").select("id").eq("slug", orgSlug).maybeSingle();
+      if (!org) { setResolvedId(null); setLoading(false); return; }
+      const { data: prop } = await supabase
+        .from("properties").select("id")
+        .eq("organization_id", org.id)
+        .eq("property_code", propertyCode)
+        .maybeSingle();
+      setResolvedId(prop?.id ?? null);
+      if (!prop) setLoading(false);
+    })();
+  }, [paramId, orgSlug, propertyCode]);
+
+  // Fetch attribution contact + record visit
+  useEffect(() => {
+    if (!id) return;
+    (async () => {
+      const { data } = await (supabase.rpc as any)("get_landing_contact", {
+        p_property_id: id,
+        p_broker_token: brokerToken ?? null,
+      });
+      if (data && data.length > 0) setContact(data[0] as LandingContact);
+    })();
+
+    if (brokerToken) {
+      supabase.functions.invoke("track-landing-visit", {
+        body: { broker_token: brokerToken, property_id: id, referrer: document.referrer || null },
+      }).catch(() => {});
+    }
+  }, [id, brokerToken]);
+
 
   const formatPrice = (price: number | null, isRent = false) => {
     if (!price) return null;
