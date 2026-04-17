@@ -291,16 +291,6 @@ export function FinancingSimulator() {
             </div>
           </CardContent>
         </Card>
-      </div>
-
-      {/* ── Status Badges ── */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant={isSFH ? "default" : "destructive"} className="gap-1 text-xs">
-          {isSFH ? <ShieldCheck className="h-3.5 w-3.5" /> : <ShieldAlert className="h-3.5 w-3.5" />}
-          {isSFH ? "SFH" : "SFI (acima do teto)"}
-        </Badge>
-          </CardContent>
-        </Card>
 
         {/* Section 4: Custos Adicionais */}
         <Card className="border-border/50 lg:col-span-3">
