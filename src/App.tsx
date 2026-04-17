@@ -176,6 +176,8 @@ const App = () => (
                       <Route path="/dev/migrate-site-v2" element={<Suspense fallback={<div className="p-8">Carregando...</div>}><DevMigrateSiteV2 /></Suspense>} />
                       <Route path="/dev/site-builder-rollout" element={<Suspense fallback={<div className="p-8">Carregando...</div>}><DevSiteBuilderRollout /></Suspense>} />
                       <Route path="/imovel/:id" element={<PropertyLandingPage />} />
+                      <Route path="/i/:orgSlug/:propertyCode" element={<PropertyLandingPage />} />
+                      <Route path="/i/:orgSlug/:propertyCode/:brokerToken" element={<PropertyLandingPage />} />
                       <Route path="/instalar" element={<Install />} />
                       <Route path="/site/:orgSlug" element={<Storefront />} />
                       <Route path="/i/:orgSlug/:code" element={<PublicPropertyBySlug />} />

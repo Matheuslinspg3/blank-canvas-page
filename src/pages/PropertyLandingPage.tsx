@@ -85,16 +85,32 @@ function DynamicIcon({ name, className }: { name: string; className?: string }) 
   return <IconComponent className={className} />;
 }
 
+interface LandingContact {
+  broker_name: string | null;
+  broker_phone: string | null;
+  broker_avatar: string | null;
+  broker_email: string | null;
+  org_name: string | null;
+  org_logo: string | null;
+  org_phone: string | null;
+  attribution_source: string | null;
+}
+
 export default function PropertyLandingPage() {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id?: string; orgSlug?: string; propertyCode?: string; brokerToken?: string }>();
+  const { id: paramId, orgSlug, propertyCode, brokerToken } = params;
   const { toast } = useToast();
+  const [resolvedId, setResolvedId] = useState<string | null>(paramId ?? null);
   const [property, setProperty] = useState<PropertyWithDetails | null>(null);
+  const [contact, setContact] = useState<LandingContact | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [formData, setFormData] = useState({
     name: "", email: "", phone: "", message: "",
   });
+
+  const id = resolvedId;
 
   const { content: aiContent, isLoading: isLoadingAI, isGenerating, regenerate } = useLandingContent(id);
   const { overrides } = useLandingOverrides(id);
@@ -181,7 +197,42 @@ export default function PropertyLandingPage() {
     fetchProperty();
   }, [id]);
 
-  // SEO is now handled via SEOHead in the return JSX below
+  // Resolve property id from orgSlug+propertyCode
+  useEffect(() => {
+    if (paramId) { setResolvedId(paramId); return; }
+    if (!orgSlug || !propertyCode) return;
+    (async () => {
+      const { data: org } = await supabase
+        .from("organizations").select("id").eq("slug", orgSlug).maybeSingle();
+      if (!org) { setResolvedId(null); setLoading(false); return; }
+      const { data: prop } = await supabase
+        .from("properties").select("id")
+        .eq("organization_id", org.id)
+        .eq("property_code", propertyCode)
+        .maybeSingle();
+      setResolvedId(prop?.id ?? null);
+      if (!prop) setLoading(false);
+    })();
+  }, [paramId, orgSlug, propertyCode]);
+
+  // Fetch attribution contact + record visit
+  useEffect(() => {
+    if (!id) return;
+    (async () => {
+      const { data } = await (supabase.rpc as any)("get_landing_contact", {
+        p_property_id: id,
+        p_broker_token: brokerToken ?? null,
+      });
+      if (data && data.length > 0) setContact(data[0] as LandingContact);
+    })();
+
+    if (brokerToken) {
+      supabase.functions.invoke("track-landing-visit", {
+        body: { broker_token: brokerToken, property_id: id, referrer: document.referrer || null },
+      }).catch(() => {});
+    }
+  }, [id, brokerToken]);
+
 
   const formatPrice = (price: number | null, isRent = false) => {
     if (!price) return null;
@@ -200,10 +251,24 @@ export default function PropertyLandingPage() {
     e.preventDefault();
     if (!property) return;
     setSubmitting(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    toast({ title: "Mensagem enviada!", description: "Em breve entraremos em contato." });
-    setSubmitted(true);
-    setSubmitting(false);
+    try {
+      await supabase.functions.invoke("create-site-lead", {
+        body: {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          message: formData.message,
+          broker_token: brokerToken ?? null,
+          property_id: id,
+        },
+      });
+      toast({ title: "Mensagem enviada!", description: "Em breve entraremos em contato." });
+      setSubmitted(true);
+    } catch {
+      toast({ title: "Erro", description: "Não foi possível enviar. Tente novamente.", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleShare = async (platform: string) => {
@@ -566,7 +631,46 @@ export default function PropertyLandingPage() {
 
           {/* Contact Form Sidebar */}
           <div className="lg:col-span-1">
-            <div className="sticky top-20">
+            <div className="sticky top-20 space-y-3">
+              {/* Broker contact card (attribution) */}
+              {(contact?.broker_name || contact?.broker_phone || contact?.org_phone) && (
+                <Card className="border border-primary/20">
+                  <CardContent className="pt-5 pb-5">
+                    <div className="flex items-center gap-3">
+                      {contact?.broker_avatar ? (
+                        <img src={contact.broker_avatar} alt={contact.broker_name || "Corretor"}
+                          className="h-12 w-12 rounded-full object-cover border" />
+                      ) : (
+                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Phone className="h-5 w-5 text-primary" />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-muted-foreground">Seu contato</p>
+                        <p className="font-semibold truncate">{contact?.broker_name || contact?.org_name || "Corretor responsável"}</p>
+                        {contact?.org_name && contact?.broker_name && (
+                          <p className="text-xs text-muted-foreground truncate">{contact.org_name}</p>
+                        )}
+                      </div>
+                    </div>
+                    {(contact?.broker_phone || contact?.org_phone) && (
+                      <Button
+                        className="w-full mt-4"
+                        size="sm"
+                        onClick={() => {
+                          const phone = (contact?.broker_phone || contact?.org_phone || "").replace(/\D/g, "");
+                          const msg = `Olá${contact?.broker_name ? ` ${contact.broker_name.split(" ")[0]}` : ""}! Tenho interesse no imóvel: ${aiContent?.headline || property.title} - ${window.location.href}`;
+                          window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
+                        }}
+                      >
+                        <MessageCircle className="h-4 w-4 mr-2" />
+                        Falar no WhatsApp
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
               <Card className="border-2 border-primary/20 shadow-lg">
                 <CardHeader className="bg-primary/5 rounded-t-xl">
                   <CardTitle className="text-center text-lg">
@@ -607,12 +711,6 @@ export default function PropertyLandingPage() {
                   )}
                 </CardContent>
               </Card>
-
-              <Button variant="outline" className="w-full mt-3"
-                onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`Olá! Tenho interesse no imóvel: ${aiContent?.headline || property.title} - ${window.location.href}`)}`, "_blank")}>
-                <MessageCircle className="h-4 w-4 mr-2" />
-                Contato via WhatsApp
-              </Button>
             </div>
           </div>
         </div>
