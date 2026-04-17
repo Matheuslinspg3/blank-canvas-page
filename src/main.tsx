@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import { APP_VERSION } from "./config/appVersion";
+import { isImportChunkError, isMimeMismatchError } from "./utils/chunkErrorDetection";
+import { safeReloadOnce } from "./utils/safeReload";
 // Capture beforeinstallprompt globally so it's available even if Install page mounts later
 declare global {
   interface WindowEventMap {
