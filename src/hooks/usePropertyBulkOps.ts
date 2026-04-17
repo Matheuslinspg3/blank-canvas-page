@@ -132,6 +132,7 @@ export function usePropertyBulkOps() {
         external_code: (prop as any).property_code || null, commission_percentage: (prop as any).commission_value || null,
         sale_price_financed: (prop as any).sale_price_financed ? Math.round((prop as any).sale_price_financed) : null,
         payment_options: (prop as any).payment_options || null,
+        marketplace_contact_phone: (prop as any).marketplace_contact_phone || null,
         is_featured: false, organization_id: profile.organization_id,
       }, { onConflict: 'id' });
       if (error) throw error;
@@ -179,6 +180,7 @@ export function usePropertyBulkOps() {
           external_code: prop.property_code || null, commission_percentage: prop.commission_value || null,
           sale_price_financed: (prop as any).sale_price_financed ? Math.round((prop as any).sale_price_financed) : null,
           payment_options: (prop as any).payment_options || null,
+          marketplace_contact_phone: (prop as any).marketplace_contact_phone || null,
           is_featured: false, organization_id: profile.organization_id,
         };
       });
