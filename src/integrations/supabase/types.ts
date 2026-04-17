@@ -1328,6 +1328,13 @@ export type Database = {
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "anuncios_gerados_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_status_drift"
+            referencedColumns: ["property_id"]
+          },
         ]
       }
       app_runtime_config: {
@@ -1454,6 +1461,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_status_drift"
+            referencedColumns: ["property_id"]
           },
         ]
       }
@@ -2462,6 +2476,13 @@ export type Database = {
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "contracts_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_status_drift"
+            referencedColumns: ["property_id"]
+          },
         ]
       }
       crm_import_logs: {
@@ -2971,6 +2992,13 @@ export type Database = {
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "generated_arts_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_status_drift"
+            referencedColumns: ["property_id"]
+          },
         ]
       }
       generated_videos: {
@@ -3074,6 +3102,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_videos_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_status_drift"
+            referencedColumns: ["property_id"]
           },
         ]
       }
@@ -3254,6 +3289,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_run_items_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_status_drift"
+            referencedColumns: ["property_id"]
           },
           {
             foreignKeyName: "import_run_items_run_id_fkey"
@@ -4032,6 +4074,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_status_drift"
+            referencedColumns: ["property_id"]
           },
         ]
       }
@@ -5398,6 +5447,13 @@ export type Database = {
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "property_images_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_status_drift"
+            referencedColumns: ["property_id"]
+          },
         ]
       }
       property_landing_content: {
@@ -5463,6 +5519,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_landing_content_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "vw_marketplace_status_drift"
+            referencedColumns: ["property_id"]
           },
         ]
       }
@@ -5546,6 +5609,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_landing_overrides_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "vw_marketplace_status_drift"
+            referencedColumns: ["property_id"]
           },
         ]
       }
@@ -5645,6 +5715,13 @@ export type Database = {
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "property_media_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_status_drift"
+            referencedColumns: ["property_id"]
+          },
         ]
       }
       property_owners: {
@@ -5725,6 +5802,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_owners_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_status_drift"
+            referencedColumns: ["property_id"]
           },
         ]
       }
@@ -5808,6 +5892,13 @@ export type Database = {
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "property_partnerships_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_status_drift"
+            referencedColumns: ["property_id"]
+          },
         ]
       }
       property_share_links: {
@@ -5858,6 +5949,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_share_links_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_status_drift"
+            referencedColumns: ["property_id"]
           },
         ]
       }
@@ -5962,6 +6060,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_status_history_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_status_drift"
+            referencedColumns: ["property_id"]
           },
         ]
       }
@@ -6079,6 +6184,13 @@ export type Database = {
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "property_visibility_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "vw_marketplace_status_drift"
+            referencedColumns: ["property_id"]
+          },
         ]
       }
       property_visits: {
@@ -6182,6 +6294,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_visits_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_status_drift"
+            referencedColumns: ["property_id"]
           },
         ]
       }
@@ -6820,6 +6939,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "simulacoes_financiamento_imovel_id_fkey"
+            columns: ["imovel_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_status_drift"
+            referencedColumns: ["property_id"]
           },
           {
             foreignKeyName: "simulacoes_financiamento_lead_id_fkey"
@@ -8230,6 +8356,13 @@ export type Database = {
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "whatsapp_property_rules_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_status_drift"
+            referencedColumns: ["property_id"]
+          },
         ]
       }
       whatsapp_welcome_log: {
@@ -8882,6 +9015,13 @@ export type Database = {
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "property_share_links_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_status_drift"
+            referencedColumns: ["property_id"]
+          },
         ]
       }
       vw_marketplace_orgs_missing_contact: {
@@ -8893,6 +9033,35 @@ export type Database = {
           organization_name: string | null
         }
         Relationships: []
+      }
+      vw_marketplace_status_drift: {
+        Row: {
+          marketplace_status:
+            | Database["public"]["Enums"]["property_status"]
+            | null
+          marketplace_updated_at: string | null
+          organization_id: string | null
+          property_id: string | null
+          property_status: Database["public"]["Enums"]["property_status"] | null
+          property_updated_at: string | null
+          title: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "properties_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "properties_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+        ]
       }
       whatsapp_ai_cost_per_conversation: {
         Row: {
