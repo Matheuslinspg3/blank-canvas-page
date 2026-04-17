@@ -4259,6 +4259,7 @@ export type Database = {
           id: string
           images: string[] | null
           is_featured: boolean
+          marketplace_contact_phone: string | null
           organization_id: string | null
           owner_email: string | null
           owner_name: string | null
@@ -4295,6 +4296,7 @@ export type Database = {
           id?: string
           images?: string[] | null
           is_featured?: boolean
+          marketplace_contact_phone?: string | null
           organization_id?: string | null
           owner_email?: string | null
           owner_name?: string | null
@@ -4331,6 +4333,7 @@ export type Database = {
           id?: string
           images?: string[] | null
           is_featured?: boolean
+          marketplace_contact_phone?: string | null
           organization_id?: string | null
           owner_email?: string | null
           owner_name?: string | null
@@ -5133,6 +5136,7 @@ export type Database = {
           latitude: number | null
           launch_stage: Database["public"]["Enums"]["launch_stage"] | null
           longitude: number | null
+          marketplace_contact_phone: string | null
           organization_id: string
           parking_spots: number | null
           payment_options: string[] | null
@@ -5205,6 +5209,7 @@ export type Database = {
           latitude?: number | null
           launch_stage?: Database["public"]["Enums"]["launch_stage"] | null
           longitude?: number | null
+          marketplace_contact_phone?: string | null
           organization_id: string
           parking_spots?: number | null
           payment_options?: string[] | null
@@ -5277,6 +5282,7 @@ export type Database = {
           latitude?: number | null
           launch_stage?: Database["public"]["Enums"]["launch_stage"] | null
           longitude?: number | null
+          marketplace_contact_phone?: string | null
           organization_id?: string
           parking_spots?: number | null
           payment_options?: string[] | null
@@ -8747,6 +8753,7 @@ export type Database = {
           id: string | null
           images: string[] | null
           is_featured: boolean | null
+          marketplace_contact_phone: string | null
           organization_id: string | null
           parking_spots: number | null
           payment_options: string[] | null
@@ -9384,6 +9391,7 @@ export type Database = {
           id: string
           images: string[]
           is_featured: boolean
+          marketplace_contact_phone: string
           organization_id: string
           parking_spots: number
           payment_options: string[]
