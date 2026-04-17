@@ -327,6 +327,8 @@ export function FinancingSimulator() {
           itbiRate={itbiRate}
           itbiValue={itbiValue}
           state={state}
+          itbiCalc={itbiCalc}
+          cityName={city?.name ?? null}
         />
       )}
     </div>
