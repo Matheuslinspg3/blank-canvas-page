@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { AMENITIES_OPTIONS } from '@/components/properties/form/constants';
 
 export interface PropertyFilters {
   searchText: string;
@@ -175,6 +176,11 @@ export function usePropertyFilters() {
         propertiesResult.data.forEach((p) => {
           if (p.amenities) p.amenities.forEach((a: string) => allAmenities.add(a));
         });
+      }
+
+      // Fallback: if org has no amenities yet and no property uses any, expose the default catalog
+      if (allAmenities.size === 0) {
+        AMENITIES_OPTIONS.forEach((a) => allAmenities.add(a));
       }
 
       return Array.from(allAmenities).sort();
