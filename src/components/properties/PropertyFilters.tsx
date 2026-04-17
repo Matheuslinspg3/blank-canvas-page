@@ -398,7 +398,7 @@ export function PropertyFilters({
             {availableAmenities.length > 0 && (
               <Collapsible>
                 <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium w-full">
-                  Amenidades
+                  Comodidades
                   {filters.amenities.length > 0 && (
                     <Badge variant="secondary" className="text-xs ml-1">{filters.amenities.length}</Badge>
                   )}
