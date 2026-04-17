@@ -11,7 +11,7 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Calculator, Wifi, WifiOff, ShieldCheck, ShieldAlert,
-  AlertTriangle, CheckCircle2, Building2, User, Banknote,
+  AlertTriangle, CheckCircle2, Building2, User, Banknote, Receipt,
 } from "lucide-react";
 import { useTaxaReferencial } from "@/hooks/useTaxaReferencial";
 import { useSelicRate } from "@/hooks/financing/useSelicRate";
@@ -45,6 +45,15 @@ export function FinancingSimulator() {
   const [state, setState] = useState("SP");
   const [city, setCity] = useState<IbgeMunicipio | null>(null);
   const [selectedBankId, setSelectedBankId] = useState<string | null>(null);
+
+  // Custos adicionais (cartório, taxas, consultoria, despachante)
+  const [valorCartorio, setValorCartorio] = useState<number | null>(null);
+  const [taxaAdmBanco, setTaxaAdmBanco] = useState<number | null>(null);
+  const [valorConsultoria, setValorConsultoria] = useState<number | null>(null);
+  const [valorDespachante, setValorDespachante] = useState<number | null>(null);
+
+  const custosAdicionais =
+    (valorCartorio ?? 0) + (taxaAdmBanco ?? 0) + (valorConsultoria ?? 0) + (valorDespachante ?? 0);
 
   const { profile } = useAuth();
   const { data: trMensal, isLoading: trLoading, isError: trError } = useTaxaReferencial();
@@ -282,6 +291,65 @@ export function FinancingSimulator() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Section 4: Custos Adicionais */}
+        <Card className="border-border/50 lg:col-span-3">
+          <CardContent className="pt-5 space-y-4">
+            <div className="flex items-center gap-2 mb-1">
+              <Receipt className="h-4 w-4 text-primary" />
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Custos Adicionais
+              </span>
+              {custosAdicionais > 0 && (
+                <Badge variant="secondary" className="ml-auto text-xs">
+                  Total: {fmtBRL(custosAdicionais)}
+                </Badge>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Valor Cartório</Label>
+                <CurrencyInput
+                  value={valorCartorio}
+                  onChange={setValorCartorio}
+                  placeholder="R$ 0,00"
+                />
+                <p className="text-[10px] text-muted-foreground">Escritura, registro e emolumentos</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Taxa Adm. Banco</Label>
+                <CurrencyInput
+                  value={taxaAdmBanco}
+                  onChange={setTaxaAdmBanco}
+                  placeholder="R$ 0,00"
+                />
+                <p className="text-[10px] text-muted-foreground">Tarifa de avaliação/abertura</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Consultoria</Label>
+                <CurrencyInput
+                  value={valorConsultoria}
+                  onChange={setValorConsultoria}
+                  placeholder="R$ 0,00"
+                />
+                <p className="text-[10px] text-muted-foreground">Honorários do correspondente</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Serviços Despachante</Label>
+                <CurrencyInput
+                  value={valorDespachante}
+                  onChange={setValorDespachante}
+                  placeholder="R$ 0,00"
+                />
+                <p className="text-[10px] text-muted-foreground">Trâmites e documentação</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* ── Status Badges ── */}
@@ -293,6 +361,11 @@ export function FinancingSimulator() {
         <Badge variant="secondary" className="text-xs font-semibold">
           Financiado: {fmtBRL(valorFinanciado)}
         </Badge>
+        {custosAdicionais > 0 && (
+          <Badge variant="outline" className="text-xs gap-1">
+            <Receipt className="h-3 w-3" /> Custos extras: {fmtBRL(custosAdicionais)}
+          </Badge>
+        )}
         {rendaMensal && rendaMensal > 0 && resultados[0] && (
           <Badge variant={resultados[0].aprovado ? "default" : "destructive"} className="gap-1 text-xs">
             {resultados[0].aprovado
