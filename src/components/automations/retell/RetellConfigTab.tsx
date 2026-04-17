@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, Loader2, Settings2, Brain, Bell, Users, Webhook } from "lucide-react";
+import { Save, Loader2, Settings2, Brain, Bell, Users, Webhook, PhoneOutgoing } from "lucide-react";
 import { useRetellConfig, type RetellAgentConfig } from "@/hooks/useRetellConfig";
 
 export function RetellConfigTab() {
@@ -76,6 +76,9 @@ export function RetellConfigTab() {
               </TabsTrigger>
               <TabsTrigger value="integration" className="gap-1.5 shrink-0">
                 <Webhook className="h-3.5 w-3.5" /> Integração
+              </TabsTrigger>
+              <TabsTrigger value="outbound" className="gap-1.5 shrink-0">
+                <PhoneOutgoing className="h-3.5 w-3.5" /> Discagem Auto
               </TabsTrigger>
             </TabsList>
 
@@ -303,6 +306,70 @@ export function RetellConfigTab() {
                 <p className="text-xs text-muted-foreground">
                   Quando preenchido, um webhook é disparado após cada chamada para orquestração no n8n
                 </p>
+              </div>
+            </TabsContent>
+
+            {/* Outbound Tab */}
+            <TabsContent value="outbound" className="space-y-4">
+              <div className="rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+                ⚠️ A discagem automática só ocorre se o lead tiver telefone, opt-in (consent_voice_call=true) e estiver dentro do horário comercial.
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Ativar discagem automática</Label>
+                  <p className="text-xs text-muted-foreground">Liga para o lead recém-cadastrado automaticamente</p>
+                </div>
+                <Switch
+                  checked={form.auto_outbound_enabled ?? false}
+                  onCheckedChange={(v) => setForm((f) => ({ ...f, auto_outbound_enabled: v }))}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="retell_from_number">Número de origem (E.164)</Label>
+                  <Input
+                    id="retell_from_number"
+                    value={form.retell_from_number ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, retell_from_number: e.target.value }))}
+                    placeholder="+551130000000"
+                  />
+                  <p className="text-xs text-muted-foreground">Número comprado no painel da Retell</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="retell_phone_number_id">Phone Number ID (opcional)</Label>
+                  <Input
+                    id="retell_phone_number_id"
+                    value={form.retell_phone_number_id ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, retell_phone_number_id: e.target.value }))}
+                    placeholder="phn_xxxxx"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="max_call_attempts">Máx. tentativas</Label>
+                  <Input
+                    id="max_call_attempts"
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={form.max_call_attempts ?? 3}
+                    onChange={(e) => setForm((f) => ({ ...f, max_call_attempts: Number(e.target.value) }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="min_between">Min. minutos entre tentativas</Label>
+                  <Input
+                    id="min_between"
+                    type="number"
+                    min={5}
+                    value={form.min_minutes_between_attempts ?? 30}
+                    onChange={(e) => setForm((f) => ({ ...f, min_minutes_between_attempts: Number(e.target.value) }))}
+                  />
+                </div>
               </div>
             </TabsContent>
           </Tabs>
