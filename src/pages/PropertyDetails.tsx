@@ -93,8 +93,8 @@ export default function PropertyDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { properties, isLoading, updateProperty, publishToMarketplace, isUpdating, createProperty, isCreating } = useProperties();
-  const { publishedIds } = useMarketplaceStatus();
+  const { properties, isLoading, updateProperty, publishToMarketplace, hideFromMarketplace, isUpdating, createProperty, isCreating } = useProperties();
+  const { publishedIds, refetch: refetchPublishedIds } = useMarketplaceStatus();
   const { profile } = useAuth();
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
@@ -179,14 +179,29 @@ export default function PropertyDetails() {
   const handleFormSubmit = async (data: PropertyFormData, images: PropertyImage[], ownerData?: any, publishMarketplace?: boolean) => {
     if (!id) return;
     await updateProperty(id, data, images, ownerData);
-    // Auto-sync marketplace if property is already published (and user didn't explicitly request publish)
-    if (!publishMarketplace && publishedIds.has(id)) {
-      publishToMarketplace(id).catch(() => {});
+
+    const wasPublished = publishedIds.has(id);
+    try {
+      if (publishMarketplace) {
+        // ON → publish/sync.
+        await publishToMarketplace(id);
+      } else if (wasPublished) {
+        // OFF + was published → confirm + unpublish.
+        const ok = window.confirm(
+          'Você desativou a publicação no Marketplace. Deseja remover este imóvel do Marketplace agora?'
+        );
+        if (ok) {
+          await hideFromMarketplace(id);
+        }
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao sincronizar Marketplace',
+        description: err?.message || 'Verifique o telefone público da imobiliária e tente novamente.',
+        variant: 'destructive',
+      });
     }
-    if (publishMarketplace) {
-      // Fire-and-forget: run in background
-      publishToMarketplace(id).catch(() => {});
-    }
+    refetchPublishedIds();
   };
 
   const formatPrice = (price: number | null, isRent = false) => {
@@ -920,6 +935,7 @@ export default function PropertyDetails() {
             property={property}
             onSubmit={handleFormSubmit}
             isSubmitting={isUpdating}
+            isPublished={id ? publishedIds.has(id) : false}
           />
         </Suspense>
       </SectionErrorBoundary>

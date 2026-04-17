@@ -217,16 +217,34 @@ export function usePropertyBulkOps() {
     onError: (error) => { toast({ title: 'Erro ao remover do marketplace', description: error.message, variant: 'destructive' }); },
   });
 
+  // Single-id unpublish — reuses the bulk delete route to avoid duplication.
+  const hideFromMarketplace = useMutation({
+    mutationFn: async (id: string) => {
+      if (!id) throw new Error('ID do imóvel é obrigatório.');
+      const { error } = await supabase.from('marketplace_properties').delete().eq('id', id);
+      if (error) throw error;
+      return id;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace-properties'] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace-published-ids'] });
+      toast({ title: 'Removido do Marketplace', description: 'O imóvel não aparece mais no marketplace.' });
+    },
+    onError: (error) => { toast({ title: 'Erro ao remover do marketplace', description: error.message, variant: 'destructive' }); },
+  });
+
   return {
     bulkDeleteProperties: bulkDeleteProperties.mutateAsync,
     bulkInactivateProperties: bulkInactivateProperties.mutateAsync,
     publishToMarketplace: publishToMarketplace.mutateAsync,
     bulkPublishToMarketplace: bulkPublishToMarketplace.mutateAsync,
     bulkHideFromMarketplace: bulkHideFromMarketplace.mutateAsync,
+    hideFromMarketplace: hideFromMarketplace.mutateAsync,
     isBulkDeleting: bulkDeleteProperties.isPending,
     isBulkInactivating: bulkInactivateProperties.isPending,
     isPublishing: publishToMarketplace.isPending,
     isBulkPublishing: bulkPublishToMarketplace.isPending,
     isBulkHiding: bulkHideFromMarketplace.isPending,
+    isHiding: hideFromMarketplace.isPending,
   };
 }

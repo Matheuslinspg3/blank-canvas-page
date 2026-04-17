@@ -104,7 +104,7 @@ export default function Properties() {
   const {
     properties: fullProperties, isLoading: isLoadingFull, error: propertiesError, createProperty, updateProperty, deleteProperty,
     bulkDeleteProperties, bulkInactivateProperties, publishToMarketplace,
-    bulkPublishToMarketplace, bulkHideFromMarketplace,
+    bulkPublishToMarketplace, bulkHideFromMarketplace, hideFromMarketplace,
     isCreating, isUpdating, isDeleting, isBulkDeleting, isBulkInactivating,
     isBulkPublishing, isBulkHiding, refetch,
   } = useProperties();
@@ -113,7 +113,7 @@ export default function Properties() {
   const allProperties = hasActiveFilters ? fullProperties : (listProperties.length > 0 ? listProperties : fullProperties);
   const isLoadingAll = hasActiveFilters ? isLoadingFull : (isLoadingList && listProperties.length === 0);
 
-  const { publishedIds } = useMarketplaceStatus();
+  const { publishedIds, refetch: refetchPublishedIds } = useMarketplaceStatus();
 
   // Fetch property IDs for selected owner
   const { data: ownerPropertyIds } = useQuery({
@@ -528,7 +528,11 @@ export default function Properties() {
 
   // PERF: useCallback stabilizes handlers passed as props to memoized list items
   const handleCreateClick = useCallback(() => { setEditingProperty(null); setPrefillData(null); setFormOpen(true); }, []);
-  const handleEditClick = useCallback((property: PropertyWithDetails) => { setEditingProperty(property); setPrefillData(null); setFormOpen(true); }, []);
+  const handleEditClick = useCallback((property: PropertyWithDetails) => {
+    // Refresh marketplace status so the toggle reflects the actual DB state.
+    refetchPublishedIds();
+    setEditingProperty(property); setPrefillData(null); setFormOpen(true);
+  }, [refetchPublishedIds]);
   const handleDeleteClick = useCallback((id: string) => { setDeleteId(id); }, []);
 
   const handleConfirmDelete = async () => {
@@ -537,22 +541,39 @@ export default function Properties() {
 
   const executePropertySubmit = useCallback(async (data: PropertyFormData, images: PropertyImage[], ownerData?: any, publishMarketplace?: boolean) => {
     let propertyId: string | undefined;
+    const wasPublished = editingProperty ? publishedIds.has(editingProperty.id) : false;
+
     if (editingProperty) {
       await updateProperty(editingProperty.id, data, images, ownerData);
       propertyId = editingProperty.id;
-      // Auto-sync marketplace if property is already published (and user didn't explicitly request publish)
-      if (!publishMarketplace && publishedIds.has(editingProperty.id)) {
-        publishToMarketplace(editingProperty.id).catch(() => {});
-      }
     } else {
       const result = await createProperty(data, images, ownerData);
       propertyId = result?.id;
     }
-    if (publishMarketplace && propertyId) {
-      // Fire-and-forget: run in background so user can navigate away
-      publishToMarketplace(propertyId).catch(() => {});
+    if (!propertyId) return;
+
+    // Explicit publish/unpublish semantics with surfaced errors.
+    try {
+      if (publishMarketplace) {
+        // ON → publish (insert) or re-sync (update). Same upsert handles both.
+        await publishToMarketplace(propertyId);
+      } else if (wasPublished) {
+        // OFF + previously published → confirm + unpublish.
+        const ok = window.confirm(
+          'Você desativou a publicação no Marketplace. Deseja remover este imóvel do Marketplace agora?'
+        );
+        if (ok) {
+          await hideFromMarketplace(propertyId);
+        }
+      }
+      // OFF + not published → no-op.
+    } catch (err: any) {
+      toast.error('Erro ao sincronizar Marketplace', {
+        description: err?.message || 'Verifique o telefone público da imobiliária e tente novamente.',
+      });
     }
-  }, [editingProperty, updateProperty, createProperty, publishToMarketplace, publishedIds]);
+    refetchPublishedIds();
+  }, [editingProperty, updateProperty, createProperty, publishToMarketplace, hideFromMarketplace, publishedIds, refetchPublishedIds]);
 
   const handleFormSubmit = async (data: PropertyFormData, images: PropertyImage[], ownerData?: { name?: string; phone?: string; email?: string; document?: string; notes?: string }, publishMarketplace?: boolean) => {
     // Only check duplicates for new properties (not edits)
@@ -775,6 +796,7 @@ export default function Properties() {
           onSubmit={handleFormSubmit}
           isSubmitting={isCreating || isUpdating}
           prefillData={prefillData}
+          isPublished={editingProperty ? publishedIds.has(editingProperty.id) : false}
         />
       </Suspense>
 
