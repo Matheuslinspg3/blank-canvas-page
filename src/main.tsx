@@ -92,6 +92,55 @@ Sentry.init({
     "NetworkError",
     "Load failed",
   ],
+  beforeSend(event, hint) {
+    const err = hint?.originalException;
+    if (isImportChunkError(err)) {
+      event.tags = {
+        ...event.tags,
+        chunk_error: "true",
+        mime_mismatch: isMimeMismatchError(err) ? "true" : "false",
+        route: window.location.pathname,
+      };
+      event.contexts = {
+        ...event.contexts,
+        runtime: {
+          online: navigator.onLine,
+          visibility: document.visibilityState,
+          connection: (navigator as any).connection?.effectiveType ?? "unknown",
+          sw_controller: !!navigator.serviceWorker?.controller,
+          release: APP_VERSION,
+        },
+      };
+      // Dedup: at most 1 chunk error per session+route to avoid Sentry noise.
+      try {
+        const key = `lov_chunk_sent_${window.location.pathname}`;
+        if (sessionStorage.getItem(key)) return null;
+        sessionStorage.setItem(key, "1");
+      } catch {
+        /* no-op */
+      }
+    }
+    return event;
+  },
+});
+
+// Global handlers — catch chunk errors that escape React boundaries.
+const handleGlobalChunkError = (err: unknown, source: string) => {
+  if (!isImportChunkError(err)) return;
+  console.warn(`[chunk-error:${source}]`, err);
+  safeReloadOnce(`global:${source}`);
+};
+
+window.addEventListener("error", (e) => {
+  handleGlobalChunkError(e.error ?? e.message, "window.error");
+});
+window.addEventListener("unhandledrejection", (e) => {
+  handleGlobalChunkError(e.reason, "unhandledrejection");
+});
+// Vite 5 emits this when a preloaded chunk fails — perfect for early detection.
+window.addEventListener("vite:preloadError", (e: Event) => {
+  handleGlobalChunkError((e as any).payload ?? e, "vite:preloadError");
+  e.preventDefault();
 });
 
 // PostHog initialization — after Sentry, before React
