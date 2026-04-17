@@ -164,17 +164,27 @@ Retorne APENAS um JSON válido com esta estrutura:
         .limit(1)
         .maybeSingle();
 
-      if (firstStage) {
+      // Fallback created_by: any admin of the org
+      const { data: adminRole } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "admin")
+        .limit(1)
+        .maybeSingle();
+      const createdBy = adminRole?.user_id || null;
+
+      if (firstStage && createdBy) {
         const { data: newLead, error: leadErr } = await supabase
           .from("leads")
           .insert({
             organization_id,
+            created_by: createdBy,
             name: analysis.lead_name as string,
             phone: (analysis.lead_phone as string) || null,
             email: (analysis.lead_email as string) || null,
             source: "voice_call",
             temperature: (analysis.score as number) >= 70 ? "quente" : (analysis.score as number) >= 40 ? "morno" : "frio",
-            stage_id: firstStage.id,
+            lead_stage_id: firstStage.id,
             score: analysis.score as number || 0,
             notes: `Qualificado via chamada de voz. ${analysis.summary || ""}`,
           })
@@ -196,21 +206,28 @@ Retorne APENAS um JSON válido com esta estrutura:
     let assignedBrokerId: string | null = null;
 
     if (config.broker_assignment_mode === "round_robin" && leadId) {
-      // Find broker with fewest recent assignments
-      const { data: brokers } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("organization_id", organization_id)
-        .eq("role", "broker");
+      // Find brokers via user_roles (RBAC)
+      const { data: roleRows } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "corretor");
 
-      if (brokers?.length) {
-        // Simple round-robin: pick first broker (in production, check assignment counts)
-        assignedBrokerId = brokers[0].id;
+      const brokerIds = (roleRows || []).map((r: any) => r.user_id);
+      if (brokerIds.length) {
+        // Filter to brokers in this org via profiles
+        const { data: orgProfiles } = await supabase
+          .from("profiles")
+          .select("user_id")
+          .eq("organization_id", organization_id)
+          .in("user_id", brokerIds);
 
-        await supabase
-          .from("leads")
-          .update({ assigned_to: assignedBrokerId })
-          .eq("id", leadId);
+        if (orgProfiles?.length) {
+          assignedBrokerId = orgProfiles[0].user_id;
+          await supabase
+            .from("leads")
+            .update({ broker_id: assignedBrokerId })
+            .eq("id", leadId);
+        }
       }
     }
 
