@@ -85,16 +85,32 @@ function DynamicIcon({ name, className }: { name: string; className?: string }) 
   return <IconComponent className={className} />;
 }
 
+interface LandingContact {
+  broker_name: string | null;
+  broker_phone: string | null;
+  broker_avatar: string | null;
+  broker_email: string | null;
+  org_name: string | null;
+  org_logo: string | null;
+  org_phone: string | null;
+  attribution_source: string | null;
+}
+
 export default function PropertyLandingPage() {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id?: string; orgSlug?: string; propertyCode?: string; brokerToken?: string }>();
+  const { id: paramId, orgSlug, propertyCode, brokerToken } = params;
   const { toast } = useToast();
+  const [resolvedId, setResolvedId] = useState<string | null>(paramId ?? null);
   const [property, setProperty] = useState<PropertyWithDetails | null>(null);
+  const [contact, setContact] = useState<LandingContact | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [formData, setFormData] = useState({
     name: "", email: "", phone: "", message: "",
   });
+
+  const id = resolvedId;
 
   const { content: aiContent, isLoading: isLoadingAI, isGenerating, regenerate } = useLandingContent(id);
   const { overrides } = useLandingOverrides(id);
