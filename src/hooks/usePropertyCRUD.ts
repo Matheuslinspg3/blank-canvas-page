@@ -3,6 +3,7 @@ import { trackEvent } from '@/lib/posthog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { normalizeError } from '@/lib/normalizeError';
 import type { Database, Json, Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 
 export type Property = Tables<'properties'>;
@@ -103,6 +104,7 @@ export function usePropertyCRUD() {
   });
 
   const createProperty = useMutation({
+    mutationKey: ['properties', 'create'],
     mutationFn: async ({ propertyData, images, ownerData }: { propertyData: PropertyFormData; images: ImageData[]; ownerData?: OwnerData }) => {
       if (!profile?.organization_id) throw new Error('Usuário não está vinculado a uma organização');
 
@@ -146,7 +148,7 @@ export function usePropertyCRUD() {
         .insert({ ...propertyData, organization_id: profile.organization_id, created_by: user!.id })
         .select()
         .single();
-      if (error) throw error;
+      if (error) throw normalizeError(error);
 
       // Save images (deduplicate by URL)
       if (images.length > 0) {
@@ -193,14 +195,28 @@ export function usePropertyCRUD() {
       toast({ title: 'Imóvel cadastrado', description: 'O imóvel foi cadastrado com sucesso.' });
     },
     onError: (error) => {
-      toast({ title: 'Erro ao cadastrar imóvel', description: error.message, variant: 'destructive' });
+      const norm = normalizeError(error);
+      if (norm.code === '23505' && norm.constraint === 'properties_org_property_code_key') {
+        toast({
+          title: 'Conflito ao gerar código',
+          description: 'O código do imóvel colidiu com outro recente. Tente salvar novamente — vamos gerar um novo código automaticamente.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Erro ao cadastrar imóvel',
+          description: norm.userMessage || norm.message,
+          variant: 'destructive',
+        });
+      }
     },
   });
 
   const updateProperty = useMutation({
+    mutationKey: ['properties', 'update'],
     mutationFn: async ({ id, data, images, ownerData }: { id: string; data: TablesUpdate<'properties'>; images?: ImageData[]; ownerData?: OwnerData }) => {
       const { data: updated, error } = await supabase.from('properties').update(data).eq('id', id).select().single();
-      if (error) throw error;
+      if (error) throw normalizeError(error);
 
       if (images !== undefined) {
         await supabase.from('property_images').delete().eq('property_id', id);
@@ -250,14 +266,16 @@ export function usePropertyCRUD() {
       toast({ title: 'Imóvel atualizado', description: 'O imóvel foi atualizado com sucesso.' });
     },
     onError: (error) => {
-      toast({ title: 'Erro ao atualizar imóvel', description: error.message, variant: 'destructive' });
+      const norm = normalizeError(error);
+      toast({ title: 'Erro ao atualizar imóvel', description: norm.userMessage || norm.message, variant: 'destructive' });
     },
   });
 
   const deleteProperty = useMutation({
+    mutationKey: ['properties', 'delete'],
     mutationFn: async (id: string) => {
       const { error } = await supabase.rpc('delete_property_cascade', { p_property_id: id });
-      if (error) throw error;
+      if (error) throw normalizeError(error);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['properties'] });
@@ -265,7 +283,8 @@ export function usePropertyCRUD() {
       toast({ title: 'Imóvel removido', description: 'O imóvel foi removido com sucesso.' });
     },
     onError: (error) => {
-      toast({ title: 'Erro ao remover imóvel', description: error.message, variant: 'destructive' });
+      const norm = normalizeError(error);
+      toast({ title: 'Erro ao remover imóvel', description: norm.userMessage || norm.message, variant: 'destructive' });
     },
   });
 

@@ -25,6 +25,7 @@ import { ClarityProvider } from "@/components/ClarityProvider";
 import { MaintenanceGuard } from "@/components/MaintenanceGuard";
 import { Loader2 } from "lucide-react";
 import { lazyRetry } from "@/utils/lazyRetry";
+import { normalizeError, isExpectedBusinessError } from "@/lib/normalizeError";
 
 // Lazy-loaded pages with retry for stale chunk recovery
 const Auth = lazy(() => lazyRetry(() => import("./pages/Auth")));
@@ -111,31 +112,40 @@ const queryClient = new QueryClient({
       networkMode: 'offlineFirst',
     },
     mutations: {
-      retry: 1,
-      retryDelay: 2000,
-      onError: (error) => {
-        Sentry.captureException(error, { tags: { source: 'react-query-mutation' } });
-      },
+      // NEVER retry mutations blindly — retrying inserts caused duplicate
+      // submissions and 23505 unique-violation collisions in production.
+      retry: false,
     },
   },
   queryCache: new QueryCache({
     onError: (error, query) => {
-      // Skip AbortError (cancelled requests from navigation)
-      const msg = error instanceof Error ? error.message : (error as any)?.message;
-      if (typeof msg === 'string' && msg.includes('AbortError')) return;
+      const norm = normalizeError(error);
+      if (isExpectedBusinessError(norm)) return;
       if (error instanceof DOMException && error.name === 'AbortError') return;
-
-      Sentry.captureException(error, {
-        tags: { source: 'react-query', queryKey: JSON.stringify(query.queryKey).slice(0, 200) },
+      Sentry.captureException(norm, {
+        tags: {
+          source: 'react-query',
+          queryKey: JSON.stringify(query.queryKey).slice(0, 200),
+          pg_code: norm.code,
+        },
+        extra: { details: norm.details, hint: norm.hint },
       });
     },
   }),
   mutationCache: new MutationCache({
-    onError: (error) => {
-      const msg = error instanceof Error ? error.message : (error as any)?.message;
-      if (typeof msg === 'string' && msg.includes('AbortError')) return;
-
-      Sentry.captureException(error, { tags: { source: 'react-query-mutation' } });
+    // Single source of truth for mutation error reporting (avoids duplicate Sentry events).
+    onError: (error, _vars, _ctx, mutation) => {
+      const norm = normalizeError(error);
+      if (isExpectedBusinessError(norm)) return;
+      Sentry.captureException(norm, {
+        tags: {
+          source: 'react-query-mutation',
+          mutation_key: JSON.stringify(mutation.options.mutationKey ?? []).slice(0, 100),
+          pg_code: norm.code,
+          pg_constraint: norm.constraint ?? undefined,
+        },
+        extra: { details: norm.details, hint: norm.hint },
+      });
     },
   }),
 });
