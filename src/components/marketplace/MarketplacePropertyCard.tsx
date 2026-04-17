@@ -108,17 +108,44 @@ export const MarketplacePropertyCard = React.memo(function MarketplacePropertyCa
                   ))}
                 </div>
               )}
+              {property.description && (
+                <p className="text-xs text-muted-foreground line-clamp-2">{property.description}</p>
+              )}
+              {topAmenities.length > 0 && (
+                <div className="flex flex-wrap gap-1 pt-0.5">
+                  {topAmenities.map((a) => (
+                    <Badge key={a} variant="outline" className="text-[10px] rounded-full px-2 py-0 font-normal">{a}</Badge>
+                  ))}
+                  {extraAmenitiesCount > 0 && (
+                    <Badge variant="outline" className="text-[10px] rounded-full px-2 py-0 font-normal">+{extraAmenitiesCount}</Badge>
+                  )}
+                </div>
+              )}
+              {topPayments.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1 pt-0.5 text-[10px] text-muted-foreground">
+                  <Wallet className="h-3 w-3" />
+                  <span className="truncate">{topPayments.join(" • ")}</span>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-between gap-3 mt-1">
-              <p className="text-base font-extrabold tracking-tight text-foreground">
-                {getDisplayPrice()}
-                {property.sale_price && property.rent_price && (
-                  <span className="text-xs font-normal text-muted-foreground ml-2">
-                    ou {formatCurrency(property.rent_price)}/mês
-                  </span>
+              <div className="min-w-0">
+                <p className="text-base font-extrabold tracking-tight text-foreground truncate">
+                  {getDisplayPrice()}
+                  {property.sale_price && property.rent_price && (
+                    <span className="text-xs font-normal text-muted-foreground ml-2">
+                      ou {formatCurrency(property.rent_price)}/mês
+                    </span>
+                  )}
+                </p>
+                {property.sale_price_financed && property.sale_price_financed !== property.sale_price && (
+                  <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    <Banknote className="h-3 w-3" />
+                    Financiado: <span className="font-semibold text-foreground">{formatCurrency(property.sale_price_financed)}</span>
+                  </p>
                 )}
-              </p>
+              </div>
               <Button
                 size="sm"
                 className="shrink-0 rounded-xl glow-primary-hover"
@@ -204,13 +231,38 @@ export const MarketplacePropertyCard = React.memo(function MarketplacePropertyCa
           )}
         </div>
         {featureItems.length > 0 && (
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
             {featureItems.map((feat) => (
               <span key={feat.label} className="flex items-center gap-1">
                 <feat.icon className="h-3.5 w-3.5" />
                 <span className="font-medium text-foreground">{feat.value}{feat.suffix || ""}</span>
               </span>
             ))}
+          </div>
+        )}
+        {property.sale_price_financed && property.sale_price_financed !== property.sale_price && (
+          <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+            <Banknote className="h-3 w-3" />
+            Financiado: <span className="font-semibold text-foreground">{formatCurrency(property.sale_price_financed)}</span>
+          </p>
+        )}
+        {property.description && (
+          <p className="text-xs text-muted-foreground line-clamp-2">{property.description}</p>
+        )}
+        {topAmenities.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {topAmenities.map((a) => (
+              <Badge key={a} variant="outline" className="text-[10px] rounded-full px-2 py-0 font-normal">{a}</Badge>
+            ))}
+            {extraAmenitiesCount > 0 && (
+              <Badge variant="outline" className="text-[10px] rounded-full px-2 py-0 font-normal">+{extraAmenitiesCount}</Badge>
+            )}
+          </div>
+        )}
+        {topPayments.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
+            <Wallet className="h-3 w-3" />
+            <span className="line-clamp-1">{topPayments.join(" • ")}</span>
           </div>
         )}
         <Button
