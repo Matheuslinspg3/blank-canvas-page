@@ -178,6 +178,11 @@ export function usePropertyFilters() {
         });
       }
 
+      // Fallback: if org has no amenities yet and no property uses any, expose the default catalog
+      if (allAmenities.size === 0) {
+        AMENITIES_OPTIONS.forEach((a) => allAmenities.add(a));
+      }
+
       return Array.from(allAmenities).sort();
     },
     enabled: !!profile?.organization_id,
