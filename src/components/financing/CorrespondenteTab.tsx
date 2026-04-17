@@ -132,7 +132,7 @@ function CorbanDashboard() {
   );
 }
 
-function FormulariosSection() {
+function FormulariosSection({ onGoToPipeline }: { onGoToPipeline: () => void }) {
   const [quickForm, setQuickForm] = useState<{ bankCode: string; formId: string; formName: string } | null>(null);
 
   return (
@@ -149,7 +149,15 @@ function FormulariosSection() {
         <AlertCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
         <p className="text-xs text-muted-foreground">
           Modo avulso não salva o cliente no histórico. Para acompanhar processos recorrentes,
-          cadastre no <button onClick={() => {}} className="text-primary underline-offset-2 hover:underline font-medium">Pipeline</button>.
+          cadastre no{" "}
+          <button
+            type="button"
+            onClick={onGoToPipeline}
+            className="text-primary underline-offset-2 hover:underline font-medium"
+          >
+            Pipeline
+          </button>
+          .
         </p>
       </div>
 
@@ -208,7 +216,7 @@ export function CorrespondenteTab() {
       case "pipeline": return <FinancingPipeline />;
       case "simulador": return <FinancingSimulator />;
       case "rentabilidade": return <InvestmentCalculator />;
-      case "formularios": return <FormulariosSection />;
+      case "formularios": return <FormulariosSection onGoToPipeline={() => setActive("pipeline")} />;
       case "documentacao": return <FinancingDocsChecklist />;
     }
   };

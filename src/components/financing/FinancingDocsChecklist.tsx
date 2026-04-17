@@ -171,12 +171,23 @@ function buildSections(
   ];
 }
 
+const STORAGE_KEY = "financing_docs_checklist_v1";
+
 export function FinancingDocsChecklist() {
   const [selectedBank, setSelectedBank] = useState("caixa");
   const [buyerProfile, setBuyerProfile] = useState<BuyerProfile>("clt");
   const [sellerProfile, setSellerProfile] = useState<SellerProfile>("pf");
   const [propertyKind, setPropertyKind] = useState<PropertyKind>("usado");
-  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [checked, setChecked] = useState<Set<string>>(() => {
+    try {
+      const raw = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
+      if (!raw) return new Set();
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? new Set(arr) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
 
   const sections = useMemo(
     () => buildSections(buyerProfile, sellerProfile, propertyKind),
@@ -187,6 +198,11 @@ export function FinancingDocsChecklist() {
     setChecked((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(next)));
+      } catch {
+        // localStorage indisponível (modo privado / quota) — falha silenciosa
+      }
       return next;
     });
   };
