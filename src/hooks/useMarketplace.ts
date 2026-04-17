@@ -12,6 +12,7 @@ export interface MarketplaceProperty {
   property_type_id: string | null;
   transaction_type: 'venda' | 'aluguel' | 'ambos';
   sale_price: number | null;
+  sale_price_financed: number | null;
   rent_price: number | null;
   address_street: string | null;
   address_number: string | null;
@@ -27,6 +28,7 @@ export interface MarketplaceProperty {
   area_total: number | null;
   area_built: number | null;
   amenities: string[] | null;
+  payment_options: string[] | null;
   images: string[] | null;
   status: 'disponivel' | 'reservado' | 'vendido' | 'alugado' | 'inativo';
   is_featured: boolean;
@@ -73,7 +75,7 @@ export function useMarketplace(filters: MarketplaceFiltersState) {
     queryFn: async () => {
       let dataQuery = applyFilters(
         supabase.from("marketplace_properties_public")
-          .select("id, title, status, transaction_type, sale_price, rent_price, bedrooms, bathrooms, parking_spots, area_total, area_built, address_city, address_neighborhood, address_state, images, amenities, is_featured, organization_id, property_type_id, marketplace_contact_phone, created_at")
+          .select("id, title, description, status, transaction_type, sale_price, sale_price_financed, rent_price, bedrooms, suites, bathrooms, parking_spots, area_total, area_built, address_city, address_neighborhood, address_state, images, amenities, payment_options, is_featured, organization_id, property_type_id, marketplace_contact_phone, created_at")
       )
         .order("is_featured", { ascending: false })
         .order("created_at", { ascending: false })

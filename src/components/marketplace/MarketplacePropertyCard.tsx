@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { OptimizedImage } from "@/components/ui/optimized-image";
 import { Badge } from "@/components/ui/badge";
 import {
-  MapPin, Bed, Bath, Car, Maximize, Phone, Star, Building, ImageIcon, BadgeCheck,
+  MapPin, Bed, Bath, Car, Maximize, Phone, Star, Building, ImageIcon, BadgeCheck, Ruler, Sparkles, Wallet, Banknote,
 } from "lucide-react";
 import { formatCurrency, proxyDriveImageUrl } from "@/lib/utils";
 import type { MarketplaceProperty } from "@/hooks/useMarketplace";
@@ -22,6 +22,7 @@ export const MarketplacePropertyCard = React.memo(function MarketplacePropertyCa
 
   const getDisplayPrice = () => {
     if (property.sale_price) return formatCurrency(property.sale_price);
+    if (property.sale_price_financed) return formatCurrency(property.sale_price_financed);
     if (property.rent_price) return `${formatCurrency(property.rent_price)}/mês`;
     return "Sob consulta";
   };
@@ -32,14 +33,20 @@ export const MarketplacePropertyCard = React.memo(function MarketplacePropertyCa
 
   const featureItems = [
     { icon: Bed, value: property.bedrooms, label: "quartos" },
+    { icon: Sparkles, value: property.suites, label: "suítes" },
     { icon: Bath, value: property.bathrooms, label: "banh." },
     { icon: Car, value: property.parking_spots, label: "vagas" },
-    { icon: Maximize, value: property.area_total, label: "m²", suffix: "m²" },
+    { icon: Maximize, value: property.area_total, label: "m² total", suffix: "m²" },
+    { icon: Ruler, value: property.area_built, label: "m² constr.", suffix: "m² constr." },
   ].filter(f => (f.value ?? 0) > 0);
 
   const location = [property.address_neighborhood, property.address_city, property.address_state]
     .filter(Boolean)
     .join(", ");
+
+  const topAmenities = (property.amenities ?? []).slice(0, 4);
+  const extraAmenitiesCount = Math.max(0, (property.amenities?.length ?? 0) - topAmenities.length);
+  const topPayments = (property.payment_options ?? []).slice(0, 3);
 
   if (viewMode === "list") {
     return (
@@ -101,17 +108,44 @@ export const MarketplacePropertyCard = React.memo(function MarketplacePropertyCa
                   ))}
                 </div>
               )}
+              {property.description && (
+                <p className="text-xs text-muted-foreground line-clamp-2">{property.description}</p>
+              )}
+              {topAmenities.length > 0 && (
+                <div className="flex flex-wrap gap-1 pt-0.5">
+                  {topAmenities.map((a) => (
+                    <Badge key={a} variant="outline" className="text-[10px] rounded-full px-2 py-0 font-normal">{a}</Badge>
+                  ))}
+                  {extraAmenitiesCount > 0 && (
+                    <Badge variant="outline" className="text-[10px] rounded-full px-2 py-0 font-normal">+{extraAmenitiesCount}</Badge>
+                  )}
+                </div>
+              )}
+              {topPayments.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1 pt-0.5 text-[10px] text-muted-foreground">
+                  <Wallet className="h-3 w-3" />
+                  <span className="truncate">{topPayments.join(" • ")}</span>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-between gap-3 mt-1">
-              <p className="text-base font-extrabold tracking-tight text-foreground">
-                {getDisplayPrice()}
-                {property.sale_price && property.rent_price && (
-                  <span className="text-xs font-normal text-muted-foreground ml-2">
-                    ou {formatCurrency(property.rent_price)}/mês
-                  </span>
+              <div className="min-w-0">
+                <p className="text-base font-extrabold tracking-tight text-foreground truncate">
+                  {getDisplayPrice()}
+                  {property.sale_price && property.rent_price && (
+                    <span className="text-xs font-normal text-muted-foreground ml-2">
+                      ou {formatCurrency(property.rent_price)}/mês
+                    </span>
+                  )}
+                </p>
+                {property.sale_price_financed && property.sale_price_financed !== property.sale_price && (
+                  <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    <Banknote className="h-3 w-3" />
+                    Financiado: <span className="font-semibold text-foreground">{formatCurrency(property.sale_price_financed)}</span>
+                  </p>
                 )}
-              </p>
+              </div>
               <Button
                 size="sm"
                 className="shrink-0 rounded-xl glow-primary-hover"
@@ -197,13 +231,38 @@ export const MarketplacePropertyCard = React.memo(function MarketplacePropertyCa
           )}
         </div>
         {featureItems.length > 0 && (
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
             {featureItems.map((feat) => (
               <span key={feat.label} className="flex items-center gap-1">
                 <feat.icon className="h-3.5 w-3.5" />
                 <span className="font-medium text-foreground">{feat.value}{feat.suffix || ""}</span>
               </span>
             ))}
+          </div>
+        )}
+        {property.sale_price_financed && property.sale_price_financed !== property.sale_price && (
+          <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+            <Banknote className="h-3 w-3" />
+            Financiado: <span className="font-semibold text-foreground">{formatCurrency(property.sale_price_financed)}</span>
+          </p>
+        )}
+        {property.description && (
+          <p className="text-xs text-muted-foreground line-clamp-2">{property.description}</p>
+        )}
+        {topAmenities.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {topAmenities.map((a) => (
+              <Badge key={a} variant="outline" className="text-[10px] rounded-full px-2 py-0 font-normal">{a}</Badge>
+            ))}
+            {extraAmenitiesCount > 0 && (
+              <Badge variant="outline" className="text-[10px] rounded-full px-2 py-0 font-normal">+{extraAmenitiesCount}</Badge>
+            )}
+          </div>
+        )}
+        {topPayments.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
+            <Wallet className="h-3 w-3" />
+            <span className="line-clamp-1">{topPayments.join(" • ")}</span>
           </div>
         )}
         <Button

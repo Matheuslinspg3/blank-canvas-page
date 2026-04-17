@@ -14,9 +14,10 @@ import { useBrokers } from "@/hooks/useBrokers";
 
 interface BasicTabProps {
   form: UseFormReturn<any>;
+  publishToMarketplace?: boolean;
 }
 
-export function BasicTab({ form }: BasicTabProps) {
+export function BasicTab({ form, publishToMarketplace = false }: BasicTabProps) {
   const { propertyTypes, createPropertyType, isCreating: isCreatingType } = usePropertyTypes();
   const { brokers } = useBrokers();
   const [showNewTypeInput, setShowNewTypeInput] = useState(false);
@@ -199,34 +200,36 @@ export function BasicTab({ form }: BasicTabProps) {
         />
       )}
 
-      <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-2">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Store className="h-4 w-4 text-primary" />
-          Telefone para contato no Marketplace
-          <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+      {publishToMarketplace && (
+        <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-2">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Store className="h-4 w-4 text-primary" />
+            Telefone para contato no Marketplace
+            <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+          </div>
+          <FormField
+            control={form.control}
+            name="marketplace_contact_phone"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input
+                    placeholder="(11) 99999-9999"
+                    {...field}
+                    value={field.value || ""}
+                    inputMode="tel"
+                    maxLength={20}
+                  />
+                </FormControl>
+                <FormDescription className="text-xs">
+                  Número que outros corretores verão no card deste imóvel no Marketplace. Se vazio, usaremos o telefone público da imobiliária. <strong>Não afeta landing pages</strong> nem o contato exibido para clientes finais.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
-        <FormField
-          control={form.control}
-          name="marketplace_contact_phone"
-          render={({ field }) => (
-            <FormItem>
-              <FormControl>
-                <Input
-                  placeholder="(11) 99999-9999"
-                  {...field}
-                  value={field.value || ""}
-                  inputMode="tel"
-                  maxLength={20}
-                />
-              </FormControl>
-              <FormDescription className="text-xs">
-                Número que outros corretores verão no card deste imóvel no Marketplace. Se vazio, usaremos o telefone público da imobiliária. <strong>Não afeta landing pages</strong> nem o contato exibido para clientes finais.
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      </div>
+      )}
     </div>
   );
 }
