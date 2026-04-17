@@ -247,7 +247,7 @@ function generateProposta(proc: FinancingProcess, bankCode: string) {
   fb.signatureLine("Assinatura do Proponente");
   fb.signatureLine("Assinatura do Correspondente Bancário");
 
-  fb.save(`proposta_${bankCode}_${proc.clientName.replace(/\s/g, "_")}.pdf`);
+  fb.save(`proposta_${bankCode}_${safeName(proc.clientName)}.pdf`);
 }
 
 function generateDPS(proc: FinancingProcess, bankCode: string) {
@@ -291,7 +291,7 @@ function generateDPS(proc: FinancingProcess, bankCode: string) {
   fb.spacer(3);
   fb.signatureLine("Assinatura do Proponente");
 
-  fb.save(`dps_${bankCode}_${proc.clientName.replace(/\s/g, "_")}.pdf`);
+  fb.save(`dps_${bankCode}_${safeName(proc.clientName)}.pdf`);
 }
 
 function generateFGTS(proc: FinancingProcess) {
@@ -330,7 +330,7 @@ function generateFGTS(proc: FinancingProcess) {
   fb.spacer(10);
   fb.signatureLine("Assinatura do Trabalhador");
 
-  fb.save(`fgts_caixa_${proc.clientName.replace(/\s/g, "_")}.pdf`);
+  fb.save(`fgts_caixa_${safeName(proc.clientName)}.pdf`);
 }
 
 function generateFichaCadastral(proc: FinancingProcess, bankCode: string) {
@@ -383,7 +383,7 @@ function generateFichaCadastral(proc: FinancingProcess, bankCode: string) {
   fb.spacer(10);
   fb.signatureLine("Assinatura do Proponente");
 
-  fb.save(`ficha_cadastral_${bankCode}_${proc.clientName.replace(/\s/g, "_")}.pdf`);
+  fb.save(`ficha_cadastral_${bankCode}_${safeName(proc.clientName)}.pdf`);
 }
 
 // ── Main export ──
