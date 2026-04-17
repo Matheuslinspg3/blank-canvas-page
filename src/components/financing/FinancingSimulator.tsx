@@ -79,8 +79,16 @@ export function FinancingSimulator() {
 
   const handleSelectBank = useCallback((id: string) => setSelectedBankId(id), []);
 
-  const itbiRate = ITBI_RATES[state] ?? 3;
-  const itbiValue = valorImovel * (itbiRate / 100);
+  const { calculation: itbiCalc, isLoading: itbiLoading } = useItbiRule({
+    ibgeCode: city?.ibge_code,
+    uf: state,
+    organizationId: profile?.organization_id ?? null,
+    propertyValue: valorImovel,
+    financedValue: valorFinanciado,
+  });
+
+  const itbiValue = itbiCalc?.value ?? valorImovel * ((ITBI_RATES[state] ?? 3) / 100);
+  const itbiRate = itbiCalc?.effectiveRate ?? (ITBI_RATES[state] ?? 3);
 
   return (
     <div className="space-y-6">
