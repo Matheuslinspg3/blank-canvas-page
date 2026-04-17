@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { UseFormReturn } from "react-hook-form";
 import {
-  FormControl, FormField, FormItem, FormLabel, FormMessage,
+  FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, Store } from "lucide-react";
 import { usePropertyTypes } from "@/hooks/usePropertyTypes";
 import { useBrokers } from "@/hooks/useBrokers";
 
@@ -198,6 +198,35 @@ export function BasicTab({ form }: BasicTabProps) {
           )}
         />
       )}
+
+      <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-2">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Store className="h-4 w-4 text-primary" />
+          Telefone para contato no Marketplace
+          <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+        </div>
+        <FormField
+          control={form.control}
+          name="marketplace_contact_phone"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <Input
+                  placeholder="(11) 99999-9999"
+                  {...field}
+                  value={field.value || ""}
+                  inputMode="tel"
+                  maxLength={20}
+                />
+              </FormControl>
+              <FormDescription className="text-xs">
+                Número que outros corretores verão no card deste imóvel no Marketplace. Se vazio, usaremos o telefone público da imobiliária. <strong>Não afeta landing pages</strong> nem o contato exibido para clientes finais.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
     </div>
   );
 }

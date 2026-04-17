@@ -32,6 +32,7 @@ export interface MarketplaceProperty {
   is_featured: boolean;
   created_at: string;
   organization_id: string | null;
+  marketplace_contact_phone: string | null;
 }
 
 interface MarketplaceViewRow {
@@ -72,7 +73,7 @@ export function useMarketplace(filters: MarketplaceFiltersState) {
     queryFn: async () => {
       let dataQuery = applyFilters(
         supabase.from("marketplace_properties_public")
-          .select("id, title, status, transaction_type, sale_price, rent_price, bedrooms, bathrooms, parking_spots, area_total, area_built, address_city, address_neighborhood, address_state, images, amenities, is_featured, organization_id, property_type_id, created_at")
+          .select("id, title, status, transaction_type, sale_price, rent_price, bedrooms, bathrooms, parking_spots, area_total, area_built, address_city, address_neighborhood, address_state, images, amenities, is_featured, organization_id, property_type_id, marketplace_contact_phone, created_at")
       )
         .order("is_featured", { ascending: false })
         .order("created_at", { ascending: false })

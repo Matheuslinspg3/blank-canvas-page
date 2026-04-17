@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { OptimizedImage } from "@/components/ui/optimized-image";
 import { Badge } from "@/components/ui/badge";
 import {
-  MapPin, Bed, Bath, Car, Maximize, Phone, Star, Building, ImageIcon,
+  MapPin, Bed, Bath, Car, Maximize, Phone, Star, Building, ImageIcon, BadgeCheck,
 } from "lucide-react";
 import { formatCurrency, proxyDriveImageUrl } from "@/lib/utils";
 import type { MarketplaceProperty } from "@/hooks/useMarketplace";
@@ -80,6 +80,11 @@ export const MarketplacePropertyCard = React.memo(function MarketplacePropertyCa
                   {property.transaction_type === "venda" ? "Venda" : property.transaction_type === "aluguel" ? "Aluguel" : "Venda/Aluguel"}
                 </Badge>
               </div>
+              {property.marketplace_contact_phone && (
+                <Badge variant="outline" className="text-[10px] rounded-full px-2 gap-1 border-primary/30 text-primary">
+                  <BadgeCheck className="h-3 w-3" /> Contato direto do anúncio
+                </Badge>
+              )}
               {location && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <MapPin className="h-3 w-3 shrink-0" />
@@ -156,6 +161,11 @@ export const MarketplacePropertyCard = React.memo(function MarketplacePropertyCa
             >
               {property.transaction_type === "venda" ? "Venda" : property.transaction_type === "aluguel" ? "Aluguel" : "Venda/Aluguel"}
             </Badge>
+            {property.marketplace_contact_phone && (
+              <Badge variant="outline" className="text-[10px] rounded-full px-2 gap-1 border-primary/40 bg-background/80 backdrop-blur-sm text-primary shadow-sm">
+                <BadgeCheck className="h-3 w-3" /> Contato direto
+              </Badge>
+            )}
           </div>
         </div>
         {property.images && property.images.length > 1 && (
