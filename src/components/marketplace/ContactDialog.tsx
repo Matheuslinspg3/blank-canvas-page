@@ -139,36 +139,48 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
                 </Avatar>
                 <div className="min-w-0">
                   <p className="font-semibold text-sm truncate">{contactData.org_name}</p>
-                  <p className="text-xs text-muted-foreground">Imobiliária</p>
+                  <p className="text-xs text-muted-foreground">Imobiliária responsável</p>
                 </div>
               </div>
             )}
+            {contactData?.org_email && (
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-3 min-w-0">
+                  <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="text-sm truncate">{contactData.org_email}</span>
+                </div>
+                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0"
+                  onClick={() => copyToClipboard(contactData.org_email!, "Email")}>
+                  {copiedField === "Email" ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+            )}
             <p className="text-sm text-muted-foreground text-center">
-              Esta imobiliária ainda não cadastrou um contato público no Porta do Corretor.
+              {contactData?.org_email
+                ? "Sem telefone público cadastrado. Você pode notificar a imobiliária — ela receberá um aviso no sistema."
+                : "Esta imobiliária ainda não cadastrou um contato público. Notifique-os e eles receberão um aviso no sistema para entrar em contato com você."}
             </p>
             <Button
               className="w-full gap-2"
-              variant="outline"
+              variant="default"
               onClick={async () => {
                 try {
-                  await supabase.from("marketplace_contact_intents" as any).insert({
-                    organization_id: property.organization_id,
-                    target_phone: null,
-                    contact_type: "org",
-                    property_id: property.id,
-                    property_title: property.title,
-                    property_code: property.external_code || null,
-                    org_name: contactData?.org_name || null,
+                  const { data, error } = await supabase.rpc("notify_marketplace_interest" as any, {
+                    p_property_id: property.id,
                   });
+                  if (error) throw error;
+                  const notified = (data as any)?.notified ?? 0;
                   toast({
                     title: "Imobiliária notificada",
-                    description: "Avisamos a imobiliária do seu interesse. Em breve devem entrar em contato.",
+                    description: notified > 0
+                      ? `Avisamos ${notified} responsável(is) da imobiliária. Em breve devem entrar em contato.`
+                      : "Registramos seu interesse. A imobiliária será avisada.",
                   });
                   onOpenChange(false);
-                } catch {
+                } catch (err: any) {
                   toast({
                     title: "Não foi possível registrar",
-                    description: "Tente novamente em instantes.",
+                    description: err?.message || "Tente novamente em instantes.",
                     variant: "destructive",
                   });
                 }
