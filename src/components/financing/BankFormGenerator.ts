@@ -12,6 +12,11 @@ function fmtDate(d?: string) {
   return d;
 }
 
+function safeName(name: string) {
+  const s = (name || "").trim().replace(/\s+/g, "_").replace(/[^\w\-.]/g, "");
+  return s || "cliente_avulso";
+}
+
 function fmtCPF(cpf: string) {
   const c = cpf.replace(/\D/g, "");
   if (c.length !== 11) return cpf || "___.___.___-__";
