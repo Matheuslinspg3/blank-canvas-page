@@ -86,15 +86,31 @@ export default function Properties() {
     filters, updateFilter, updateFilters, clearFilters, hasActiveFilters, activeFilterCount, neighborhoods, cities, availableAmenities,
   } = usePropertyFilters();
 
-  const { data: searchResults, isLoading: isSearching } = useAdvancedPropertySearch(filters);
+  // Advanced RPC search runs ONLY when there are active filters.
+  // Without filters we use the lightweight paginated list directly.
+  const { data: searchResults, isLoading: isSearching } = useAdvancedPropertySearch(filters, hasActiveFilters);
 
+  // Lightweight listing for the page (cards only, server-paginated, cover image only).
+  const { properties: listProperties, isLoading: isLoadingList } = usePropertiesList({
+    pageSize: 500,
+    page: 0,
+    enabled: !hasActiveFilters,
+  });
+
+  // Full hook kept for mutations + bulk ops. We do NOT consume `properties` from it
+  // on this page anymore — the heavy fetch only runs lazily when components that
+  // actually need full data (PropertyDetails, KanbanBoard, etc.) request it.
   const {
-    properties: allProperties, isLoading: isLoadingAll, error: propertiesError, createProperty, updateProperty, deleteProperty,
+    properties: fullProperties, isLoading: isLoadingFull, error: propertiesError, createProperty, updateProperty, deleteProperty,
     bulkDeleteProperties, bulkInactivateProperties, publishToMarketplace,
     bulkPublishToMarketplace, bulkHideFromMarketplace,
     isCreating, isUpdating, isDeleting, isBulkDeleting, isBulkInactivating,
     isBulkPublishing, isBulkHiding, refetch,
   } = useProperties();
+
+  // `allProperties` = whichever dataset is currently driving the UI.
+  const allProperties = hasActiveFilters ? fullProperties : (listProperties.length > 0 ? listProperties : fullProperties);
+  const isLoadingAll = hasActiveFilters ? isLoadingFull : (isLoadingList && listProperties.length === 0);
 
   const { publishedIds } = useMarketplaceStatus();
 
