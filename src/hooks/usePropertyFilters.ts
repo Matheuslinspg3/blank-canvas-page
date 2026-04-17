@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { AMENITIES_OPTIONS } from '@/components/properties/form/constants';
 
 export interface PropertyFilters {
   searchText: string;
