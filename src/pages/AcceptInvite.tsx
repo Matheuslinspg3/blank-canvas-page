@@ -62,20 +62,20 @@ export default function AcceptInvite() {
         return;
       }
 
-      const { data, error: fetchError } = await supabase
-        .from("organization_invites")
-        .select("id, role, organization_id, status, expires_at, email")
-        .eq("id", id)
-        .maybeSingle();
+      // Use SECURITY DEFINER RPC so anonymous/non-member users can also load the invite
+      const { data: rows, error: fetchError } = await supabase
+        .rpc("get_invite_for_acceptance", { p_invite_id: id });
+
+      const data = Array.isArray(rows) ? rows[0] : rows;
 
       if (fetchError || !data) {
+        console.error("[AcceptInvite] load failed:", fetchError);
         setError("Convite não encontrado ou expirado");
         setLoading(false);
         return;
       }
 
       if (data.status === "accepted") {
-        // If user is logged in and already in this org, redirect
         if (user) {
           const { data: profile } = await supabase
             .from("profiles")
@@ -106,15 +106,15 @@ export default function AcceptInvite() {
         return;
       }
 
-      // Get org name
-      let orgName = "Organização";
-      try {
-        const { data: nameData } = await supabase
-          .rpc("get_org_name_for_invite", { p_invite_id: data.id });
-        if (nameData) orgName = nameData as string;
-      } catch {}
-
-      setInvite({ ...data, org_name: orgName });
+      setInvite({
+        id: data.id,
+        role: data.role,
+        organization_id: data.organization_id,
+        status: data.status,
+        expires_at: data.expires_at,
+        email: data.email,
+        org_name: data.org_name || "Organização",
+      });
       if (data.email) {
         setForm(prev => ({ ...prev, email: data.email! }));
       }
@@ -138,67 +138,62 @@ export default function AcceptInvite() {
     if (!invite || !user) return;
     setIsSubmitting(true);
 
-    try {
-      // First check if the trigger already handled it (profile already in correct org)
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("organization_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (profile?.organization_id === invite.organization_id) {
-        setAccepted(true);
-        toast({ title: "Bem-vindo!", description: `Você faz parte de ${invite.org_name}` });
-        setTimeout(() => navigate("/dashboard"), 1500);
-        return;
-      }
-
-      // Call edge function
-      const { data, error: fnError } = await supabase.functions.invoke("accept-invite", {
-        body: { invite_id: invite.id },
-      });
-
-      // Handle "already used" as success (trigger may have handled it)
-      if (data?.error && (data.error.includes("já utilizado") || data.error.includes("já pertence"))) {
-        // Double-check profile
-        const { data: profileCheck } = await supabase
+    // Guardrail: confirm membership and redirect
+    const confirmAndRedirect = async (): Promise<boolean> => {
+      try {
+        const { data: profile } = await supabase
           .from("profiles")
           .select("organization_id")
           .eq("user_id", user.id)
           .maybeSingle();
-
-        if (profileCheck?.organization_id === invite.organization_id) {
+        if (profile?.organization_id === invite.organization_id) {
           setAccepted(true);
           toast({ title: "Bem-vindo!", description: `Você faz parte de ${invite.org_name}` });
           setTimeout(() => navigate("/dashboard"), 1500);
-          return;
+          return true;
         }
+      } catch (err) {
+        console.warn("[AcceptInvite] profile check failed", err);
+      }
+      return false;
+    };
+
+    try {
+      // Pre-check: trigger may have already linked the profile
+      if (await confirmAndRedirect()) return;
+
+      // Call edge function with timeout fallback
+      const invokePromise = supabase.functions.invoke("accept-invite", {
+        body: { invite_id: invite.id },
+      });
+      const timeoutPromise = new Promise<{ data: any; error: any }>((resolve) =>
+        setTimeout(() => resolve({ data: null, error: { message: "timeout" } }), 15000),
+      );
+      const { data, error: fnError } = (await Promise.race([invokePromise, timeoutPromise])) as any;
+
+      // "Already used / already a member" → re-check profile, redirect if good
+      if (data?.error && (data.error.includes("já utilizado") || data.error.includes("já pertence") || data.error.includes("already"))) {
+        if (await confirmAndRedirect()) return;
       }
 
-      if (fnError) throw fnError;
+      if (fnError) throw new Error(fnError.message || "Erro ao aceitar convite");
       if (data?.error) throw new Error(data.error);
 
       setAccepted(true);
       toast({ title: "Bem-vindo!", description: `Você agora faz parte de ${invite.org_name}` });
       setTimeout(() => navigate("/dashboard"), 1500);
     } catch (err: any) {
-      // Final fallback: check if user is already in the org
-      try {
-        const { data: profileFallback } = await supabase
-          .from("profiles")
-          .select("organization_id")
-          .eq("user_id", user.id)
-          .maybeSingle();
+      // Final fallback: maybe trigger handled it after the error
+      if (await confirmAndRedirect()) return;
 
-        if (profileFallback?.organization_id === invite.organization_id) {
-          setAccepted(true);
-          toast({ title: "Bem-vindo!", description: `Você já faz parte de ${invite.org_name}` });
-          setTimeout(() => navigate("/dashboard"), 1500);
-          return;
-        }
-      } catch {}
-
-      toast({ variant: "destructive", title: "Erro", description: err.message || "Erro ao aceitar convite" });
+      console.error("[AcceptInvite] accept failed", err);
+      toast({
+        variant: "destructive",
+        title: "Erro ao aceitar convite",
+        description: err?.message?.includes("timeout")
+          ? "Tempo esgotado. Verifique sua conexão e clique em Tentar novamente."
+          : err?.message || "Erro desconhecido — tente novamente em alguns segundos.",
+      });
       acceptAttempted.current = false; // Allow retry
     } finally {
       setIsSubmitting(false);

@@ -116,14 +116,21 @@ export function TeamInviteSection() {
     },
     onSuccess: async (data) => {
       const link = `${window.location.origin}/convite/${data.id}`;
-      navigator.clipboard.writeText(link);
       const email = inviteEmail.trim().toLowerCase();
       setInviteEmail("");
+      setInviteName("");
       queryClient.invalidateQueries({ queryKey: ["organization-invites"] });
 
-      // Send email
+      // Always copy link as fallback (even if email fails)
       try {
-        const { error } = await supabase.functions.invoke("send-invite-email", {
+        await navigator.clipboard.writeText(link);
+      } catch {
+        /* clipboard may be unavailable in insecure contexts */
+      }
+
+      // Send email (non-blocking — failure doesn't undo the invite)
+      try {
+        const { data: emailRes, error } = await supabase.functions.invoke("send-invite-email", {
           body: {
             to: email,
             type: "team",
@@ -133,12 +140,17 @@ export function TeamInviteSection() {
             inviter_name: profile?.full_name || undefined,
           },
         });
-        // Fetch org name for the email
         if (error) throw error;
-        toast.success(`Email de convite enviado para ${email}!`);
-      } catch (e) {
-        console.error("Email send failed:", e);
-        toast.success("Link copiado! (email não pôde ser enviado)");
+        if (emailRes?.error) throw new Error(emailRes.error);
+        toast.success(`Convite enviado para ${email}`, {
+          description: "Link também foi copiado para a área de transferência.",
+        });
+      } catch (e: any) {
+        console.error("[TeamInviteSection] email send failed:", e);
+        toast.warning("Convite criado, mas o email falhou", {
+          description: "O link foi copiado — envie manualmente ao convidado.",
+          duration: 7000,
+        });
       }
     },
     onError: (err: Error) => {
