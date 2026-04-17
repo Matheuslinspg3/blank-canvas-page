@@ -112,9 +112,9 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
 
   if (!property) return null;
 
-  const hasAnyData = contactData && (contactData.org_name || contactData.broker_name || contactData.broker_phone || contactData.org_phone || contactData.org_email);
   const brokerPhone = contactData?.broker_phone;
   const orgPhone = contactData?.org_phone;
+  const hasPhone = !!(brokerPhone || orgPhone);
   // Show both phones if different, otherwise just one
   const showBothPhones = brokerPhone && orgPhone && brokerPhone.replace(/\D/g, "") !== orgPhone.replace(/\D/g, "");
 
@@ -129,7 +129,7 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : !hasAnyData ? (
+        ) : !hasPhone ? (
           <div className="space-y-4 py-2">
             {contactData?.org_name && (
               <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">

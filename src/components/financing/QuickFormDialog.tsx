@@ -101,16 +101,22 @@ export function QuickFormDialog({ open, onOpenChange, bankCode, formId, formName
   const [generating, setGenerating] = useState(false);
 
   const filledCount = Object.values(values).filter(
-    (v) => v !== "" && v !== undefined && v !== null && v !== 0,
+    (v) => v !== "" && v !== undefined && v !== null,
   ).length;
 
   const bank = BANK_COLORS[bankCode];
 
   const handleChange = (key: string, raw: string, type?: string) => {
-    setValues((prev) => ({
-      ...prev,
-      [key]: type === "number" ? (raw === "" ? 0 : Number(raw)) : raw,
-    }));
+    setValues((prev) => {
+      const next = { ...prev };
+      if (raw === "") {
+        // Untouched / cleared field — remove so 0 vs empty is distinguishable
+        delete next[key];
+      } else {
+        next[key] = type === "number" ? Number(raw) : raw;
+      }
+      return next;
+    });
   };
 
   const handleGenerate = () => {

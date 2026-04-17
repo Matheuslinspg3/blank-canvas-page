@@ -132,7 +132,8 @@ export default function AcceptInvite() {
       acceptAttempted.current = true;
       acceptInvite();
     }
-  }, [user, invite]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, invite, accepted, isSubmitting]);
 
   const acceptInvite = async () => {
     if (!invite || !user) return;
@@ -342,11 +343,18 @@ export default function AcceptInvite() {
             <CardContent className="pt-6 space-y-4">
               <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
               <p className="text-muted-foreground">Aceitando convite...</p>
-              <Button variant="outline" size="sm" className="mt-4" onClick={() => {
-                acceptAttempted.current = false;
-                acceptInvite();
-              }}>
-                Tentar novamente
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                disabled={isSubmitting}
+                onClick={() => {
+                  if (isSubmitting) return;
+                  acceptAttempted.current = false;
+                  acceptInvite();
+                }}
+              >
+                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Tentar novamente"}
               </Button>
             </CardContent>
           </Card>
