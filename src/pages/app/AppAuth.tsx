@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
+import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { ArrowRight, Loader2 } from "lucide-react";
 
 export default function AppAuth() {
@@ -106,6 +107,22 @@ export default function AppAuth() {
           </div>
 
           <hr className="section-divider" />
+
+          {/* Google Sign-In */}
+          <div className="space-y-3">
+            <GoogleSignInButton
+              label={isLogin ? "Entrar com Google" : "Cadastrar com Google"}
+              disabled={loading}
+            />
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border/60" />
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-background px-2 text-muted-foreground">ou com email</span>
+              </div>
+            </div>
+          </div>
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
