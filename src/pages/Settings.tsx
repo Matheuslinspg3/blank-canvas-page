@@ -17,6 +17,7 @@ import { ChangelogSection } from "@/components/settings/ChangelogSection";
 import { SettingsProfileTab } from "@/components/settings/SettingsProfileTab";
 import { SettingsCompanyTab } from "@/components/settings/SettingsCompanyTab";
 import { SettingsTeamTab } from "@/components/settings/SettingsTeamTab";
+import { PasskeysSection } from "@/components/settings/PasskeysSection";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const WhiteLabelSettings = lazy(() => import("@/components/settings/WhiteLabelSettings"));
@@ -104,6 +105,7 @@ export default function Settings() {
                 </CardContent>
               </Card>
               <PushNotificationCard />
+              <PasskeysSection />
             </div>
           </TabsContent>
 
