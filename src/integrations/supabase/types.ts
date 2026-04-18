@@ -9409,6 +9409,15 @@ export type Database = {
       cleanup_expired_import_tokens: { Args: never; Returns: number }
       cleanup_old_logs: { Args: never; Returns: undefined }
       cleanup_old_whatsapp_media: { Args: never; Returns: undefined }
+      complete_onboarding: {
+        Args: {
+          p_account_type: string
+          p_company_name: string
+          p_phone: string
+          p_plan_slug: string
+        }
+        Returns: Json
+      }
       consume_import_token: {
         Args: { p_org_id: string; p_property_id: string; p_token: string }
         Returns: boolean
