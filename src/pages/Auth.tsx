@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { PasswordStrengthIndicator, isPasswordStrong } from "@/components/PasswordStrengthIndicator";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
+import { PasskeyLoginButton } from "@/components/auth/PasskeyLoginButton";
 
 interface SignupPlan {
   id: string;
