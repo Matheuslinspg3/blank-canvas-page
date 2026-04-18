@@ -160,6 +160,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    // 0. Intercepta erros do callback OAuth (vêm no hash da URL após redirect do Supabase)
+    try {
+      const rawHash = window.location.hash.startsWith('#')
+        ? window.location.hash.slice(1)
+        : window.location.hash;
+      if (rawHash) {
+        const params = new URLSearchParams(rawHash);
+        const errorParam = params.get('error');
+        const errorCode = params.get('error_code');
+        const errorDescription = params.get('error_description');
+        if (errorParam || errorCode || errorDescription) {
+          const desc = decodeURIComponent(errorDescription ?? '');
+          const isEmailCollision =
+            /EMAIL_ALREADY_REGISTERED/i.test(desc) ||
+            /Database error saving new user/i.test(desc);
+
+          if (isEmailCollision) {
+            toast.error('Já existe uma conta com este email', {
+              description:
+                'Faça login com sua senha original ou use "Esqueci minha senha" para recuperar o acesso. Depois de entrar, você pode vincular o Google nas configurações.',
+              duration: 10000,
+            });
+            setTimeout(() => {
+              window.history.replaceState(null, '', '/auth');
+            }, 0);
+          } else if (errorParam) {
+            toast.error('Erro ao entrar com Google', {
+              description: desc || 'Tente novamente em instantes.',
+              duration: 8000,
+            });
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[Auth] Failed to parse OAuth error hash:', e);
+    }
+
     // 1. getSession runs first and sets the profile
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
