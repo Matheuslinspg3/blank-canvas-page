@@ -34,7 +34,7 @@ const formatBRL = (cents: number) =>
 
 export default function OnboardingWizard() {
   const navigate = useNavigate();
-  const { profile, refreshProfile } = useAuth();
+  const { profile, refreshProfile, signOut } = useAuth();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
 
@@ -46,12 +46,22 @@ export default function OnboardingWizard() {
   const [plans, setPlans] = useState<PlanRow[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
 
-  // Pré-preencher a partir do profile (caso já exista algo do signup tradicional)
+  // Se onboarding já está completo, redireciona para dashboard (evita acesso manual a /onboarding)
   useEffect(() => {
-    if (profile?.full_name && !companyName) setCompanyName(profile.full_name);
+    if (profile?.onboarding_completed) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [profile?.onboarding_completed, navigate]);
+
+  // Pré-preenche telefone do profile se existir. Não pré-preenche companyName
+  // para imobiliária (full_name do Google é nome pessoal, não da empresa).
+  useEffect(() => {
     if (profile?.phone && !phone) setPhone(profile.phone);
+    if (profile?.full_name && !companyName && accountType === "corretor_individual") {
+      setCompanyName(profile.full_name);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.user_id]);
+  }, [profile?.user_id, accountType]);
 
   // Buscar planos visíveis no onboarding (exclui addons e personalizado)
   useEffect(() => {
@@ -82,11 +92,27 @@ export default function OnboardingWizard() {
       navigate("/auth", { replace: true });
       return;
     }
+    if (!accountType) {
+      toast.error("Selecione o tipo de conta.");
+      setStep(1);
+      return;
+    }
+    const cleanPhone = phone.replace(/\D/g, "");
+    if (cleanPhone.length < 10) {
+      toast.error("Telefone inválido. Inclua DDD + número.");
+      setStep(2);
+      return;
+    }
+    if (companyName.trim().length < 2) {
+      toast.error("Informe seu nome / nome da empresa.");
+      setStep(2);
+      return;
+    }
     setSaving(true);
     try {
       const { data, error } = await supabase.rpc("complete_onboarding", {
-        p_account_type: accountType ?? "corretor_individual",
-        p_company_name: companyName.trim() || profile.full_name,
+        p_account_type: accountType,
+        p_company_name: companyName.trim(),
         p_phone: phone.trim(),
         p_plan_slug: planSlug,
       });

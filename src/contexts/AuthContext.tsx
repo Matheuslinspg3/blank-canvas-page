@@ -243,10 +243,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Cada origin precisa estar registrada em Authentication > URL Configuration no Supabase
   // e em "Authorized JavaScript origins / redirect URIs" no Google Cloud Console.
   const signInWithGoogle = useCallback(async () => {
+    // Redireciona para /dashboard — o ProtectedRoute encaminha para /onboarding
+    // automaticamente se onboarding_completed=false. Evita pousar na LandingPage.
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/`,
+        redirectTo: `${window.location.origin}/dashboard`,
         queryParams: {
           access_type: 'offline',
           prompt: 'select_account',
