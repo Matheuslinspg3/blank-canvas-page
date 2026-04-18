@@ -22,15 +22,20 @@ Deno.serve(async (req) => {
 
     let allowCredentials: Array<{ id: string; transports?: AuthenticatorTransport[] }> = [];
 
-    if (email && typeof email === "string") {
-      // Buscar user_id pelo email
-      const { data: userData } = await admin.auth.admin.listUsers();
-      const found = userData?.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
-      if (found) {
+    if (email && typeof email === "string" && email.includes("@")) {
+      // Buscar user_id por email diretamente em auth.users (evita paginação de listUsers)
+      const { data: userRow } = await admin
+        .schema("auth" as any)
+        .from("users" as any)
+        .select("id")
+        .ilike("email", email.trim())
+        .maybeSingle();
+      const foundId = (userRow as { id?: string } | null)?.id;
+      if (foundId) {
         const { data: keys } = await admin
           .from("user_passkeys")
           .select("credential_id, transports")
-          .eq("user_id", found.id);
+          .eq("user_id", foundId);
         allowCredentials = (keys ?? []).map((k) => ({
           id: k.credential_id,
           transports: (k.transports ?? []) as AuthenticatorTransport[],
