@@ -8,6 +8,7 @@ import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { Loader2 } from "lucide-react";
 import { TrialExpiredScreen } from "@/components/TrialExpiredScreen";
 import { FreeExpiredScreen } from "@/components/FreeExpiredScreen";
+import { PasskeyEnrollmentPrompt } from "@/components/auth/PasskeyEnrollmentPrompt";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -58,5 +59,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <TrialExpiredScreen />;
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <PasskeyEnrollmentPrompt />
+    </>
+  );
 }
