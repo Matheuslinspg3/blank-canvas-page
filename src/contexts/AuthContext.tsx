@@ -160,38 +160,83 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    // 0. Intercepta erros do callback OAuth (vêm no hash da URL após redirect do Supabase)
+    // 0. Intercepta erros do callback OAuth (podem vir no hash #error=... ou na query ?error=...)
     try {
       const rawHash = window.location.hash.startsWith('#')
         ? window.location.hash.slice(1)
         : window.location.hash;
-      if (rawHash) {
-        const params = new URLSearchParams(rawHash);
-        const errorParam = params.get('error');
-        const errorCode = params.get('error_code');
-        const errorDescription = params.get('error_description');
-        if (errorParam || errorCode || errorDescription) {
-          const desc = decodeURIComponent(errorDescription ?? '');
-          const isEmailCollision =
-            /EMAIL_ALREADY_REGISTERED/i.test(desc) ||
-            /Database error saving new user/i.test(desc);
+      const hashParams = rawHash ? new URLSearchParams(rawHash) : null;
+      const queryParams = new URLSearchParams(window.location.search);
+      const pick = (key: string) =>
+        hashParams?.get(key) ?? queryParams.get(key) ?? null;
 
-          if (isEmailCollision) {
-            toast.error('Já existe uma conta com este email', {
-              description:
-                'Faça login com sua senha original ou use "Esqueci minha senha" para recuperar o acesso. Depois de entrar, você pode vincular o Google nas configurações.',
-              duration: 10000,
-            });
-            setTimeout(() => {
-              window.history.replaceState(null, '', '/auth');
-            }, 0);
-          } else if (errorParam) {
-            toast.error('Erro ao entrar com Google', {
-              description: desc || 'Tente novamente em instantes.',
-              duration: 8000,
-            });
-            window.history.replaceState(null, '', window.location.pathname);
-          }
+      const errorParam = pick('error');
+      const errorCode = pick('error_code');
+      const errorDescription = pick('error_description');
+
+      if (errorParam || errorCode || errorDescription) {
+        const desc = decodeURIComponent(errorDescription ?? '');
+        const code = (errorCode ?? '').toLowerCase();
+        const err = (errorParam ?? '').toLowerCase();
+
+        // Caso 1: colisão de email (trigger handle_new_user) — mensagem explícita
+        const isEmailCollision =
+          /EMAIL_ALREADY_REGISTERED/i.test(desc) ||
+          /Database error saving new user/i.test(desc) ||
+          /already.*registered/i.test(desc);
+
+        // Caso 2: usuário cancelou consentimento no Google
+        const isUserCancelled =
+          err === 'access_denied' || /cancel/i.test(desc) || /denied/i.test(desc);
+
+        // Caso 3: provider desabilitado / mal configurado
+        const isProviderDisabled =
+          /provider.*not.*enabled/i.test(desc) ||
+          /provider.*disabled/i.test(desc) ||
+          code === 'validation_failed';
+
+        // Caso 4: erro genérico de servidor
+        const isServerError = err === 'server_error' || code === 'unexpected_failure';
+
+        const cleanUrl = (target?: string) => {
+          setTimeout(() => {
+            window.history.replaceState(null, '', target ?? window.location.pathname);
+          }, 0);
+        };
+
+        if (isEmailCollision) {
+          toast.error('Já existe uma conta com este email', {
+            description:
+              'Confirme seu email original ou entre com sua senha para recuperar o acesso. Depois de entrar, você pode vincular o Google nas configurações.',
+            duration: 12000,
+          });
+          cleanUrl('/auth');
+        } else if (isUserCancelled) {
+          toast.info('Login com Google cancelado', {
+            description: 'Você pode tentar novamente quando quiser.',
+            duration: 5000,
+          });
+          cleanUrl('/auth');
+        } else if (isProviderDisabled) {
+          toast.error('Login com Google indisponível', {
+            description:
+              'O provedor Google não está habilitado no momento. Use email e senha ou tente novamente mais tarde.',
+            duration: 8000,
+          });
+          cleanUrl('/auth');
+        } else if (isServerError) {
+          toast.error('Não foi possível concluir o login com Google', {
+            description:
+              'Houve uma falha temporária ao processar sua autenticação. Tente novamente em instantes.',
+            duration: 8000,
+          });
+          cleanUrl('/auth');
+        } else if (errorParam || errorCode) {
+          toast.error('Erro ao entrar com Google', {
+            description: desc || 'Tente novamente em instantes.',
+            duration: 8000,
+          });
+          cleanUrl();
         }
       }
     } catch (e) {
