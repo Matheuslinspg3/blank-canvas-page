@@ -821,6 +821,17 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
               <p className="text-center text-xs text-muted-foreground">
                 Sem cartão · Sem compromisso · Cancele quando quiser
               </p>
+
+              <div className="relative my-2">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border/60" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-background px-2 text-muted-foreground">ou crie sua conta com</span>
+                </div>
+              </div>
+
+              <GoogleSignInButton label="Continuar com Google" disabled={isMaintenanceMode} />
             </form>
           )}
 
