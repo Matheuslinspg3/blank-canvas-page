@@ -4,38 +4,24 @@ import { Fingerprint, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { authenticateWithPasskey } from "@/lib/passkeys/client";
 import { usePasskeySupport } from "@/hooks/usePasskeySupport";
-import { useUserRoles } from "@/hooks/useUserRole";
 
 interface PasskeyLoginButtonProps {
   email?: string;
   disabled?: boolean;
 }
 
-/** Override manual para beta — libera usuários específicos sem deploy:
- *  no console do navegador do usuário: localStorage.setItem('passkey_beta','1') */
-function hasBetaOverride() {
-  if (typeof window === "undefined") return false;
-  try {
-    return window.localStorage.getItem("passkey_beta") === "1";
-  } catch {
-    return false;
-  }
-}
-
 /**
  * Botão "Entrar com biometria" para a tela /auth.
- * Rollout controlado: visível para developers OU usuários com flag beta local.
+ * Disponível para todos os usuários com browser compatível com WebAuthn.
  * Reutiliza authenticateWithPasskey() — termina em verifyOtp e dispara SIGNED_IN.
  */
 export function PasskeyLoginButton({ email, disabled }: PasskeyLoginButtonProps) {
   const { isSupported, checked } = usePasskeySupport();
-  const { isDeveloper, isLoading: rolesLoading } = useUserRoles();
   const [loading, setLoading] = useState(false);
 
-  // Gating: aguarda checks; só renderiza se browser suportar e (developer OU flag beta)
-  if (!checked || rolesLoading) return null;
+  // Gating: apenas suporte WebAuthn no browser
+  if (!checked) return null;
   if (!isSupported) return null;
-  if (!isDeveloper && !hasBetaOverride()) return null;
 
   const handleClick = async () => {
     setLoading(true);

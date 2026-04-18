@@ -6,7 +6,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { toast } from "sonner";
 import { Fingerprint, Trash2, Loader2, ShieldCheck, ShieldOff } from "lucide-react";
 import { usePasskeySupport } from "@/hooks/usePasskeySupport";
-import { useUserRoles } from "@/hooks/useUserRole";
 import { listPasskeys, registerPasskey, deletePasskey } from "@/lib/passkeys/client";
 
 interface Passkey {
@@ -19,15 +18,14 @@ interface Passkey {
 
 export function PasskeysSection() {
   const { isSupported, hasPlatformAuthenticator, checked } = usePasskeySupport();
-  const { isDeveloper } = useUserRoles();
   const [passkeys, setPasskeys] = useState<Passkey[]>([]);
   const [loading, setLoading] = useState(true);
   const [registerOpen, setRegisterOpen] = useState(false);
   const [deviceName, setDeviceName] = useState("");
   const [registering, setRegistering] = useState(false);
 
-  // Rollout interno: por enquanto só developers vêem a seção
-  const enabled = isDeveloper;
+  // Disponível para todos: gating apenas por suporte WebAuthn (renderizado abaixo)
+  const enabled = true;
 
   const reload = async () => {
     setLoading(true);
