@@ -214,7 +214,7 @@ export default function OnboardingWizard() {
           </div>
         </div>
       ),
-      canProceed: companyName.trim().length >= 2 && phone.trim().length >= 8,
+      canProceed: companyName.trim().length >= 2 && phone.replace(/\D/g, "").length >= 10,
     },
     // 3 — Plan
     {
@@ -301,6 +301,14 @@ export default function OnboardingWizard() {
           <HabitaeLogo variant="icon" size="sm" />
           <span className="font-display text-lg font-bold text-foreground">Porta do Corretor</span>
         </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={async () => { await signOut(); navigate("/auth", { replace: true }); }}
+          disabled={saving}
+        >
+          Sair
+        </Button>
       </header>
 
       <div className="relative z-10 px-6 sm:px-8 max-w-lg mx-auto w-full">
