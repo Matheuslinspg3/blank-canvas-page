@@ -76,6 +76,7 @@ const _GeradorAnuncios = lazy(() => lazyRetry(() => import("./pages/GeradorAnunc
 const PublicPropertyBySlug = lazy(() => lazyRetry(() => import("./pages/PublicPropertyBySlug")));
 const Storefront = lazy(() => lazyRetry(() => import("./pages/Storefront")));
 const PrivacyPolicy = lazy(() => lazyRetry(() => import("./pages/PrivacyPolicy")));
+const TermsOfService = lazy(() => lazyRetry(() => import("./pages/TermsOfService")));
 const Maintenance = lazy(() => lazyRetry(() => import("./pages/Maintenance")));
 const EmailTemplates = lazy(() => lazyRetry(() => import("./pages/EmailTemplates")));
 const Plans = lazy(() => lazyRetry(() => import("./pages/Plans")));
@@ -197,6 +198,7 @@ const App = () => (
                       {/* legacy single-segment slug → mantém PublicPropertyBySlug */}
                       <Route path="/i/:slug" element={<PublicPropertyBySlug />} />
                       <Route path="/privacidade" element={<PrivacyPolicy />} />
+                      <Route path="/termos" element={<TermsOfService />} />
                       <Route path="/email-templates" element={<EmailTemplates />} />
                       <Route path="/planos" element={<Plans />} />
                       <Route path="/" element={<LandingPage />} />
