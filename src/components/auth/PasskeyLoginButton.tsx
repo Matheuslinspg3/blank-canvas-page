@@ -11,9 +11,20 @@ interface PasskeyLoginButtonProps {
   disabled?: boolean;
 }
 
+/** Override manual para beta — libera usuários específicos sem deploy:
+ *  no console do navegador do usuário: localStorage.setItem('passkey_beta','1') */
+function hasBetaOverride() {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem("passkey_beta") === "1";
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Botão "Entrar com biometria" para a tela /auth.
- * Rollout controlado: visível apenas para developers + browsers compatíveis.
+ * Rollout controlado: visível para developers OU usuários com flag beta local.
  * Reutiliza authenticateWithPasskey() — termina em verifyOtp e dispara SIGNED_IN.
  */
 export function PasskeyLoginButton({ email, disabled }: PasskeyLoginButtonProps) {
@@ -21,9 +32,10 @@ export function PasskeyLoginButton({ email, disabled }: PasskeyLoginButtonProps)
   const { isDeveloper, isLoading: rolesLoading } = useUserRoles();
   const [loading, setLoading] = useState(false);
 
-  // Gating: aguarda checks; só renderiza para developer + suporte real
+  // Gating: aguarda checks; só renderiza se browser suportar e (developer OU flag beta)
   if (!checked || rolesLoading) return null;
-  if (!isSupported || !isDeveloper) return null;
+  if (!isSupported) return null;
+  if (!isDeveloper && !hasBetaOverride()) return null;
 
   const handleClick = async () => {
     setLoading(true);
@@ -34,11 +46,27 @@ export function PasskeyLoginButton({ email, disabled }: PasskeyLoginButtonProps)
       const name = err?.name || "";
       const msg = err?.message || "";
 
-      if (name === "NotAllowedError" || /cancel|abort/i.test(msg)) {
+      if (name === "NotAllowedError") {
+        // Pode ser cancelamento real OU "nenhuma credencial disponível" (browsers
+        // unificam os dois por privacidade). Mensagem neutra com fallback claro.
+        toast.info("Não foi possível entrar com biometria", {
+          description:
+            "Cancele se foi engano, ou use seu email e senha / Google abaixo.",
+        });
+      } else if (/abort/i.test(msg)) {
         toast.info("Autenticação cancelada");
-      } else if (/no.*credential|allowCredentials|not.*found/i.test(msg)) {
-        toast.error("Nenhuma passkey encontrada", {
-          description: "Use seu email e senha ou continue com Google.",
+      } else if (/desconhecida|not.*found|no.*credential|allowCredentials/i.test(msg)) {
+        toast.error("Passkey não reconhecida", {
+          description:
+            "Esta passkey não está vinculada a uma conta. Entre com email e senha e registre-a em Configurações.",
+        });
+      } else if (/expirado|expired|challenge/i.test(msg)) {
+        toast.error("Sessão de biometria expirou", {
+          description: "Tente novamente.",
+        });
+      } else if (/clone|rollback/i.test(msg)) {
+        toast.error("Passkey suspeita detectada", {
+          description: "Por segurança, remova esta passkey em Configurações e cadastre uma nova.",
         });
       } else {
         toast.error("Falha ao entrar com biometria", {
@@ -56,6 +84,7 @@ export function PasskeyLoginButton({ email, disabled }: PasskeyLoginButtonProps)
       size="lg"
       onClick={handleClick}
       disabled={loading || disabled}
+      aria-label="Entrar com biometria (passkey)"
       className="w-full h-12 text-base bg-card hover:bg-muted/60 border-border/60"
     >
       {loading ? (

@@ -625,8 +625,10 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                 </div>
               </div>
 
-              <PasskeyLoginButton email={loginForm.email} disabled={isMaintenanceMode} />
-              <GoogleSignInButton disabled={isMaintenanceMode} />
+              <div className="space-y-3">
+                <PasskeyLoginButton email={loginForm.email} disabled={isMaintenanceMode} />
+                <GoogleSignInButton disabled={isMaintenanceMode} />
+              </div>
             </form>
           ) : (
             /* ===== SIGNUP ===== */
