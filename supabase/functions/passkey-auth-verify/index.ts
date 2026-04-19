@@ -75,9 +75,9 @@ Deno.serve(async (req) => {
       expectedChallenge: chal.challenge,
       expectedOrigin: EXPECTED_ORIGINS,
       expectedRPID: RP_ID,
-      credential: {
-        id: passkey.credential_id,
-        publicKey: pubKeyBytes,
+      authenticator: {
+        credentialID: passkey.credential_id,
+        credentialPublicKey: pubKeyBytes,
         counter: Number(passkey.counter),
         transports: (passkey.transports ?? []) as AuthenticatorTransport[],
       },
