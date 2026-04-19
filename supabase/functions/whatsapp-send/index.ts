@@ -194,7 +194,7 @@ serve(async (req) => {
       const sentMessageId = evoData?.key?.id || evoData?.messageId || null;
       await supabaseClient.from("whatsapp_messages").insert({
         organization_id: orgId,
-        instance_name: config.instance_name,
+        instance_name: resolvedInstanceName,
         remote_jid: remoteJid,
         from_me: true,
         message_text: message,
