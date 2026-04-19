@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useConversations } from "@/hooks/omnichannel/useConversations";
 import { useMyOwnedConversationIds } from "@/hooks/omnichannel/useMyOwnedConversationIds";
+import { useConversationReads } from "@/hooks/omnichannel/useConversationReads";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,6 +17,7 @@ import { ptBR } from "date-fns/locale";
 interface Props {
   activeId: string | null;
   onSelect: (id: string) => void;
+  realtimeConnected?: boolean;
 }
 
 const STATUS_OPTIONS: { value: ConversationStatus | "all"; label: string }[] = [
@@ -32,18 +34,22 @@ const CHANNEL_OPTIONS: { value: ChannelType | "all"; label: string }[] = [
   { value: "whatsapp", label: "WhatsApp" },
 ];
 
-export function ConversationList({ activeId, onSelect }: Props) {
+export function ConversationList({ activeId, onSelect, realtimeConnected }: Props) {
   const { data: myIds } = useMyOwnedConversationIds();
+  const { data: reads } = useConversationReads();
   const [scope, setScope] = useState<"mine" | "all">("all");
   const [status, setStatus] = useState<ConversationStatus | "all">("all");
   const [channel, setChannel] = useState<ChannelType | "all">("all");
   const [search, setSearch] = useState("");
 
-  const { data: conversations = [], isLoading } = useConversations({
-    status: status === "all" ? undefined : status,
-    channelType: channel === "all" ? undefined : channel,
-    limit: 100,
-  });
+  const { data: conversations = [], isLoading } = useConversations(
+    {
+      status: status === "all" ? undefined : status,
+      channelType: channel === "all" ? undefined : channel,
+      limit: 100,
+    },
+    { realtimeConnected },
+  );
 
   const filtered = useMemo(() => {
     let list = conversations;
@@ -117,6 +123,10 @@ export function ConversationList({ activeId, onSelect }: Props) {
               const isActive = c.id === activeId;
               const initials = (c.customer_display_name ?? c.external_contact_id)
                 .split(" ").map((s) => s[0]).slice(0, 2).join("").toUpperCase();
+              const lastReadAt = reads?.get(c.id);
+              const isUnread =
+                !!c.last_inbound_at &&
+                (!lastReadAt || new Date(c.last_inbound_at) > new Date(lastReadAt));
               return (
                 <li key={c.id}>
                   <button
@@ -132,16 +142,34 @@ export function ConversationList({ activeId, onSelect }: Props) {
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium text-sm truncate">
+                        <span
+                          className={cn(
+                            "text-sm truncate",
+                            isUnread && !isActive ? "font-semibold" : "font-medium",
+                          )}
+                        >
                           {c.customer_display_name ?? c.external_contact_id}
                         </span>
-                        {c.last_message_at && (
-                          <span className="text-[10px] text-muted-foreground shrink-0">
-                            {formatDistanceToNow(new Date(c.last_message_at), { locale: ptBR, addSuffix: false })}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {isUnread && !isActive && (
+                            <span
+                              className="w-2 h-2 rounded-full bg-primary"
+                              aria-label="Não lida"
+                            />
+                          )}
+                          {c.last_message_at && (
+                            <span className="text-[10px] text-muted-foreground">
+                              {formatDistanceToNow(new Date(c.last_message_at), { locale: ptBR, addSuffix: false })}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <p className="text-xs text-muted-foreground truncate mt-0.5">
+                      <p
+                        className={cn(
+                          "text-xs truncate mt-0.5",
+                          isUnread && !isActive ? "text-foreground" : "text-muted-foreground",
+                        )}
+                      >
                         {c.last_message_preview ?? "—"}
                       </p>
                       <div className="flex gap-1 mt-1.5">
