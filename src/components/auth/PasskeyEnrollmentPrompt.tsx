@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePasskeySupport } from "@/hooks/usePasskeySupport";
-import { registerPasskey } from "@/lib/passkeys/client";
+import { registerPasskey, listPasskeys } from "@/lib/passkeys/client";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -51,12 +51,28 @@ export function PasskeyEnrollmentPrompt() {
     // já apresentado nesta sessão do navegador
     if (sessionStorage.getItem(sessionKey) === "1") return;
 
-    const timer = window.setTimeout(() => {
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      // Checar no servidor se já existe QUALQUER passkey desta conta
+      // (cobre caso de cadastro em outro dispositivo/navegador ou storage limpo)
+      try {
+        const existing = await listPasskeys();
+        if (cancelled) return;
+        if (Array.isArray(existing) && existing.length > 0) {
+          // marca local para não consultar de novo neste dispositivo
+          localStorage.setItem(enrolledKey, "1");
+          return;
+        }
+      } catch {
+        // se falhar a consulta, segue o fluxo antigo (mostra prompt)
+      }
+      if (cancelled) return;
       sessionStorage.setItem(sessionKey, "1");
       setOpen(true);
     }, 1500);
 
     return () => {
+      cancelled = true;
       window.clearTimeout(timer);
     };
   }, [userId, checked, isSupported, hasPlatformAuthenticator, profile?.onboarding_completed, dismissKey, sessionKey, enrolledKey]);
