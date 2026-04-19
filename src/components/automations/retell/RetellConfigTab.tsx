@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Save, Loader2, Settings2, Brain, Bell, Users, Webhook, PhoneOutgoing } from "lucide-react";
 import { useRetellConfig, type RetellAgentConfig } from "@/hooks/useRetellConfig";
 import { RetellTestPipelineButton } from "./RetellTestPipelineButton";
+import { RetellActivateButton } from "./RetellActivateButton";
 
 export function RetellConfigTab() {
   const { config, isLoading, hasConfig, saveConfig, isSaving } = useRetellConfig();
@@ -30,6 +31,11 @@ export function RetellConfigTab() {
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
+  }
+
+  // Se ainda não foi provisionado, mostra apenas o card de ativação
+  if (!hasConfig || !config?.agent_id) {
+    return <RetellActivateButton />;
   }
 
   return (
@@ -96,14 +102,14 @@ export function RetellConfigTab() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="agent_id">Agent ID (Retell)</Label>
+                  <Label htmlFor="agent_id" className="text-muted-foreground">Agent ID (gerenciado pela plataforma)</Label>
                   <Input
                     id="agent_id"
                     value={form.agent_id ?? ""}
-                    onChange={(e) => setForm((f) => ({ ...f, agent_id: e.target.value }))}
-                    placeholder="agent_xxxxx"
+                    disabled
+                    className="font-mono text-xs bg-muted"
                   />
-                  <p className="text-xs text-muted-foreground">Encontre no painel da Retell AI</p>
+                  <p className="text-xs text-muted-foreground">Provisionado automaticamente — não edite</p>
                 </div>
               </div>
 
@@ -331,25 +337,27 @@ export function RetellConfigTab() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="retell_from_number">Número de origem (E.164)</Label>
-                  <Input
-                    id="retell_from_number"
-                    value={form.retell_from_number ?? ""}
-                    onChange={(e) => setForm((f) => ({ ...f, retell_from_number: e.target.value }))}
-                    placeholder="+551130000000"
-                  />
-                  <p className="text-xs text-muted-foreground">Número comprado no painel da Retell</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="retell_phone_number_id">Phone Number ID (opcional)</Label>
-                  <Input
-                    id="retell_phone_number_id"
-                    value={form.retell_phone_number_id ?? ""}
-                    onChange={(e) => setForm((f) => ({ ...f, retell_phone_number_id: e.target.value }))}
-                    placeholder="phn_xxxxx"
-                  />
+              <div className="rounded-md border border-dashed border-border bg-muted/20 p-3 space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">⚙️ Avançado (opcional — só preencha se quiser usar seu próprio número Retell)</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="retell_from_number" className="text-xs">Número de origem próprio (E.164)</Label>
+                    <Input
+                      id="retell_from_number"
+                      value={form.retell_from_number ?? ""}
+                      onChange={(e) => setForm((f) => ({ ...f, retell_from_number: e.target.value }))}
+                      placeholder="Deixe vazio para usar o número global"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="retell_phone_number_id" className="text-xs">Phone Number ID</Label>
+                    <Input
+                      id="retell_phone_number_id"
+                      value={form.retell_phone_number_id ?? ""}
+                      onChange={(e) => setForm((f) => ({ ...f, retell_phone_number_id: e.target.value }))}
+                      placeholder="phn_xxxxx"
+                    />
+                  </div>
                 </div>
               </div>
 

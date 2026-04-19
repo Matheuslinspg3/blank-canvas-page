@@ -9,6 +9,7 @@ const RETELL_API_KEY = Deno.env.get("RETELL_API_KEY")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const WEBHOOK_SECRET = Deno.env.get("WHATSAPP_AGENT_SECRET") || Deno.env.get("WEBHOOK_SECRET") || "";
+const DEFAULT_FROM_NUMBER = Deno.env.get("RETELL_DEFAULT_FROM_NUMBER") || "";
 
 function log(event: string, data: Record<string, unknown>) {
   console.log(JSON.stringify({ scope: "retell.trigger", event, ...data }));
@@ -65,7 +66,10 @@ Deno.serve(async (req) => {
       .eq("organization_id", organization_id)
       .maybeSingle();
 
-    const cfgCheck = validateRetellManualCall(cfg);
+    // Resolve from_number: org-specific OR global platform fallback
+    const resolvedFromNumber = cfg?.retell_from_number || DEFAULT_FROM_NUMBER;
+    const cfgForCheck = { ...(cfg ?? {}), retell_from_number: resolvedFromNumber };
+    const cfgCheck = validateRetellManualCall(cfgForCheck);
     if (!cfgCheck.ok) {
       log("config_invalid", { lead_id, org_id: organization_id, reason: cfgCheck.reason });
       return new Response(JSON.stringify({ error: "Configuração inválida", reason: cfgCheck.reason }), {
@@ -90,7 +94,7 @@ Deno.serve(async (req) => {
         Authorization: `Bearer ${RETELL_API_KEY}`,
       },
       body: JSON.stringify({
-        from_number: cfg!.retell_from_number,
+        from_number: resolvedFromNumber,
         to_number: toNumber,
         override_agent_id: cfg!.agent_id,
         metadata,

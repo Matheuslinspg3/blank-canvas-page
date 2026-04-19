@@ -6641,6 +6641,7 @@ export type Database = {
           auto_outbound_enabled: boolean
           auto_qualify_leads: boolean | null
           broker_assignment_mode: string | null
+          conversation_flow_id: string | null
           created_at: string
           enabled: boolean | null
           id: string
@@ -6668,6 +6669,7 @@ export type Database = {
           auto_outbound_enabled?: boolean
           auto_qualify_leads?: boolean | null
           broker_assignment_mode?: string | null
+          conversation_flow_id?: string | null
           created_at?: string
           enabled?: boolean | null
           id?: string
@@ -6695,6 +6697,7 @@ export type Database = {
           auto_outbound_enabled?: boolean
           auto_qualify_leads?: boolean | null
           broker_assignment_mode?: string | null
+          conversation_flow_id?: string | null
           created_at?: string
           enabled?: boolean | null
           id?: string
