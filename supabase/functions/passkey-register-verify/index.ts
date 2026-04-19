@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
         user_id: userId,
         action: "passkey_registered",
         entity_type: "passkey",
-        entity_ids: [cred.id],
+        entity_ids: [credentialID],
         details: { device_name: deviceName ?? "Dispositivo" },
       });
     } catch (_) { /* audit best-effort */ }
