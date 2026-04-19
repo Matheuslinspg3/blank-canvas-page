@@ -42,6 +42,27 @@ async function sendViaWhatsApp(conv: Conversation, payload: SendPayload) {
 }
 
 /**
+ * Phase 3B: outbound Meta (Instagram Direct + Facebook Messenger).
+ * Edge `meta-messaging-send` resolve credenciais server-side e valida feature flag.
+ * O cliente envia apenas referências estáveis (channelAccountId, recipientId).
+ */
+async function sendViaMeta(conv: Conversation, payload: SendPayload) {
+  const body: Record<string, unknown> = {
+    channelAccountId: conv.channel_account_id,
+    recipientId: conv.external_contact_id,
+    message: payload.text,
+    type: payload.mediaUrl ? "media" : "text",
+  };
+  if (payload.mediaUrl) {
+    body.mediaUrl = payload.mediaUrl;
+    body.mediaType = payload.mediaType ?? "image";
+  }
+  const { data, error } = await supabase.functions.invoke("meta-messaging-send", { body });
+  if (error) throw error;
+  return data;
+}
+
+/**
  * Adapter público de envio. UI nunca toca canal específico.
  * Cada novo canal adiciona um `sendVia<Canal>` privado e um case no switch.
  */
@@ -54,6 +75,7 @@ export async function sendConversationMessage(
       return sendViaWhatsApp(conv, payload);
     case "instagram":
     case "messenger":
+      return sendViaMeta(conv, payload);
     case "facebook_comments":
     case "sms":
     case "email":

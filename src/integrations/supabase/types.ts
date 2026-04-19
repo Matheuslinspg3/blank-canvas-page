@@ -2149,6 +2149,82 @@ export type Database = {
           },
         ]
       }
+      channel_account_credentials: {
+        Row: {
+          access_token: string
+          channel_account_id: string
+          created_at: string
+          expires_at: string | null
+          external_business_id: string | null
+          external_ig_user_id: string | null
+          external_page_id: string | null
+          last_refreshed_at: string | null
+          metadata: Json
+          organization_id: string
+          provider: string
+          scopes: string[]
+          token_type: string | null
+          updated_at: string
+          webhook_verify_token: string | null
+        }
+        Insert: {
+          access_token: string
+          channel_account_id: string
+          created_at?: string
+          expires_at?: string | null
+          external_business_id?: string | null
+          external_ig_user_id?: string | null
+          external_page_id?: string | null
+          last_refreshed_at?: string | null
+          metadata?: Json
+          organization_id: string
+          provider: string
+          scopes?: string[]
+          token_type?: string | null
+          updated_at?: string
+          webhook_verify_token?: string | null
+        }
+        Update: {
+          access_token?: string
+          channel_account_id?: string
+          created_at?: string
+          expires_at?: string | null
+          external_business_id?: string | null
+          external_ig_user_id?: string | null
+          external_page_id?: string | null
+          last_refreshed_at?: string | null
+          metadata?: Json
+          organization_id?: string
+          provider?: string
+          scopes?: string[]
+          token_type?: string | null
+          updated_at?: string
+          webhook_verify_token?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_account_credentials_channel_account_id_fkey"
+            columns: ["channel_account_id"]
+            isOneToOne: true
+            referencedRelation: "channel_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_account_credentials_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_account_credentials_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+        ]
+      }
       channel_accounts: {
         Row: {
           channel_type: Database["public"]["Enums"]["channel_type"]
@@ -4852,6 +4928,36 @@ export type Database = {
           },
         ]
       }
+      meta_webhook_events: {
+        Row: {
+          channel_type: string
+          error: string | null
+          external_event_id: string
+          id: string
+          payload: Json
+          processed_at: string | null
+          received_at: string
+        }
+        Insert: {
+          channel_type: string
+          error?: string | null
+          external_event_id: string
+          id?: string
+          payload: Json
+          processed_at?: string | null
+          received_at?: string
+        }
+        Update: {
+          channel_type?: string
+          error?: string | null
+          external_event_id?: string
+          id?: string
+          payload?: Json
+          processed_at?: string | null
+          received_at?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
@@ -4901,6 +5007,42 @@ export type Database = {
             foreignKeyName: "notifications_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+        ]
+      }
+      omnichannel_feature_flags: {
+        Row: {
+          meta_messaging_enabled: boolean
+          meta_messaging_notes: string | null
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          meta_messaging_enabled?: boolean
+          meta_messaging_notes?: string | null
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          meta_messaging_enabled?: boolean
+          meta_messaging_notes?: string | null
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "omnichannel_feature_flags_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omnichannel_feature_flags_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
             referencedRelation: "vw_marketplace_orgs_missing_contact"
             referencedColumns: ["organization_id"]
           },
