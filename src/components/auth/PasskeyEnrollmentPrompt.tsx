@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePasskeySupport } from "@/hooks/usePasskeySupport";
-import { listPasskeys, registerPasskey } from "@/lib/passkeys/client";
+import { registerPasskey } from "@/lib/passkeys/client";
 import {
   AlertDialog,
   AlertDialogContent,
