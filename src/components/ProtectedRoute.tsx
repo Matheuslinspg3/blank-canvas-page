@@ -19,6 +19,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isDemoMode } = useDemo();
   const { isDeveloperOrLeader, isLoading: rolesLoading } = useUserRoles();
   const { isExpired: freeExpired, loading: freeLoading } = useFreeTrialExpired();
+  const { subscription, loadingSub } = useSubscription();
   const location = useLocation();
 
   // Session guard - limits to 2 devices per user
@@ -46,6 +47,17 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   // Redirect to onboarding if not completed (unless already on onboarding)
   if (profile && !profile.onboarding_completed && location.pathname !== "/onboarding") {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  // Legacy OAuth users that completed onboarding without choosing a plan:
+  // send them to onboarding so the wizard can prompt the plan step.
+  if (
+    profile?.onboarding_completed &&
+    !loadingSub &&
+    !subscription &&
+    location.pathname !== "/onboarding"
+  ) {
     return <Navigate to="/onboarding" replace />;
   }
 

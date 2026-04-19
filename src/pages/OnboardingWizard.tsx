@@ -45,13 +45,44 @@ export default function OnboardingWizard() {
   const [planSlug, setPlanSlug] = useState<string>("gratuito");
   const [plans, setPlans] = useState<PlanRow[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
+  const [planOnlyMode, setPlanOnlyMode] = useState<boolean | null>(null);
 
-  // Se onboarding já está completo, redireciona para dashboard (evita acesso manual a /onboarding)
+  // Detecta se usuário (geralmente OAuth/Google legacy) já completou onboarding
+  // mas não possui subscription — nesse caso reabrimos o wizard direto no passo de plano.
   useEffect(() => {
-    if (profile?.onboarding_completed) {
-      navigate("/dashboard", { replace: true });
-    }
-  }, [profile?.onboarding_completed, navigate]);
+    let cancelled = false;
+    (async () => {
+      if (!profile?.user_id) return;
+      if (!profile.onboarding_completed) {
+        if (!cancelled) setPlanOnlyMode(false);
+        return;
+      }
+      if (!profile.organization_id) {
+        if (!cancelled) setPlanOnlyMode(false);
+        return;
+      }
+      const { data: sub } = await supabase
+        .from("subscriptions")
+        .select("id")
+        .eq("organization_id", profile.organization_id)
+        .in("status", ["active", "trial", "pending"])
+        .limit(1)
+        .maybeSingle();
+
+      if (cancelled) return;
+      if (sub) {
+        // Já tem plano → vai para o dashboard.
+        navigate("/dashboard", { replace: true });
+      } else {
+        // Onboarding completo mas sem subscription (legacy Google) → só pede plano.
+        setPlanOnlyMode(true);
+        // Pré-preenche para a chamada do RPC
+        setAccountType("imobiliaria");
+        setCompanyName(profile.full_name || "");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [profile?.user_id, profile?.onboarding_completed, profile?.organization_id, profile?.full_name, navigate]);
 
   // Pré-preenche telefone do profile se existir. Não pré-preenche companyName
   // para imobiliária (full_name do Google é nome pessoal, não da empresa).
@@ -288,9 +319,23 @@ export default function OnboardingWizard() {
     },
   ], [accountType, companyName, phone, planSlug, plans, plansLoading, profile?.full_name]);
 
+  // Quando entra em "planOnlyMode" (legacy sem subscription), pula direto para o passo de plano.
+  useEffect(() => {
+    if (planOnlyMode === true) setStep(3);
+  }, [planOnlyMode]);
+
   const currentStep = steps[step];
   const isLastStep = step === steps.length - 1;
   const totalSteps = steps.length;
+
+  // Loader enquanto verificamos se o usuário (já com onboarding completo) precisa apenas do plano.
+  if (planOnlyMode === null && profile?.onboarding_completed) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background relative overflow-hidden">
