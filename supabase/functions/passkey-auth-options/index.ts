@@ -1,6 +1,6 @@
 // Edge Function: passkey-auth-options (público)
 // Gera challenge para autenticação. Email é opcional (descoberta resident key).
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { generateAuthenticationOptions } from "npm:@simplewebauthn/server@10.0.1";
 import { RP_ID } from "../_shared/webauthn.ts";
 
