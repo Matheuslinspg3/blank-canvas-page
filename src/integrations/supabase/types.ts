@@ -9746,6 +9746,10 @@ export type Database = {
         Args: { p_run_id: string; p_user_id: string }
         Returns: boolean
       }
+      assign_conversation_owner: {
+        Args: { p_assignee_id: string; p_conversation_id: string }
+        Returns: string
+      }
       backfill_omnichannel_from_whatsapp: {
         Args: { p_batch_size?: number; p_org_id?: string }
         Returns: Json
