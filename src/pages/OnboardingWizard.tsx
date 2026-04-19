@@ -319,9 +319,23 @@ export default function OnboardingWizard() {
     },
   ], [accountType, companyName, phone, planSlug, plans, plansLoading, profile?.full_name]);
 
+  // Quando entra em "planOnlyMode" (legacy sem subscription), pula direto para o passo de plano.
+  useEffect(() => {
+    if (planOnlyMode === true) setStep(3);
+  }, [planOnlyMode]);
+
   const currentStep = steps[step];
   const isLastStep = step === steps.length - 1;
   const totalSteps = steps.length;
+
+  // Loader enquanto verificamos se o usuário (já com onboarding completo) precisa apenas do plano.
+  if (planOnlyMode === null && profile?.onboarding_completed) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background relative overflow-hidden">
