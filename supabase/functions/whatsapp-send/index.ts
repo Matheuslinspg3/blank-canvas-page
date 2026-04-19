@@ -59,31 +59,79 @@ serve(async (req) => {
     const orgId = profile.organization_id;
     const senderName = profile.full_name || user.email || "Atendente";
 
-    // Get config (unified table)
-    const { data: config } = await supabaseClient
-      .from("whatsapp_agent_config")
-      .select("instance_name, instance_token, status")
-      .eq("organization_id", orgId)
-      .single();
-
-    if (!config?.instance_name) {
-      return new Response(
-        JSON.stringify({ error: "WhatsApp não configurado. Ative a integração na área de integrações." }),
-        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (config.status !== "connected") {
-      return new Response(
-        JSON.stringify({ error: "WhatsApp desconectado. Reconecte na área de integrações antes de enviar mensagens." }),
-        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const body = await req.json();
-    const { phone, message, type = "text" } = body;
+    const { phone, message, type = "text", channelAccountId } = body;
 
     if (!phone || !message) throw new Error("phone and message are required");
+
+    // Resolve a instância do WhatsApp:
+    //  • Caminho novo (Inbox Fase 2): cliente envia channelAccountId — referência
+    //    estável; toda a resolução (org, canal, status, instância real) é feita
+    //    server-side aqui. Cliente NUNCA é fonte de verdade do nome da instância.
+    //  • Caminho legado: lookup por organização em whatsapp_agent_config (intacto).
+    let resolvedInstanceName: string | null = null;
+
+    if (channelAccountId) {
+      const { data: account, error: accErr } = await supabaseClient
+        .from("channel_accounts")
+        .select("id, organization_id, channel_type, external_id, status")
+        .eq("id", channelAccountId)
+        .maybeSingle();
+
+      if (accErr) throw accErr;
+      if (!account) {
+        return new Response(
+          JSON.stringify({ error: "Conta de canal não encontrada." }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (account.organization_id !== orgId) {
+        return new Response(
+          JSON.stringify({ error: "Conta de canal pertence a outra organização." }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (account.channel_type !== "whatsapp") {
+        return new Response(
+          JSON.stringify({ error: "Conta de canal não é de WhatsApp." }),
+          { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (!["connected", "active"].includes(account.status)) {
+        return new Response(
+          JSON.stringify({ error: "Conta de canal não está operacional. Reconecte na área de integrações." }),
+          { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (!account.external_id) {
+        return new Response(
+          JSON.stringify({ error: "Conta de canal sem instância vinculada." }),
+          { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      resolvedInstanceName = account.external_id;
+    } else {
+      // Caminho legado preservado
+      const { data: config } = await supabaseClient
+        .from("whatsapp_agent_config")
+        .select("instance_name, instance_token, status")
+        .eq("organization_id", orgId)
+        .single();
+
+      if (!config?.instance_name) {
+        return new Response(
+          JSON.stringify({ error: "WhatsApp não configurado. Ative a integração na área de integrações." }),
+          { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (config.status !== "connected") {
+        return new Response(
+          JSON.stringify({ error: "WhatsApp desconectado. Reconecte na área de integrações antes de enviar mensagens." }),
+          { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      resolvedInstanceName = config.instance_name;
+    }
 
     const cleanPhone = phone.replace(/\D/g, "");
     const formattedMessage = `*${senderName}*:\n${message}`;
@@ -93,7 +141,7 @@ serve(async (req) => {
     let payload: Record<string, any>;
 
     if (type === "media") {
-      endpoint = `${baseUrl}/message/sendMedia/${config.instance_name}`;
+      endpoint = `${baseUrl}/message/sendMedia/${resolvedInstanceName}`;
       payload = {
         number: cleanPhone,
         mediatype: body.mediaType || "image",
@@ -101,7 +149,7 @@ serve(async (req) => {
         caption: formattedMessage,
       };
     } else {
-      endpoint = `${baseUrl}/message/sendText/${config.instance_name}`;
+      endpoint = `${baseUrl}/message/sendText/${resolvedInstanceName}`;
       payload = {
         number: cleanPhone,
         text: formattedMessage,
@@ -146,7 +194,7 @@ serve(async (req) => {
       const sentMessageId = evoData?.key?.id || evoData?.messageId || null;
       await supabaseClient.from("whatsapp_messages").insert({
         organization_id: orgId,
-        instance_name: config.instance_name,
+        instance_name: resolvedInstanceName,
         remote_jid: remoteJid,
         from_me: true,
         message_text: message,
