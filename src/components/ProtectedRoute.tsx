@@ -5,6 +5,7 @@ import { useDemo } from "@/contexts/DemoContext";
 import { useUserRoles } from "@/hooks/useUserRole";
 import { useFreeTrialExpired } from "@/hooks/useFreeTrialExpired";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
+import { useSubscription } from "@/hooks/useSubscription";
 import { Loader2 } from "lucide-react";
 import { TrialExpiredScreen } from "@/components/TrialExpiredScreen";
 import { FreeExpiredScreen } from "@/components/FreeExpiredScreen";
