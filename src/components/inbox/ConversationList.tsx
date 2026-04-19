@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useConversations } from "@/hooks/omnichannel/useConversations";
-import { useAuth } from "@/contexts/AuthContext";
+import { useMyOwnedConversationIds } from "@/hooks/omnichannel/useMyOwnedConversationIds";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -33,7 +33,7 @@ const CHANNEL_OPTIONS: { value: ChannelType | "all"; label: string }[] = [
 ];
 
 export function ConversationList({ activeId, onSelect }: Props) {
-  const { user } = useAuth();
+  const { data: myIds } = useMyOwnedConversationIds();
   const [scope, setScope] = useState<"mine" | "all">("all");
   const [status, setStatus] = useState<ConversationStatus | "all">("all");
   const [channel, setChannel] = useState<ChannelType | "all">("all");
@@ -56,15 +56,12 @@ export function ConversationList({ activeId, onSelect }: Props) {
           c.external_contact_id.toLowerCase().includes(q),
       );
     }
-    // "Meus" filtra client-side por owner ativo conhecido na metadata
-    // (sem broker_id confiável aqui — fallback simples baseado em metadata.owner_user_id se existir)
-    if (scope === "mine" && user?.id) {
-      list = list.filter(
-        (c) => (c.metadata as any)?.owner_user_id === user.id,
-      );
+    // "Minhas": fonte de verdade é inbox_assignments (owner ativo).
+    if (scope === "mine" && myIds) {
+      list = list.filter((c) => myIds.has(c.id));
     }
     return list;
-  }, [conversations, search, scope, user?.id]);
+  }, [conversations, search, scope, myIds]);
 
   return (
     <div className="flex flex-col h-full">
