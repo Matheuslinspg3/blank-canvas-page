@@ -74,6 +74,7 @@ export function PasskeyEnrollmentPrompt() {
       const deviceName =
         typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 80) : "Dispositivo";
       await registerPasskey(deviceName);
+      if (enrolledKey) localStorage.setItem(enrolledKey, "1");
       toast.success("Biometria ativada", {
         description: "Da próxima vez, entre direto com sua digital ou Face ID.",
       });
