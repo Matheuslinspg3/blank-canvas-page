@@ -11,6 +11,8 @@ export function useSendMessage() {
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ["omnichannel", "messages", vars.conversation.id] });
       qc.invalidateQueries({ queryKey: ["omnichannel", "conversations"] });
+      // Reads podem precisar refletir a nova última mensagem (UI de não-lida).
+      qc.invalidateQueries({ queryKey: ["omnichannel", "conversation-reads"] });
     },
     onError: (err: any) => {
       const msg = err?.message ?? "Falha ao enviar mensagem";

@@ -6,7 +6,8 @@ import {
 } from "@/services/omnichannel/conversationsService";
 
 export function useConversations(
-  params: Omit<ListConversationsParams, "organizationId"> = {}
+  params: Omit<ListConversationsParams, "organizationId"> = {},
+  opts: { realtimeConnected?: boolean } = {},
 ) {
   const { profile } = useAuth();
   const orgId = profile?.organization_id;
@@ -15,6 +16,7 @@ export function useConversations(
     queryKey: ["omnichannel", "conversations", orgId, params],
     queryFn: () => listConversations({ ...params, organizationId: orgId! }),
     enabled: !!orgId,
-    refetchInterval: 15_000,
+    // Polling como fallback: intervalo curto sem realtime, longo com realtime.
+    refetchInterval: opts.realtimeConnected ? 45_000 : 15_000,
   });
 }
