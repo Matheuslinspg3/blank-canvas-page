@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePasskeySupport } from "@/hooks/usePasskeySupport";
-import { listPasskeys, registerPasskey } from "@/lib/passkeys/client";
+import { registerPasskey } from "@/lib/passkeys/client";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -36,40 +36,30 @@ export function PasskeyEnrollmentPrompt() {
   const userId = user?.id;
   const dismissKey = userId ? `passkey_dismiss_${userId}` : null;
   const sessionKey = userId ? `passkey_prompt_shown_${userId}` : null;
+  const enrolledKey = userId ? `passkey_enrolled_${userId}` : null;
 
   useEffect(() => {
     if (!userId || !checked) return;
     if (!isSupported || !hasPlatformAuthenticator) return;
     if (!profile?.onboarding_completed) return;
-    if (!dismissKey || !sessionKey) return;
+    if (!dismissKey || !sessionKey || !enrolledKey) return;
 
+    // já registrou passkey neste dispositivo
+    if (localStorage.getItem(enrolledKey) === "1") return;
     // já marcou "não mostrar mais" neste dispositivo
     if (localStorage.getItem(dismissKey) === "forever") return;
     // já apresentado nesta sessão do navegador
     if (sessionStorage.getItem(sessionKey) === "1") return;
 
-    let cancelled = false;
-
-    const timer = window.setTimeout(async () => {
-      try {
-        const list = await listPasskeys();
-        if (cancelled) return;
-        if (Array.isArray(list) && list.length > 0) {
-          // já tem passkey — nada a fazer
-          return;
-        }
-        sessionStorage.setItem(sessionKey, "1");
-        setOpen(true);
-      } catch {
-        // se a listagem falhar, não incomoda o usuário
-      }
+    const timer = window.setTimeout(() => {
+      sessionStorage.setItem(sessionKey, "1");
+      setOpen(true);
     }, 1500);
 
     return () => {
-      cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [userId, checked, isSupported, hasPlatformAuthenticator, profile?.onboarding_completed, dismissKey, sessionKey]);
+  }, [userId, checked, isSupported, hasPlatformAuthenticator, profile?.onboarding_completed, dismissKey, sessionKey, enrolledKey]);
 
   const handleDismiss = () => {
     if (dontShowAgain && dismissKey) {
@@ -84,6 +74,7 @@ export function PasskeyEnrollmentPrompt() {
       const deviceName =
         typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 80) : "Dispositivo";
       await registerPasskey(deviceName);
+      if (enrolledKey) localStorage.setItem(enrolledKey, "1");
       toast.success("Biometria ativada", {
         description: "Da próxima vez, entre direto com sua digital ou Face ID.",
       });
