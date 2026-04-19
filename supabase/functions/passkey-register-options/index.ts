@@ -1,6 +1,6 @@
 // Edge Function: passkey-register-options
 // Gera options para navigator.credentials.create() e salva o challenge.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { generateRegistrationOptions } from "npm:@simplewebauthn/server@10.0.1";
 import { RP_ID, RP_NAME } from "../_shared/webauthn.ts";
 

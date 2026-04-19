@@ -1,6 +1,6 @@
 // Edge Function: passkey-auth-verify (público)
 // Valida assertion contra public_key armazenada e gera magiclink → token_hash.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { verifyAuthenticationResponse } from "npm:@simplewebauthn/server@10.0.1";
 import { RP_ID, EXPECTED_ORIGINS } from "../_shared/webauthn.ts";
 
