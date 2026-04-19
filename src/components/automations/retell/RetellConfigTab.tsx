@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Save, Loader2, Settings2, Brain, Bell, Users, Webhook, PhoneOutgoing } from "lucide-react";
 import { useRetellConfig, type RetellAgentConfig } from "@/hooks/useRetellConfig";
+import { RetellTestPipelineButton } from "./RetellTestPipelineButton";
 
 export function RetellConfigTab() {
   const { config, isLoading, hasConfig, saveConfig, isSaving } = useRetellConfig();
@@ -313,6 +314,10 @@ export function RetellConfigTab() {
             <TabsContent value="outbound" className="space-y-4">
               <div className="rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
                 ⚠️ A discagem automática só ocorre se o lead tiver telefone, opt-in (consent_voice_call=true) e estiver dentro do horário comercial.
+              </div>
+
+              <div className="flex justify-end">
+                <RetellTestPipelineButton />
               </div>
 
               <div className="flex items-center justify-between">

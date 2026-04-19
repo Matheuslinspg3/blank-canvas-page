@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { resolveVoiceConsent } from "../_shared/voiceConsent.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { organization_id, name, email, phone, message, broker_token, property_id } = await req.json();
+    const { organization_id, name, email, phone, message, broker_token, property_id, consent_voice_call: explicitConsent } = await req.json();
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -80,15 +81,21 @@ Deno.serve(async (req) => {
     if (message) noteParts.push(`[Site] ${message}`);
     if (shareLinkId) noteParts.push(`[Origem: link compartilhado ${broker_token}]`);
 
+    const leadSource = broker_token ? "landing_page" : "site";
     const leadPayload: Record<string, unknown> = {
       name: name || "Visitante do site",
       email: email || null,
       phone: phone || null,
       notes: noteParts.length ? noteParts.join("\n") : null,
-      source: broker_token ? "landing_page" : "site",
+      source: leadSource,
       organization_id: resolvedOrgId,
       lead_stage_id: stageId,
       created_by: createdBy,
+      consent_voice_call: resolveVoiceConsent({
+        source: leadSource,
+        explicit: typeof explicitConsent === "boolean" ? explicitConsent : null,
+        hasPhone: !!phone,
+      }),
     };
     if (assignedBroker) {
       leadPayload.broker_id = assignedBroker;

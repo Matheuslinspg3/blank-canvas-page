@@ -35,6 +35,7 @@ export type CreateLeadInput = {
   preferred_neighborhoods?: string[];
   preferred_cities?: string[];
   additional_requirements?: string;
+  consent_voice_call?: boolean;
 };
 
 export type UpdateLeadInput = Partial<CreateLeadInput> & { id: string };
