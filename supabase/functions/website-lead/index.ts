@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { resolveVoiceConsent } from "../_shared/voiceConsent.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -50,6 +51,13 @@ Deno.serve(async (req) => {
       });
     }
 
+    const finalSource = source || "website";
+    const consent_voice_call = resolveVoiceConsent({
+      source: finalSource,
+      explicit: typeof (await Promise.resolve(null)) === "boolean" ? null : null,
+      hasPhone: !!phone,
+    });
+
     // Insert lead
     const { error } = await supabaseAdmin.from("leads").insert({
       organization_id: organizationId,
@@ -57,9 +65,10 @@ Deno.serve(async (req) => {
       email: email || null,
       phone: phone || null,
       notes: message ? `[Site] ${message}` : null,
-      source: source || "website",
+      source: finalSource,
       lead_stage_id: stageId,
       created_by: createdBy,
+      consent_voice_call,
     });
 
     if (error) throw error;
