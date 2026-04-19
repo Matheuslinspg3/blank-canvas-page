@@ -2149,6 +2149,63 @@ export type Database = {
           },
         ]
       }
+      channel_accounts: {
+        Row: {
+          channel_type: Database["public"]["Enums"]["channel_type"]
+          created_at: string
+          display_name: string | null
+          external_id: string
+          id: string
+          metadata: Json
+          organization_id: string
+          source_id: string | null
+          source_table: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          channel_type: Database["public"]["Enums"]["channel_type"]
+          created_at?: string
+          display_name?: string | null
+          external_id: string
+          id?: string
+          metadata?: Json
+          organization_id: string
+          source_id?: string | null
+          source_table?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          channel_type?: Database["public"]["Enums"]["channel_type"]
+          created_at?: string
+          display_name?: string | null
+          external_id?: string
+          id?: string
+          metadata?: Json
+          organization_id?: string
+          source_id?: string | null
+          source_table?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_accounts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_accounts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+        ]
+      }
       city_codes: {
         Row: {
           code: string
@@ -2482,6 +2539,89 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_marketplace_status_drift"
             referencedColumns: ["property_id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          channel_account_id: string
+          channel_type: Database["public"]["Enums"]["channel_type"]
+          created_at: string
+          customer_display_name: string | null
+          external_contact_id: string
+          id: string
+          last_inbound_at: string | null
+          last_message_at: string | null
+          last_message_preview: string | null
+          last_outbound_at: string | null
+          lead_id: string | null
+          metadata: Json
+          organization_id: string
+          status: Database["public"]["Enums"]["conversation_status"]
+          updated_at: string
+        }
+        Insert: {
+          channel_account_id: string
+          channel_type: Database["public"]["Enums"]["channel_type"]
+          created_at?: string
+          customer_display_name?: string | null
+          external_contact_id: string
+          id?: string
+          last_inbound_at?: string | null
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          last_outbound_at?: string | null
+          lead_id?: string | null
+          metadata?: Json
+          organization_id: string
+          status?: Database["public"]["Enums"]["conversation_status"]
+          updated_at?: string
+        }
+        Update: {
+          channel_account_id?: string
+          channel_type?: Database["public"]["Enums"]["channel_type"]
+          created_at?: string
+          customer_display_name?: string | null
+          external_contact_id?: string
+          id?: string
+          last_inbound_at?: string | null
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          last_outbound_at?: string | null
+          lead_id?: string | null
+          metadata?: Json
+          organization_id?: string
+          status?: Database["public"]["Enums"]["conversation_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_channel_account_id_fkey"
+            columns: ["channel_account_id"]
+            isOneToOne: false
+            referencedRelation: "channel_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -3455,6 +3595,61 @@ export type Database = {
           },
           {
             foreignKeyName: "import_tokens_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+        ]
+      }
+      inbox_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          assigned_to: string
+          conversation_id: string
+          id: string
+          organization_id: string
+          role: string
+          unassigned_at: string | null
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          assigned_to: string
+          conversation_id: string
+          id?: string
+          organization_id: string
+          role?: string
+          unassigned_at?: string | null
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          assigned_to?: string
+          conversation_id?: string
+          id?: string
+          organization_id?: string
+          role?: string
+          unassigned_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbox_assignments_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_assignments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_assignments_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "vw_marketplace_orgs_missing_contact"
@@ -4518,6 +4713,96 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "property_types"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          channel_account_id: string
+          channel_type: Database["public"]["Enums"]["channel_type"]
+          content_text: string | null
+          content_type: string
+          conversation_id: string
+          created_at: string
+          direction: Database["public"]["Enums"]["message_direction"]
+          external_message_id: string | null
+          id: string
+          media_url: string | null
+          metadata: Json
+          organization_id: string
+          sender_type: Database["public"]["Enums"]["message_sender_type"] | null
+          sent_at: string
+          source_id: string
+          source_table: string
+        }
+        Insert: {
+          channel_account_id: string
+          channel_type: Database["public"]["Enums"]["channel_type"]
+          content_text?: string | null
+          content_type?: string
+          conversation_id: string
+          created_at?: string
+          direction: Database["public"]["Enums"]["message_direction"]
+          external_message_id?: string | null
+          id?: string
+          media_url?: string | null
+          metadata?: Json
+          organization_id: string
+          sender_type?:
+            | Database["public"]["Enums"]["message_sender_type"]
+            | null
+          sent_at: string
+          source_id: string
+          source_table: string
+        }
+        Update: {
+          channel_account_id?: string
+          channel_type?: Database["public"]["Enums"]["channel_type"]
+          content_text?: string | null
+          content_type?: string
+          conversation_id?: string
+          created_at?: string
+          direction?: Database["public"]["Enums"]["message_direction"]
+          external_message_id?: string | null
+          id?: string
+          media_url?: string | null
+          metadata?: Json
+          organization_id?: string
+          sender_type?:
+            | Database["public"]["Enums"]["message_sender_type"]
+            | null
+          sent_at?: string
+          source_id?: string
+          source_table?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_channel_account_id_fkey"
+            columns: ["channel_account_id"]
+            isOneToOne: false
+            referencedRelation: "channel_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
@@ -9461,6 +9746,10 @@ export type Database = {
         Args: { p_run_id: string; p_user_id: string }
         Returns: boolean
       }
+      backfill_omnichannel_from_whatsapp: {
+        Args: { p_batch_size?: number; p_org_id?: string }
+        Returns: Json
+      }
       calculate_ai_cost: {
         Args: {
           p_model: string
@@ -10208,9 +10497,23 @@ export type Database = {
         | "atendente"
         | "desenvolvedor"
       billing_cycle: "monthly" | "yearly"
+      channel_type:
+        | "whatsapp"
+        | "instagram"
+        | "messenger"
+        | "facebook_comments"
+        | "sms"
+        | "email"
+        | "webchat"
       commission_type: "valor" | "percentual"
       contract_status: "rascunho" | "ativo" | "encerrado" | "cancelado"
       contract_type: "venda" | "locacao"
+      conversation_status:
+        | "open"
+        | "pending"
+        | "assigned"
+        | "snoozed"
+        | "closed"
       financial_transaction_type: "receita" | "despesa"
       interaction_type:
         | "ligacao"
@@ -10230,6 +10533,8 @@ export type Database = {
         | "negociacao"
         | "fechado_ganho"
         | "fechado_perdido"
+      message_direction: "inbound" | "outbound"
+      message_sender_type: "customer" | "agent" | "ai" | "system"
       organization_type: "imobiliaria" | "corretor_individual"
       partnership_status: "pending" | "active" | "rejected" | "expired"
       property_condition: "novo" | "usado"
@@ -10401,9 +10706,19 @@ export const Constants = {
         "desenvolvedor",
       ],
       billing_cycle: ["monthly", "yearly"],
+      channel_type: [
+        "whatsapp",
+        "instagram",
+        "messenger",
+        "facebook_comments",
+        "sms",
+        "email",
+        "webchat",
+      ],
       commission_type: ["valor", "percentual"],
       contract_status: ["rascunho", "ativo", "encerrado", "cancelado"],
       contract_type: ["venda", "locacao"],
+      conversation_status: ["open", "pending", "assigned", "snoozed", "closed"],
       financial_transaction_type: ["receita", "despesa"],
       interaction_type: [
         "ligacao",
@@ -10425,6 +10740,8 @@ export const Constants = {
         "fechado_ganho",
         "fechado_perdido",
       ],
+      message_direction: ["inbound", "outbound"],
+      message_sender_type: ["customer", "agent", "ai", "system"],
       organization_type: ["imobiliaria", "corretor_individual"],
       partnership_status: ["pending", "active", "rejected", "expired"],
       property_condition: ["novo", "usado"],
