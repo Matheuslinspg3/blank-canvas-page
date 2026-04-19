@@ -36,6 +36,12 @@ verify_jwt = false
 [functions.meta-sync-entities]
 verify_jwt = false
 
+[functions.meta-messaging-oauth-callback]
+verify_jwt = false
+
+[functions.meta-messaging-webhook]
+verify_jwt = false
+
 [functions.onesignal-app-id]
 verify_jwt = false
 
