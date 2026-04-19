@@ -1,9 +1,11 @@
 import { useEffect, useRef } from "react";
 import { useConversation } from "@/hooks/omnichannel/useConversation";
 import { useConversationMessages } from "@/hooks/omnichannel/useConversationMessages";
+import { useMarkConversationRead } from "@/hooks/omnichannel/useMarkConversationRead";
+import { useConversationReads } from "@/hooks/omnichannel/useConversationReads";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { Loader2, MessageSquare, PanelRight, MoreVertical } from "lucide-react";
+import { Loader2, MessageSquare, PanelRight } from "lucide-react";
 import { ConversationComposer } from "./ConversationComposer";
 import { AssignmentMenu } from "./AssignmentMenu";
 import { StatusMenu } from "./StatusMenu";
@@ -14,16 +16,74 @@ interface Props {
   conversationId: string | null;
   onToggleRightPanel?: () => void;
   rightPanelOpen?: boolean;
+  realtimeConnected?: boolean;
 }
 
-export function MessageThread({ conversationId, onToggleRightPanel, rightPanelOpen }: Props) {
+const MARK_READ_DEBOUNCE_MS = 800;
+
+export function MessageThread({
+  conversationId,
+  onToggleRightPanel,
+  rightPanelOpen,
+  realtimeConnected,
+}: Props) {
   const { data: conversation } = useConversation(conversationId);
-  const { data: messages = [], isLoading } = useConversationMessages(conversationId);
+  const { data: messages = [], isLoading } = useConversationMessages(
+    conversationId,
+    100,
+    { realtimeConnected },
+  );
+  const { data: reads } = useConversationReads();
+  const markRead = useMarkConversationRead();
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages.length, conversationId]);
+
+  // Mark-as-read seguro:
+  // - conversationId estável
+  // - mensagens carregadas (não loading, não vazias)
+  // - aba visível
+  // - debounce 800ms
+  // - só dispara se houver inbound mais novo que o last_read_at atual
+  // - reavalia em visibilitychange
+  const lastMsgTs = messages.length ? messages[messages.length - 1].sent_at : null;
+  const lastInboundTs = conversation?.last_inbound_at ?? null;
+  const currentReadTs = conversationId ? reads?.get(conversationId) ?? null : null;
+
+  useEffect(() => {
+    if (!conversationId || isLoading || messages.length === 0) return;
+    if (!lastInboundTs) return;
+    if (currentReadTs && new Date(currentReadTs) >= new Date(lastInboundTs)) return;
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const schedule = () => {
+      if (document.visibilityState !== "visible") return;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        markRead.mutate({
+          conversationId,
+          readAt: lastMsgTs ?? new Date().toISOString(),
+        });
+      }, MARK_READ_DEBOUNCE_MS);
+    };
+
+    schedule();
+
+    const onVis = () => {
+      if (document.visibilityState === "visible") schedule();
+    };
+    document.addEventListener("visibilitychange", onVis);
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+    // markRead intencionalmente fora das deps (referência estável de mutate basta).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId, isLoading, messages.length, lastInboundTs, currentReadTs, lastMsgTs]);
 
   if (!conversationId) {
     return (
