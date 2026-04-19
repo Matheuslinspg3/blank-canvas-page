@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveVoiceConsent } from "../_shared/voiceConsent.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -382,6 +383,7 @@ async function handleSelectiveSync(req: Request, supabase: any, body: Record<str
           external_source: "rdstation",
           notes,
           property_id: propertyId,
+          consent_voice_call: resolveVoiceConsent({ source: "rdstation", explicit: null, hasPhone: !!phone }),
         });
         if (insertError) errors++;
         else created++;
@@ -808,6 +810,7 @@ async function processContacts(
             notes, property_id: propertyId,
             conversion_identifier: conversionId,
             traffic_source: trafficSource,
+            consent_voice_call: resolveVoiceConsent({ source: "rdstation", explicit: null, hasPhone: !!phone }),
           })
           .select("id")
           .single();

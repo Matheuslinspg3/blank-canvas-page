@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { createServiceClient } from "../_shared/auth.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { resolveVoiceConsent } from "../_shared/voiceConsent.ts";
 
 const WEBHOOK_SECRET = Deno.env.get("WHATSAPP_AGENT_SECRET");
 
@@ -252,6 +253,7 @@ serve(async (req) => {
         interested_property_type_ids: propertyTypeIds,
         preferred_neighborhoods: preferred_neighborhoods || [],
         transaction_interest: transaction_interest || null,
+        consent_voice_call: resolveVoiceConsent({ source: source || "whatsapp", explicit: null, hasPhone: !!phone }),
       })
       .select("id")
       .single();

@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveVoiceConsent } from "../_shared/voiceConsent.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -303,7 +304,7 @@ Deno.serve(async (req) => {
           }
           const { data: crmLead, error: crmError } = await supabase
             .from("leads")
-            .insert({ name: nl.name || "Lead de Anúncio", email: nl.email, phone: nl.phone, organization_id: orgId, created_by: userId, lead_stage_id: adSettings.crm_stage_id, stage: "novo", source: "anuncio", notes: `Lead importado automaticamente de Meta Ads (Ad ID: ${nl.external_ad_id})` })
+            .insert({ name: nl.name || "Lead de Anúncio", email: nl.email, phone: nl.phone, organization_id: orgId, created_by: userId, lead_stage_id: adSettings.crm_stage_id, stage: "novo", source: "anuncio", notes: `Lead importado automaticamente de Meta Ads (Ad ID: ${nl.external_ad_id})`, consent_voice_call: resolveVoiceConsent({ source: "anuncio", explicit: null, hasPhone: !!nl.phone }) })
             .select("id").single();
           if (!crmError && crmLead) {
             await supabase.from("ad_leads").update({ status: "sent_to_crm", crm_record_id: crmLead.id, updated_at: new Date().toISOString() }).eq("id", nl.id);

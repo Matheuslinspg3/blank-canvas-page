@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveVoiceConsent } from "../_shared/voiceConsent.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -434,6 +435,7 @@ async function processLeadBatch(
           external_source: lead.external_source || "csv",
           temperature,
           imported_at: new Date().toISOString(),
+          consent_voice_call: resolveVoiceConsent({ source: lead.source || lead.external_source || "csv", explicit: null, hasPhone: !!lead.phone }),
         });
         report.imported.push(lead.name);
       } catch (e) {
