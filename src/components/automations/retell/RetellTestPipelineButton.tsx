@@ -72,7 +72,7 @@ export function RetellTestPipelineButton() {
               {timeline.map((s, i) => (
                 <div key={i} className="flex items-start gap-2 text-xs">
                   {s.ok ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />
+                    <CheckCircle2 className="h-4 w-4 text-success shrink-0 mt-0.5" />
                   ) : (
                     <XCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
                   )}
@@ -96,7 +96,7 @@ export function RetellTestPipelineButton() {
           )}
 
           {result?.ok && result.call_id && (
-            <div className="rounded-md border border-green-500/40 bg-green-500/10 p-3 text-xs">
+            <div className="rounded-md border border-success/40 bg-success/10 p-3 text-xs">
               ✅ Chamada criada. Você deve receber a ligação em instantes.
               <div className="mt-1 text-muted-foreground">Lead: {result.lead_id} · Call: {result.call_id}</div>
             </div>
