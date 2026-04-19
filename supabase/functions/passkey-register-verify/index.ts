@@ -82,15 +82,22 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { credential: cred, credentialBackedUp, aaguid } = verification.registrationInfo;
+    const {
+      credentialID,
+      credentialPublicKey,
+      counter,
+      credentialBackedUp,
+      aaguid,
+    } = verification.registrationInfo;
+    const transports = (credential?.response?.transports ?? []) as string[];
 
     // Persistir credencial
     const { error: insErr } = await admin.from("user_passkeys").insert({
       user_id: userId,
-      credential_id: cred.id,
-      public_key: btoa(String.fromCharCode(...cred.publicKey)),
-      counter: cred.counter,
-      transports: cred.transports ?? [],
+      credential_id: credentialID,
+      public_key: btoa(String.fromCharCode(...credentialPublicKey)),
+      counter,
+      transports,
       device_name: deviceName ?? "Dispositivo",
       aaguid: aaguid && aaguid !== "00000000-0000-0000-0000-000000000000" ? aaguid : null,
       backed_up: credentialBackedUp,
