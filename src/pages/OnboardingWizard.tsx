@@ -356,7 +356,7 @@ export default function OnboardingWizard() {
       ),
       canProceed: true,
     },
-  ], [accountType, companyName, phone, planSlug, plans, plansLoading, profile?.full_name]);
+  ], [accountType, companyName, phone, planSlug, plans, plansLoading, profile?.full_name, phoneTaken, phoneChecking]);
 
   // Quando entra em "planOnlyMode" (legacy sem subscription), pula direto para o passo de plano.
   useEffect(() => {
