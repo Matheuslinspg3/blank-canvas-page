@@ -265,13 +265,26 @@ export default function OnboardingWizard() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="(11) 99999-0000"
-                className="pl-9"
+                className={cn("pl-9", phoneTaken && "border-destructive focus-visible:ring-destructive")}
+                aria-invalid={phoneTaken}
               />
+              {phoneChecking && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+              )}
             </div>
+            {phoneTaken && (
+              <p className="text-xs text-destructive">
+                Este número já está cadastrado em outra conta. Use outro telefone.
+              </p>
+            )}
           </div>
         </div>
       ),
-      canProceed: companyName.trim().length >= 2 && phone.replace(/\D/g, "").length >= 10,
+      canProceed:
+        companyName.trim().length >= 2 &&
+        phone.replace(/\D/g, "").length >= 10 &&
+        !phoneTaken &&
+        !phoneChecking,
     },
     // 3 — Plan
     {
