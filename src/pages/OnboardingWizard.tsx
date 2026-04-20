@@ -46,6 +46,25 @@ export default function OnboardingWizard() {
   const [plans, setPlans] = useState<PlanRow[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
   const [planOnlyMode, setPlanOnlyMode] = useState<boolean | null>(null);
+  const [phoneTaken, setPhoneTaken] = useState(false);
+  const [phoneChecking, setPhoneChecking] = useState(false);
+
+  // Debounced check: pergunta ao backend se o telefone já está em uso por outra conta.
+  useEffect(() => {
+    const clean = phone.replace(/\D/g, "");
+    if (clean.length < 10) {
+      setPhoneTaken(false);
+      setPhoneChecking(false);
+      return;
+    }
+    setPhoneChecking(true);
+    const t = setTimeout(async () => {
+      const { data, error } = await supabase.rpc("is_phone_available", { p_phone: clean });
+      if (!error) setPhoneTaken(data === false);
+      setPhoneChecking(false);
+    }, 450);
+    return () => clearTimeout(t);
+  }, [phone]);
 
   // Detecta se usuário (geralmente OAuth/Google legacy) já completou onboarding
   // mas não possui subscription — nesse caso reabrimos o wizard direto no passo de plano.
