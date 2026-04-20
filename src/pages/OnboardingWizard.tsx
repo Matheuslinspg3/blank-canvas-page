@@ -156,7 +156,14 @@ export default function OnboardingWizard() {
       navigate("/dashboard", { replace: true });
     } catch (e: any) {
       console.error("[Onboarding] complete error:", e);
-      toast.error("Não foi possível concluir o onboarding. Tente novamente.");
+      const msg = String(e?.message || "");
+      if (msg.includes("phone_already_registered")) {
+        setPhoneTaken(true);
+        toast.error("Este número já está cadastrado em outra conta. Use outro telefone.");
+        setStep(2);
+      } else {
+        toast.error("Não foi possível concluir o onboarding. Tente novamente.");
+      }
     } finally {
       setSaving(false);
     }
