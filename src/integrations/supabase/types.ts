@@ -10478,6 +10478,7 @@ export type Database = {
       is_org_admin: { Args: { _user_id: string }; Returns: boolean }
       is_org_manager: { Args: { _user_id: string }; Returns: boolean }
       is_org_manager_or_above: { Args: { _user_id: string }; Returns: boolean }
+      is_phone_available: { Args: { p_phone: string }; Returns: boolean }
       is_session_valid: { Args: { p_session_token: string }; Returns: boolean }
       is_system_admin: { Args: never; Returns: boolean }
       log_bulk_operation: {
