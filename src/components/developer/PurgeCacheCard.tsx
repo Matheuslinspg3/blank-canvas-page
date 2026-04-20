@@ -10,16 +10,32 @@ export function PurgeCacheCard() {
   const [isPurging, setIsPurging] = useState(false);
 
   const handlePurge = async () => {
+    if (!confirm("Limpar TODO o cache do Cloudflare (purge everything)? Isso afeta todos os visitantes.")) return;
     setIsPurging(true);
     try {
-      const { data, error } = await supabase.functions.invoke("cloudflare-purge-cache");
+      const { data, error } = await supabase.functions.invoke("cloudflare-purge-cache", {
+        method: "POST",
+      });
 
-      if (error) throw error;
+      // FunctionsHttpError → fetch the JSON body for a useful message
+      if (error) {
+        let detail = error.message;
+        try {
+          const ctx: any = (error as any).context;
+          if (ctx?.json) {
+            const body = await ctx.json();
+            detail = body?.error || body?.details?.[0]?.message || detail;
+          } else if (ctx?.text) {
+            detail = (await ctx.text()) || detail;
+          }
+        } catch { /* ignore */ }
+        throw new Error(detail);
+      }
 
       if (data?.success) {
         toast.success("Cache do Cloudflare limpo com sucesso!");
       } else {
-        throw new Error(data?.error || "Erro desconhecido");
+        throw new Error(data?.error || data?.details?.[0]?.message || "Erro desconhecido");
       }
     } catch (err: any) {
       toastError("Falha ao limpar cache", err, { module: "PurgeCacheCard" });
