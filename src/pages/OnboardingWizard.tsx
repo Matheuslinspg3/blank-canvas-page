@@ -46,6 +46,25 @@ export default function OnboardingWizard() {
   const [plans, setPlans] = useState<PlanRow[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
   const [planOnlyMode, setPlanOnlyMode] = useState<boolean | null>(null);
+  const [phoneTaken, setPhoneTaken] = useState(false);
+  const [phoneChecking, setPhoneChecking] = useState(false);
+
+  // Debounced check: pergunta ao backend se o telefone já está em uso por outra conta.
+  useEffect(() => {
+    const clean = phone.replace(/\D/g, "");
+    if (clean.length < 10) {
+      setPhoneTaken(false);
+      setPhoneChecking(false);
+      return;
+    }
+    setPhoneChecking(true);
+    const t = setTimeout(async () => {
+      const { data, error } = await supabase.rpc("is_phone_available", { p_phone: clean });
+      if (!error) setPhoneTaken(data === false);
+      setPhoneChecking(false);
+    }, 450);
+    return () => clearTimeout(t);
+  }, [phone]);
 
   // Detecta se usuário (geralmente OAuth/Google legacy) já completou onboarding
   // mas não possui subscription — nesse caso reabrimos o wizard direto no passo de plano.
@@ -156,7 +175,14 @@ export default function OnboardingWizard() {
       navigate("/dashboard", { replace: true });
     } catch (e: any) {
       console.error("[Onboarding] complete error:", e);
-      toast.error("Não foi possível concluir o onboarding. Tente novamente.");
+      const msg = String(e?.message || "");
+      if (msg.includes("phone_already_registered")) {
+        setPhoneTaken(true);
+        toast.error("Este número já está cadastrado em outra conta. Use outro telefone.");
+        setStep(2);
+      } else {
+        toast.error("Não foi possível concluir o onboarding. Tente novamente.");
+      }
     } finally {
       setSaving(false);
     }
@@ -239,13 +265,26 @@ export default function OnboardingWizard() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="(11) 99999-0000"
-                className="pl-9"
+                className={cn("pl-9", phoneTaken && "border-destructive focus-visible:ring-destructive")}
+                aria-invalid={phoneTaken}
               />
+              {phoneChecking && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+              )}
             </div>
+            {phoneTaken && (
+              <p className="text-xs text-destructive">
+                Este número já está cadastrado em outra conta. Use outro telefone.
+              </p>
+            )}
           </div>
         </div>
       ),
-      canProceed: companyName.trim().length >= 2 && phone.replace(/\D/g, "").length >= 10,
+      canProceed:
+        companyName.trim().length >= 2 &&
+        phone.replace(/\D/g, "").length >= 10 &&
+        !phoneTaken &&
+        !phoneChecking,
     },
     // 3 — Plan
     {
@@ -317,7 +356,7 @@ export default function OnboardingWizard() {
       ),
       canProceed: true,
     },
-  ], [accountType, companyName, phone, planSlug, plans, plansLoading, profile?.full_name]);
+  ], [accountType, companyName, phone, planSlug, plans, plansLoading, profile?.full_name, phoneTaken, phoneChecking]);
 
   // Quando entra em "planOnlyMode" (legacy sem subscription), pula direto para o passo de plano.
   useEffect(() => {
