@@ -21,7 +21,6 @@ function isAllowedUrl(urlStr: string): boolean {
   try {
     const url = new URL(urlStr);
     if (url.protocol !== "https:") return false;
-
     const hostname = url.hostname;
     if (
       hostname === "localhost" ||
@@ -33,26 +32,104 @@ function isAllowedUrl(urlStr: string): boolean {
       hostname === "169.254.169.254" ||
       hostname.endsWith(".internal") ||
       hostname.endsWith(".local")
-    ) {
-      return false;
-    }
-
+    ) return false;
     return ALLOWED_HOSTS.some((host) => hostname === host || hostname.endsWith(`.${host}`));
   } catch {
     return false;
   }
 }
 
-function getWebhookFailureMessage(status: number): string {
-  if (status === 401 || status === 403) {
-    return `Webhook n8n falhou: ${status}. Verifique a autenticação do webhook no n8n.`;
-  }
+const EXTRACT_PROMPT = `Você é um extrator de dados de imóveis. Analise o PDF/tabela de imóveis em anexo e retorne APENAS um JSON válido (sem markdown, sem comentários) no formato:
+{
+  "properties": [
+    {
+      "title": "string",
+      "type": "Apartamento|Casa|Terreno|Comercial|Rural|Cobertura",
+      "purpose": "venda|aluguel",
+      "price": number,
+      "address": "string",
+      "neighborhood": "string",
+      "city": "string",
+      "state": "string (UF)",
+      "bedrooms": number,
+      "bathrooms": number,
+      "parking_spaces": number,
+      "area_total": number,
+      "area_built": number,
+      "description": "string",
+      "code": "string (código do imóvel)"
+    }
+  ]
+}
+Se algum campo não estiver disponível, omita-o. Extraia TODOS os imóveis listados. Valores em BRL como números (sem R$, sem pontos de milhar).`;
 
-  if (status === 404) {
-    return `Webhook n8n falhou: ${status}. Verifique a URL configurada e se o workflow está ativo.`;
-  }
+async function processInBackground(jobId: string, signedUrl: string, fileName: string, authHeader: string, sb: any, supabaseUrl: string) {
+  try {
+    // Baixa o PDF
+    const pdfResp = await fetch(signedUrl);
+    if (!pdfResp.ok) throw new Error(`Falha ao baixar PDF: ${pdfResp.status}`);
+    const pdfBuffer = await pdfResp.arrayBuffer();
 
-  return `Webhook n8n falhou: ${status}`;
+    // Converte para base64 em chunks (evita stack overflow)
+    const bytes = new Uint8Array(pdfBuffer);
+    let binary = "";
+    const chunkSize = 8192;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    const pdfBase64 = btoa(binary);
+
+    console.log(`[extract-pdf] Job ${jobId}: PDF baixado (${(pdfBuffer.byteLength / 1024).toFixed(1)} KB), chamando ai-router...`);
+
+    // Chama ai-router com task_type pdf_extract
+    const routerResp = await fetch(`${supabaseUrl}/functions/v1/ai-router`, {
+      method: "POST",
+      headers: {
+        Authorization: authHeader,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        task_type: "pdf_extract",
+        prompt: EXTRACT_PROMPT,
+        image_base64: pdfBase64,
+      }),
+    });
+
+    const routerResult = await routerResp.json();
+    console.log(`[extract-pdf] Job ${jobId}: ai-router respondeu success=${routerResult?.success} provider=${routerResult?.provider}`);
+
+    if (!routerResult?.success) {
+      throw new Error(routerResult?.error || "AI Router falhou");
+    }
+
+    const text = routerResult.text || "";
+    let parsed: any;
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { properties: [] };
+    } catch {
+      throw new Error("Resposta da IA não é JSON válido");
+    }
+
+    if (!Array.isArray(parsed.properties)) {
+      parsed.properties = [];
+    }
+
+    await sb.from("pdf_extract_jobs").update({
+      status: "complete",
+      result: parsed,
+      updated_at: new Date().toISOString(),
+    }).eq("id", jobId);
+
+    console.log(`[extract-pdf] Job ${jobId}: completo, ${parsed.properties.length} imóveis extraídos via ${routerResult.provider}`);
+  } catch (err) {
+    console.error(`[extract-pdf] Job ${jobId} falhou:`, err);
+    await sb.from("pdf_extract_jobs").update({
+      status: "failed",
+      error: err instanceof Error ? err.message : "Erro desconhecido",
+      updated_at: new Date().toISOString(),
+    }).eq("id", jobId);
+  }
 }
 
 serve(async (req) => {
@@ -64,7 +141,6 @@ serve(async (req) => {
     if (req.method === "GET") {
       const url = new URL(req.url);
       const jobId = url.searchParams.get("job_id");
-
       if (!jobId) {
         return new Response(JSON.stringify({ error: "job_id required" }), {
           status: 400,
@@ -142,8 +218,8 @@ serve(async (req) => {
     }
 
     const userId = userData.user.id;
-
     const sb = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
     const { data: profile } = await sb
       .from("profiles")
       .select("organization_id")
@@ -165,7 +241,6 @@ serve(async (req) => {
       const body = await req.json();
       storageUrl = body.storage_url;
       fileName = body.file_name || "document.pdf";
-
       if (!storageUrl) throw new Error("storage_url é obrigatório");
       if (!isAllowedUrl(storageUrl)) throw new Error("URL não permitida.");
     } else if (contentType.includes("multipart/form-data")) {
@@ -204,61 +279,13 @@ serve(async (req) => {
 
     if (jobError || !job) throw new Error("Falha ao criar job");
 
-    const n8nWebhookUrl = Deno.env.get("N8N_PDF_WEBHOOK_URL");
-    if (!n8nWebhookUrl) {
-      await sb.from("pdf_extract_jobs").update({
-        status: "failed",
-        error: "N8N_PDF_WEBHOOK_URL não configurado",
-        updated_at: new Date().toISOString(),
-      }).eq("id", job.id);
-
-      throw new Error("Webhook de processamento não configurado");
-    }
-
-    const webhookSecret = Deno.env.get("WHATSAPP_AGENT_SECRET") || "";
-    const webhookToken = Deno.env.get("N8N_PDF_WEBHOOK_TOKEN") || webhookSecret;
-
+    // Processa em background via AI Router (Gemini → Claude fallback)
     EdgeRuntime.waitUntil(
-      fetch(n8nWebhookUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(webhookSecret ? { "X-Webhook-Secret": webhookSecret } : {}),
-          ...(webhookToken ? { token: webhookToken } : {}),
-        },
-        body: JSON.stringify({
-          job_id: job.id,
-          signed_url: storageUrl,
-          file_name: fileName,
-          org_id: profile.organization_id,
-          user_id: userId,
-          timestamp: new Date().toISOString(),
-          supabase_url: supabaseUrl,
-        }),
-      })
-        .then(async (res) => {
-          if (!res.ok) {
-            const text = await res.text().catch(() => "");
-            console.error(`[extract-pdf] n8n webhook failed: ${res.status} ${text}`);
-
-            await sb.from("pdf_extract_jobs").update({
-              status: "failed",
-              error: getWebhookFailureMessage(res.status),
-              updated_at: new Date().toISOString(),
-            }).eq("id", job.id);
-          }
-        })
-        .catch(async (err) => {
-          console.error("[extract-pdf] n8n webhook error:", err);
-          await sb.from("pdf_extract_jobs").update({
-            status: "failed",
-            error: `Erro ao contactar n8n: ${err.message}`,
-            updated_at: new Date().toISOString(),
-          }).eq("id", job.id);
-        }),
+      processInBackground(job.id, storageUrl, fileName, authHeader, sb, supabaseUrl),
     );
 
     return new Response(JSON.stringify({ job_id: job.id, status: "processing" }), {
+      status: 202,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
