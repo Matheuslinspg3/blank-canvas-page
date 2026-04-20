@@ -55,7 +55,6 @@ const mainItems = [
   { title: "Proprietários", url: "/proprietarios", icon: Building2 },
   
   { title: "CRM", url: "/crm", icon: Users },
-  { title: "Inbox", url: "/inbox", icon: InboxIcon },
   { title: "Agenda", url: "/agenda", icon: Calendar },
   { title: "Marketplace", url: "/marketplace", icon: Store },
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
