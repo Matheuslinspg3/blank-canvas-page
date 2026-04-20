@@ -24,16 +24,13 @@ export function PwaDiagnosticsCard() {
   };
 
   const handleRepair = async () => {
+    if (!confirm("Isso vai limpar caches, desregistrar o Service Worker e recarregar a página. Continuar?")) return;
     setRepairing(true);
     try {
       const result = await repairPwa();
-      toast.success(`PWA reparado! ${result.cleared} caches limpos. Reabra o app.`);
-      // Re-run diagnostics after repair
-      const updated = await getPwaDiagnostics();
-      setDiag(updated);
+      toast.success(`PWA reparado! ${result.cleared} caches limpos, ${result.unregistered} SW desregistrados. Recarregando…`);
     } catch (err) {
-      toastError("Erro ao reparar PWA", undefined, { module: "PwaDiagnosticsCard" });
-    } finally {
+      toastError("Erro ao reparar PWA", err, { module: "PwaDiagnosticsCard" });
       setRepairing(false);
     }
   };

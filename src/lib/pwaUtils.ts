@@ -65,33 +65,46 @@ export async function getPwaDiagnostics(): Promise<PwaDiagnostics> {
   return diag;
 }
 
-/** Force SW update + clear runtime caches */
-export async function repairPwa(): Promise<{ cleared: number; updated: boolean }> {
+/** Full PWA repair: clears caches, unregisters SW, clears storage, then reloads */
+export async function repairPwa(): Promise<{ cleared: number; unregistered: number }> {
   let cleared = 0;
-  let updated = false;
+  let unregistered = 0;
 
-  // 1. Force SW update
-  if ("serviceWorker" in navigator) {
-    const registrations = await navigator.serviceWorker.getRegistrations();
-    for (const reg of registrations) {
-      if (reg.waiting) {
-        reg.waiting.postMessage({ type: "SKIP_WAITING" });
-      }
-      try {
-        await reg.update();
-        updated = true;
-      } catch { /* ignore */ }
-    }
-  }
-
-  // 2. Clear all runtime caches (not SW precache — that's managed by workbox)
+  // 1. Clear ALL caches (including precache)
   if ("caches" in window) {
-    const keys = await caches.keys();
-    for (const key of keys) {
-      await caches.delete(key);
-      cleared++;
-    }
+    try {
+      const keys = await caches.keys();
+      for (const key of keys) {
+        const ok = await caches.delete(key);
+        if (ok) cleared++;
+      }
+    } catch { /* ignore */ }
   }
 
-  return { cleared, updated };
+  // 2. Unregister ALL service workers (forces full re-fetch on next load)
+  if ("serviceWorker" in navigator) {
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (const reg of registrations) {
+        // Try to skip waiting first, then unregister
+        if (reg.waiting) {
+          try { reg.waiting.postMessage({ type: "SKIP_WAITING" }); } catch { /* ignore */ }
+        }
+        const ok = await reg.unregister();
+        if (ok) unregistered++;
+      }
+    } catch { /* ignore */ }
+  }
+
+  // 3. Clear sessionStorage (preserve localStorage to keep auth/session)
+  try {
+    sessionStorage.clear();
+  } catch { /* ignore */ }
+
+  // 4. Hard reload after a short delay so the user sees the toast
+  setTimeout(() => {
+    window.location.reload();
+  }, 1500);
+
+  return { cleared, unregistered };
 }
