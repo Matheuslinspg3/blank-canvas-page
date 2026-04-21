@@ -973,6 +973,20 @@ export default function PropertyDetails() {
           onOpenChange={setQrOpen}
         />
       )}
+
+      {/* Batch Variations Dialog */}
+      {property && (
+        <SectionErrorBoundary section="BatchVariationsDialog">
+          <Suspense fallback={null}>
+            <BatchVariationsDialog
+              open={batchVariationsOpen}
+              onOpenChange={setBatchVariationsOpen}
+              baseProperty={property}
+              onComplete={() => navigate('/imoveis')}
+            />
+          </Suspense>
+        </SectionErrorBoundary>
+      )}
     </div>
   );
 }
