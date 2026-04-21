@@ -889,9 +889,11 @@ Deno.serve(async (req) => {
     const providersAttempted: string[] = [];
     let lastError = "";
 
+    const isPdfTask = file_mime_type === "application/pdf" || task_type === "pdf_extract";
+
     for (const { provider, score } of orderedProviders) {
       if (!provider.is_active && !force_provider) continue;
-      if (provider.consecutive_errors > 10 && !force_provider && orderedProviders.length > 1) {
+      if (!isPdfTask && provider.consecutive_errors > 10 && !force_provider && orderedProviders.length > 1) {
         // Check cooldown
         const lastErr = provider.last_error_at ? new Date(provider.last_error_at) : null;
         const cooldownMs = Math.min(provider.consecutive_errors * 10 * 60 * 1000, 4 * 3600 * 1000);
@@ -907,7 +909,8 @@ Deno.serve(async (req) => {
       providersAttempted.push(provider.provider_key);
 
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30_000);
+      const requestTimeoutMs = isPdfTask ? 90_000 : 30_000;
+      const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
 
       try {
         let result: { text?: string; image_url?: string; image_base64?: string; tokens_input: number; tokens_output: number };
