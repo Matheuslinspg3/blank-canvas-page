@@ -198,7 +198,7 @@ export function usePropertyBatchCreate() {
 
           const { data: newProp, error: propError } = await supabase
             .from('properties')
-            .insert(insertData)
+            .insert(insertData as any)
             .select('id')
             .single();
           if (propError) throw propError;
