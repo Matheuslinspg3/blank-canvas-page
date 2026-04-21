@@ -5765,6 +5765,7 @@ export type Database = {
           property_condition:
             | Database["public"]["Enums"]["property_condition"]
             | null
+          property_group_id: string | null
           property_type_id: string | null
           raw_payload: Json | null
           rent_price: number | null
@@ -5839,6 +5840,7 @@ export type Database = {
           property_condition?:
             | Database["public"]["Enums"]["property_condition"]
             | null
+          property_group_id?: string | null
           property_type_id?: string | null
           raw_payload?: Json | null
           rent_price?: number | null
@@ -5913,6 +5915,7 @@ export type Database = {
           property_condition?:
             | Database["public"]["Enums"]["property_condition"]
             | null
+          property_group_id?: string | null
           property_type_id?: string | null
           raw_payload?: Json | null
           rent_price?: number | null
@@ -5951,6 +5954,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_marketplace_orgs_missing_contact"
             referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "properties_property_group_id_fkey"
+            columns: ["property_group_id"]
+            isOneToOne: false
+            referencedRelation: "property_groups"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "properties_property_type_id_fkey"
@@ -6003,6 +6013,69 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_marketplace_orgs_missing_contact"
             referencedColumns: ["organization_id"]
+          },
+        ]
+      }
+      property_groups: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string | null
+          organization_id: string
+          source_property_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string | null
+          organization_id: string
+          source_property_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string | null
+          organization_id?: string
+          source_property_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_groups_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_groups_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "property_groups_source_property_id_fkey"
+            columns: ["source_property_id"]
+            isOneToOne: false
+            referencedRelation: "ai_properties_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_groups_source_property_id_fkey"
+            columns: ["source_property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_groups_source_property_id_fkey"
+            columns: ["source_property_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_status_drift"
+            referencedColumns: ["property_id"]
           },
         ]
       }
