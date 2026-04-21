@@ -642,7 +642,7 @@ export default function Properties() {
             onViewModeChange={setViewMode}
             pageSize={pageSize}
             onPageSizeChange={setPageSize}
-            totalCount={filteredProperties.length}
+            totalCount={totalCount}
             currentPage={currentPage}
             onPageChange={setCurrentPage}
             sortBy={sortBy}
@@ -678,7 +678,7 @@ export default function Properties() {
         {!isLoading && filteredProperties.length > 0 && (
           <BulkActionsToolbar
             selectedCount={selectedIds.size}
-            totalCount={filteredProperties.length}
+            totalCount={totalCount}
             onSelectAll={handleSelectAll}
             onClearSelection={handleClearSelection}
             onBulkDelete={handleBulkDelete}
@@ -698,6 +698,7 @@ export default function Properties() {
           <QueryErrorState message="Erro ao carregar imóveis" onRetry={() => refetch()} />
         )}
         {!propertiesError && !isLoading && paginatedProperties.length > 0 && (
+          <div className={isFetching ? 'opacity-60 transition-opacity duration-200' : 'transition-opacity duration-200'}>
           <>
             {viewMode === "grid" && (
               <VirtualizedPropertyGrid
