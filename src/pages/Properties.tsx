@@ -540,7 +540,7 @@ export default function Properties() {
   }, [selectedIds, bulkHideFromMarketplace]);
 
   const isSelectionMode = selectedIds.size > 0;
-  const allSelected = filteredProperties.length > 0 && selectedIds.size === filteredProperties.length;
+  const allSelected = totalCount > 0 && selectedIds.size >= totalCount;
 
   // PERF: useCallback stabilizes handlers passed as props to memoized list items
   const handleCreateClick = useCallback(() => { setEditingProperty(null); setPrefillData(null); setFormOpen(true); }, []);
