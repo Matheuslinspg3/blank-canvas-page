@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { corsHeaders } from "../_shared/cors.ts";
+import { getCloudflareAuthHeaders } from "../_shared/cloudflare-auth.ts";
 
 const CF_API = "https://api.cloudflare.com/client/v4";
 const LOVABLE_ORIGIN_IP = "185.158.133.1";
@@ -19,7 +20,7 @@ async function ensureWorkerRoutes(
   const desiredPatterns = [`${rootHostname}/*`, `www.${rootHostname}/*`];
 
   const routesRes = await fetch(`${CF_API}/zones/${zoneId}/workers/routes`, {
-    headers: { Authorization: `Bearer ${cfToken}` },
+    headers: getCloudflareAuthHeaders(cfToken),
   });
   const routesData = await routesRes.json();
   const routes = routesData?.result || [];
@@ -32,7 +33,7 @@ async function ensureWorkerRoutes(
     console.log(`Creating Worker route ${pattern} → ${WORKER_SCRIPT_NAME}`);
     const routeRes = await fetch(`${CF_API}/zones/${zoneId}/workers/routes`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${cfToken}`, "Content-Type": "application/json" },
+      headers: getCloudflareAuthHeaders(cfToken, "application/json"),
       body: JSON.stringify({ pattern, script: WORKER_SCRIPT_NAME }),
     });
     const routeData = await routeRes.json();
