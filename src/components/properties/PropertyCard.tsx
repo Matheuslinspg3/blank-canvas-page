@@ -9,9 +9,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MapPin, Bed, Bath, Car, Ruler, MoreHorizontal, Edit, Trash2, Building2, Eye, ExternalLink, Hash, Store, ImageIcon, FileText, Import } from "lucide-react";
+import { MapPin, Bed, Bath, Car, Ruler, MoreHorizontal, Edit, Trash2, Building2, Eye, ExternalLink, Hash, Store, ImageIcon, FileText, Import, Share2, Copy, CopyPlus, RefreshCw } from "lucide-react";
 import { PropertyFreshnessBadge } from "./PropertyFreshnessBadge";
 import { AvailabilityBadge } from "./AvailabilityBadge";
 import { PropertyStatusBadge, transactionLabels } from "./PropertyStatusBadge";
@@ -20,11 +23,16 @@ import { proxyDriveImageUrl } from "@/lib/utils";
 import { getImageUrl, getImageSrcSet, type ImageRecord } from "@/lib/imageUrl";
 import { OptimizedImage } from "@/components/ui/optimized-image";
 import { usePropertyPublicUrl } from "@/hooks/usePropertyPublicUrl";
+import { toast } from "sonner";
 
 interface PropertyCardProps {
   property: PropertyWithDetails;
   onEdit: (property: PropertyWithDetails) => void;
   onDelete: (id: string) => void;
+  onPublish?: (id: string) => void;
+  onUnpublish?: (id: string) => void;
+  onDuplicate?: (id: string) => void;
+  onChangeStatus?: (id: string, status: string) => void;
   isPublished?: boolean;
 }
 
