@@ -1,6 +1,6 @@
 /**
  * Lightweight hook for the Properties listing page.
- * Fetches ONLY card-essential fields with server-side pagination + cover image
+ * Fetches ONLY card-essential fields with server-side pagination + sorting
  * via the materialized `cover_image_url` column. Avoids the heavy join with
  * property_images that `usePropertyCRUD` performs.
  */
@@ -8,12 +8,15 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { PropertyWithDetails } from './usePropertyCRUD';
+import type { SortOption } from '@/components/properties/PropertyViewControls';
 
 export interface PropertiesListOptions {
   /** Page size for server-side pagination. */
   pageSize?: number;
-  /** Zero-based page index. */
+  /** One-based page index. */
   page?: number;
+  /** Server-side sort key. */
+  sortBy?: SortOption;
   /** Disable the query (e.g. when an advanced search is active). */
   enabled?: boolean;
 }
@@ -30,26 +33,40 @@ const CARD_FIELDS = `
   property_type:property_types(id, name)
 `;
 
+/** Map UI sort options to Supabase .order() params */
+function getSortParams(sortBy: SortOption): { column: string; ascending: boolean } {
+  switch (sortBy) {
+    case 'oldest': return { column: 'created_at', ascending: true };
+    case 'price_asc': return { column: 'sale_price', ascending: true };
+    case 'price_desc': return { column: 'sale_price', ascending: false };
+    case 'beach_asc': return { column: 'beach_distance_meters', ascending: true };
+    case 'beach_desc': return { column: 'beach_distance_meters', ascending: false };
+    case 'recent':
+    default: return { column: 'created_at', ascending: false };
+  }
+}
+
 export function usePropertiesList(options: PropertiesListOptions = {}) {
   const { profile } = useAuth();
-  const { pageSize = 500, page = 0, enabled = true } = options;
+  const { pageSize = 50, page = 1, sortBy = 'recent', enabled = true } = options;
 
   const query = useQuery({
-    queryKey: ['properties-list', profile?.organization_id, page, pageSize],
+    queryKey: ['properties-list', profile?.organization_id, page, pageSize, sortBy],
     staleTime: 2 * 60_000,
     placeholderData: keepPreviousData,
     enabled: enabled && !!profile?.organization_id,
     queryFn: async ({ signal }) => {
       if (!profile?.organization_id) return { rows: [] as PropertyWithDetails[], total: 0 };
 
-      const from = page * pageSize;
+      const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
+      const sort = getSortParams(sortBy);
 
       const { data, error, count } = await supabase
         .from('properties')
         .select(CARD_FIELDS, { count: 'exact' })
         .eq('organization_id', profile.organization_id)
-        .order('created_at', { ascending: false })
+        .order(sort.column, { ascending: sort.ascending })
         .range(from, to)
         .abortSignal(signal!);
 
