@@ -404,78 +404,24 @@ export default function Properties() {
     setDuplicateReviewOpen(false);
     pendingBatchRef.current = null;
   }, []);
+  // Filter by owner if selected (client-side, owner data not in RPC)
   const filteredProperties = useMemo(() => {
-    let results: PropertyWithDetails[];
-    if (searchResults && searchResults.length >= 0) {
-      results = searchResults.map(result => {
-        const fullProperty = allProperties.find(p => p.id === result.id);
-        if (fullProperty) return fullProperty;
-        return {
-          id: result.id, property_code: result.property_code, title: result.title,
-          description: result.description, address_city: result.address_city,
-          address_neighborhood: result.address_neighborhood, address_state: result.address_state,
-          sale_price: result.sale_price, rent_price: result.rent_price, bedrooms: result.bedrooms,
-          bathrooms: result.bathrooms, parking_spots: result.parking_spots, area_total: result.area_total,
-          area_built: result.area_built, status: result.status, transaction_type: result.transaction_type,
-          property_type_id: result.property_type_id, created_at: result.created_at, updated_at: result.updated_at,
-          images: result.cover_image_url ? [{ url: result.cover_image_url, is_cover: true }] : [],
-        } as PropertyWithDetails;
-      });
-    } else {
-      results = allProperties;
-    }
-
-    // Filter by owner if selected
+    let results = allProperties;
     if (filters.ownerId && ownerPropertyIds) {
       results = results.filter(p => ownerPropertyIds.has(p.id));
     }
-
     return results;
-  }, [searchResults, allProperties, filters.ownerId, ownerPropertyIds]);
+  }, [allProperties, filters.ownerId, ownerPropertyIds]);
 
-  // Sort
-  const sortedProperties = useMemo(() => {
-    const sorted = [...filteredProperties];
-    const getPrice = (p: PropertyWithDetails) => {
-      if (p.transaction_type === 'aluguel') return p.rent_price ?? 0;
-      return p.sale_price ?? p.rent_price ?? 0;
-    };
-    switch (sortBy) {
-      case 'oldest':
-        return sorted.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-      case 'price_asc':
-        return sorted.sort((a, b) => getPrice(a) - getPrice(b));
-      case 'price_desc':
-        return sorted.sort((a, b) => getPrice(b) - getPrice(a));
-      case 'beach_asc':
-        return sorted.sort((a, b) => {
-          const da = (a as any).beach_distance_meters ?? Infinity;
-          const db = (b as any).beach_distance_meters ?? Infinity;
-          return da - db;
-        });
-      case 'beach_desc':
-        return sorted.sort((a, b) => {
-          const da = (a as any).beach_distance_meters ?? -1;
-          const db = (b as any).beach_distance_meters ?? -1;
-          return db - da;
-        });
-      case 'recent':
-      default:
-        return sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    }
-  }, [filteredProperties, sortBy]);
-
-  // Pagination
-  const paginatedProperties = useMemo(() => {
-    if (pageSize === "all") return sortedProperties;
-    const start = (currentPage - 1) * pageSize;
-    return sortedProperties.slice(start, start + pageSize);
-  }, [sortedProperties, pageSize, currentPage]);
+  // Server-side sort/pagination is now handled by the hooks.
+  // No client-side sort or pagination needed.
+  const paginatedProperties = filteredProperties;
 
   // Reset page when filters change
   useEffect(() => { setCurrentPage(1); }, [filters]);
 
   const isLoading = isSearching || isLoadingAll;
+  const isFetching = isSearchFetching || isListFetching;
 
   const handlePropertySelect = useCallback((result: { id: string }) => {
     navigate(`/imoveis/${result.id}`);
