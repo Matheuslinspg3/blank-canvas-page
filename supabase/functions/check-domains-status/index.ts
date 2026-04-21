@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { corsHeaders } from "../_shared/cors.ts";
-import { getCloudflareAuthHeaders } from "../_shared/cloudflare-auth.ts";
+import { getCloudflareAuthHeaders, normalizeCloudflareToken } from "../_shared/cloudflare-auth.ts";
 
 const CF_API = "https://api.cloudflare.com/client/v4";
 const LOVABLE_ORIGIN_IP = "185.158.133.1";
@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const CF_TOKEN = Deno.env.get("CLOUDFLARE_API_TOKEN");
+    const CF_TOKEN = normalizeCloudflareToken(Deno.env.get("CLOUDFLARE_API_TOKEN"));
     const CF_ZONE = Deno.env.get("CLOUDFLARE_ZONE_ID");
 
     if (!CF_TOKEN || !CF_ZONE) {
@@ -305,7 +305,7 @@ Deno.serve(async (req) => {
         // ── Custom Hostname mode ──
         const cfRes = await fetch(
           `${CF_API}/zones/${CF_ZONE}/custom_hostnames/${domain.cloudflare_hostname_id}`,
-          { headers: { Authorization: `Bearer ${CF_TOKEN}` } }
+          { headers: getCloudflareAuthHeaders(CF_TOKEN) }
         );
         const cfData = await cfRes.json();
         checked++;
