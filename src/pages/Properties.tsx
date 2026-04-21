@@ -792,6 +792,10 @@ export default function Properties() {
                 onSelect={handleSelectProperty}
                 onEdit={handleEditClick}
                 onDelete={handleDeleteClick}
+                onPublish={handlePublishSingle}
+                onUnpublish={handleUnpublishSingle}
+                onDuplicate={handleDuplicate}
+                onChangeStatus={handleChangeStatus}
                 onLongPressSelect={handleLongPressSelect}
               />
             )}
@@ -805,7 +809,10 @@ export default function Properties() {
                 onSelect={handleSelectProperty}
                 onEdit={handleEditClick}
                 onDelete={handleDeleteClick}
-                onDuplicate={(id) => navigate(`/imoveis/${id}?duplicate=true`)}
+                onDuplicate={handleDuplicate}
+                onPublish={handlePublishSingle}
+                onUnpublish={handleUnpublishSingle}
+                onChangeStatus={handleChangeStatus}
               />
             )}
 
