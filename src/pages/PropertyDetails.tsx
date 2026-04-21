@@ -64,6 +64,8 @@ import { useToast } from "@/hooks/use-toast";
 const LandingPageEditor = lazy(() => import("@/components/properties/LandingPageEditor").then(m => ({ default: m.LandingPageEditor })));
 import { PropertyQRCode } from "@/components/properties/PropertyQRCode";
 import { PropertyHistory } from "@/components/properties/PropertyHistory";
+// PERF: lazy load - BatchVariationsDialog only needed when user opens it
+const BatchVariationsDialog = lazy(() => import("@/components/properties/BatchVariationsDialog").then(m => ({ default: m.BatchVariationsDialog })));
 
 const statusColors: Record<string, string> = {
   disponivel: "bg-success/15 text-success",
