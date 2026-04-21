@@ -40,6 +40,89 @@ function isAllowedUrl(urlStr: string): boolean {
   }
 }
 
+/**
+ * Extract all hyperlink URLs from PDF annotations (links embedded in the document).
+ * Returns an array of { page, url } objects.
+ */
+function extractHyperlinksFromPdf(pdfDoc: PDFDocument): { page: number; url: string }[] {
+  const links: { page: number; url: string }[] = [];
+  const pages = pdfDoc.getPages();
+
+  for (let i = 0; i < pages.length; i++) {
+    try {
+      const annots = pages[i].node.Annots();
+      if (!annots) continue;
+
+      const annotsArray = annots instanceof PDFArray ? annots : null;
+      if (!annotsArray) continue;
+
+      for (let j = 0; j < annotsArray.size(); j++) {
+        try {
+          const annotRef = annotsArray.get(j);
+          const annotDict = pdfDoc.context.lookupMaybe(annotRef, PDFDict);
+          if (!annotDict) continue;
+
+          // Check if it's a Link annotation
+          const subtype = annotDict.get(PDFName.of("Subtype"));
+          if (subtype && subtype.toString() !== "/Link") continue;
+
+          // Get the Action dictionary
+          const aRef = annotDict.get(PDFName.of("A"));
+          if (!aRef) continue;
+
+          const aDict = pdfDoc.context.lookupMaybe(aRef, PDFDict);
+          if (!aDict) continue;
+
+          // Get the URI
+          const uriObj = aDict.get(PDFName.of("URI"));
+          if (!uriObj) continue;
+
+          let uri = "";
+          if (uriObj instanceof PDFString) {
+            uri = uriObj.decodeText();
+          } else if (uriObj instanceof PDFHexString) {
+            uri = uriObj.decodeText();
+          } else {
+            uri = uriObj.toString();
+            // Remove parentheses if present (raw PDF string format)
+            if (uri.startsWith("(") && uri.endsWith(")")) {
+              uri = uri.slice(1, -1);
+            }
+          }
+
+          if (uri && uri.startsWith("http")) {
+            links.push({ page: i + 1, url: uri });
+          }
+        } catch {
+          // Skip malformed annotations
+        }
+      }
+    } catch {
+      // Skip pages with annotation errors
+    }
+  }
+
+  return links;
+}
+
+/**
+ * Filter links to only include photo/folder-related ones (Drive, Dropbox, OneDrive, etc.)
+ */
+function filterPhotoLinks(links: { page: number; url: string }[]): { page: number; url: string }[] {
+  const photoPatterns = [
+    /drive\.google\.com/i,
+    /docs\.google\.com/i,
+    /dropbox\.com/i,
+    /onedrive\.live\.com/i,
+    /1drv\.ms/i,
+    /icloud\.com/i,
+    /photos\.google\.com/i,
+    /flickr\.com/i,
+    /imgur\.com/i,
+  ];
+  return links.filter(l => photoPatterns.some(p => p.test(l.url)));
+}
+
 const EXTRACT_PROMPT = `Você é um extrator de dados de imóveis. Analise o PDF/tabela de imóveis em anexo e retorne APENAS um JSON válido (sem markdown, sem comentários) no formato:
 {
   "properties": [
