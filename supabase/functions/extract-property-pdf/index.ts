@@ -185,6 +185,20 @@ async function processInBackground(jobId: string, signedUrl: string, fileName: s
     if (!pdfResp.ok) throw new Error(`Falha ao baixar PDF: ${pdfResp.status}`);
     const pdfBuffer = await pdfResp.arrayBuffer();
 
+    // Extract hyperlinks from PDF annotations BEFORE converting to base64
+    let extractedLinks: { page: number; url: string }[] = [];
+    try {
+      const pdfDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+      const allLinks = extractHyperlinksFromPdf(pdfDoc);
+      extractedLinks = filterPhotoLinks(allLinks);
+      console.log(`[extract-pdf] Job ${jobId}: Found ${allLinks.length} total hyperlinks, ${extractedLinks.length} photo-related links`);
+      if (extractedLinks.length > 0) {
+        console.log(`[extract-pdf] Job ${jobId}: Photo links: ${extractedLinks.map(l => `p${l.page}: ${l.url.substring(0, 60)}`).join(", ")}`);
+      }
+    } catch (linkErr) {
+      console.warn(`[extract-pdf] Job ${jobId}: Could not extract hyperlinks:`, linkErr);
+    }
+
     // Converte para base64 em chunks (evita stack overflow)
     const bytes = new Uint8Array(pdfBuffer);
     let binary = "";
@@ -196,6 +210,25 @@ async function processInBackground(jobId: string, signedUrl: string, fileName: s
 
     console.log(`[extract-pdf] Job ${jobId}: PDF baixado (${(pdfBuffer.byteLength / 1024).toFixed(1)} KB), chamando ai-router...`);
 
+    // Build prompt with extracted links appended
+    let enrichedPrompt = EXTRACT_PROMPT;
+    if (extractedLinks.length > 0) {
+      // Deduplicate links
+      const uniqueUrls = [...new Set(extractedLinks.map(l => l.url))];
+      
+      if (uniqueUrls.length === 1) {
+        // Single shared link for all properties
+        enrichedPrompt += `\n\nIMPORTANTE: O PDF contém o seguinte link de fotos compartilhado para os imóveis: ${uniqueUrls[0]}
+Use este link como "photos_url" para TODOS os imóveis extraídos.`;
+      } else {
+        // Multiple links - include page context for matching
+        const linksList = extractedLinks.map(l => `- Página ${l.page}: ${l.url}`).join("\n");
+        enrichedPrompt += `\n\nIMPORTANTE: O PDF contém os seguintes links de fotos/pastas (extraídos dos hyperlinks do documento):
+${linksList}
+Associe cada link ao imóvel correspondente da mesma página/contexto no campo "photos_url". Se um link é compartilhado entre múltiplos imóveis, repita-o para cada um.`;
+      }
+    }
+
     // Chama ai-router com task_type pdf_extract
     const routerResp = await fetch(`${supabaseUrl}/functions/v1/ai-router`, {
       method: "POST",
@@ -205,7 +238,7 @@ async function processInBackground(jobId: string, signedUrl: string, fileName: s
       },
       body: JSON.stringify({
         task_type: "pdf_extract",
-        prompt: EXTRACT_PROMPT,
+        prompt: enrichedPrompt,
         image_base64: pdfBase64,
         file_mime_type: "application/pdf",
       }),
