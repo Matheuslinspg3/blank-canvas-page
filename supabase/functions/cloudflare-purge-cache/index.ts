@@ -8,6 +8,7 @@
 import { requireAuth, requireRole, isAdminAllowlisted, createServiceClient, auditLog, extractRequestMeta } from "../_shared/security-core.ts";
 import { checkRateLimit } from "../_shared/security-rate-limit.ts";
 import { corsHeaders } from "../_shared/security-errors.ts";
+import { getCloudflareAuthHeaders, normalizeCloudflareToken } from "../_shared/cloudflare-auth.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -64,7 +65,7 @@ Deno.serve(async (req) => {
 
     // --- Execute Cloudflare purge ---
     const zoneId = Deno.env.get("CLOUDFLARE_ZONE_ID");
-    const apiToken = Deno.env.get("CLOUDFLARE_API_TOKEN");
+    const apiToken = normalizeCloudflareToken(Deno.env.get("CLOUDFLARE_API_TOKEN"));
 
     if (!zoneId || !apiToken) {
       return new Response(
@@ -77,10 +78,7 @@ Deno.serve(async (req) => {
       `https://api.cloudflare.com/client/v4/zones/${zoneId}/purge_cache`,
       {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiToken}`,
-          "Content-Type": "application/json",
-        },
+        headers: getCloudflareAuthHeaders(apiToken, "application/json"),
         body: JSON.stringify({ purge_everything: true }),
       },
     );

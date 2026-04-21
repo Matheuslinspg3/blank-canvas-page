@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { NotificationService } from "../_shared/notification-service.ts";
+import { getCloudflareAuthHeaders, normalizeCloudflareToken } from "../_shared/cloudflare-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,7 +10,7 @@ const corsHeaders = {
 
 async function purgeCloudflareCache(): Promise<{ success: boolean; error?: string }> {
   const zoneId = Deno.env.get("CLOUDFLARE_ZONE_ID");
-  const apiToken = Deno.env.get("CLOUDFLARE_API_TOKEN");
+  const apiToken = normalizeCloudflareToken(Deno.env.get("CLOUDFLARE_API_TOKEN"));
 
   if (!zoneId || !apiToken) {
     return { success: false, error: "Cloudflare credentials not configured" };
@@ -20,10 +21,7 @@ async function purgeCloudflareCache(): Promise<{ success: boolean; error?: strin
       `https://api.cloudflare.com/client/v4/zones/${zoneId}/purge_cache`,
       {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiToken}`,
-          "Content-Type": "application/json",
-        },
+        headers: getCloudflareAuthHeaders(apiToken, "application/json"),
         body: JSON.stringify({ purge_everything: true }),
       }
     );
