@@ -10,7 +10,7 @@ import { usePropertyBulkOps } from './usePropertyBulkOps';
 // Re-export all types for backward compatibility
 export type { Property, PropertyType, PropertyImage, PropertyWithDetails, PropertyFormData, ImageData, OwnerData } from './usePropertyCRUD';
 
-export function useProperties() {
+export function useProperties(options?: { enabled?: boolean }) {
   const { isDemoMode, demoData } = useDemo();
   const { toast } = useToast();
 
@@ -45,7 +45,7 @@ export function useProperties() {
     };
   }
 
-  const crud = usePropertyCRUD();
+  const crud = usePropertyCRUD(options);
   const bulk = usePropertyBulkOps();
 
   return { ...crud, ...bulk };

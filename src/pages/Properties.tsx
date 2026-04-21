@@ -98,16 +98,15 @@ export default function Properties() {
     enabled: !hasActiveFilters,
   });
 
-  // Full hook kept for mutations + bulk ops. We do NOT consume `properties` from it
-  // on this page anymore — the heavy fetch only runs lazily when components that
-  // actually need full data (PropertyDetails, KanbanBoard, etc.) request it.
+  // Full hook kept for mutations + bulk ops. The heavy listing query is ONLY
+  // enabled when advanced filters are active (avoids duplicate fetches).
   const {
     properties: fullProperties, isLoading: isLoadingFull, error: propertiesError, createProperty, updateProperty, deleteProperty,
     bulkDeleteProperties, bulkInactivateProperties, publishToMarketplace,
     bulkPublishToMarketplace, bulkHideFromMarketplace, hideFromMarketplace,
     isCreating, isUpdating, isDeleting, isBulkDeleting, isBulkInactivating,
     isBulkPublishing, isBulkHiding, refetch,
-  } = useProperties();
+  } = useProperties({ enabled: hasActiveFilters });
 
   // `allProperties` = whichever dataset is currently driving the UI.
   const allProperties = hasActiveFilters ? fullProperties : (listProperties.length > 0 ? listProperties : fullProperties);
