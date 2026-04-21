@@ -308,6 +308,56 @@ Associe cada link ao imóvel correspondente da mesma página/contexto no campo "
 
     parsed.properties = normalizeExtractedProperties(parsed.properties);
 
+    // Fallback: if AI didn't set photos_url but we extracted links, apply them
+    if (extractedLinks.length > 0 && Array.isArray(parsed.properties)) {
+      const propertiesWithoutPhotos = parsed.properties.filter((p: any) => !p.photos_url);
+      if (propertiesWithoutPhotos.length > 0) {
+        const uniqueUrls = [...new Set(extractedLinks.map(l => l.url))];
+        
+        if (uniqueUrls.length === 1) {
+          // Single shared link → apply to all properties missing photos_url
+          console.log(`[extract-pdf] Job ${jobId}: Applying single shared photo link to ${propertiesWithoutPhotos.length} properties`);
+          for (const prop of parsed.properties) {
+            if (!prop.photos_url) {
+              prop.photos_url = uniqueUrls[0];
+            }
+          }
+        } else {
+          // Multiple links → try to match by page proximity
+          // Group links by page
+          const linksByPage = new Map<number, string>();
+          for (const l of extractedLinks) {
+            if (!linksByPage.has(l.page)) linksByPage.set(l.page, l.url);
+          }
+          
+          // If we have roughly one link per property, assign sequentially
+          if (uniqueUrls.length >= parsed.properties.length * 0.5) {
+            console.log(`[extract-pdf] Job ${jobId}: Assigning ${uniqueUrls.length} links to ${parsed.properties.length} properties by order`);
+            let linkIdx = 0;
+            for (const prop of parsed.properties) {
+              if (!prop.photos_url && linkIdx < uniqueUrls.length) {
+                prop.photos_url = uniqueUrls[linkIdx];
+                linkIdx++;
+              }
+            }
+          } else {
+            // Few links, many properties → shared link, use the most common one
+            console.log(`[extract-pdf] Job ${jobId}: Using most common link for all properties`);
+            const urlCounts = new Map<string, number>();
+            for (const l of extractedLinks) {
+              urlCounts.set(l.url, (urlCounts.get(l.url) || 0) + 1);
+            }
+            const mostCommon = [...urlCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+            if (mostCommon) {
+              for (const prop of parsed.properties) {
+                if (!prop.photos_url) prop.photos_url = mostCommon;
+              }
+            }
+          }
+        }
+      }
+    }
+
     await sb.from("pdf_extract_jobs").update({
       status: "complete",
       result: parsed,
