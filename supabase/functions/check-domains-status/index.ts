@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { corsHeaders } from "../_shared/cors.ts";
+import { getCloudflareAuthHeaders, normalizeCloudflareToken } from "../_shared/cloudflare-auth.ts";
 
 const CF_API = "https://api.cloudflare.com/client/v4";
 const LOVABLE_ORIGIN_IP = "185.158.133.1";
@@ -19,7 +20,7 @@ async function ensureWorkerRoutes(
   const desiredPatterns = [`${rootHostname}/*`, `www.${rootHostname}/*`];
 
   const routesRes = await fetch(`${CF_API}/zones/${zoneId}/workers/routes`, {
-    headers: { Authorization: `Bearer ${cfToken}` },
+    headers: getCloudflareAuthHeaders(cfToken),
   });
   const routesData = await routesRes.json();
   const routes = routesData?.result || [];
@@ -32,7 +33,7 @@ async function ensureWorkerRoutes(
     console.log(`Creating Worker route ${pattern} → ${WORKER_SCRIPT_NAME}`);
     const routeRes = await fetch(`${CF_API}/zones/${zoneId}/workers/routes`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${cfToken}`, "Content-Type": "application/json" },
+      headers: getCloudflareAuthHeaders(cfToken, "application/json"),
       body: JSON.stringify({ pattern, script: WORKER_SCRIPT_NAME }),
     });
     const routeData = await routeRes.json();
@@ -54,7 +55,7 @@ async function ensureWorkerProxyARecord(
 ): Promise<boolean> {
   const searchRes = await fetch(
     `${CF_API}/zones/${zoneId}/dns_records?name=${encodeURIComponent(name)}`,
-    { headers: { Authorization: `Bearer ${cfToken}` } }
+    { headers: getCloudflareAuthHeaders(cfToken) }
   );
   const searchData = await searchRes.json();
   const records = searchData?.result || [];
@@ -65,7 +66,7 @@ async function ensureWorkerProxyARecord(
       console.log(`Fixing CNAME→Worker A for ${name}: deleting CNAME ${record.id} (${record.content})`);
       await fetch(`${CF_API}/zones/${zoneId}/dns_records/${record.id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${cfToken}` },
+        headers: getCloudflareAuthHeaders(cfToken),
       });
       changed = true;
       continue;
@@ -80,7 +81,7 @@ async function ensureWorkerProxyARecord(
       console.log(`Updating A record for ${name} to Worker proxy ${WORKER_PROXY_IP}`);
       const updateRes = await fetch(`${CF_API}/zones/${zoneId}/dns_records/${record.id}`, {
         method: "PATCH",
-        headers: { Authorization: `Bearer ${cfToken}`, "Content-Type": "application/json" },
+        headers: getCloudflareAuthHeaders(cfToken, "application/json"),
         body: JSON.stringify({
           type: "A",
           name,
@@ -97,7 +98,7 @@ async function ensureWorkerProxyARecord(
   console.log(`Creating proxied Worker A record for ${name} → ${WORKER_PROXY_IP}`);
   const createRes = await fetch(`${CF_API}/zones/${zoneId}/dns_records`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${cfToken}`, "Content-Type": "application/json" },
+    headers: getCloudflareAuthHeaders(cfToken, "application/json"),
     body: JSON.stringify({
       type: "A",
       name,
@@ -121,7 +122,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const CF_TOKEN = Deno.env.get("CLOUDFLARE_API_TOKEN");
+    const CF_TOKEN = normalizeCloudflareToken(Deno.env.get("CLOUDFLARE_API_TOKEN"));
     const CF_ZONE = Deno.env.get("CLOUDFLARE_ZONE_ID");
 
     if (!CF_TOKEN || !CF_ZONE) {
@@ -159,7 +160,7 @@ Deno.serve(async (req) => {
         if (domain.zone_mode === "full_zone" && domain.cloudflare_zone_id) {
           const zoneRes = await fetch(
             `${CF_API}/zones/${domain.cloudflare_zone_id}`,
-            { headers: { Authorization: `Bearer ${CF_TOKEN}` } }
+            { headers: getCloudflareAuthHeaders(CF_TOKEN) }
           );
           const zoneData = await zoneRes.json();
           checked++;
@@ -196,7 +197,7 @@ Deno.serve(async (req) => {
             // Check for A record
             const aCheckRes = await fetch(
               `${CF_API}/zones/${domain.cloudflare_zone_id}/dns_records?name=${encodeURIComponent(domain.hostname)}&type=A`,
-              { headers: { Authorization: `Bearer ${CF_TOKEN}` } }
+              { headers: getCloudflareAuthHeaders(CF_TOKEN) }
             );
             const aCheckData = await aCheckRes.json();
             const hasARecord = aCheckData.success && aCheckData.result?.length > 0;
@@ -304,7 +305,7 @@ Deno.serve(async (req) => {
         // ── Custom Hostname mode ──
         const cfRes = await fetch(
           `${CF_API}/zones/${CF_ZONE}/custom_hostnames/${domain.cloudflare_hostname_id}`,
-          { headers: { Authorization: `Bearer ${CF_TOKEN}` } }
+          { headers: getCloudflareAuthHeaders(CF_TOKEN) }
         );
         const cfData = await cfRes.json();
         checked++;
