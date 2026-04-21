@@ -336,6 +336,72 @@ async function callGemini(
   };
 }
 
+async function callAnthropic(
+  provider: Provider, apiKey: string, prompt: string, systemPrompt: string | null,
+  maxTokens: number, temperature: number, imageBase64?: string, signal?: AbortSignal, _imageSize?: string,
+  fileMimeType?: string,
+) {
+  const content: any[] = [];
+
+  if (imageBase64 && provider.supports_image_input) {
+    if (fileMimeType === "application/pdf") {
+      content.push({
+        type: "document",
+        source: {
+          type: "base64",
+          media_type: "application/pdf",
+          data: imageBase64,
+        },
+      });
+    } else {
+      content.push({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: fileMimeType || "image/jpeg",
+          data: imageBase64,
+        },
+      });
+    }
+  }
+
+  content.push({ type: "text", text: prompt });
+
+  const res = await fetch(`${provider.api_base_url}/messages`, {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    signal,
+    body: JSON.stringify({
+      model: provider.model_id,
+      max_tokens: maxTokens,
+      temperature,
+      system: systemPrompt || undefined,
+      messages: [{ role: "user", content }],
+    }),
+  });
+
+  if (!res.ok) {
+    const errBody = await res.text();
+    const is429 = res.status === 429;
+    throw Object.assign(new Error(`Anthropic ${res.status}: ${errBody.slice(0, 300)}`), { is429 });
+  }
+
+  const data = await res.json();
+  const text = Array.isArray(data.content)
+    ? data.content.filter((p: any) => p?.type === "text").map((p: any) => p.text).join("\n")
+    : "";
+
+  return {
+    text,
+    tokens_input: data.usage?.input_tokens || 0,
+    tokens_output: data.usage?.output_tokens || 0,
+  };
+}
+
 async function callOpenAI(
   provider: Provider, apiKey: string, prompt: string, systemPrompt: string | null,
   maxTokens: number, temperature: number, imageBase64?: string, signal?: AbortSignal,
@@ -774,6 +840,7 @@ Deno.serve(async (req) => {
         if (forceFreeOnly && !p.is_free) return false; // Budget exceeded: only free providers
         const apiKey = p.api_key || Deno.env.get(p.env_secret_name || '');
         if (!apiKey) return false;
+        if (file_mime_type === "application/pdf" && p.provider_type === "openai") return false;
         if (config.requires_image && !p.supports_image_input) return false;
         if (config.complexity === "image" && !p.supports_image_output) return false;
         return true;
@@ -857,6 +924,7 @@ Deno.serve(async (req) => {
           case "groq": result = await callGroq(...callArgs); break;
           case "gemini": result = await callGemini(...callArgs); break;
           case "openai": result = await callOpenAI(...callArgs); break;
+          case "text": result = await callAnthropic(...callArgs); break;
           default:
             lastError = `Unknown provider_type: ${provider.provider_type}`;
             continue;
