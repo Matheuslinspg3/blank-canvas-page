@@ -14,6 +14,10 @@ interface VirtualizedPropertyGridProps {
   onSelect: (id: string, selected: boolean) => void;
   onEdit: (property: PropertyWithDetails) => void;
   onDelete: (id: string) => void;
+  onPublish?: (id: string) => void;
+  onUnpublish?: (id: string) => void;
+  onDuplicate?: (id: string) => void;
+  onChangeStatus?: (id: string, status: string) => void;
   onLongPressSelect: (id: string) => void;
 }
 
@@ -34,6 +38,10 @@ export function VirtualizedPropertyGrid({
   onSelect,
   onEdit,
   onDelete,
+  onPublish,
+  onUnpublish,
+  onDuplicate,
+  onChangeStatus,
   onLongPressSelect,
 }: VirtualizedPropertyGridProps) {
   const parentRef = useRef<HTMLDivElement>(null);
@@ -78,6 +86,10 @@ export function VirtualizedPropertyGrid({
                   onSelect={onSelect}
                   onEdit={onEdit}
                   onDelete={onDelete}
+                  onPublish={onPublish}
+                  onUnpublish={onUnpublish}
+                  onDuplicate={onDuplicate}
+                  onChangeStatus={onChangeStatus}
                   isPublished={publishedIds.has(property.id)}
                   onLongPressSelect={onLongPressSelect}
                 />
