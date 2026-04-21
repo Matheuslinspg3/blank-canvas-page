@@ -91,6 +91,25 @@ export const PropertyListItem = memo(function PropertyListItem({
 
   const isAvailable = property.status === "disponivel";
 
+  const handleShare = async () => {
+    const url = buildPublicUrl(property.id, property.property_code);
+    const title = property.title || "Imóvel";
+    if (navigator.share) {
+      try { await navigator.share({ title, url }); } catch {}
+    } else {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copiado!");
+    }
+  };
+
+  const STATUS_OPTIONS = [
+    { value: "disponivel", label: "Disponível" },
+    { value: "reservado", label: "Reservado" },
+    { value: "vendido", label: "Vendido" },
+    { value: "alugado", label: "Alugado" },
+    { value: "inativo", label: "Inativo" },
+  ];
+
   return (
     <div
       className={cn(
@@ -220,28 +239,60 @@ export const PropertyListItem = memo(function PropertyListItem({
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/imoveis/${property.id}`)}>
-              <Eye className="h-4 w-4 mr-2" /> Ver detalhes
-            </DropdownMenuItem>
-            {isAvailable && (
-              <DropdownMenuItem onClick={() => window.open(buildPublicUrl(property.id, property.property_code), "_blank")}>
-                <ExternalLink className="h-4 w-4 mr-2" /> Abrir landing page
+           <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => navigate(`/imoveis/${property.id}`)}>
+                <Eye className="h-4 w-4 mr-2" /> Ver detalhes
               </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onEdit(property)}>
-              <Edit className="h-4 w-4 mr-2" /> Editar
-            </DropdownMenuItem>
-            {onDuplicate && (
-              <DropdownMenuItem onClick={() => onDuplicate(property.id)}>
-                <CopyPlus className="h-4 w-4 mr-2" /> Duplicar Imóvel
+              {isAvailable && (
+                <DropdownMenuItem onClick={() => window.open(buildPublicUrl(property.id, property.property_code), "_blank")}>
+                  <ExternalLink className="h-4 w-4 mr-2" /> Abrir landing page
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={handleShare}>
+                <Share2 className="h-4 w-4 mr-2" /> Compartilhar
               </DropdownMenuItem>
-            )}
-            <DropdownMenuItem onClick={() => onDelete(property.id)} className="text-destructive focus:text-destructive">
-              <Trash2 className="h-4 w-4 mr-2" /> Excluir
-            </DropdownMenuItem>
-          </DropdownMenuContent>
+              <DropdownMenuSeparator />
+              {isAvailable && isPublished ? (
+                onUnpublish && (
+                  <DropdownMenuItem onClick={() => onUnpublish(property.id)}>
+                    <Store className="h-4 w-4 mr-2" /> Remover do Marketplace
+                  </DropdownMenuItem>
+                )
+              ) : isAvailable ? (
+                onPublish && (
+                  <DropdownMenuItem onClick={() => onPublish(property.id)}>
+                    <Store className="h-4 w-4 mr-2" /> Publicar no Marketplace
+                  </DropdownMenuItem>
+                )
+              ) : null}
+              {onChangeStatus && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <RefreshCw className="h-4 w-4 mr-2" /> Alterar status
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {STATUS_OPTIONS.filter(s => s.value !== property.status).map(s => (
+                      <DropdownMenuItem key={s.value} onClick={() => onChangeStatus(property.id, s.value)}>
+                        {s.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onEdit(property)}>
+                <Edit className="h-4 w-4 mr-2" /> Editar
+              </DropdownMenuItem>
+              {onDuplicate && (
+                <DropdownMenuItem onClick={() => onDuplicate(property.id)}>
+                  <CopyPlus className="h-4 w-4 mr-2" /> Duplicar
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onDelete(property.id)} className="text-destructive focus:text-destructive">
+                <Trash2 className="h-4 w-4 mr-2" /> Excluir
+              </DropdownMenuItem>
+            </DropdownMenuContent>
         </DropdownMenu>
       </div>
     </div>
