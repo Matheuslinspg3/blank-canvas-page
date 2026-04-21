@@ -89,28 +89,48 @@ export default function Properties() {
 
   // Advanced RPC search runs ONLY when there are active filters.
   // Without filters we use the lightweight paginated list directly.
-  const { data: searchResults, isLoading: isSearching } = useAdvancedPropertySearch(filters, hasActiveFilters);
+  const { data: searchData, isLoading: isSearching, isFetching: isSearchFetching } = useAdvancedPropertySearch(
+    filters,
+    hasActiveFilters,
+    { page: currentPage, pageSize: pageSize === 'all' ? 2000 : pageSize, sortBy }
+  );
+  const searchResults = searchData?.rows;
+  const searchTotal = searchData?.total ?? 0;
 
   // Lightweight listing for the page (cards only, server-paginated, cover image only).
-  const { properties: listProperties, isLoading: isLoadingList } = usePropertiesList({
-    pageSize: 500,
-    page: 0,
+  const { properties: listProperties, total: listTotal, isLoading: isLoadingList, isFetching: isListFetching } = usePropertiesList({
+    pageSize: pageSize === 'all' ? 2000 : pageSize,
+    page: currentPage,
+    sortBy,
     enabled: !hasActiveFilters,
   });
 
-  // Full hook kept for mutations + bulk ops. The heavy listing query is ONLY
-  // enabled when advanced filters are active (avoids duplicate fetches).
+  // Full hook kept for mutations + bulk ops. The heavy listing query is NEVER
+  // used for listing — only mutations.
   const {
-    properties: fullProperties, isLoading: isLoadingFull, error: propertiesError, createProperty, updateProperty, deleteProperty,
+    isLoading: isLoadingFull, error: propertiesError, createProperty, updateProperty, deleteProperty,
     bulkDeleteProperties, bulkInactivateProperties, publishToMarketplace,
     bulkPublishToMarketplace, bulkHideFromMarketplace, hideFromMarketplace,
     isCreating, isUpdating, isDeleting, isBulkDeleting, isBulkInactivating,
     isBulkPublishing, isBulkHiding, refetch,
-  } = useProperties({ enabled: hasActiveFilters });
+  } = useProperties({ enabled: false });
 
   // `allProperties` = whichever dataset is currently driving the UI.
-  const allProperties = hasActiveFilters ? fullProperties : (listProperties.length > 0 ? listProperties : fullProperties);
-  const isLoadingAll = hasActiveFilters ? isLoadingFull : (isLoadingList && listProperties.length === 0);
+  const allProperties = hasActiveFilters
+    ? (searchResults ?? []).map(result => ({
+        id: result.id, property_code: result.property_code, title: result.title,
+        description: result.description, address_city: result.address_city,
+        address_neighborhood: result.address_neighborhood, address_state: result.address_state,
+        sale_price: result.sale_price, rent_price: result.rent_price, bedrooms: result.bedrooms,
+        bathrooms: result.bathrooms, parking_spots: result.parking_spots, area_total: result.area_total,
+        area_built: result.area_built, status: result.status, transaction_type: result.transaction_type,
+        property_type_id: result.property_type_id, created_at: result.created_at, updated_at: result.updated_at,
+        beach_distance_meters: result.beach_distance_meters,
+        images: result.cover_image_url ? [{ url: result.cover_image_url, is_cover: true, display_order: 0 }] : [],
+      } as PropertyWithDetails))
+    : listProperties;
+  const totalCount = hasActiveFilters ? searchTotal : listTotal;
+  const isLoadingAll = hasActiveFilters ? isSearching : isLoadingList;
 
   const { publishedIds, refetch: refetchPublishedIds } = useMarketplaceStatus();
 
