@@ -89,28 +89,48 @@ export default function Properties() {
 
   // Advanced RPC search runs ONLY when there are active filters.
   // Without filters we use the lightweight paginated list directly.
-  const { data: searchResults, isLoading: isSearching } = useAdvancedPropertySearch(filters, hasActiveFilters);
+  const { data: searchData, isLoading: isSearching, isFetching: isSearchFetching } = useAdvancedPropertySearch(
+    filters,
+    hasActiveFilters,
+    { page: currentPage, pageSize: pageSize === 'all' ? 2000 : pageSize, sortBy }
+  );
+  const searchResults = searchData?.rows;
+  const searchTotal = searchData?.total ?? 0;
 
   // Lightweight listing for the page (cards only, server-paginated, cover image only).
-  const { properties: listProperties, isLoading: isLoadingList } = usePropertiesList({
-    pageSize: 500,
-    page: 0,
+  const { properties: listProperties, total: listTotal, isLoading: isLoadingList, isFetching: isListFetching } = usePropertiesList({
+    pageSize: pageSize === 'all' ? 2000 : pageSize,
+    page: currentPage,
+    sortBy,
     enabled: !hasActiveFilters,
   });
 
-  // Full hook kept for mutations + bulk ops. The heavy listing query is ONLY
-  // enabled when advanced filters are active (avoids duplicate fetches).
+  // Full hook kept for mutations + bulk ops. The heavy listing query is NEVER
+  // used for listing — only mutations.
   const {
-    properties: fullProperties, isLoading: isLoadingFull, error: propertiesError, createProperty, updateProperty, deleteProperty,
+    isLoading: isLoadingFull, error: propertiesError, createProperty, updateProperty, deleteProperty,
     bulkDeleteProperties, bulkInactivateProperties, publishToMarketplace,
     bulkPublishToMarketplace, bulkHideFromMarketplace, hideFromMarketplace,
     isCreating, isUpdating, isDeleting, isBulkDeleting, isBulkInactivating,
     isBulkPublishing, isBulkHiding, refetch,
-  } = useProperties({ enabled: hasActiveFilters });
+  } = useProperties({ enabled: false });
 
   // `allProperties` = whichever dataset is currently driving the UI.
-  const allProperties = hasActiveFilters ? fullProperties : (listProperties.length > 0 ? listProperties : fullProperties);
-  const isLoadingAll = hasActiveFilters ? isLoadingFull : (isLoadingList && listProperties.length === 0);
+  const allProperties = hasActiveFilters
+    ? (searchResults ?? []).map(result => ({
+        id: result.id, property_code: result.property_code, title: result.title,
+        description: result.description, address_city: result.address_city,
+        address_neighborhood: result.address_neighborhood, address_state: result.address_state,
+        sale_price: result.sale_price, rent_price: result.rent_price, bedrooms: result.bedrooms,
+        bathrooms: result.bathrooms, parking_spots: result.parking_spots, area_total: result.area_total,
+        area_built: result.area_built, status: result.status, transaction_type: result.transaction_type,
+        property_type_id: result.property_type_id, created_at: result.created_at, updated_at: result.updated_at,
+        beach_distance_meters: result.beach_distance_meters,
+        images: result.cover_image_url ? [{ url: result.cover_image_url, is_cover: true, display_order: 0 }] : [],
+      } as PropertyWithDetails))
+    : listProperties;
+  const totalCount = hasActiveFilters ? searchTotal : listTotal;
+  const isLoadingAll = hasActiveFilters ? isSearching : isLoadingList;
 
   const { publishedIds, refetch: refetchPublishedIds } = useMarketplaceStatus();
 
@@ -384,78 +404,24 @@ export default function Properties() {
     setDuplicateReviewOpen(false);
     pendingBatchRef.current = null;
   }, []);
+  // Filter by owner if selected (client-side, owner data not in RPC)
   const filteredProperties = useMemo(() => {
-    let results: PropertyWithDetails[];
-    if (searchResults && searchResults.length >= 0) {
-      results = searchResults.map(result => {
-        const fullProperty = allProperties.find(p => p.id === result.id);
-        if (fullProperty) return fullProperty;
-        return {
-          id: result.id, property_code: result.property_code, title: result.title,
-          description: result.description, address_city: result.address_city,
-          address_neighborhood: result.address_neighborhood, address_state: result.address_state,
-          sale_price: result.sale_price, rent_price: result.rent_price, bedrooms: result.bedrooms,
-          bathrooms: result.bathrooms, parking_spots: result.parking_spots, area_total: result.area_total,
-          area_built: result.area_built, status: result.status, transaction_type: result.transaction_type,
-          property_type_id: result.property_type_id, created_at: result.created_at, updated_at: result.updated_at,
-          images: result.cover_image_url ? [{ url: result.cover_image_url, is_cover: true }] : [],
-        } as PropertyWithDetails;
-      });
-    } else {
-      results = allProperties;
-    }
-
-    // Filter by owner if selected
+    let results = allProperties;
     if (filters.ownerId && ownerPropertyIds) {
       results = results.filter(p => ownerPropertyIds.has(p.id));
     }
-
     return results;
-  }, [searchResults, allProperties, filters.ownerId, ownerPropertyIds]);
+  }, [allProperties, filters.ownerId, ownerPropertyIds]);
 
-  // Sort
-  const sortedProperties = useMemo(() => {
-    const sorted = [...filteredProperties];
-    const getPrice = (p: PropertyWithDetails) => {
-      if (p.transaction_type === 'aluguel') return p.rent_price ?? 0;
-      return p.sale_price ?? p.rent_price ?? 0;
-    };
-    switch (sortBy) {
-      case 'oldest':
-        return sorted.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-      case 'price_asc':
-        return sorted.sort((a, b) => getPrice(a) - getPrice(b));
-      case 'price_desc':
-        return sorted.sort((a, b) => getPrice(b) - getPrice(a));
-      case 'beach_asc':
-        return sorted.sort((a, b) => {
-          const da = (a as any).beach_distance_meters ?? Infinity;
-          const db = (b as any).beach_distance_meters ?? Infinity;
-          return da - db;
-        });
-      case 'beach_desc':
-        return sorted.sort((a, b) => {
-          const da = (a as any).beach_distance_meters ?? -1;
-          const db = (b as any).beach_distance_meters ?? -1;
-          return db - da;
-        });
-      case 'recent':
-      default:
-        return sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    }
-  }, [filteredProperties, sortBy]);
-
-  // Pagination
-  const paginatedProperties = useMemo(() => {
-    if (pageSize === "all") return sortedProperties;
-    const start = (currentPage - 1) * pageSize;
-    return sortedProperties.slice(start, start + pageSize);
-  }, [sortedProperties, pageSize, currentPage]);
+  // Server-side sort/pagination is now handled by the hooks.
+  // No client-side sort or pagination needed.
+  const paginatedProperties = filteredProperties;
 
   // Reset page when filters change
   useEffect(() => { setCurrentPage(1); }, [filters]);
 
   const isLoading = isSearching || isLoadingAll;
+  const isFetching = isSearchFetching || isListFetching;
 
   const handlePropertySelect = useCallback((result: { id: string }) => {
     navigate(`/imoveis/${result.id}`);
@@ -676,7 +642,7 @@ export default function Properties() {
             onViewModeChange={setViewMode}
             pageSize={pageSize}
             onPageSizeChange={setPageSize}
-            totalCount={filteredProperties.length}
+            totalCount={totalCount}
             currentPage={currentPage}
             onPageChange={setCurrentPage}
             sortBy={sortBy}
@@ -712,7 +678,7 @@ export default function Properties() {
         {!isLoading && filteredProperties.length > 0 && (
           <BulkActionsToolbar
             selectedCount={selectedIds.size}
-            totalCount={filteredProperties.length}
+            totalCount={totalCount}
             onSelectAll={handleSelectAll}
             onClearSelection={handleClearSelection}
             onBulkDelete={handleBulkDelete}
@@ -732,7 +698,7 @@ export default function Properties() {
           <QueryErrorState message="Erro ao carregar imóveis" onRetry={() => refetch()} />
         )}
         {!propertiesError && !isLoading && paginatedProperties.length > 0 && (
-          <>
+          <div className={isFetching ? 'opacity-60 transition-opacity duration-200' : 'transition-opacity duration-200'}>
             {viewMode === "grid" && (
               <VirtualizedPropertyGrid
                 properties={paginatedProperties}
@@ -768,17 +734,17 @@ export default function Properties() {
                 />
               </Suspense>
             )}
-          </>
+          </div>
         )}
 
         {/* Bottom Pagination */}
-        {!isLoading && filteredProperties.length > 0 && pageSize !== "all" && (
+        {!isLoading && totalCount > 0 && pageSize !== "all" && (
           <PropertyViewControls
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             pageSize={pageSize}
             onPageSizeChange={setPageSize}
-            totalCount={filteredProperties.length}
+            totalCount={totalCount}
             currentPage={currentPage}
             onPageChange={setCurrentPage}
             sortBy={sortBy}

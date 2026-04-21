@@ -1,7 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { PropertyFilters } from './usePropertyFilters';
+import type { SortOption } from '@/components/properties/PropertyViewControls';
 
 interface SearchResult {
   id: string;
@@ -25,18 +26,29 @@ interface SearchResult {
   beach_distance_meters: number | null;
   created_at: string;
   updated_at: string;
+  total_count: number;
+}
+
+export interface AdvancedSearchOptions {
+  page?: number;
+  pageSize?: number;
+  sortBy?: SortOption;
 }
 
 export function useAdvancedPropertySearch(
   filters: PropertyFilters,
-  enabled: boolean = true
+  enabled: boolean = true,
+  options: AdvancedSearchOptions = {}
 ) {
   const { profile } = useAuth();
+  const { page = 1, pageSize = 50, sortBy = 'recent' } = options;
 
   return useQuery({
-    queryKey: ['properties-advanced-search', profile?.organization_id, filters],
+    queryKey: ['properties-advanced-search', profile?.organization_id, filters, page, pageSize, sortBy],
     queryFn: async () => {
-      if (!profile?.organization_id) return [];
+      if (!profile?.organization_id) return { rows: [] as SearchResult[], total: 0 };
+
+      const offset = (page - 1) * pageSize;
 
       const { data, error } = await supabase.rpc('search_properties_advanced', {
         p_organization_id: profile.organization_id,
@@ -52,8 +64,8 @@ export function useAdvancedPropertySearch(
         p_neighborhoods: filters.neighborhoods.length > 0 ? filters.neighborhoods : null,
         p_cities: filters.cities.length > 0 ? filters.cities : null,
         p_min_area: filters.minArea,
-        p_limit: 500,
-        p_offset: 0,
+        p_limit: pageSize,
+        p_offset: offset,
         p_min_suites: filters.minSuites,
         p_min_parking: filters.minParking,
         p_max_area: filters.maxArea,
@@ -67,6 +79,7 @@ export function useAdvancedPropertySearch(
         p_property_condition: filters.propertyCondition === 'all' ? null : filters.propertyCondition,
         p_max_beach_distance: filters.maxBeachDistance,
         p_launch_stage: filters.launchStage === 'all' ? null : filters.launchStage,
+        p_sort_by: sortBy,
       });
 
       if (error) {
@@ -74,9 +87,13 @@ export function useAdvancedPropertySearch(
         throw error;
       }
 
-      return (data || []) as SearchResult[];
+      const rows = (data || []) as SearchResult[];
+      const total = rows.length > 0 ? rows[0].total_count : 0;
+
+      return { rows, total };
     },
     enabled: enabled && !!profile?.organization_id,
     staleTime: 2 * 60_000,
+    placeholderData: keepPreviousData,
   });
 }

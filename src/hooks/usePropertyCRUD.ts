@@ -190,7 +190,7 @@ export function usePropertyCRUD(options?: { enabled?: boolean }) {
       return fullData as PropertyWithDetails;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['properties'] });
+      queryClient.invalidateQueries({ queryKey: ['properties-list'] });
       queryClient.invalidateQueries({ queryKey: ['properties-advanced-search'] });
       trackEvent('imovel_cadastrado');
       toast({ title: 'Imóvel cadastrado', description: 'O imóvel foi cadastrado com sucesso.' });
@@ -262,7 +262,7 @@ export function usePropertyCRUD(options?: { enabled?: boolean }) {
       return fullData as PropertyWithDetails;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['properties'] });
+      queryClient.invalidateQueries({ queryKey: ['properties-list'] });
       queryClient.invalidateQueries({ queryKey: ['properties-advanced-search'] });
       toast({ title: 'Imóvel atualizado', description: 'O imóvel foi atualizado com sucesso.' });
     },
@@ -279,7 +279,7 @@ export function usePropertyCRUD(options?: { enabled?: boolean }) {
       if (error) throw normalizeError(error);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['properties'] });
+      queryClient.invalidateQueries({ queryKey: ['properties-list'] });
       queryClient.invalidateQueries({ queryKey: ['properties-advanced-search'] });
       toast({ title: 'Imóvel removido', description: 'O imóvel foi removido com sucesso.' });
     },
