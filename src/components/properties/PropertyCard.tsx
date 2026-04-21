@@ -104,6 +104,29 @@ export const PropertyCard = memo(function PropertyCard({ property, onEdit, onDel
     window.open(buildPublicUrl(property.id, property.property_code), "_blank");
   };
 
+  const handleShare = async () => {
+    const url = buildPublicUrl(property.id, property.property_code);
+    const title = property.title || "Imóvel";
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, url });
+      } catch {
+        // user cancelled
+      }
+    } else {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copiado!");
+    }
+  };
+
+  const STATUS_OPTIONS = [
+    { value: "disponivel", label: "Disponível" },
+    { value: "reservado", label: "Reservado" },
+    { value: "vendido", label: "Vendido" },
+    { value: "alugado", label: "Alugado" },
+    { value: "inativo", label: "Inativo" },
+  ];
+
   // Compact card for unavailable properties
   if (!isAvailable) {
     return (
