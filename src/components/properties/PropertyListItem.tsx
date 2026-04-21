@@ -9,9 +9,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MapPin, Bed, Bath, Car, Ruler, MoreHorizontal, Edit, Trash2, Eye, ExternalLink, Hash, Building2, Store, CopyPlus } from "lucide-react";
+import { MapPin, Bed, Bath, Car, Ruler, MoreHorizontal, Edit, Trash2, Eye, ExternalLink, Hash, Building2, Store, CopyPlus, Share2, RefreshCw } from "lucide-react";
 import { PropertyFreshnessBadge } from "./PropertyFreshnessBadge";
 import { PropertyStatusBadge, transactionLabels } from "./PropertyStatusBadge";
 import { AvailabilityBadge } from "./AvailabilityBadge";
