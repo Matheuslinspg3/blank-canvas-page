@@ -12,6 +12,10 @@ interface SelectablePropertyCardProps {
   onSelect: (id: string, selected: boolean) => void;
   onEdit: (property: PropertyWithDetails) => void;
   onDelete: (id: string) => void;
+  onPublish?: (id: string) => void;
+  onUnpublish?: (id: string) => void;
+  onDuplicate?: (id: string) => void;
+  onChangeStatus?: (id: string, status: string) => void;
   isPublished?: boolean;
   onLongPressSelect?: (id: string) => void;
 }
@@ -24,6 +28,10 @@ export const SelectablePropertyCard = memo(function SelectablePropertyCard({
   onSelect,
   onEdit,
   onDelete,
+  onPublish,
+  onUnpublish,
+  onDuplicate,
+  onChangeStatus,
   isPublished,
   onLongPressSelect,
 }: SelectablePropertyCardProps) {
@@ -35,7 +43,6 @@ export const SelectablePropertyCard = memo(function SelectablePropertyCard({
     didLongPress.current = false;
     longPressTimer.current = setTimeout(() => {
       didLongPress.current = true;
-      // Haptic feedback if available
       if (navigator.vibrate) navigator.vibrate(30);
       if (onLongPressSelect) {
         onLongPressSelect(property.id);
@@ -59,7 +66,6 @@ export const SelectablePropertyCard = memo(function SelectablePropertyCard({
     }
   }, []);
 
-  // On mobile in selection mode, tap to toggle selection
   const handleCardClick = useCallback((e: React.MouseEvent) => {
     if (isMobile && isSelectionMode && !didLongPress.current) {
       e.preventDefault();
@@ -80,7 +86,6 @@ export const SelectablePropertyCard = memo(function SelectablePropertyCard({
       onTouchMove={isMobile ? handleTouchMove : undefined}
       onClickCapture={handleCardClick}
     >
-      {/* Checkbox overlay */}
       <div 
         className={cn(
           "absolute top-3 left-3 z-10 transition-all duration-200",
@@ -109,7 +114,6 @@ export const SelectablePropertyCard = memo(function SelectablePropertyCard({
         </div>
       </div>
 
-      {/* Selection overlay on mobile */}
       {isMobile && isSelectionMode && (
         <div className={cn(
           "absolute inset-0 z-[5] rounded-lg pointer-events-none transition-colors",
@@ -121,6 +125,10 @@ export const SelectablePropertyCard = memo(function SelectablePropertyCard({
         property={property}
         onEdit={onEdit}
         onDelete={onDelete}
+        onPublish={onPublish}
+        onUnpublish={onUnpublish}
+        onDuplicate={onDuplicate}
+        onChangeStatus={onChangeStatus}
         isPublished={isPublished}
       />
     </div>
