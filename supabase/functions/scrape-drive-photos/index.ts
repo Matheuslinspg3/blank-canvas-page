@@ -94,10 +94,32 @@ async function listSubfoldersForMatching(folderId: string, apiKey: string): Prom
 
 // ── Validate folder access ──
 async function checkFolderAccess(folderId: string, apiKey: string): Promise<"public" | "private" | "not_found"> {
-  const url = `https://www.googleapis.com/drive/v3/files?q='${encodeURIComponent(folderId)}'+in+parents&key=${apiKey}&pageSize=1&fields=files(id)`;
-  const resp = await fetch(url);
-  if (resp.ok) return "public";
-  if (resp.status === 404) return "not_found";
+  // Method 1: Try to get the folder metadata directly (most reliable)
+  const metaUrl = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(folderId)}?key=${apiKey}&fields=id,name,mimeType`;
+  console.log(`checkFolderAccess: trying metadata for folder ${folderId}`);
+  const metaResp = await fetch(metaUrl);
+  
+  if (metaResp.ok) {
+    console.log(`checkFolderAccess: folder ${folderId} is publicly accessible`);
+    return "public";
+  }
+  
+  console.log(`checkFolderAccess: metadata returned ${metaResp.status}`);
+  
+  if (metaResp.status === 404) return "not_found";
+  
+  // Method 2: Fallback — try listing children (same method as listDriveFiles)
+  const query = `'${folderId}' in parents`;
+  const listUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&key=${apiKey}&pageSize=1&fields=files(id)`;
+  const listResp = await fetch(listUrl);
+  
+  if (listResp.ok) {
+    console.log(`checkFolderAccess: folder ${folderId} accessible via listing`);
+    return "public";
+  }
+  
+  console.log(`checkFolderAccess: listing returned ${listResp.status} — marking as private`);
+  if (listResp.status === 404) return "not_found";
   return "private";
 }
 
