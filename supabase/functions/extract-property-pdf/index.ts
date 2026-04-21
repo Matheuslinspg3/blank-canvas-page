@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { PDFDocument, PDFDict, PDFName, PDFString, PDFHexString, PDFArray } from "https://esm.sh/pdf-lib@1.17.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,6 +38,89 @@ function isAllowedUrl(urlStr: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Extract all hyperlink URLs from PDF annotations (links embedded in the document).
+ * Returns an array of { page, url } objects.
+ */
+function extractHyperlinksFromPdf(pdfDoc: PDFDocument): { page: number; url: string }[] {
+  const links: { page: number; url: string }[] = [];
+  const pages = pdfDoc.getPages();
+
+  for (let i = 0; i < pages.length; i++) {
+    try {
+      const annots = pages[i].node.Annots();
+      if (!annots) continue;
+
+      const annotsArray = annots instanceof PDFArray ? annots : null;
+      if (!annotsArray) continue;
+
+      for (let j = 0; j < annotsArray.size(); j++) {
+        try {
+          const annotRef = annotsArray.get(j);
+          const annotDict = pdfDoc.context.lookupMaybe(annotRef, PDFDict);
+          if (!annotDict) continue;
+
+          // Check if it's a Link annotation
+          const subtype = annotDict.get(PDFName.of("Subtype"));
+          if (subtype && subtype.toString() !== "/Link") continue;
+
+          // Get the Action dictionary
+          const aRef = annotDict.get(PDFName.of("A"));
+          if (!aRef) continue;
+
+          const aDict = pdfDoc.context.lookupMaybe(aRef, PDFDict);
+          if (!aDict) continue;
+
+          // Get the URI
+          const uriObj = aDict.get(PDFName.of("URI"));
+          if (!uriObj) continue;
+
+          let uri = "";
+          if (uriObj instanceof PDFString) {
+            uri = uriObj.decodeText();
+          } else if (uriObj instanceof PDFHexString) {
+            uri = uriObj.decodeText();
+          } else {
+            uri = uriObj.toString();
+            // Remove parentheses if present (raw PDF string format)
+            if (uri.startsWith("(") && uri.endsWith(")")) {
+              uri = uri.slice(1, -1);
+            }
+          }
+
+          if (uri && uri.startsWith("http")) {
+            links.push({ page: i + 1, url: uri });
+          }
+        } catch {
+          // Skip malformed annotations
+        }
+      }
+    } catch {
+      // Skip pages with annotation errors
+    }
+  }
+
+  return links;
+}
+
+/**
+ * Filter links to only include photo/folder-related ones (Drive, Dropbox, OneDrive, etc.)
+ */
+function filterPhotoLinks(links: { page: number; url: string }[]): { page: number; url: string }[] {
+  const photoPatterns = [
+    /drive\.google\.com/i,
+    /docs\.google\.com/i,
+    /dropbox\.com/i,
+    /onedrive\.live\.com/i,
+    /1drv\.ms/i,
+    /icloud\.com/i,
+    /photos\.google\.com/i,
+    /flickr\.com/i,
+    /imgur\.com/i,
+  ];
+  return links.filter(l => photoPatterns.some(p => p.test(l.url)));
 }
 
 const EXTRACT_PROMPT = `Você é um extrator de dados de imóveis. Analise o PDF/tabela de imóveis em anexo e retorne APENAS um JSON válido (sem markdown, sem comentários) no formato:
@@ -101,6 +185,20 @@ async function processInBackground(jobId: string, signedUrl: string, fileName: s
     if (!pdfResp.ok) throw new Error(`Falha ao baixar PDF: ${pdfResp.status}`);
     const pdfBuffer = await pdfResp.arrayBuffer();
 
+    // Extract hyperlinks from PDF annotations BEFORE converting to base64
+    let extractedLinks: { page: number; url: string }[] = [];
+    try {
+      const pdfDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+      const allLinks = extractHyperlinksFromPdf(pdfDoc);
+      extractedLinks = filterPhotoLinks(allLinks);
+      console.log(`[extract-pdf] Job ${jobId}: Found ${allLinks.length} total hyperlinks, ${extractedLinks.length} photo-related links`);
+      if (extractedLinks.length > 0) {
+        console.log(`[extract-pdf] Job ${jobId}: Photo links: ${extractedLinks.map(l => `p${l.page}: ${l.url.substring(0, 60)}`).join(", ")}`);
+      }
+    } catch (linkErr) {
+      console.warn(`[extract-pdf] Job ${jobId}: Could not extract hyperlinks:`, linkErr);
+    }
+
     // Converte para base64 em chunks (evita stack overflow)
     const bytes = new Uint8Array(pdfBuffer);
     let binary = "";
@@ -112,6 +210,25 @@ async function processInBackground(jobId: string, signedUrl: string, fileName: s
 
     console.log(`[extract-pdf] Job ${jobId}: PDF baixado (${(pdfBuffer.byteLength / 1024).toFixed(1)} KB), chamando ai-router...`);
 
+    // Build prompt with extracted links appended
+    let enrichedPrompt = EXTRACT_PROMPT;
+    if (extractedLinks.length > 0) {
+      // Deduplicate links
+      const uniqueUrls = [...new Set(extractedLinks.map(l => l.url))];
+      
+      if (uniqueUrls.length === 1) {
+        // Single shared link for all properties
+        enrichedPrompt += `\n\nIMPORTANTE: O PDF contém o seguinte link de fotos compartilhado para os imóveis: ${uniqueUrls[0]}
+Use este link como "photos_url" para TODOS os imóveis extraídos.`;
+      } else {
+        // Multiple links - include page context for matching
+        const linksList = extractedLinks.map(l => `- Página ${l.page}: ${l.url}`).join("\n");
+        enrichedPrompt += `\n\nIMPORTANTE: O PDF contém os seguintes links de fotos/pastas (extraídos dos hyperlinks do documento):
+${linksList}
+Associe cada link ao imóvel correspondente da mesma página/contexto no campo "photos_url". Se um link é compartilhado entre múltiplos imóveis, repita-o para cada um.`;
+      }
+    }
+
     // Chama ai-router com task_type pdf_extract
     const routerResp = await fetch(`${supabaseUrl}/functions/v1/ai-router`, {
       method: "POST",
@@ -121,7 +238,7 @@ async function processInBackground(jobId: string, signedUrl: string, fileName: s
       },
       body: JSON.stringify({
         task_type: "pdf_extract",
-        prompt: EXTRACT_PROMPT,
+        prompt: enrichedPrompt,
         image_base64: pdfBase64,
         file_mime_type: "application/pdf",
       }),
@@ -190,6 +307,56 @@ async function processInBackground(jobId: string, signedUrl: string, fileName: s
     }
 
     parsed.properties = normalizeExtractedProperties(parsed.properties);
+
+    // Fallback: if AI didn't set photos_url but we extracted links, apply them
+    if (extractedLinks.length > 0 && Array.isArray(parsed.properties)) {
+      const propertiesWithoutPhotos = parsed.properties.filter((p: any) => !p.photos_url);
+      if (propertiesWithoutPhotos.length > 0) {
+        const uniqueUrls = [...new Set(extractedLinks.map(l => l.url))];
+        
+        if (uniqueUrls.length === 1) {
+          // Single shared link → apply to all properties missing photos_url
+          console.log(`[extract-pdf] Job ${jobId}: Applying single shared photo link to ${propertiesWithoutPhotos.length} properties`);
+          for (const prop of parsed.properties) {
+            if (!prop.photos_url) {
+              prop.photos_url = uniqueUrls[0];
+            }
+          }
+        } else {
+          // Multiple links → try to match by page proximity
+          // Group links by page
+          const linksByPage = new Map<number, string>();
+          for (const l of extractedLinks) {
+            if (!linksByPage.has(l.page)) linksByPage.set(l.page, l.url);
+          }
+          
+          // If we have roughly one link per property, assign sequentially
+          if (uniqueUrls.length >= parsed.properties.length * 0.5) {
+            console.log(`[extract-pdf] Job ${jobId}: Assigning ${uniqueUrls.length} links to ${parsed.properties.length} properties by order`);
+            let linkIdx = 0;
+            for (const prop of parsed.properties) {
+              if (!prop.photos_url && linkIdx < uniqueUrls.length) {
+                prop.photos_url = uniqueUrls[linkIdx];
+                linkIdx++;
+              }
+            }
+          } else {
+            // Few links, many properties → shared link, use the most common one
+            console.log(`[extract-pdf] Job ${jobId}: Using most common link for all properties`);
+            const urlCounts = new Map<string, number>();
+            for (const l of extractedLinks) {
+              urlCounts.set(l.url, (urlCounts.get(l.url) || 0) + 1);
+            }
+            const mostCommon = [...urlCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+            if (mostCommon) {
+              for (const prop of parsed.properties) {
+                if (!prop.photos_url) prop.photos_url = mostCommon;
+              }
+            }
+          }
+        }
+      }
+    }
 
     await sb.from("pdf_extract_jobs").update({
       status: "complete",
