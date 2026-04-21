@@ -63,6 +63,7 @@ interface RouterRequest {
   system_prompt?: string;
   image_base64?: string;
   image_size?: string; // e.g. "1024x1024", "1024x1536", "1536x1024"
+  file_mime_type?: string; // e.g. "application/pdf" — overrides default "image/jpeg"
   organization_id?: string;
   user_id?: string;
   max_tokens?: number;
@@ -284,6 +285,7 @@ async function callGroq(
 async function callGemini(
   provider: Provider, apiKey: string, prompt: string, systemPrompt: string | null,
   maxTokens: number, temperature: number, imageBase64?: string, signal?: AbortSignal, _imageSize?: string,
+  fileMimeType?: string,
 ) {
   const imageGenModels = ["imagen", "image-generation", "gemini-2.0-flash-exp-image"];
   const isImageGen = provider.supports_image_output && imageGenModels.some(m => provider.model_id.includes(m));
@@ -291,7 +293,8 @@ async function callGemini(
 
   const parts: any[] = [{ text: prompt }];
   if (imageBase64 && provider.supports_image_input) {
-    parts.push({ inlineData: { mimeType: "image/jpeg", data: imageBase64 } });
+    const mimeType = fileMimeType || "image/jpeg";
+    parts.push({ inlineData: { mimeType, data: imageBase64 } });
   }
 
   const body: any = {
@@ -630,7 +633,7 @@ Deno.serve(async (req) => {
 
     // Parse body
     const body: RouterRequest = await req.json();
-    const { task_type, prompt, image_base64, image_size, force_provider } = body;
+    const { task_type, prompt, image_base64, image_size, force_provider, file_mime_type } = body;
 
     if (!task_type || !prompt) {
       return new Response(
@@ -841,7 +844,14 @@ Deno.serve(async (req) => {
 
       try {
         let result: { text?: string; image_url?: string; image_base64?: string; tokens_input: number; tokens_output: number };
-        const callArgs = [provider, apiKey, prompt, systemPrompt, maxTokens, temperature, image_base64, controller.signal, image_size] as const;
+        // Skip OpenAI for non-image file types (e.g. PDF)
+        const isPdfFile = file_mime_type === "application/pdf";
+        if (isPdfFile && provider.provider_type === "openai") {
+          lastError = `${provider.provider_key}: OpenAI does not support PDF input`;
+          console.warn(`[ai-router] ${lastError}`);
+          continue;
+        }
+        const callArgs = [provider, apiKey, prompt, systemPrompt, maxTokens, temperature, image_base64, controller.signal, image_size, file_mime_type] as const;
 
         switch (provider.provider_type) {
           case "groq": result = await callGroq(...callArgs); break;

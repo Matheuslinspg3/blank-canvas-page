@@ -92,6 +92,7 @@ async function processInBackground(jobId: string, signedUrl: string, fileName: s
         task_type: "pdf_extract",
         prompt: EXTRACT_PROMPT,
         image_base64: pdfBase64,
+        file_mime_type: "application/pdf",
       }),
     });
 
