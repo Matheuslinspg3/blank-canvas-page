@@ -57,11 +57,42 @@ const EXTRACT_PROMPT = `Você é um extrator de dados de imóveis. Analise o PDF
       "area_total": number,
       "area_built": number,
       "description": "string",
-      "code": "string (código do imóvel)"
+      "code": "string (código do imóvel)",
+      "photos_url": "string (link da pasta de fotos ou link explícito de fotos do imóvel, ex: Google Drive, Dropbox, OneDrive, site da imobiliária)"
     }
   ]
 }
-Se algum campo não estiver disponível, omita-o. Extraia TODOS os imóveis listados. Valores em BRL como números (sem R$, sem pontos de milhar).`;
+Se algum campo não estiver disponível, omita-o. Extraia TODOS os imóveis listados. Valores em BRL como números (sem R$, sem pontos de milhar). Se houver link de fotos/pasta do imóvel, inclua em "photos_url". Se houver um link geral compartilhado para um conjunto de imóveis e não existir link individual, repita esse link no imóvel correspondente.`;
+
+function normalizeExtractedProperties(rawProperties: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(rawProperties)) return [];
+
+  return rawProperties.map((item) => {
+    if (!item || typeof item !== "object") return {};
+
+    const property = { ...(item as Record<string, unknown>) };
+    const photoLinkAliases = [
+      property.photos_url,
+      property.photo_url,
+      property.photo_urls,
+      property.photos_link,
+      property.photo_link,
+      property.fotos_url,
+      property.link_fotos,
+      property.url_fotos,
+    ];
+
+    const firstValidPhotoLink = photoLinkAliases.find(
+      (value) => typeof value === "string" && value.trim().length > 0,
+    ) as string | undefined;
+
+    if (firstValidPhotoLink) {
+      property.photos_url = firstValidPhotoLink.trim();
+    }
+
+    return property;
+  });
+}
 
 async function processInBackground(jobId: string, signedUrl: string, fileName: string, authHeader: string, sb: any, supabaseUrl: string) {
   try {
@@ -158,9 +189,7 @@ async function processInBackground(jobId: string, signedUrl: string, fileName: s
       throw new Error("Resposta da IA não é JSON válido");
     }
 
-    if (!Array.isArray(parsed.properties)) {
-      parsed.properties = [];
-    }
+    parsed.properties = normalizeExtractedProperties(parsed.properties);
 
     await sb.from("pdf_extract_jobs").update({
       status: "complete",
