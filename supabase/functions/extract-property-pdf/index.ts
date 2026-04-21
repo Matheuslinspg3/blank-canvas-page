@@ -104,11 +104,38 @@ async function processInBackground(jobId: string, signedUrl: string, fileName: s
     }
 
     const text = routerResult.text || "";
+    console.log(`[extract-pdf] Job ${jobId}: raw text length=${text.length}, preview=${text.substring(0, 200)}`);
     let parsed: any;
     try {
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { properties: [] };
-    } catch {
+      // Strip markdown code blocks
+      let cleaned = text
+        .replace(/```json\s*/gi, "")
+        .replace(/```\s*/g, "")
+        .trim();
+
+      // Find JSON boundaries
+      const jsonStart = cleaned.indexOf("{");
+      const jsonEnd = cleaned.lastIndexOf("}");
+
+      if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
+        console.error(`[extract-pdf] Job ${jobId}: No JSON found in response`);
+        parsed = { properties: [] };
+      } else {
+        cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+
+        try {
+          parsed = JSON.parse(cleaned);
+        } catch {
+          // Fix common issues: trailing commas, control characters
+          cleaned = cleaned
+            .replace(/,\s*}/g, "}")
+            .replace(/,\s*]/g, "]")
+            .replace(/[\x00-\x1F\x7F]/g, (c) => c === "\n" || c === "\t" ? c : "");
+          parsed = JSON.parse(cleaned);
+        }
+      }
+    } catch (e) {
+      console.error(`[extract-pdf] Job ${jobId}: JSON parse failed, text preview: ${text.substring(0, 500)}`);
       throw new Error("Resposta da IA não é JSON válido");
     }
 
