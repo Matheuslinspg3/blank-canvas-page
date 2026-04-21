@@ -104,6 +104,7 @@ export default function PropertyDetails() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
+  const [batchVariationsOpen, setBatchVariationsOpen] = useState(false);
   const { generateShareLink, isGenerating: isGeneratingShareLink } = useShareLink();
   const { buildPublicUrl } = usePropertyPublicUrl();
 
@@ -782,6 +783,14 @@ export default function PropertyDetails() {
                     <CopyPlus className="h-4 w-4 mr-2" />
                   )}
                   Duplicar Imóvel
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setBatchVariationsOpen(true)}
+                >
+                  <Layers className="h-4 w-4 mr-2" />
+                  Duplicar com variações
                 </Button>
               </CardContent>
             </Card>
