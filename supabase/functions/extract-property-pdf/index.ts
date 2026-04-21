@@ -131,7 +131,26 @@ async function processInBackground(jobId: string, signedUrl: string, fileName: s
             .replace(/,\s*}/g, "}")
             .replace(/,\s*]/g, "]")
             .replace(/[\x00-\x1F\x7F]/g, (c) => c === "\n" || c === "\t" ? c : "");
-          parsed = JSON.parse(cleaned);
+          try {
+            parsed = JSON.parse(cleaned);
+          } catch {
+            // Attempt to repair truncated JSON by closing open braces/brackets
+            let braces = 0, brackets = 0;
+            for (const ch of cleaned) {
+              if (ch === "{") braces++;
+              else if (ch === "}") braces--;
+              else if (ch === "[") brackets++;
+              else if (ch === "]") brackets--;
+            }
+            // Remove trailing partial property (after last comma)
+            let repaired = cleaned.replace(/,\s*"[^"]*"?\s*:?\s*[^,}\]]*$/, "");
+            // Also remove trailing comma before we close
+            repaired = repaired.replace(/,\s*$/, "");
+            while (brackets > 0) { repaired += "]"; brackets--; }
+            while (braces > 0) { repaired += "}"; braces--; }
+            console.warn(`[extract-pdf] Job ${jobId}: repaired truncated JSON`);
+            parsed = JSON.parse(repaired);
+          }
         }
       }
     } catch (e) {

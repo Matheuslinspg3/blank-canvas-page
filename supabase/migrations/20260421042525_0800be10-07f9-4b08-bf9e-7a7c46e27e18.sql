@@ -1,0 +1,1 @@
+UPDATE ai_router_config SET max_tokens = 8000 WHERE task_type = 'pdf_extract';
