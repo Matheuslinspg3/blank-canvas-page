@@ -699,7 +699,6 @@ export default function Properties() {
         )}
         {!propertiesError && !isLoading && paginatedProperties.length > 0 && (
           <div className={isFetching ? 'opacity-60 transition-opacity duration-200' : 'transition-opacity duration-200'}>
-          <>
             {viewMode === "grid" && (
               <VirtualizedPropertyGrid
                 properties={paginatedProperties}
