@@ -23,6 +23,7 @@ import { cn, proxyDriveImageUrl } from "@/lib/utils";
 import { getImageUrl, type ImageRecord } from "@/lib/imageUrl";
 import { OptimizedImage } from "@/components/ui/optimized-image";
 import { usePropertyPublicUrl } from "@/hooks/usePropertyPublicUrl";
+import { toast } from "sonner";
 
 interface PropertyListItemProps {
   property: PropertyWithDetails;
@@ -32,6 +33,9 @@ interface PropertyListItemProps {
   onEdit: (property: PropertyWithDetails) => void;
   onDelete: (id: string) => void;
   onDuplicate?: (id: string) => void;
+  onPublish?: (id: string) => void;
+  onUnpublish?: (id: string) => void;
+  onChangeStatus?: (id: string, status: string) => void;
   isPublished?: boolean;
 }
 
@@ -44,6 +48,9 @@ export const PropertyListItem = memo(function PropertyListItem({
   onEdit,
   onDelete,
   onDuplicate,
+  onPublish,
+  onUnpublish,
+  onChangeStatus,
   isPublished,
 }: PropertyListItemProps) {
   const navigate = useNavigate();
