@@ -734,17 +734,17 @@ export default function Properties() {
                 />
               </Suspense>
             )}
-          </>
+          </div>
         )}
 
         {/* Bottom Pagination */}
-        {!isLoading && filteredProperties.length > 0 && pageSize !== "all" && (
+        {!isLoading && totalCount > 0 && pageSize !== "all" && (
           <PropertyViewControls
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             pageSize={pageSize}
             onPageSizeChange={setPageSize}
-            totalCount={filteredProperties.length}
+            totalCount={totalCount}
             currentPage={currentPage}
             onPageChange={setCurrentPage}
             sortBy={sortBy}
