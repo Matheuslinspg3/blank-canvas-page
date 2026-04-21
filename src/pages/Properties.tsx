@@ -460,9 +460,58 @@ export default function Properties() {
     });
   }, []);
 
-  const handleSelectAll = useCallback(() => {
-    setSelectedIds(new Set(filteredProperties.map(p => p.id)));
-  }, [filteredProperties]);
+  const handleSelectAll = useCallback(async () => {
+    // Fetch ALL property IDs from the server (not just the current page)
+    if (!profile?.organization_id) return;
+
+    if (hasActiveFilters) {
+      // When filters are active, re-run the RPC with a large limit to get all matching IDs
+      const { data } = await supabase.rpc('search_properties_advanced', {
+        p_organization_id: profile.organization_id,
+        p_search_text: filters.searchText || null,
+        p_transaction_type: filters.transactionType === 'all' ? null : filters.transactionType,
+        p_status: filters.status === 'all' ? null : filters.status,
+        p_property_type_id: filters.propertyTypeId === 'all' ? null : filters.propertyTypeId,
+        p_min_price: filters.minPrice,
+        p_max_price: filters.maxPrice,
+        p_min_bedrooms: filters.minBedrooms,
+        p_neighborhood: null,
+        p_city: null,
+        p_neighborhoods: filters.neighborhoods.length > 0 ? filters.neighborhoods : null,
+        p_cities: filters.cities.length > 0 ? filters.cities : null,
+        p_min_area: filters.minArea,
+        p_limit: 10000,
+        p_offset: 0,
+        p_min_suites: filters.minSuites,
+        p_min_parking: filters.minParking,
+        p_max_area: filters.maxArea,
+        p_min_condominium: filters.minCondominium,
+        p_max_condominium: filters.maxCondominium,
+        p_amenities: (() => {
+          const ams = [...filters.amenities];
+          if (filters.frenteMar && !ams.includes('Frente Mar')) ams.push('Frente Mar');
+          return ams.length > 0 ? ams : null;
+        })(),
+        p_property_condition: filters.propertyCondition === 'all' ? null : filters.propertyCondition,
+        p_max_beach_distance: filters.maxBeachDistance,
+        p_launch_stage: filters.launchStage === 'all' ? null : filters.launchStage,
+        p_sort_by: 'recent',
+      });
+      if (data) {
+        const ids = (data as any[]).map((r: any) => r.id as string);
+        setSelectedIds(new Set(ids));
+      }
+    } else {
+      // No filters: fetch all IDs with a lightweight query
+      const { data } = await supabase
+        .from('properties')
+        .select('id')
+        .eq('organization_id', profile.organization_id);
+      if (data) {
+        setSelectedIds(new Set(data.map(d => d.id)));
+      }
+    }
+  }, [profile?.organization_id, hasActiveFilters, filters]);
 
   const handleClearSelection = useCallback(() => { setSelectedIds(new Set()); }, []);
 
