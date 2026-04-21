@@ -51,6 +51,7 @@ import { usePropertyTypes } from "@/hooks/usePropertyTypes";
 import { toast } from "sonner";
 // useImageUpload still used by PropertyForm; keep import but don't destructure for scraper
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface PropertyImage {
   id?: string;
