@@ -64,6 +64,8 @@ import { useToast } from "@/hooks/use-toast";
 const LandingPageEditor = lazy(() => import("@/components/properties/LandingPageEditor").then(m => ({ default: m.LandingPageEditor })));
 import { PropertyQRCode } from "@/components/properties/PropertyQRCode";
 import { PropertyHistory } from "@/components/properties/PropertyHistory";
+// PERF: lazy load - BatchVariationsDialog only needed when user opens it
+const BatchVariationsDialog = lazy(() => import("@/components/properties/BatchVariationsDialog").then(m => ({ default: m.BatchVariationsDialog })));
 
 const statusColors: Record<string, string> = {
   disponivel: "bg-success/15 text-success",
@@ -102,6 +104,7 @@ export default function PropertyDetails() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
+  const [batchVariationsOpen, setBatchVariationsOpen] = useState(false);
   const { generateShareLink, isGenerating: isGeneratingShareLink } = useShareLink();
   const { buildPublicUrl } = usePropertyPublicUrl();
 
@@ -781,6 +784,14 @@ export default function PropertyDetails() {
                   )}
                   Duplicar Imóvel
                 </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setBatchVariationsOpen(true)}
+                >
+                  <Layers className="h-4 w-4 mr-2" />
+                  Duplicar com variações
+                </Button>
               </CardContent>
             </Card>
 
@@ -961,6 +972,20 @@ export default function PropertyDetails() {
           open={qrOpen}
           onOpenChange={setQrOpen}
         />
+      )}
+
+      {/* Batch Variations Dialog */}
+      {property && (
+        <SectionErrorBoundary section="BatchVariationsDialog">
+          <Suspense fallback={null}>
+            <BatchVariationsDialog
+              open={batchVariationsOpen}
+              onOpenChange={setBatchVariationsOpen}
+              baseProperty={property}
+              onComplete={() => navigate('/imoveis')}
+            />
+          </Suspense>
+        </SectionErrorBoundary>
       )}
     </div>
   );
