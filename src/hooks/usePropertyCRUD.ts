@@ -101,7 +101,7 @@ export function usePropertyCRUD(options?: { enabled?: boolean }) {
 
       return allData;
     },
-    enabled: !!user && !!profile?.organization_id,
+    enabled: fetchEnabled && !!user && !!profile?.organization_id,
   });
 
   const createProperty = useMutation({
