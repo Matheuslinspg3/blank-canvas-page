@@ -64,6 +64,7 @@ interface PropertyImage {
 export default function Properties() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { profile } = useAuth();
   const [formOpen, setFormOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<PropertyWithDetails | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
