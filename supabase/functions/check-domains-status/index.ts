@@ -55,7 +55,7 @@ async function ensureWorkerProxyARecord(
 ): Promise<boolean> {
   const searchRes = await fetch(
     `${CF_API}/zones/${zoneId}/dns_records?name=${encodeURIComponent(name)}`,
-    { headers: { Authorization: `Bearer ${cfToken}` } }
+    { headers: getCloudflareAuthHeaders(cfToken) }
   );
   const searchData = await searchRes.json();
   const records = searchData?.result || [];
@@ -66,7 +66,7 @@ async function ensureWorkerProxyARecord(
       console.log(`Fixing CNAME→Worker A for ${name}: deleting CNAME ${record.id} (${record.content})`);
       await fetch(`${CF_API}/zones/${zoneId}/dns_records/${record.id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${cfToken}` },
+        headers: getCloudflareAuthHeaders(cfToken),
       });
       changed = true;
       continue;
@@ -81,7 +81,7 @@ async function ensureWorkerProxyARecord(
       console.log(`Updating A record for ${name} to Worker proxy ${WORKER_PROXY_IP}`);
       const updateRes = await fetch(`${CF_API}/zones/${zoneId}/dns_records/${record.id}`, {
         method: "PATCH",
-        headers: { Authorization: `Bearer ${cfToken}`, "Content-Type": "application/json" },
+        headers: getCloudflareAuthHeaders(cfToken, "application/json"),
         body: JSON.stringify({
           type: "A",
           name,
@@ -98,7 +98,7 @@ async function ensureWorkerProxyARecord(
   console.log(`Creating proxied Worker A record for ${name} → ${WORKER_PROXY_IP}`);
   const createRes = await fetch(`${CF_API}/zones/${zoneId}/dns_records`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${cfToken}`, "Content-Type": "application/json" },
+    headers: getCloudflareAuthHeaders(cfToken, "application/json"),
     body: JSON.stringify({
       type: "A",
       name,
