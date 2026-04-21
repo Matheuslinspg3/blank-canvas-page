@@ -15,6 +15,9 @@ interface VirtualizedPropertyListProps {
   onEdit: (property: PropertyWithDetails) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
+  onPublish?: (id: string) => void;
+  onUnpublish?: (id: string) => void;
+  onChangeStatus?: (id: string, status: string) => void;
 }
 
 export function VirtualizedPropertyList({
@@ -26,6 +29,9 @@ export function VirtualizedPropertyList({
   onEdit,
   onDelete,
   onDuplicate,
+  onPublish,
+  onUnpublish,
+  onChangeStatus,
 }: VirtualizedPropertyListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -60,6 +66,9 @@ export function VirtualizedPropertyList({
                 onEdit={onEdit}
                 onDelete={onDelete}
                 onDuplicate={onDuplicate}
+                onPublish={onPublish}
+                onUnpublish={onUnpublish}
+                onChangeStatus={onChangeStatus}
                 isPublished={publishedIds.has(property.id)}
               />
             </div>

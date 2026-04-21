@@ -9,9 +9,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MapPin, Bed, Bath, Car, Ruler, MoreHorizontal, Edit, Trash2, Building2, Eye, ExternalLink, Hash, Store, ImageIcon, FileText, Import } from "lucide-react";
+import { MapPin, Bed, Bath, Car, Ruler, MoreHorizontal, Edit, Trash2, Building2, Eye, ExternalLink, Hash, Store, ImageIcon, FileText, Import, Share2, Copy, CopyPlus, RefreshCw } from "lucide-react";
 import { PropertyFreshnessBadge } from "./PropertyFreshnessBadge";
 import { AvailabilityBadge } from "./AvailabilityBadge";
 import { PropertyStatusBadge, transactionLabels } from "./PropertyStatusBadge";
@@ -20,16 +23,21 @@ import { proxyDriveImageUrl } from "@/lib/utils";
 import { getImageUrl, getImageSrcSet, type ImageRecord } from "@/lib/imageUrl";
 import { OptimizedImage } from "@/components/ui/optimized-image";
 import { usePropertyPublicUrl } from "@/hooks/usePropertyPublicUrl";
+import { toast } from "sonner";
 
 interface PropertyCardProps {
   property: PropertyWithDetails;
   onEdit: (property: PropertyWithDetails) => void;
   onDelete: (id: string) => void;
+  onPublish?: (id: string) => void;
+  onUnpublish?: (id: string) => void;
+  onDuplicate?: (id: string) => void;
+  onChangeStatus?: (id: string, status: string) => void;
   isPublished?: boolean;
 }
 
 // PERF: memo prevents re-render when parent re-renders but props haven't changed
-export const PropertyCard = memo(function PropertyCard({ property, onEdit, onDelete, isPublished }: PropertyCardProps) {
+export const PropertyCard = memo(function PropertyCard({ property, onEdit, onDelete, onPublish, onUnpublish, onDuplicate, onChangeStatus, isPublished }: PropertyCardProps) {
   const navigate = useNavigate();
   const { buildPublicUrl } = usePropertyPublicUrl();
   const isAvailable = property.status === "disponivel";
@@ -96,6 +104,29 @@ export const PropertyCard = memo(function PropertyCard({ property, onEdit, onDel
     window.open(buildPublicUrl(property.id, property.property_code), "_blank");
   };
 
+  const handleShare = async () => {
+    const url = buildPublicUrl(property.id, property.property_code);
+    const title = property.title || "Imóvel";
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, url });
+      } catch {
+        // user cancelled
+      }
+    } else {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copiado!");
+    }
+  };
+
+  const STATUS_OPTIONS = [
+    { value: "disponivel", label: "Disponível" },
+    { value: "reservado", label: "Reservado" },
+    { value: "vendido", label: "Vendido" },
+    { value: "alugado", label: "Alugado" },
+    { value: "inativo", label: "Inativo" },
+  ];
+
   // Compact card for unavailable properties
   if (!isAvailable) {
     return (
@@ -124,10 +155,33 @@ export const PropertyCard = memo(function PropertyCard({ property, onEdit, onDel
               <DropdownMenuItem onClick={handleViewDetails}>
                 <Eye className="h-4 w-4 mr-2" /> Ver detalhes
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleShare}>
+                <Share2 className="h-4 w-4 mr-2" /> Compartilhar
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
+              {onChangeStatus && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <RefreshCw className="h-4 w-4 mr-2" /> Alterar status
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {STATUS_OPTIONS.filter(s => s.value !== property.status).map(s => (
+                      <DropdownMenuItem key={s.value} onClick={() => onChangeStatus(property.id, s.value)}>
+                        {s.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
               <DropdownMenuItem onClick={() => onEdit(property)}>
                 <Edit className="h-4 w-4 mr-2" /> Editar
               </DropdownMenuItem>
+              {onDuplicate && (
+                <DropdownMenuItem onClick={() => onDuplicate(property.id)}>
+                  <CopyPlus className="h-4 w-4 mr-2" /> Duplicar
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => onDelete(property.id)} className="text-destructive focus:text-destructive">
                 <Trash2 className="h-4 w-4 mr-2" /> Excluir
               </DropdownMenuItem>
@@ -220,10 +274,47 @@ export const PropertyCard = memo(function PropertyCard({ property, onEdit, onDel
               <DropdownMenuItem onClick={handleOpenLandingPage}>
                 <ExternalLink className="h-4 w-4 mr-2" /> Abrir landing page
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleShare}>
+                <Share2 className="h-4 w-4 mr-2" /> Compartilhar
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {isPublished ? (
+                onUnpublish && (
+                  <DropdownMenuItem onClick={() => onUnpublish(property.id)}>
+                    <Store className="h-4 w-4 mr-2" /> Remover do Marketplace
+                  </DropdownMenuItem>
+                )
+              ) : (
+                onPublish && (
+                  <DropdownMenuItem onClick={() => onPublish(property.id)}>
+                    <Store className="h-4 w-4 mr-2" /> Publicar no Marketplace
+                  </DropdownMenuItem>
+                )
+              )}
+              {onChangeStatus && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <RefreshCw className="h-4 w-4 mr-2" /> Alterar status
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {STATUS_OPTIONS.filter(s => s.value !== property.status).map(s => (
+                      <DropdownMenuItem key={s.value} onClick={() => onChangeStatus(property.id, s.value)}>
+                        {s.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => onEdit(property)}>
                 <Edit className="h-4 w-4 mr-2" /> Editar
               </DropdownMenuItem>
+              {onDuplicate && (
+                <DropdownMenuItem onClick={() => onDuplicate(property.id)}>
+                  <CopyPlus className="h-4 w-4 mr-2" /> Duplicar
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
               <DropdownMenuItem 
                 onClick={() => onDelete(property.id)}
                 className="text-destructive focus:text-destructive"

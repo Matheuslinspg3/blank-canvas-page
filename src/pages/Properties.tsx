@@ -551,6 +551,39 @@ export default function Properties() {
   }, [refetchPublishedIds]);
   const handleDeleteClick = useCallback((id: string) => { setDeleteId(id); }, []);
 
+  const handlePublishSingle = useCallback(async (id: string) => {
+    try {
+      await publishToMarketplace(id);
+      refetchPublishedIds();
+      toast.success("Imóvel publicado no Marketplace");
+    } catch (err: any) {
+      toast.error("Erro ao publicar", { description: err?.message });
+    }
+  }, [publishToMarketplace, refetchPublishedIds]);
+
+  const handleUnpublishSingle = useCallback(async (id: string) => {
+    try {
+      await hideFromMarketplace(id);
+      refetchPublishedIds();
+      toast.success("Imóvel removido do Marketplace");
+    } catch (err: any) {
+      toast.error("Erro ao remover", { description: err?.message });
+    }
+  }, [hideFromMarketplace, refetchPublishedIds]);
+
+  const handleDuplicate = useCallback((id: string) => {
+    navigate(`/imoveis/${id}?duplicate=true`);
+  }, [navigate]);
+
+  const handleChangeStatus = useCallback(async (id: string, status: string) => {
+    try {
+      await updateProperty(id, { status } as any, []);
+      toast.success(`Status alterado para ${status}`);
+    } catch (err: any) {
+      toast.error("Erro ao alterar status", { description: err?.message });
+    }
+  }, [updateProperty]);
+
   const handleConfirmDelete = async () => {
     if (deleteId) { await deleteProperty(deleteId); setDeleteId(null); }
   };
@@ -759,6 +792,10 @@ export default function Properties() {
                 onSelect={handleSelectProperty}
                 onEdit={handleEditClick}
                 onDelete={handleDeleteClick}
+                onPublish={handlePublishSingle}
+                onUnpublish={handleUnpublishSingle}
+                onDuplicate={handleDuplicate}
+                onChangeStatus={handleChangeStatus}
                 onLongPressSelect={handleLongPressSelect}
               />
             )}
@@ -772,7 +809,10 @@ export default function Properties() {
                 onSelect={handleSelectProperty}
                 onEdit={handleEditClick}
                 onDelete={handleDeleteClick}
-                onDuplicate={(id) => navigate(`/imoveis/${id}?duplicate=true`)}
+                onDuplicate={handleDuplicate}
+                onPublish={handlePublishSingle}
+                onUnpublish={handleUnpublishSingle}
+                onChangeStatus={handleChangeStatus}
               />
             )}
 
