@@ -37,7 +37,7 @@ interface PropertyCardProps {
 }
 
 // PERF: memo prevents re-render when parent re-renders but props haven't changed
-export const PropertyCard = memo(function PropertyCard({ property, onEdit, onDelete, isPublished }: PropertyCardProps) {
+export const PropertyCard = memo(function PropertyCard({ property, onEdit, onDelete, onPublish, onUnpublish, onDuplicate, onChangeStatus, isPublished }: PropertyCardProps) {
   const navigate = useNavigate();
   const { buildPublicUrl } = usePropertyPublicUrl();
   const isAvailable = property.status === "disponivel";
