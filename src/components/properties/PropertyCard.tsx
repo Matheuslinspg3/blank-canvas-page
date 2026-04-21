@@ -155,10 +155,33 @@ export const PropertyCard = memo(function PropertyCard({ property, onEdit, onDel
               <DropdownMenuItem onClick={handleViewDetails}>
                 <Eye className="h-4 w-4 mr-2" /> Ver detalhes
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleShare}>
+                <Share2 className="h-4 w-4 mr-2" /> Compartilhar
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
+              {onChangeStatus && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <RefreshCw className="h-4 w-4 mr-2" /> Alterar status
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {STATUS_OPTIONS.filter(s => s.value !== property.status).map(s => (
+                      <DropdownMenuItem key={s.value} onClick={() => onChangeStatus(property.id, s.value)}>
+                        {s.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
               <DropdownMenuItem onClick={() => onEdit(property)}>
                 <Edit className="h-4 w-4 mr-2" /> Editar
               </DropdownMenuItem>
+              {onDuplicate && (
+                <DropdownMenuItem onClick={() => onDuplicate(property.id)}>
+                  <CopyPlus className="h-4 w-4 mr-2" /> Duplicar
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => onDelete(property.id)} className="text-destructive focus:text-destructive">
                 <Trash2 className="h-4 w-4 mr-2" /> Excluir
               </DropdownMenuItem>
@@ -251,10 +274,47 @@ export const PropertyCard = memo(function PropertyCard({ property, onEdit, onDel
               <DropdownMenuItem onClick={handleOpenLandingPage}>
                 <ExternalLink className="h-4 w-4 mr-2" /> Abrir landing page
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleShare}>
+                <Share2 className="h-4 w-4 mr-2" /> Compartilhar
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {isPublished ? (
+                onUnpublish && (
+                  <DropdownMenuItem onClick={() => onUnpublish(property.id)}>
+                    <Store className="h-4 w-4 mr-2" /> Remover do Marketplace
+                  </DropdownMenuItem>
+                )
+              ) : (
+                onPublish && (
+                  <DropdownMenuItem onClick={() => onPublish(property.id)}>
+                    <Store className="h-4 w-4 mr-2" /> Publicar no Marketplace
+                  </DropdownMenuItem>
+                )
+              )}
+              {onChangeStatus && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <RefreshCw className="h-4 w-4 mr-2" /> Alterar status
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {STATUS_OPTIONS.filter(s => s.value !== property.status).map(s => (
+                      <DropdownMenuItem key={s.value} onClick={() => onChangeStatus(property.id, s.value)}>
+                        {s.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => onEdit(property)}>
                 <Edit className="h-4 w-4 mr-2" /> Editar
               </DropdownMenuItem>
+              {onDuplicate && (
+                <DropdownMenuItem onClick={() => onDuplicate(property.id)}>
+                  <CopyPlus className="h-4 w-4 mr-2" /> Duplicar
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
               <DropdownMenuItem 
                 onClick={() => onDelete(property.id)}
                 className="text-destructive focus:text-destructive"
