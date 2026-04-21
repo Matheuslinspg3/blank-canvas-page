@@ -160,7 +160,7 @@ Deno.serve(async (req) => {
         if (domain.zone_mode === "full_zone" && domain.cloudflare_zone_id) {
           const zoneRes = await fetch(
             `${CF_API}/zones/${domain.cloudflare_zone_id}`,
-            { headers: { Authorization: `Bearer ${CF_TOKEN}` } }
+            { headers: getCloudflareAuthHeaders(CF_TOKEN) }
           );
           const zoneData = await zoneRes.json();
           checked++;
@@ -197,7 +197,7 @@ Deno.serve(async (req) => {
             // Check for A record
             const aCheckRes = await fetch(
               `${CF_API}/zones/${domain.cloudflare_zone_id}/dns_records?name=${encodeURIComponent(domain.hostname)}&type=A`,
-              { headers: { Authorization: `Bearer ${CF_TOKEN}` } }
+              { headers: getCloudflareAuthHeaders(CF_TOKEN) }
             );
             const aCheckData = await aCheckRes.json();
             const hasARecord = aCheckData.success && aCheckData.result?.length > 0;
