@@ -40,7 +40,8 @@ export interface OwnerData {
  * Core CRUD operations for properties: list, create, update, delete.
  * For bulk/marketplace operations, see usePropertyBulkOps.
  */
-export function usePropertyCRUD() {
+export function usePropertyCRUD(options?: { enabled?: boolean }) {
+  const fetchEnabled = options?.enabled ?? true;
   const { toast } = useToast();
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
