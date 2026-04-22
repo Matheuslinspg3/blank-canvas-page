@@ -354,12 +354,13 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
               <TabsContent value="basic" className="flex-1 overflow-y-auto"><BasicTab form={form} publishToMarketplace={publishToMarketplace} /></TabsContent>
               <TabsContent value="values" className="flex-1 overflow-y-auto"><ValuesTab form={form} /></TabsContent>
               <TabsContent value="features" className="flex-1 overflow-y-auto"><FeaturesTab form={form} /></TabsContent>
-              <TabsContent value="location" className="flex-1 overflow-y-auto"><LocationTab form={form} /></TabsContent>
+              <TabsContent value="location" className="flex-1 overflow-y-auto">
+                <LocationTab form={form} />
+                <OwnerSection form={form} isEditing={!!property} />
+              </TabsContent>
               <TabsContent value="photos" className="flex-1 overflow-y-auto"><PhotosTab form={form} images={images} onImagesChange={setImages} /></TabsContent>
               <TabsContent value="description" className="flex-1 overflow-y-auto"><DescriptionTab form={form} /></TabsContent>
             </Tabs>
-
-            <OwnerSection form={form} isEditing={!!property} />
 
             <DialogFooter className="flex-col sm:flex-row gap-3 sticky bottom-0 bg-background pt-4 pb-1">
               <div className="flex items-center gap-3 mr-auto">
