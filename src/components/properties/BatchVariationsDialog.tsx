@@ -31,7 +31,7 @@ export function BatchVariationsDialog({
   onComplete,
 }: BatchVariationsDialogProps) {
   const p = baseProperty as any;
-  const { createBatch, isCreating, validateRows } = usePropertyBatchCreate();
+  const { createBatch, isCreating, progress, resetProgress, validateRows } = usePropertyBatchCreate();
 
   const [rows, setRows] = useState<VariationRow[]>(() => [
     createRowFromBase(p),
@@ -148,6 +148,7 @@ export function BatchVariationsDialog({
         rows={rows.filter((r) => !isRowEmpty(r))}
         errors={errors}
         isCreating={isCreating}
+        progress={progress}
         onConfirm={handleConfirm}
         onBack={handleBack}
       />
