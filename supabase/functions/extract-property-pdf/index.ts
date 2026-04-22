@@ -184,6 +184,8 @@ function normalizeExtractedProperties(rawProperties: unknown): Record<string, un
     if (!item || typeof item !== "object") return {};
 
     const property = { ...(item as Record<string, unknown>) };
+
+    // Normalize photo URL aliases
     const photoLinkAliases = [
       property.photos_url,
       property.photo_url,
@@ -201,6 +203,37 @@ function normalizeExtractedProperties(rawProperties: unknown): Record<string, un
 
     if (firstValidPhotoLink) {
       property.photos_url = firstValidPhotoLink.trim();
+    }
+
+    // If price is missing but we have price_cash or price_financed, use the lowest
+    if (!property.price) {
+      const priceCash = typeof property.price_cash === "number" ? property.price_cash : 0;
+      const priceFinanced = typeof property.price_financed === "number" ? property.price_financed : 0;
+      if (priceCash > 0 && priceFinanced > 0) {
+        property.price = Math.min(priceCash, priceFinanced);
+      } else if (priceCash > 0) {
+        property.price = priceCash;
+      } else if (priceFinanced > 0) {
+        property.price = priceFinanced;
+      }
+    }
+
+    // Enrich description with payment conditions if not already included
+    if (property.description && typeof property.description === "string") {
+      const desc = property.description;
+      const hasPriceInfo = desc.includes("vista") || desc.includes("financiamento") || desc.includes("Valor");
+      if (!hasPriceInfo) {
+        const parts: string[] = [];
+        if (typeof property.price_cash === "number" && property.price_cash > 0) {
+          parts.push(`Valor à vista: R$ ${property.price_cash.toLocaleString("pt-BR")}`);
+        }
+        if (typeof property.price_financed === "number" && property.price_financed > 0) {
+          parts.push(`Financiamento: R$ ${property.price_financed.toLocaleString("pt-BR")}`);
+        }
+        if (parts.length > 0) {
+          property.description = `${desc} ${parts.join(". ")}.`;
+        }
+      }
     }
 
     return property;
