@@ -15,6 +15,7 @@ export function usePropertyBulkOps() {
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['properties'] });
+    queryClient.invalidateQueries({ queryKey: ['properties-list'] });
     queryClient.invalidateQueries({ queryKey: ['properties-advanced-search'] });
   };
 
