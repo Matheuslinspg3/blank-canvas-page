@@ -270,12 +270,15 @@ export function usePropertyBatchCreate() {
       queryClient.invalidateQueries({ queryKey: ['properties-list'] });
       queryClient.invalidateQueries({ queryKey: ['properties-advanced-search'] });
       queryClient.invalidateQueries({ queryKey: ['properties'] });
+      const strippedNote = result.strippedColumns.length > 0
+        ? ` (colunas ignoradas: ${result.strippedColumns.join(', ')})`
+        : '';
       if (result.failed === 0) {
-        toast({ title: `${result.created} imóveis criados!`, description: 'Todos os imóveis foram criados com sucesso.' });
+        toast({ title: `${result.created} imóveis criados!`, description: `Todos os imóveis foram criados com sucesso.${strippedNote}` });
       } else {
         toast({
           title: `${result.created} criados, ${result.failed} com erro`,
-          description: result.errors.map(e => `Linha ${e.rowIndex + 1}: ${e.message}`).join('; '),
+          description: result.errors.map(e => `Linha ${e.rowIndex + 1}: ${e.message}`).join('; ') + strippedNote,
           variant: 'destructive',
         });
       }
