@@ -1,3 +1,4 @@
+import { useState, useCallback, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -5,6 +6,14 @@ import { useToast } from '@/hooks/use-toast';
 import { normalizeError } from '@/lib/normalizeError';
 import { sanitizePropertyInsert } from '@/lib/validatePropertyColumns';
 import type { PropertyWithDetails } from '@/hooks/useProperties';
+
+export interface BatchProgress {
+  current: number;
+  total: number;
+  currentLabel: string;
+  status: 'idle' | 'preparing' | 'inserting' | 'done';
+  rowResults: Array<{ rowIndex: number; success: boolean; message?: string }>;
+}
 
 export interface VariationRow {
   id: string; // local row id
