@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { normalizeError } from '@/lib/normalizeError';
+import { sanitizePropertyInsert } from '@/lib/validatePropertyColumns';
 import type { PropertyWithDetails } from '@/hooks/useProperties';
 
 export interface VariationRow {
@@ -30,6 +31,7 @@ export interface BatchResult {
   created: number;
   failed: number;
   errors: { rowIndex: number; message: string }[];
+  strippedColumns: string[];
   groupId?: string;
 }
 
@@ -171,7 +173,8 @@ export function usePropertyBatchCreate() {
       };
 
       // 5. Insert properties sequentially
-      const result: BatchResult = { created: 0, failed: 0, errors: [], groupId: group.id };
+      const result: BatchResult = { created: 0, failed: 0, errors: [], strippedColumns: [], groupId: group.id };
+      const allStrippedColumns = new Set<string>();
       const CHUNK = 20;
 
       for (let i = 0; i < nonEmptyRows.length; i++) {
@@ -204,9 +207,16 @@ export function usePropertyBatchCreate() {
             property_group_id: group.id,
           };
 
+          // Validate columns before insert
+          const { clean: safeInsertData, invalidColumns } = sanitizePropertyInsert(insertData as Record<string, unknown>);
+          if (invalidColumns.length > 0) {
+            invalidColumns.forEach(c => allStrippedColumns.add(c));
+            console.warn(`[BatchCreate] Linha ${i + 1}: colunas ignoradas: ${invalidColumns.join(', ')}`);
+          }
+
           const { data: newProp, error: propError } = await supabase
             .from('properties')
-            .insert(insertData as any)
+            .insert(safeInsertData as any)
             .select('id')
             .single();
           if (propError) throw propError;
@@ -253,19 +263,22 @@ export function usePropertyBatchCreate() {
           result.errors.push({ rowIndex: i, message: err.message || 'Erro desconhecido' });
         }
       }
-
+      result.strippedColumns = Array.from(allStrippedColumns);
       return result;
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['properties-list'] });
       queryClient.invalidateQueries({ queryKey: ['properties-advanced-search'] });
       queryClient.invalidateQueries({ queryKey: ['properties'] });
+      const strippedNote = result.strippedColumns.length > 0
+        ? ` (colunas ignoradas: ${result.strippedColumns.join(', ')})`
+        : '';
       if (result.failed === 0) {
-        toast({ title: `${result.created} imóveis criados!`, description: 'Todos os imóveis foram criados com sucesso.' });
+        toast({ title: `${result.created} imóveis criados!`, description: `Todos os imóveis foram criados com sucesso.${strippedNote}` });
       } else {
         toast({
           title: `${result.created} criados, ${result.failed} com erro`,
-          description: result.errors.map(e => `Linha ${e.rowIndex + 1}: ${e.message}`).join('; '),
+          description: result.errors.map(e => `Linha ${e.rowIndex + 1}: ${e.message}`).join('; ') + strippedNote,
           variant: 'destructive',
         });
       }
