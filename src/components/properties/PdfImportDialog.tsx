@@ -111,7 +111,7 @@ interface ScrapedPhoto {
   file_id: string;
 }
 
-type FolderAccess = "public" | "private" | "not_found" | "checking" | "unknown";
+type FolderAccess = "public" | "private" | "not_found" | "checking" | "unknown" | "api_error";
 
 export function PdfImportDialog({ open, onOpenChange, onDataExtracted, onBatchExtracted }: PdfImportDialogProps) {
   const { toast } = useToast();
