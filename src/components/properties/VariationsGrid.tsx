@@ -16,7 +16,7 @@ interface VariationsGridProps {
 
 const COLUMNS = VARIATION_COLUMNS;
 
-type ColumnKey = (typeof COLUMNS)[number]["key"];
+type ColumnKey = string;
 
 export function VariationsGrid({ rows, onChange, errors = [] }: VariationsGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
