@@ -111,7 +111,7 @@ interface ScrapedPhoto {
   file_id: string;
 }
 
-type FolderAccess = "public" | "private" | "not_found" | "checking" | "unknown";
+type FolderAccess = "public" | "private" | "not_found" | "checking" | "unknown" | "api_error";
 
 export function PdfImportDialog({ open, onOpenChange, onDataExtracted, onBatchExtracted }: PdfImportDialogProps) {
   const { toast } = useToast();
@@ -395,7 +395,8 @@ export function PdfImportDialog({ open, onOpenChange, onDataExtracted, onBatchEx
           }
         );
         const result = await resp.json();
-        const access = result.access || "unknown";
+        // Treat api_error as public (the issue is with our API key, not the folder)
+        const access = result.access === "api_error" ? "public" : (result.access || "unknown");
         
         indices.forEach(idx => {
           setFolderAccessMap(prev => ({ ...prev, [idx]: access }));

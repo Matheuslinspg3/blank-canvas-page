@@ -93,7 +93,7 @@ async function listSubfoldersForMatching(folderId: string, apiKey: string): Prom
 }
 
 // ── Validate folder access ──
-async function checkFolderAccess(folderId: string, apiKey: string): Promise<"public" | "private" | "not_found"> {
+async function checkFolderAccess(folderId: string, apiKey: string): Promise<"public" | "private" | "not_found" | "api_error"> {
   // Method 1: Try to get the folder metadata directly (most reliable)
   const metaUrl = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(folderId)}?key=${apiKey}&fields=id,name,mimeType`;
   console.log(`checkFolderAccess: trying metadata for folder ${folderId}`);
@@ -104,9 +104,16 @@ async function checkFolderAccess(folderId: string, apiKey: string): Promise<"pub
     return "public";
   }
   
-  console.log(`checkFolderAccess: metadata returned ${metaResp.status}`);
+  const metaBody = await metaResp.text();
+  console.log(`checkFolderAccess: metadata returned ${metaResp.status}: ${metaBody.substring(0, 300)}`);
   
   if (metaResp.status === 404) return "not_found";
+  
+  // 400 = API key issue (restrictions, API not enabled), NOT a private folder
+  if (metaResp.status === 400) {
+    console.error(`checkFolderAccess: API key configuration error (400). Check API key restrictions and that Drive API is enabled.`);
+    return "api_error";
+  }
   
   // Method 2: Fallback — try listing children (same method as listDriveFiles)
   const query = `'${folderId}' in parents`;
@@ -118,8 +125,12 @@ async function checkFolderAccess(folderId: string, apiKey: string): Promise<"pub
     return "public";
   }
   
-  console.log(`checkFolderAccess: listing returned ${listResp.status} — marking as private`);
+  const listBody = await listResp.text();
+  console.log(`checkFolderAccess: listing returned ${listResp.status}: ${listBody.substring(0, 300)}`);
   if (listResp.status === 404) return "not_found";
+  if (listResp.status === 400) return "api_error";
+  
+  // Only 403/401 = truly private
   return "private";
 }
 
