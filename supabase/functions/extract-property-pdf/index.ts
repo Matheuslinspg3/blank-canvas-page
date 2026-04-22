@@ -123,15 +123,17 @@ function filterPhotoLinks(links: { page: number; url: string }[]): { page: numbe
   return links.filter(l => photoPatterns.some(p => p.test(l.url)));
 }
 
-const EXTRACT_PROMPT = `Você é um extrator de dados de imóveis. Analise o PDF/tabela de imóveis em anexo e retorne APENAS um JSON válido (sem markdown, sem comentários) no formato:
+const EXTRACT_PROMPT = `Você é um extrator especializado em dados de imóveis. Analise o PDF/tabela de imóveis em anexo e retorne APENAS um JSON válido (sem markdown, sem comentários) no formato:
 {
   "properties": [
     {
-      "title": "string",
-      "type": "Apartamento|Casa|Terreno|Comercial|Rural|Cobertura",
+      "title": "string (nome do empreendimento + unidade, ex: 'Res. Frédéric François Chopin - Unidade 63B')",
+      "type": "Apartamento|Casa|Terreno|Comercial|Rural|Cobertura|Sobrado",
       "purpose": "venda|aluguel",
-      "price": number,
-      "address": "string",
+      "price": number (menor valor entre à vista e financiamento),
+      "price_cash": number (valor à vista, se disponível),
+      "price_financed": number (valor financiamento, se disponível),
+      "address": "string (rua e número)",
       "neighborhood": "string",
       "city": "string",
       "state": "string (UF)",
@@ -140,13 +142,40 @@ const EXTRACT_PROMPT = `Você é um extrator de dados de imóveis. Analise o PDF
       "parking_spaces": number,
       "area_total": number,
       "area_built": number,
-      "description": "string",
-      "code": "string (código do imóvel)",
-      "photos_url": "string (link da pasta de fotos ou link explícito de fotos do imóvel, ex: Google Drive, Dropbox, OneDrive, site da imobiliária)"
+      "unit": "string (número/código da unidade)",
+      "code": "string (código do imóvel se houver)",
+      "description": "string (descrição comercial COMPLETA - veja instruções abaixo)",
+      "photos_url": "string (link da pasta de fotos, Google Drive, Dropbox, etc.)"
     }
   ]
 }
-Se algum campo não estiver disponível, omita-o. Extraia TODOS os imóveis listados. Valores em BRL como números (sem R$, sem pontos de milhar). Se houver link de fotos/pasta do imóvel, inclua em "photos_url". Se houver um link geral compartilhado para um conjunto de imóveis e não existir link individual, repita esse link no imóvel correspondente.`;
+
+REGRAS CRÍTICAS:
+
+1. **CADA UNIDADE É UM IMÓVEL SEPARADO**: Se um edifício tem unidades 63B, 64A e 64B, são 3 imóveis distintos no array. Se há unidades 71, 111, 131, 151 do mesmo prédio, são 4 imóveis. NUNCA agrupe unidades diferentes em um só registro.
+
+2. **DESCRIÇÃO RICA E COMPLETA**: O campo "description" deve ser um texto comercial detalhado incluindo TUDO que estiver disponível:
+   - Nome completo do empreendimento
+   - Número da unidade
+   - Área útil/total em m²
+   - Quantidade e tipo de dormitórios (suíte, etc.)
+   - Dependências (sala, cozinha, lavabo, área de serviço, sacada, churrasqueira, etc.)
+   - Vagas de garagem (tipo: coletiva, coberta, etc.)
+   - Infraestrutura de lazer completa (piscina, fitness, playground, salão de festas, etc.)
+   - Condições de pagamento (valor à vista, financiamento, parcelamento, entrada, saldo)
+   - Status das chaves/obra (pronto, em obra, na portaria, etc.)
+   - Endereço completo
+   - IPTU se disponível
+   - Qualquer diferencial mencionado
+   Exemplo: "Apartamento no Res. Frédéric François Chopin, Unidade 63B. Área útil de 60m², com 2 dormitórios sendo 1 suíte, sacada e 1 vaga de garagem. Valor: R$ 450.000 à vista ou R$ 480.000 via financiamento. Lazer completo: piscina climatizada adulto e infantil, raia semiolímpica 25m, espaço fitness, spa com sauna, playground, pet place, salão de festas, salão de jogos com boliche, salão gourmet. Chaves na imobiliária. Rua Cornélio Procópio, 202 - Boqueirão, Praia Grande/SP."
+
+3. **VALORES**: Números puros em BRL (sem R$, sem pontos de milhar). Ex: 450000, não "R$ 450.000,00".
+
+4. **CAMPOS AUSENTES**: Se algum campo não estiver disponível, omita-o. Mas NUNCA omita a description.
+
+5. **FOTOS**: Se houver link de fotos/pasta do imóvel, inclua em "photos_url". Se houver um link geral compartilhado, repita para cada imóvel.
+
+Extraia ABSOLUTAMENTE TODOS os imóveis/unidades do documento. Não pule nenhum.`;
 
 function normalizeExtractedProperties(rawProperties: unknown): Record<string, unknown>[] {
   if (!Array.isArray(rawProperties)) return [];
