@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { normalizeError } from '@/lib/normalizeError';
+import { sanitizePropertyInsert } from '@/lib/validatePropertyColumns';
 import type { PropertyWithDetails } from '@/hooks/useProperties';
 
 export interface VariationRow {
