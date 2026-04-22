@@ -15,7 +15,7 @@ import {
   isRowEmpty,
 } from "@/hooks/usePropertyBatchCreate";
 import type { PropertyWithDetails } from "@/hooks/useProperties";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
 
 interface BatchVariationsDialogProps {
   open: boolean;
