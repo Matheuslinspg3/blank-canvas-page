@@ -196,6 +196,8 @@ export function usePropertyBatchCreate() {
       const allStrippedColumns = new Set<string>();
       const CHUNK = 20;
 
+      updateProgress({ status: 'inserting', currentLabel: 'Inserindo imóveis...' });
+
       for (let i = 0; i < nonEmptyRows.length; i++) {
         const row = nonEmptyRows[i];
         try {
