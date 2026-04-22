@@ -15,7 +15,7 @@ import {
   isRowEmpty,
 } from "@/hooks/usePropertyBatchCreate";
 import type { PropertyWithDetails } from "@/hooks/useProperties";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
 
 interface BatchVariationsDialogProps {
   open: boolean;
@@ -118,9 +118,9 @@ export function BatchVariationsDialog({
           </div>
 
           {/* Grid */}
-          <ScrollArea className="flex-1">
+          <div className="flex-1 min-h-0 overflow-auto">
             <VariationsGrid rows={rows} onChange={setRows} errors={reviewOpen ? errors : []} />
-          </ScrollArea>
+          </div>
 
           {/* Footer */}
           <div className="flex items-center justify-between pt-2 border-t border-border">
