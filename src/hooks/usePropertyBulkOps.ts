@@ -45,13 +45,23 @@ export function usePropertyBulkOps() {
           supabase.from('property_visibility').delete().in('property_id', chunk),
           supabase.from('property_partnerships').delete().in('property_id', chunk),
           supabase.from('property_landing_content').delete().in('property_id', chunk),
+          supabase.from('property_landing_overrides').delete().in('property_id', chunk),
+          supabase.from('property_share_links').delete().in('property_id', chunk),
+          supabase.from('property_status_history').delete().in('property_id', chunk),
+          supabase.from('property_visits').delete().in('property_id', chunk),
+          supabase.from('property_groups').delete().in('source_property_id', chunk),
           supabase.from('import_run_items').delete().in('property_id', chunk),
+          supabase.from('anuncios_gerados').delete().in('property_id', chunk),
+          supabase.from('generated_arts').delete().in('property_id', chunk),
+          supabase.from('generated_videos').delete().in('property_id', chunk),
+          supabase.from('simulacoes_financiamento').delete().in('imovel_id', chunk),
+          supabase.from('whatsapp_property_rules').delete().in('property_id', chunk),
           supabase.from('marketplace_contact_access').delete().in('marketplace_property_id', chunk),
           supabase.from('marketplace_properties').delete().in('id', chunk),
         ]);
-        depResults.forEach((r, i) => {
-          if (r.status === 'rejected') console.warn(`Dependency cleanup ${i} failed:`, r.reason);
-          else if (r.value?.error) console.warn(`Dependency cleanup ${i} error:`, r.value.error.message);
+        depResults.forEach((r, idx) => {
+          if (r.status === 'rejected') console.warn(`Dependency cleanup ${idx} failed:`, r.reason);
+          else if (r.value?.error) console.warn(`Dependency cleanup ${idx} error:`, r.value.error.message);
         });
 
         const refResults = await Promise.allSettled([
