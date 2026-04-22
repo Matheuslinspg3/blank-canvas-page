@@ -210,6 +210,7 @@ export function usePropertyBatchCreate() {
           // Validate columns before insert
           const { clean: safeInsertData, invalidColumns } = sanitizePropertyInsert(insertData as Record<string, unknown>);
           if (invalidColumns.length > 0) {
+            invalidColumns.forEach(c => allStrippedColumns.add(c));
             console.warn(`[BatchCreate] Linha ${i + 1}: colunas ignoradas: ${invalidColumns.join(', ')}`);
           }
 
