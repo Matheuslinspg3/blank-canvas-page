@@ -130,13 +130,41 @@ Responda APENAS com JSON válido (sem markdown): {
     }
 
     // Parse JSON response
-    const aiText = aiResult.text || "";
+    const aiText = (aiResult.text || "").trim();
     let generatedContent: any;
     try {
-      const jsonMatch = aiText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("No JSON found");
-      generatedContent = JSON.parse(jsonMatch[0]);
-    } catch {
+      // Strip markdown code fences if present
+      let cleaned = aiText
+        .replace(/```json\s*/gi, "")
+        .replace(/```\s*/g, "")
+        .trim();
+
+      // Find the outermost JSON object by matching balanced braces
+      const startIdx = cleaned.indexOf("{");
+      if (startIdx === -1) throw new Error("No JSON object found");
+
+      let depth = 0;
+      let endIdx = -1;
+      for (let i = startIdx; i < cleaned.length; i++) {
+        if (cleaned[i] === "{") depth++;
+        else if (cleaned[i] === "}") { depth--; if (depth === 0) { endIdx = i; break; } }
+      }
+      if (endIdx === -1) throw new Error("Unbalanced JSON braces");
+
+      const jsonStr = cleaned.substring(startIdx, endIdx + 1);
+
+      try {
+        generatedContent = JSON.parse(jsonStr);
+      } catch {
+        // Fix trailing commas and control chars
+        const fixed = jsonStr
+          .replace(/,\s*}/g, "}")
+          .replace(/,\s*]/g, "]")
+          .replace(/[\x00-\x1F\x7F]/g, (c) => c === "\n" || c === "\t" ? c : "");
+        generatedContent = JSON.parse(fixed);
+      }
+    } catch (parseErr) {
+      console.error("Failed to parse AI response:", aiText.substring(0, 500));
       throw new Error("Invalid AI response format");
     }
 
