@@ -263,7 +263,7 @@ export function usePropertyBatchCreate() {
           result.errors.push({ rowIndex: i, message: err.message || 'Erro desconhecido' });
         }
       }
-
+      result.strippedColumns = Array.from(allStrippedColumns);
       return result;
     },
     onSuccess: (result) => {
