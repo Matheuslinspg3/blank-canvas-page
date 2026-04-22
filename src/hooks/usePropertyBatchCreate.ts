@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { normalizeError } from '@/lib/normalizeError';
 import { sanitizePropertyInsert } from '@/lib/validatePropertyColumns';
+import { applyFieldMappings } from '@/lib/propertyFieldMappings';
 import type { PropertyWithDetails } from '@/hooks/useProperties';
 
 export interface BatchProgress {
@@ -202,27 +203,28 @@ export function usePropertyBatchCreate() {
         const row = nonEmptyRows[i];
         try {
           const titleSuffix = row.unit_label ? ` - ${row.unit_label}` : ` (${i + 1})`;
-          // Append row notes to description (properties table has no 'notes' column)
-          let finalDescription = baseData.description || '';
-          if (row.notes) {
-            finalDescription = finalDescription
-              ? `${finalDescription}\n\nObservações: ${row.notes}`
-              : row.notes;
-          }
+
+          // Apply centralised field mappings (e.g. notes → description)
+          const mappedRow = applyFieldMappings(
+            {
+              property_code: row.property_code || undefined,
+              bedrooms: row.bedrooms ?? p.bedrooms,
+              suites: row.suites ?? p.suites,
+              bathrooms: row.bathrooms ?? p.bathrooms,
+              parking_spots: row.parking_spots ?? p.parking_spots,
+              area_useful: row.area_useful ?? p.area_useful,
+              area_total: row.area_total ?? p.area_total,
+              sale_price: row.sale_price ?? p.sale_price,
+              status: row.status || 'disponivel',
+              notes: row.notes,
+            },
+            baseData.description,
+          );
 
           const insertData = {
             ...baseData,
+            ...mappedRow,
             title: `${baseData.title || 'Imóvel'}${titleSuffix}`,
-            description: finalDescription || null,
-            property_code: row.property_code || undefined,
-            bedrooms: row.bedrooms ?? p.bedrooms,
-            suites: row.suites ?? p.suites,
-            bathrooms: row.bathrooms ?? p.bathrooms,
-            parking_spots: row.parking_spots ?? p.parking_spots,
-            area_useful: row.area_useful ?? p.area_useful,
-            area_total: row.area_total ?? p.area_total,
-            sale_price: row.sale_price ?? p.sale_price,
-            status: row.status || 'disponivel',
             organization_id: profile.organization_id,
             created_by: user.id,
             property_group_id: group.id,

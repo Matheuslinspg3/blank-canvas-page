@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, CopyPlus, Trash2 } from "lucide-react";
 import { VariationRow, VariationError, createEmptyRow } from "@/hooks/usePropertyBatchCreate";
 import { cn } from "@/lib/utils";
+import { VARIATION_COLUMNS } from "@/lib/propertyFieldMappings";
 
 interface VariationsGridProps {
   rows: VariationRow[];
@@ -13,21 +14,9 @@ interface VariationsGridProps {
   errors?: VariationError[];
 }
 
-const COLUMNS = [
-  { key: "property_code", label: "Código", type: "text", placeholder: "Auto" },
-  { key: "unit_label", label: "Unidade/Lote", type: "text", placeholder: "Ex: Casa 1" },
-  { key: "bedrooms", label: "Quartos", type: "number" },
-  { key: "suites", label: "Suítes", type: "number" },
-  { key: "bathrooms", label: "Banheiros", type: "number" },
-  { key: "parking_spots", label: "Vagas", type: "number" },
-  { key: "area_useful", label: "Área Útil", type: "number" },
-  { key: "area_total", label: "Área Total", type: "number" },
-  { key: "sale_price", label: "Valor (R$)", type: "number" },
-  { key: "status", label: "Status", type: "select" },
-  { key: "notes", label: "Observação", type: "text", placeholder: "" },
-] as const;
+const COLUMNS = VARIATION_COLUMNS;
 
-type ColumnKey = (typeof COLUMNS)[number]["key"];
+type ColumnKey = string;
 
 export function VariationsGrid({ rows, onChange, errors = [] }: VariationsGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
