@@ -59,6 +59,7 @@ export function BatchVariationsDialog({
   }, [rows, validateRows]);
 
   const handleConfirm = useCallback(async () => {
+    resetProgress();
     const nonEmptyRows = rows.filter((r) => !isRowEmpty(r));
     try {
       const result = await createBatch({ baseProperty, rows: nonEmptyRows });
@@ -68,7 +69,7 @@ export function BatchVariationsDialog({
     } catch {
       // error handled by mutation
     }
-  }, [rows, baseProperty, createBatch]);
+  }, [rows, baseProperty, createBatch, resetProgress]);
 
   const handleCloseReport = (openState: boolean) => {
     if (!openState) {
