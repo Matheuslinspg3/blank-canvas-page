@@ -124,6 +124,8 @@ export function usePropertyBatchCreate() {
       const nonEmptyRows = rows.filter(r => !isRowEmpty(r));
       if (nonEmptyRows.length === 0) throw new Error('Nenhuma variação para criar');
 
+      updateProgress({ current: 0, total: nonEmptyRows.length, currentLabel: 'Preparando grupo...', status: 'preparing', rowResults: [] });
+
       // 1. Create property group
       const { data: group, error: groupError } = await supabase
         .from('property_groups')
