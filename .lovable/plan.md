@@ -1,45 +1,29 @@
 
 
-# Plano: Extrair links do Google Drive de PDFs importados
+## Plano: Melhorar Extração de Imóveis via PDF
 
-## Problema identificado
+### Problemas Identificados
 
-Quando o PDF contém links para pastas do Google Drive (como hyperlinks clicáveis), a IA não consegue extraí-los. Isso acontece porque os hyperlinks em PDF são **anotações de metadados** — a IA vê apenas o texto renderizado, não a URL de destino do link. Confirmado nos dados: todas as 5 extrações recentes têm `photos_url = null` para todos os imóveis.
+1. **Descrições secas**: O prompt atual pede apenas campos estruturados sem instruir a IA a gerar descrições ricas com lazer, condições de pagamento, diferenciais do empreendimento.
+2. **Poucos imóveis detectados**: O PDF tem ~20+ unidades individuais (ex: Chopin 63B, 64A, 64B; Ilha da Madeira unidades 71, 111, 131, etc.), mas a IA está agrupando por edifício, retornando apenas 5.
 
-## Solução
+### Alterações
 
-Extrair os hyperlinks do PDF **antes** de enviá-lo à IA, e incluir esses links no prompt para que a IA possa associá-los aos imóveis corretos.
+**Arquivo**: `supabase/functions/extract-property-pdf/index.ts`
 
-## Etapas técnicas
+1. **Reescrever o `EXTRACT_PROMPT`** (linha 126-149) para:
+   - Instruir explicitamente que cada **unidade** é um imóvel separado (ex: "Unidade 63B" e "Unidade 64A" do mesmo edifício devem ser 2 imóveis distintos)
+   - Pedir descrições ricas e completas incluindo: nome do empreendimento, lazer, acabamentos, condições de pagamento (à vista vs financiamento), status das chaves/obra
+   - Incluir o campo `unit` para o número da unidade
+   - Incluir `price_cash` e `price_financed` como campos separados
+   - Pedir que o `title` inclua o nome do empreendimento + unidade (ex: "Res. Frédéric François Chopin - Unidade 63B")
+   - Instruir que a `description` deve ser um texto comercial completo com todas as informações disponíveis: lazer, localização, metragem, diferenciais
 
-### 1. Extrair hyperlinks do PDF na Edge Function `extract-property-pdf`
+2. **Atualizar `normalizeExtractedProperties`** para mapear os novos campos (`price_cash`, `price_financed`) para o campo `price` existente (usar o menor valor como referência), e manter as infos extras na description.
 
-Antes de chamar o `ai-router`, percorrer as anotações do PDF usando `pdf-lib` para extrair todas as URLs encontradas (links do Google Drive, Dropbox, etc.). O `pdf-lib` permite acessar `page.node.Annots()` para ler anotações de tipo `/Link` com campo `/A` → `/URI`.
+### Resultado Esperado
 
-### 2. Incluir links extraídos no prompt da IA
-
-Adicionar ao prompt uma seção com os links encontrados no PDF, pedindo à IA que associe cada link ao imóvel correspondente baseado no contexto da página/posição:
-
-```
-Links encontrados no PDF:
-- Página 1: https://drive.google.com/drive/folders/abc123
-- Página 2: https://drive.google.com/drive/folders/def456
-...
-
-Associe cada link ao imóvel correspondente no campo "photos_url".
-```
-
-### 3. Fallback: link único compartilhado
-
-Se o PDF contiver apenas 1 link de Drive (pasta raiz com subpastas por imóvel), o prompt já instrui a IA a repetir esse link para todos os imóveis. O sistema existente de subpastas (`subfolderMatchMap`) já faz o mapeamento automático por nome.
-
-## Arquivos modificados
-
-- `supabase/functions/extract-property-pdf/index.ts` — adicionar extração de hyperlinks via pdf-lib e enriquecer o prompt com os links encontrados
-
-## Impacto
-
-- Sem mudanças no frontend (o fluxo de `photos_url` → `scrapeAndSavePhotoRefs` já existe e funciona)
-- Sem mudanças no banco de dados
-- A extração de links é rápida e não impacta performance
+- O mesmo PDF passará a retornar ~20+ imóveis (um por unidade)
+- Cada imóvel terá uma descrição comercial completa com lazer, condições e diferenciais
+- O título identificará claramente cada unidade
 
