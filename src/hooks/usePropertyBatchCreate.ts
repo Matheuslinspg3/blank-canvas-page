@@ -178,9 +178,18 @@ export function usePropertyBatchCreate() {
         const row = nonEmptyRows[i];
         try {
           const titleSuffix = row.unit_label ? ` - ${row.unit_label}` : ` (${i + 1})`;
+          // Append row notes to description (properties table has no 'notes' column)
+          let finalDescription = baseData.description || '';
+          if (row.notes) {
+            finalDescription = finalDescription
+              ? `${finalDescription}\n\nObservações: ${row.notes}`
+              : row.notes;
+          }
+
           const insertData = {
             ...baseData,
             title: `${baseData.title || 'Imóvel'}${titleSuffix}`,
+            description: finalDescription || null,
             property_code: row.property_code || undefined,
             bedrooms: row.bedrooms ?? p.bedrooms,
             suites: row.suites ?? p.suites,
@@ -190,7 +199,6 @@ export function usePropertyBatchCreate() {
             area_total: row.area_total ?? p.area_total,
             sale_price: row.sale_price ?? p.sale_price,
             status: row.status || 'disponivel',
-            notes: row.notes || p.notes || null,
             organization_id: profile.organization_id,
             created_by: user.id,
             property_group_id: group.id,
