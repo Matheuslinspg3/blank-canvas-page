@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { normalizeError } from '@/lib/normalizeError';
 import { sanitizePropertyInsert } from '@/lib/validatePropertyColumns';
+import { applyFieldMappings } from '@/lib/propertyFieldMappings';
 import type { PropertyWithDetails } from '@/hooks/useProperties';
 
 export interface BatchProgress {
