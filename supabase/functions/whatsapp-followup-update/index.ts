@@ -99,8 +99,8 @@ Deno.serve(async (req) => {
 
   // Insert into follow_up_log
   if (message_sent) {
-    const validSources = ["template_1", "ai_generated", "template_3", "manual"];
-    const source = validSources.includes(message_source ?? "") ? message_source : "template_1";
+    const validSources = ["template_1", "ai_generated", "template_3", "manual", "template", "ai", "farewell"];
+    const source = validSources.includes(message_source ?? "") ? message_source : "template";
 
     await sb.from("follow_up_log").insert({
       queue_id: id,
