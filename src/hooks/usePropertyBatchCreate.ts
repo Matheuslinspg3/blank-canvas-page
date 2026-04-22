@@ -175,6 +175,7 @@ export function usePropertyBatchCreate() {
       // 5. Insert properties sequentially
       const result: BatchResult = { created: 0, failed: 0, errors: [], strippedColumns: [], groupId: group.id };
       const allStrippedColumns = new Set<string>();
+      const CHUNK = 20;
 
       for (let i = 0; i < nonEmptyRows.length; i++) {
         const row = nonEmptyRows[i];
