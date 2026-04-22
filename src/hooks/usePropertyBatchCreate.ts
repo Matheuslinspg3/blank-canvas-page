@@ -321,9 +321,15 @@ export function usePropertyBatchCreate() {
     },
   });
 
+  const resetProgress = useCallback(() => {
+    updateProgress({ current: 0, total: 0, currentLabel: '', status: 'idle', rowResults: [] });
+  }, [updateProgress]);
+
   return {
     createBatch: mutation.mutateAsync,
     isCreating: mutation.isPending,
+    progress,
+    resetProgress,
     validateRows,
   };
 }
