@@ -48,6 +48,14 @@ export function usePropertyBatchCreate() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [progress, setProgress] = useState<BatchProgress>({
+    current: 0, total: 0, currentLabel: '', status: 'idle', rowResults: [],
+  });
+  const progressRef = useRef(progress);
+  const updateProgress = useCallback((patch: Partial<BatchProgress>) => {
+    progressRef.current = { ...progressRef.current, ...patch };
+    setProgress(progressRef.current);
+  }, []);
 
   // Validate codes against DB
   const validateCodes = async (codes: string[]): Promise<Set<string>> => {
