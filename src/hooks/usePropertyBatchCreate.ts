@@ -1,3 +1,4 @@
+import { useState, useCallback, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -5,6 +6,14 @@ import { useToast } from '@/hooks/use-toast';
 import { normalizeError } from '@/lib/normalizeError';
 import { sanitizePropertyInsert } from '@/lib/validatePropertyColumns';
 import type { PropertyWithDetails } from '@/hooks/useProperties';
+
+export interface BatchProgress {
+  current: number;
+  total: number;
+  currentLabel: string;
+  status: 'idle' | 'preparing' | 'inserting' | 'done';
+  rowResults: Array<{ rowIndex: number; success: boolean; message?: string }>;
+}
 
 export interface VariationRow {
   id: string; // local row id
@@ -39,6 +48,14 @@ export function usePropertyBatchCreate() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [progress, setProgress] = useState<BatchProgress>({
+    current: 0, total: 0, currentLabel: '', status: 'idle', rowResults: [],
+  });
+  const progressRef = useRef(progress);
+  const updateProgress = useCallback((patch: Partial<BatchProgress>) => {
+    progressRef.current = { ...progressRef.current, ...patch };
+    setProgress(progressRef.current);
+  }, []);
 
   // Validate codes against DB
   const validateCodes = async (codes: string[]): Promise<Set<string>> => {
@@ -106,6 +123,8 @@ export function usePropertyBatchCreate() {
 
       const nonEmptyRows = rows.filter(r => !isRowEmpty(r));
       if (nonEmptyRows.length === 0) throw new Error('Nenhuma variação para criar');
+
+      updateProgress({ current: 0, total: nonEmptyRows.length, currentLabel: 'Preparando grupo...', status: 'preparing', rowResults: [] });
 
       // 1. Create property group
       const { data: group, error: groupError } = await supabase
@@ -176,6 +195,8 @@ export function usePropertyBatchCreate() {
       const result: BatchResult = { created: 0, failed: 0, errors: [], strippedColumns: [], groupId: group.id };
       const allStrippedColumns = new Set<string>();
       const CHUNK = 20;
+
+      updateProgress({ status: 'inserting', currentLabel: 'Inserindo imóveis...' });
 
       for (let i = 0; i < nonEmptyRows.length; i++) {
         const row = nonEmptyRows[i];
@@ -258,11 +279,22 @@ export function usePropertyBatchCreate() {
           }
 
           result.created++;
+          updateProgress({
+            current: i + 1,
+            currentLabel: row.unit_label || row.property_code || `Imóvel ${i + 1}`,
+            rowResults: [...progressRef.current.rowResults, { rowIndex: i, success: true }],
+          });
         } catch (err: any) {
           result.failed++;
           result.errors.push({ rowIndex: i, message: err.message || 'Erro desconhecido' });
+          updateProgress({
+            current: i + 1,
+            currentLabel: row.unit_label || row.property_code || `Imóvel ${i + 1}`,
+            rowResults: [...progressRef.current.rowResults, { rowIndex: i, success: false, message: err.message }],
+          });
         }
       }
+      updateProgress({ status: 'done', currentLabel: 'Concluído' });
       result.strippedColumns = Array.from(allStrippedColumns);
       return result;
     },
@@ -289,9 +321,15 @@ export function usePropertyBatchCreate() {
     },
   });
 
+  const resetProgress = useCallback(() => {
+    updateProgress({ current: 0, total: 0, currentLabel: '', status: 'idle', rowResults: [] });
+  }, [updateProgress]);
+
   return {
     createBatch: mutation.mutateAsync,
     isCreating: mutation.isPending,
+    progress,
+    resetProgress,
     validateRows,
   };
 }
