@@ -122,9 +122,11 @@ Responda APENAS com JSON válido (sem markdown): {
     });
 
     const aiResult = await routerResponse.json();
-    if (!aiResult.success) {
+    console.log("[generate-landing-content] ai-router success:", aiResult.success, "text length:", (aiResult.text || "").length, "provider:", aiResult.provider, "model:", aiResult.model);
+    if (!aiResult.success || !aiResult.text) {
+      console.error("[generate-landing-content] ai-router failed or empty:", JSON.stringify(aiResult).substring(0, 500));
       return new Response(
-        JSON.stringify({ error: "Todas as chaves de IA estão indisponíveis. Tente novamente em alguns minutos." }),
+        JSON.stringify({ error: aiResult.error || "Todas as chaves de IA estão indisponíveis. Tente novamente em alguns minutos." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
