@@ -5,10 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { MapPin, Home, Eye, Loader2 } from "lucide-react";
 import { VariationsGrid } from "./VariationsGrid";
 import { VariationsReviewDialog } from "./VariationsReviewDialog";
+import { BatchImportReport } from "./BatchImportReport";
 import {
   usePropertyBatchCreate,
   VariationRow,
   VariationError,
+  BatchResult,
   createRowFromBase,
   isRowEmpty,
 } from "@/hooks/usePropertyBatchCreate";
@@ -39,6 +41,8 @@ export function BatchVariationsDialog({
   const [errors, setErrors] = useState<VariationError[]>([]);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
+  const [reportResult, setReportResult] = useState<BatchResult | null>(null);
+  const [reportRows, setReportRows] = useState<VariationRow[]>([]);
 
   const validCount = rows.filter((r) => !isRowEmpty(r)).length;
 
@@ -59,12 +63,22 @@ export function BatchVariationsDialog({
     try {
       const result = await createBatch({ baseProperty, rows: nonEmptyRows });
       setReviewOpen(false);
-      onOpenChange(false);
-      onComplete?.(result.groupId);
+      setReportRows(nonEmptyRows);
+      setReportResult(result);
     } catch {
       // error handled by mutation
     }
-  }, [rows, baseProperty, createBatch, onOpenChange, onComplete]);
+  }, [rows, baseProperty, createBatch]);
+
+  const handleCloseReport = (openState: boolean) => {
+    if (!openState) {
+      const groupId = reportResult?.groupId;
+      setReportResult(null);
+      setReportRows([]);
+      onOpenChange(false);
+      onComplete?.(groupId);
+    }
+  };
 
   const handleBack = () => setReviewOpen(false);
 
@@ -72,7 +86,7 @@ export function BatchVariationsDialog({
 
   return (
     <>
-      <Dialog open={open && !reviewOpen} onOpenChange={onOpenChange}>
+      <Dialog open={open && !reviewOpen && !reportResult} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-[95vw] w-full max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Duplicar com variações</DialogTitle>
@@ -137,6 +151,15 @@ export function BatchVariationsDialog({
         onConfirm={handleConfirm}
         onBack={handleBack}
       />
+
+      {reportResult && (
+        <BatchImportReport
+          open={!!reportResult}
+          onOpenChange={handleCloseReport}
+          result={reportResult}
+          rows={reportRows}
+        />
+      )}
     </>
   );
 }
