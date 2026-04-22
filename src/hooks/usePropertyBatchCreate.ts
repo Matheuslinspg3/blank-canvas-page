@@ -294,6 +294,7 @@ export function usePropertyBatchCreate() {
           });
         }
       }
+      updateProgress({ status: 'done', currentLabel: 'Concluído' });
       result.strippedColumns = Array.from(allStrippedColumns);
       return result;
     },
