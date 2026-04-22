@@ -31,6 +31,7 @@ export interface BatchResult {
   created: number;
   failed: number;
   errors: { rowIndex: number; message: string }[];
+  strippedColumns: string[];
   groupId?: string;
 }
 
