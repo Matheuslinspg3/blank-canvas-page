@@ -205,9 +205,15 @@ export function usePropertyBatchCreate() {
             property_group_id: group.id,
           };
 
+          // Validate columns before insert
+          const { clean: safeInsertData, invalidColumns } = sanitizePropertyInsert(insertData as Record<string, unknown>);
+          if (invalidColumns.length > 0) {
+            console.warn(`[BatchCreate] Linha ${i + 1}: colunas ignoradas: ${invalidColumns.join(', ')}`);
+          }
+
           const { data: newProp, error: propError } = await supabase
             .from('properties')
-            .insert(insertData as any)
+            .insert(safeInsertData as any)
             .select('id')
             .single();
           if (propError) throw propError;
