@@ -279,9 +279,19 @@ export function usePropertyBatchCreate() {
           }
 
           result.created++;
+          updateProgress({
+            current: i + 1,
+            currentLabel: row.unit_label || row.property_code || `Imóvel ${i + 1}`,
+            rowResults: [...progressRef.current.rowResults, { rowIndex: i, success: true }],
+          });
         } catch (err: any) {
           result.failed++;
           result.errors.push({ rowIndex: i, message: err.message || 'Erro desconhecido' });
+          updateProgress({
+            current: i + 1,
+            currentLabel: row.unit_label || row.property_code || `Imóvel ${i + 1}`,
+            rowResults: [...progressRef.current.rowResults, { rowIndex: i, success: false, message: err.message }],
+          });
         }
       }
       result.strippedColumns = Array.from(allStrippedColumns);
