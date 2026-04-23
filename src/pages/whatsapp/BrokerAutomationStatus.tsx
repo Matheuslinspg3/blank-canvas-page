@@ -83,7 +83,48 @@ export default function BrokerAutomationStatus() {
         </div>
 
         {/* Config summary */}
-        {config && (
+        {/* Executor / Cron status */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Zap className="h-4 w-4 text-primary" />
+              Status do Executor
+            </CardTitle>
+            <CardDescription>Motor de follow-up automático (pg_cron a cada 15 min)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <CalendarClock className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Próximo disparo</p>
+                  <p className="font-medium">
+                    {getNextCronFire().toLocaleString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Timer className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Último envio registrado</p>
+                  <p className="font-medium">
+                    {logs.length > 0 ? formatDate(logs[0].sent_at) : "Nenhum ainda"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {config?.followup_enabled ? (
+                  <Badge variant="default" className="gap-1"><CheckCircle2 className="h-3 w-3" /> Ativo</Badge>
+                ) : (
+                  <Badge variant="secondary" className="gap-1"><XCircle className="h-3 w-3" /> Inativo</Badge>
+                )}
+                <span className="text-xs text-muted-foreground">Cron: */15 * * * *</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+
           <Card>
             <CardContent className="py-3 px-4">
               <div className="flex flex-wrap items-center gap-4 text-sm">
