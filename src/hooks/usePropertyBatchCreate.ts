@@ -29,6 +29,7 @@ export interface VariationRow {
   sale_price: number | null;
   status: string;
   notes: string;
+  _pristine?: boolean; // true until user edits the row
 }
 
 export interface VariationError {
@@ -337,6 +338,8 @@ export function usePropertyBatchCreate() {
 }
 
 export function isRowEmpty(row: VariationRow): boolean {
+  // Rows created from base start as _pristine — treated as empty until edited
+  if (row._pristine) return true;
   return (
     !row.property_code &&
     !row.unit_label &&
@@ -382,5 +385,6 @@ export function createRowFromBase(base: any): VariationRow {
     sale_price: base.sale_price ?? null,
     status: 'disponivel',
     notes: '',
+    _pristine: true, // marks row as untouched — isRowEmpty treats it as empty
   };
 }

@@ -60,11 +60,12 @@ export function VariationsGrid({ rows, onChange, errors = [] }: VariationsGridPr
         rows.map((r) => {
           if (r.id !== rowId) return r;
           const col = COLUMNS.find((c) => c.key === field)!;
+          const updated = { ...r, _pristine: false };
           if (col.type === "number") {
             const num = parseLocalizedNumber(value);
-            return { ...r, [field]: num };
+            return { ...updated, [field]: num };
           }
-          return { ...r, [field]: value };
+          return { ...updated, [field]: value };
         })
       );
     },
