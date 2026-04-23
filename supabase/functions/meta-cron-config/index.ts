@@ -25,29 +25,51 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Validate JWT via getUser
+    const token = authHeader.replace("Bearer ", "");
+
+    // Validate JWT via getClaims
     const authClient = createClient(SUPABASE_URL, ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user }, error: userError } = await authClient.auth.getUser();
-    if (userError || !user) {
-      console.error("[meta-cron-config] Auth error:", userError?.message);
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+
+    // Try getClaims first, fall back to getUser
+    let userId: string | null = null;
+
+    try {
+      const { data: claimsData, error: claimsError } = await (authClient.auth as any).getClaims(token);
+      if (!claimsError && claimsData?.claims?.sub) {
+        userId = claimsData.claims.sub as string;
+        console.log("[meta-cron-config] Auth via getClaims, userId:", userId);
+      }
+    } catch (_e) {
+      console.log("[meta-cron-config] getClaims not available, trying getUser");
+    }
+
+    if (!userId) {
+      const { data: { user }, error: userError } = await authClient.auth.getUser();
+      if (userError || !user) {
+        console.error("[meta-cron-config] Auth failed:", userError?.message);
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      userId = user.id;
+      console.log("[meta-cron-config] Auth via getUser, userId:", userId);
     }
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("organization_id, role")
-      .eq("user_id", user.id)
+      .select("organization_id")
+      .eq("user_id", userId)
       .maybeSingle();
 
+    console.log("[meta-cron-config] Profile lookup:", { userId, profile, profileError: profileError?.message });
+
     if (!profile?.organization_id) {
-      return new Response(JSON.stringify({ error: "No organization" }), {
+      return new Response(JSON.stringify({ error: "No organization", debug: { userId, profileFound: !!profile } }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
