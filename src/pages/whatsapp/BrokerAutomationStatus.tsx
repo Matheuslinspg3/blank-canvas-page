@@ -4,10 +4,27 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, RotateCcw, Ban, Play, Clock, CheckCircle2, XCircle, MessageSquare, History, BarChart3 } from "lucide-react";
+import { Loader2, RotateCcw, Ban, Play, Clock, CheckCircle2, XCircle, MessageSquare, History, BarChart3, Zap, Timer, CalendarClock } from "lucide-react";
 import { useBrokerFollowUpQueue } from "@/hooks/whatsapp/useBrokerFollowUpQueue";
 import { useBrokerAutomation } from "@/hooks/whatsapp/useBrokerAutomation";
 import { useMemo } from "react";
+
+// Calcula o próximo disparo do cron (a cada 15 min)
+function getNextCronFire() {
+  const now = new Date();
+  const mins = now.getMinutes();
+  const next = new Date(now);
+  const nextMin = Math.ceil((mins + 1) / 15) * 15;
+  if (nextMin >= 60) {
+    next.setHours(next.getHours() + 1);
+    next.setMinutes(0);
+  } else {
+    next.setMinutes(nextMin);
+  }
+  next.setSeconds(0);
+  next.setMilliseconds(0);
+  return next;
+}
 
 const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   pending: { label: "Pendente", variant: "default" },
@@ -64,6 +81,48 @@ export default function BrokerAutomationStatus() {
           <StatCard icon={<CheckCircle2 className="h-4 w-4 text-primary" />} label="Concluídos" value={stats.completed} />
           <StatCard icon={<XCircle className="h-4 w-4 text-destructive" />} label="Opt-out" value={stats.optedOut} />
         </div>
+
+        {/* Config summary */}
+        {/* Executor / Cron status */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Zap className="h-4 w-4 text-primary" />
+              Status do Executor
+            </CardTitle>
+            <CardDescription>Motor de follow-up automático (pg_cron a cada 15 min)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <CalendarClock className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Próximo disparo</p>
+                  <p className="font-medium">
+                    {getNextCronFire().toLocaleString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Timer className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Último envio registrado</p>
+                  <p className="font-medium">
+                    {logs.length > 0 ? formatDate(logs[0].sent_at) : "Nenhum ainda"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {config?.followup_enabled ? (
+                  <Badge variant="default" className="gap-1"><CheckCircle2 className="h-3 w-3" /> Ativo</Badge>
+                ) : (
+                  <Badge variant="secondary" className="gap-1"><XCircle className="h-3 w-3" /> Inativo</Badge>
+                )}
+                <span className="text-xs text-muted-foreground">{"Cron: */15 * * * *"}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Config summary */}
         {config && (
