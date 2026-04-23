@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAdAccount, useAdSettings } from "@/hooks/useAdSettings";
 import { useAuth } from "@/contexts/AuthContext";
@@ -6,7 +6,11 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, RefreshCw, WifiOff, Megaphone } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, RefreshCw, WifiOff, Megaphone, Timer, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import IntegrationConnectionCard from "./IntegrationConnectionCard";
 import CrmAutomationCard from "./CrmAutomationCard";
@@ -151,8 +155,149 @@ export default function MetaConnectionTab() {
         isSaving={isSavingSettings}
       />
 
+      {isConnected && <MetaAutoSyncCard />}
+
       {isConnected && <MetaSyncSection />}
     </div>
+  );
+}
+
+const INTERVAL_OPTIONS = [
+  { value: "5", label: "5 minutos" },
+  { value: "10", label: "10 minutos" },
+  { value: "15", label: "15 minutos" },
+  { value: "30", label: "30 minutos" },
+  { value: "60", label: "1 hora" },
+];
+
+function MetaAutoSyncCard() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [enabled, setEnabled] = useState(false);
+  const [intervalMin, setIntervalMin] = useState("15");
+
+  const fetchConfig = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("meta-cron-config", {
+        method: "GET",
+      });
+      if (error) throw error;
+      setEnabled(data.enabled ?? false);
+      setIntervalMin(String(data.interval_minutes ?? 15));
+    } catch {
+      // Default state
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchConfig();
+  }, [fetchConfig]);
+
+  const handleSave = async (newEnabled: boolean, newInterval?: string) => {
+    setSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("meta-cron-config", {
+        body: {
+          enabled: newEnabled,
+          interval_minutes: parseInt(newInterval || intervalMin, 10),
+        },
+      });
+      if (error) throw error;
+      setEnabled(data.enabled);
+      if (data.interval_minutes) setIntervalMin(String(data.interval_minutes));
+      toast({
+        title: data.enabled ? "Auto-sync ativado" : "Auto-sync desativado",
+        description: data.enabled
+          ? `Leads serão sincronizados a cada ${data.interval_minutes} minutos.`
+          : "A sincronização automática foi desativada.",
+      });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleToggle = (checked: boolean) => {
+    setEnabled(checked);
+    handleSave(checked);
+  };
+
+  const handleIntervalChange = (value: string) => {
+    setIntervalMin(value);
+    if (enabled) {
+      handleSave(true, value);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="py-6 flex items-center justify-center">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Timer className="h-4 w-4" /> Sincronização Automática
+        </CardTitle>
+        <CardDescription>
+          Busca novos leads do Meta Ads automaticamente em intervalos regulares.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Switch
+              checked={enabled}
+              onCheckedChange={handleToggle}
+              disabled={saving}
+            />
+            <Label className="font-medium">
+              {enabled ? "Ativado" : "Desativado"}
+            </Label>
+          </div>
+          {enabled && (
+            <Badge variant="default" className="gap-1">
+              <Clock className="h-3 w-3" />
+              A cada {intervalMin} min
+            </Badge>
+          )}
+        </div>
+
+        {enabled && (
+          <div className="space-y-2 max-w-xs">
+            <Label className="text-sm text-muted-foreground">Intervalo de sincronização</Label>
+            <Select value={intervalMin} onValueChange={handleIntervalChange} disabled={saving}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {INTERVAL_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {saving && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" /> Salvando...
+              </p>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
