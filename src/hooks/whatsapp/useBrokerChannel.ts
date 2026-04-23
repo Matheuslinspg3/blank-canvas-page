@@ -41,7 +41,7 @@ export function useBrokerChannel() {
   });
 
   const connectMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (_unused?: void) => {
       const { data, error } = await supabase.functions.invoke("whatsapp-broker-instance", {
         body: { action: "connect" },
       });

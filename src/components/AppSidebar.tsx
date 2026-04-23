@@ -12,6 +12,7 @@ import {
   Store,
   Plug,
   Code,
+  Smartphone,
   Building2,
   User,
   Zap,
