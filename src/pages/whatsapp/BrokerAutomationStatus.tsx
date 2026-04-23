@@ -118,7 +118,7 @@ export default function BrokerAutomationStatus() {
                 ) : (
                   <Badge variant="secondary" className="gap-1"><XCircle className="h-3 w-3" /> Inativo</Badge>
                 )}
-                <span className="text-xs text-muted-foreground">Cron: */15 * * * *</span>
+                <span className="text-xs text-muted-foreground">{"Cron: */15 * * * *"}</span>
               </div>
             </div>
           </CardContent>
