@@ -112,12 +112,23 @@ Deno.serve(async (req) => {
     return json({ processed: 0, skipped: "no_pending" });
   }
 
-  // ── 4. Load follow-up templates per user ──
+  // ── 4. Load follow-up templates and broker profiles per user ──
   const userIds = [
     ...new Set(
       Array.from(eligibleChannels.values()).map((c: any) => c.user_id)
     ),
   ];
+
+  // Load broker names
+  const { data: profiles } = await sb
+    .from("profiles")
+    .select("user_id, full_name")
+    .in("user_id", userIds);
+
+  const brokerNameByUserId = new Map<string, string>();
+  for (const p of profiles ?? []) {
+    brokerNameByUserId.set(p.user_id, p.full_name ?? "");
+  }
   const { data: templates } = await sb
     .from("broker_message_templates")
     .select("id, user_id, name, body")
