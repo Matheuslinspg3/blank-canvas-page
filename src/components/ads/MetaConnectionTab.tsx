@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAdAccount, useAdSettings } from "@/hooks/useAdSettings";
 import { useAuth } from "@/contexts/AuthContext";
@@ -6,7 +6,11 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, RefreshCw, WifiOff, Megaphone } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, RefreshCw, WifiOff, Megaphone, Timer, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import IntegrationConnectionCard from "./IntegrationConnectionCard";
 import CrmAutomationCard from "./CrmAutomationCard";
