@@ -4,10 +4,27 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, RotateCcw, Ban, Play, Clock, CheckCircle2, XCircle, MessageSquare, History, BarChart3 } from "lucide-react";
+import { Loader2, RotateCcw, Ban, Play, Clock, CheckCircle2, XCircle, MessageSquare, History, BarChart3, Zap, Timer, CalendarClock } from "lucide-react";
 import { useBrokerFollowUpQueue } from "@/hooks/whatsapp/useBrokerFollowUpQueue";
 import { useBrokerAutomation } from "@/hooks/whatsapp/useBrokerAutomation";
 import { useMemo } from "react";
+
+/** Calcula o próximo disparo de um cron */15 * * * * */
+function getNextCronFire() {
+  const now = new Date();
+  const mins = now.getMinutes();
+  const next = new Date(now);
+  const nextMin = Math.ceil((mins + 1) / 15) * 15;
+  if (nextMin >= 60) {
+    next.setHours(next.getHours() + 1);
+    next.setMinutes(0);
+  } else {
+    next.setMinutes(nextMin);
+  }
+  next.setSeconds(0);
+  next.setMilliseconds(0);
+  return next;
+}
 
 const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   pending: { label: "Pendente", variant: "default" },
