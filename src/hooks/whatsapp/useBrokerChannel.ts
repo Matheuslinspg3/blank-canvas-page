@@ -41,16 +41,18 @@ export function useBrokerChannel() {
   });
 
   const connectMutation = useMutation({
-    mutationFn: async (_unused?: void) => {
+    mutationFn: async (params?: { phoneNumber?: string } | void) => {
+      const phoneNumber = (params as any)?.phoneNumber;
       const { data, error } = await supabase.functions.invoke("whatsapp-broker-instance", {
-        body: { action: "connect" },
+        body: { action: "connect", phoneNumber },
       });
       if (error) throw error;
-      return data;
+      return data as { status: string; qr_code: string | null; pairing_code: string | null };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: [QK] });
-      toast.success("Conectando WhatsApp...");
+      if (data?.pairing_code) toast.success(`Código gerado: ${data.pairing_code}`);
+      else toast.success("Conectando WhatsApp...");
     },
     onError: (err: any) => toast.error(err?.message ?? "Erro ao conectar"),
   });
