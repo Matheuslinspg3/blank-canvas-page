@@ -9,6 +9,7 @@ const corsHeaders = {
 const JOB_NAME = "meta-ads-auto-sync";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -20,40 +21,35 @@ Deno.serve(async (req) => {
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: corsHeaders,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const supabase = createClient(
-      SUPABASE_URL,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
-    // Validate JWT
-    const token = authHeader.replace("Bearer ", "");
+    // Validate JWT via getUser
     const authClient = createClient(SUPABASE_URL, ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const { data: { user }, error: userError } = await authClient.auth.getUser();
+    if (userError || !user) {
+      console.error("[meta-cron-config] Auth error:", userError?.message);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: corsHeaders,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Only org admins should manage cron — check profile exists
-    const userId = claimsData.claims.sub as string;
+    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
     const { data: profile } = await supabase
       .from("profiles")
       .select("organization_id, role")
-      .eq("user_id", userId)
-      .single();
+      .eq("user_id", user.id)
+      .maybeSingle();
 
     if (!profile?.organization_id) {
       return new Response(JSON.stringify({ error: "No organization" }), {
         status: 400,
-        headers: corsHeaders,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -65,7 +61,6 @@ Deno.serve(async (req) => {
 
       if (jobErr) {
         console.error("[meta-cron-config] Error fetching cron job:", jobErr);
-        // Fallback: assume it's enabled with default interval
         return new Response(
           JSON.stringify({ enabled: true, schedule: "*/15 * * * *", interval_minutes: 15 }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -80,7 +75,6 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Parse interval from cron expression like "*/15 * * * *"
       const match = job.schedule?.match(/^\*\/(\d+) \* \* \* \*$/);
       const intervalMinutes = match ? parseInt(match[1], 10) : null;
 
@@ -99,7 +93,6 @@ Deno.serve(async (req) => {
     const { enabled, interval_minutes } = body;
 
     if (enabled === false) {
-      // Disable: unschedule the job
       await supabase.rpc("manage_cron_job", {
         p_action: "disable",
         p_job_name: JOB_NAME,
@@ -111,7 +104,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Enable or update interval
     const minutes = Math.max(5, Math.min(interval_minutes || 15, 60));
     const schedule = `*/${minutes} * * * *`;
 
@@ -130,7 +122,7 @@ Deno.serve(async (req) => {
     console.error("[meta-cron-config] Error:", err);
     return new Response(
       JSON.stringify({ error: err.message || "Internal error" }),
-      { status: 500, headers: corsHeaders }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
