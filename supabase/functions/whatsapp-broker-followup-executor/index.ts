@@ -204,7 +204,7 @@ Deno.serve(async (req) => {
       .replace(/\{lead\.name\}/gi, leadName)
       .replace(/\{imovel\}/gi, propertyInterest)
       .replace(/\{telefone\}/gi, leadPhone)
-      .replace(/\{corretor\}/gi, "") // filled below if profile available
+      .replace(/\{corretor\}/gi, brokerNameByUserId.get(ch.user_id) ?? "")
       .replace(/\{data\}/gi, today)
       .replace(/\{tentativa\}/gi, String(row.attempt_count + 1))
       .trim();
