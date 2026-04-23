@@ -126,6 +126,10 @@ serve(async (req) => {
         return json({ error: "Assistentes não podem conectar WhatsApp individual" }, 403);
       }
 
+      // Optional phone number for pairing code mode
+      const rawPhone = String(body.phoneNumber ?? "").replace(/\D/g, "");
+      const usePairing = rawPhone.length >= 10;
+
       // Get org slug for instance naming
       const { data: org } = await sb.from("organizations").select("slug, name").eq("id", orgId).single();
       const orgSlug = org?.slug || orgId.substring(0, 8);
@@ -146,36 +150,69 @@ serve(async (req) => {
       const webhookUrl = `${supabaseUrl}/functions/v1/whatsapp-broker-webhook`;
 
       try {
+        const createBody: Record<string, unknown> = {
+          instanceName,
+          integration: "WHATSAPP-BAILEYS",
+          qrcode: !usePairing,
+          webhook: {
+            url: webhookUrl,
+            enabled: true,
+            events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "QRCODE_UPDATED"],
+            webhook_by_events: false,
+          },
+        };
+        if (usePairing) createBody.number = rawPhone;
+
         const createRes = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
           method: "POST",
           headers: { apikey: EVOLUTION_API_KEY, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            instanceName,
-            integration: "WHATSAPP-BAILEYS",
-            qrcode: true,
-            webhook: {
-              url: webhookUrl,
-              enabled: true,
-              events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "QRCODE_UPDATED"],
-              webhook_by_events: false,
-            },
-          }),
+          body: JSON.stringify(createBody),
         });
 
         const createData = await createRes.json();
         console.log("Evolution create response:", JSON.stringify(createData).substring(0, 500));
 
         const token = createData?.hash?.apikey || createData?.token || createData?.instance?.token || null;
-        const qrCode = createData?.qrcode?.base64 || createData?.qr || createData?.base64 || null;
+        let qrCode = createData?.qrcode?.base64 || createData?.qr || createData?.base64 || null;
+        let pairingCode =
+          createData?.qrcode?.pairingCode ||
+          createData?.pairingCode ||
+          createData?.code ||
+          null;
+
+        // If pairing requested but not returned on create, call connect endpoint
+        if (usePairing && !pairingCode) {
+          try {
+            const connRes = await fetch(
+              `${EVOLUTION_API_URL}/instance/connect/${instanceName}?number=${rawPhone}`,
+              { method: "GET", headers: { apikey: EVOLUTION_API_KEY } },
+            );
+            const connData = await connRes.json().catch(() => ({}));
+            pairingCode =
+              connData?.pairingCode ||
+              connData?.code ||
+              connData?.qrcode?.pairingCode ||
+              pairingCode;
+            qrCode = connData?.base64 || connData?.qrcode?.base64 || qrCode;
+          } catch (e) {
+            console.warn("Evolution pairing connect failed:", e);
+          }
+        }
 
         await sb.from("broker_whatsapp_channels").update({
           instance_token: token,
           webhook_url: webhookUrl,
           qr_code: qrCode,
-          status: qrCode ? "connecting" : "connecting",
+          phone_number: usePairing ? rawPhone : null,
+          status: "connecting",
         }).eq("id", channel.id);
 
-        return json({ status: "connecting", qr_code: qrCode, instance_name: instanceName });
+        return json({
+          status: "connecting",
+          qr_code: qrCode,
+          pairing_code: pairingCode,
+          instance_name: instanceName,
+        });
       } catch (e) {
         console.error("Evolution create failed:", e);
         await sb.from("broker_whatsapp_channels").update({ status: "disconnected" }).eq("id", channel.id);
