@@ -33,10 +33,12 @@ Deno.serve(async (req) => {
 
   const hasValidSecret = expectedSecret && webhookSecret === expectedSecret;
   const hasServiceKey =
-    serviceRoleKey &&
-    (authHeader.includes(serviceRoleKey) || authHeader.includes(anonKey));
+    serviceRoleKey && authHeader.includes(serviceRoleKey);
+  const hasAnonKey = anonKey && authHeader.includes(anonKey);
 
-  if (!hasValidSecret && !hasServiceKey) {
+  console.log(`[broker-followup-executor] Auth check: secret=${!!hasValidSecret}, serviceKey=${!!hasServiceKey}, anonKey=${!!hasAnonKey}`);
+
+  if (!hasValidSecret && !hasServiceKey && !hasAnonKey) {
     return errorResponse("Unauthorized", 401);
   }
 
