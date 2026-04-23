@@ -51,7 +51,17 @@ export function BatchVariationsDialog({
     try {
       const nonEmptyRows = rows.filter((r) => !isRowEmpty(r));
       const validationErrors = await validateRows(nonEmptyRows);
-      setErrors(validationErrors);
+
+      // Map filtered indices back to original row indices
+      const nonEmptyIndices = rows
+        .map((r, i) => (!isRowEmpty(r) ? i : -1))
+        .filter((i) => i !== -1);
+      const remappedErrors = validationErrors.map((e) => ({
+        ...e,
+        rowIndex: nonEmptyIndices[e.rowIndex] ?? e.rowIndex,
+      }));
+
+      setErrors(remappedErrors);
       setReviewOpen(true);
     } finally {
       setIsValidating(false);
