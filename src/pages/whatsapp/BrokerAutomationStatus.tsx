@@ -9,7 +9,7 @@ import { useBrokerFollowUpQueue } from "@/hooks/whatsapp/useBrokerFollowUpQueue"
 import { useBrokerAutomation } from "@/hooks/whatsapp/useBrokerAutomation";
 import { useMemo } from "react";
 
-/** Calcula o próximo disparo de um cron */15 * * * * */
+// Calcula o próximo disparo do cron (a cada 15 min)
 function getNextCronFire() {
   const now = new Date();
   const mins = now.getMinutes();
