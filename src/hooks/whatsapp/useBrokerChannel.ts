@@ -94,6 +94,8 @@ export function useBrokerChannel() {
     isLoading: query.isLoading,
     refetch: query.refetch,
     connect: connectMutation.mutate,
+    connectAsync: connectMutation.mutateAsync,
+    pairingCode: connectMutation.data?.pairing_code ?? null,
     disconnect: disconnectMutation.mutate,
     deleteInstance: deleteMutation.mutate,
     isConnecting: connectMutation.isPending,
