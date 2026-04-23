@@ -10160,6 +10160,15 @@ export type Database = {
         }
         Returns: string
       }
+      get_cron_job_status: {
+        Args: { p_job_name: string }
+        Returns: {
+          active: boolean
+          jobid: number
+          jobname: string
+          schedule: string
+        }[]
+      }
       get_current_user_role: { Args: never; Returns: string }
       get_invite_for_acceptance: {
         Args: { p_invite_id: string }
@@ -10566,6 +10575,15 @@ export type Database = {
           p_org_id: string
         }
         Returns: string
+      }
+      manage_cron_job: {
+        Args: {
+          p_action: string
+          p_command?: string
+          p_job_name: string
+          p_schedule?: string
+        }
+        Returns: undefined
       }
       mark_conversation_read: {
         Args: { p_conversation_id: string; p_read_at?: string }
