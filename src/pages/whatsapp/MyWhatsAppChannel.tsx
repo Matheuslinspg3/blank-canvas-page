@@ -28,6 +28,16 @@ export default function MyWhatsAppChannel() {
           <div className="lg:col-span-2 space-y-6">
             <BrokerConnectionCard />
             <BrokerAutomationCard />
+
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" asChild className="gap-1.5">
+                <Link to="/whatsapp/automacoes">
+                  <BarChart3 className="h-4 w-4" />
+                  Ver status e histórico
+                </Link>
+              </Button>
+            </div>
+
             <BrokerTemplatesCard />
           </div>
 
