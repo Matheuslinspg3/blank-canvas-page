@@ -1,9 +1,11 @@
 import { Helmet } from "react-helmet-async";
+import { Link } from "react-router-dom";
 import { BrokerConnectionCard } from "@/components/whatsapp/BrokerConnectionCard";
 import { BrokerTemplatesCard } from "@/components/whatsapp/BrokerTemplatesCard";
 import { BrokerAutomationCard } from "@/components/whatsapp/BrokerAutomationCard";
 import { Card, CardContent } from "@/components/ui/card";
-import { MessageSquare, Shield, Zap } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { MessageSquare, Shield, Zap, BarChart3 } from "lucide-react";
 
 export default function MyWhatsAppChannel() {
   return (
@@ -26,6 +28,16 @@ export default function MyWhatsAppChannel() {
           <div className="lg:col-span-2 space-y-6">
             <BrokerConnectionCard />
             <BrokerAutomationCard />
+
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" asChild className="gap-1.5">
+                <Link to="/whatsapp/automacoes">
+                  <BarChart3 className="h-4 w-4" />
+                  Ver status e histórico
+                </Link>
+              </Button>
+            </div>
+
             <BrokerTemplatesCard />
           </div>
 
