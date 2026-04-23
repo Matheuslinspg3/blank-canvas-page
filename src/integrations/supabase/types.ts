@@ -2056,6 +2056,63 @@ export type Database = {
           },
         ]
       }
+      broker_whatsapp_channels: {
+        Row: {
+          created_at: string
+          id: string
+          instance_name: string | null
+          instance_token: string | null
+          organization_id: string
+          phone_number: string | null
+          qr_code: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          webhook_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          instance_name?: string | null
+          instance_token?: string | null
+          organization_id: string
+          phone_number?: string | null
+          qr_code?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          webhook_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          instance_name?: string | null
+          instance_token?: string | null
+          organization_id?: string
+          phone_number?: string | null
+          qr_code?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          webhook_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broker_whatsapp_channels_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broker_whatsapp_channels_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+        ]
+      }
       buildings: {
         Row: {
           address_city: string | null
@@ -4841,6 +4898,7 @@ export type Database = {
       messages: {
         Row: {
           channel_account_id: string
+          channel_subtype: string | null
           channel_type: Database["public"]["Enums"]["channel_type"]
           content_text: string | null
           content_type: string
@@ -4859,6 +4917,7 @@ export type Database = {
         }
         Insert: {
           channel_account_id: string
+          channel_subtype?: string | null
           channel_type: Database["public"]["Enums"]["channel_type"]
           content_text?: string | null
           content_type?: string
@@ -4879,6 +4938,7 @@ export type Database = {
         }
         Update: {
           channel_account_id?: string
+          channel_subtype?: string | null
           channel_type?: Database["public"]["Enums"]["channel_type"]
           content_text?: string | null
           content_type?: string
@@ -9023,6 +9083,8 @@ export type Database = {
         Row: {
           ai_model: string | null
           ai_provider: string | null
+          broker_channel_id: string | null
+          channel_type: string
           created_at: string
           estimated_cost_usd: number | null
           from_me: boolean
@@ -9044,6 +9106,8 @@ export type Database = {
         Insert: {
           ai_model?: string | null
           ai_provider?: string | null
+          broker_channel_id?: string | null
+          channel_type?: string
           created_at?: string
           estimated_cost_usd?: number | null
           from_me?: boolean
@@ -9065,6 +9129,8 @@ export type Database = {
         Update: {
           ai_model?: string | null
           ai_provider?: string | null
+          broker_channel_id?: string | null
+          channel_type?: string
           created_at?: string
           estimated_cost_usd?: number | null
           from_me?: boolean
@@ -9084,6 +9150,13 @@ export type Database = {
           tokens_total?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_broker_channel_id_fkey"
+            columns: ["broker_channel_id"]
+            isOneToOne: false
+            referencedRelation: "broker_whatsapp_channels"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "whatsapp_messages_organization_id_fkey"
             columns: ["organization_id"]

@@ -22,6 +22,13 @@ function extractWhatsappPhone(externalContactId: string): string {
 async function sendViaWhatsApp(conv: Conversation, payload: SendPayload) {
   const phone = extractWhatsappPhone(conv.external_contact_id);
 
+  // Check if conversation belongs to a broker channel (channel_subtype or metadata)
+  const isBrokerChannel = await checkIsBrokerChannel(conv.channel_account_id);
+
+  if (isBrokerChannel) {
+    return sendViaBrokerWhatsApp(conv, phone, payload);
+  }
+
   // Adapter envia apenas referência estável (channelAccountId). A edge
   // `whatsapp-send` resolve server-side a instância real, valida org/canal/
   // status. Cliente nunca é fonte de verdade do nome da instância.
@@ -37,6 +44,44 @@ async function sendViaWhatsApp(conv: Conversation, payload: SendPayload) {
   }
 
   const { data, error } = await supabase.functions.invoke("whatsapp-send", { body });
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Check if a channel_account belongs to a broker WhatsApp channel.
+ */
+async function checkIsBrokerChannel(channelAccountId: string): Promise<boolean> {
+  try {
+    const { data } = await supabase
+      .from("channel_accounts")
+      .select("source_table, metadata")
+      .eq("id", channelAccountId)
+      .maybeSingle();
+    if (data?.source_table === "broker_whatsapp_channels") return true;
+    if ((data?.metadata as any)?.channel_subtype === "broker") return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Send via broker's individual WhatsApp channel (whatsapp-broker-send).
+ */
+async function sendViaBrokerWhatsApp(conv: Conversation, phone: string, payload: SendPayload) {
+  const body: Record<string, unknown> = {
+    channelAccountId: conv.channel_account_id,
+    phone,
+    message: payload.text,
+    type: payload.mediaUrl ? "media" : "text",
+  };
+  if (payload.mediaUrl) {
+    body.mediaUrl = payload.mediaUrl;
+    body.mediaType = payload.mediaType ?? "image";
+  }
+
+  const { data, error } = await supabase.functions.invoke("whatsapp-broker-send", { body });
   if (error) throw error;
   return data;
 }

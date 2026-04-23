@@ -12,6 +12,7 @@ import {
   Store,
   Plug,
   Code,
+  Smartphone,
   Building2,
   User,
   Zap,
@@ -206,6 +207,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {mainItems.map(renderMenuItem)}
+              {renderMenuItem({ title: "Meu WhatsApp", url: "/whatsapp/meu-canal", icon: Smartphone })}
               {isAdminOrAbove && renderMenuItem({ title: "Automações", url: "/automacoes", icon: Zap })}
             </SidebarMenu>
           </SidebarGroupContent>
@@ -219,6 +221,7 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {renderMenuItem({ title: "Meu Site", url: "/site", icon: Globe })}
+                {renderMenuItem({ title: "Canais da Equipe", url: "/whatsapp/canais-equipe", icon: Smartphone })}
                 {renderMenuItem({ title: "Administração", url: "/administracao", icon: UserCog })}
                 {renderMenuItem({ title: "Integrações", url: "/integracoes", icon: Plug })}
               </SidebarMenu>
