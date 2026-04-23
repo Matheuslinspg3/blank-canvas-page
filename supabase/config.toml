@@ -131,3 +131,12 @@ verify_jwt = false
 
 [functions.manage-custom-domain]
 verify_jwt = false
+
+[functions.whatsapp-broker-followup-executor]
+verify_jwt = false
+
+[functions.whatsapp-broker-followup-batch]
+verify_jwt = false
+
+[functions.whatsapp-broker-followup-update]
+verify_jwt = false
