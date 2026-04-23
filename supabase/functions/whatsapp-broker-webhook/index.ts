@@ -96,6 +96,9 @@ serve(async (req) => {
       const messages = body.data ?? [];
       const msgArray = Array.isArray(messages) ? messages : [messages];
 
+      const EVOLUTION_API_URL = (Deno.env.get("EVOLUTION_API_URL") ?? "").replace(/\/$/, "");
+      const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
+
       for (const msg of msgArray) {
         const key = msg.key ?? {};
         const remoteJid = key.remoteJid ?? msg.remoteJid ?? "";
@@ -135,9 +138,82 @@ serve(async (req) => {
         });
 
         if (insertErr) {
-          // Duplicate message_id — skip silently
           if (insertErr.code === "23505") continue;
           console.error("[broker-webhook] Insert error:", insertErr);
+          continue;
+        }
+
+        // ── AUTO-GREETING (first contact, inbound only) ──
+        if (!fromMe && channel.status === "connected") {
+          try {
+            // Reload channel with greeting config
+            const { data: chFull } = await sb
+              .from("broker_whatsapp_channels")
+              .select("greeting_enabled, greeting_template_id, user_id")
+              .eq("id", channel.id)
+              .single();
+
+            if (chFull?.greeting_enabled && chFull.greeting_template_id) {
+              // Check if this is first contact (no previous messages from this jid)
+              const { count } = await sb
+                .from("whatsapp_messages")
+                .select("id", { count: "exact", head: true })
+                .eq("instance_name", instanceName)
+                .eq("remote_jid", remoteJid)
+                .eq("channel_type", "broker")
+                .neq("message_id", messageId);
+
+              if (count === 0) {
+                // Get greeting template
+                const { data: tmpl } = await sb
+                  .from("broker_message_templates")
+                  .select("body")
+                  .eq("id", chFull.greeting_template_id)
+                  .eq("is_active", true)
+                  .single();
+
+                if (tmpl?.body && EVOLUTION_API_URL && EVOLUTION_API_KEY) {
+                  // Replace placeholders
+                  const pushName = msg.pushName ?? msg.verifiedBizName ?? "";
+                  const greetingText = tmpl.body
+                    .replace(/\{nome\}/gi, pushName || "")
+                    .replace(/\{lead\.name\}/gi, pushName || "")
+                    .trim();
+
+                  if (greetingText) {
+                    const sendRes = await fetch(`${EVOLUTION_API_URL}/message/sendText/${instanceName}`, {
+                      method: "POST",
+                      headers: { apikey: EVOLUTION_API_KEY, "Content-Type": "application/json" },
+                      body: JSON.stringify({ number: remoteJid, text: greetingText }),
+                    });
+
+                    if (sendRes.ok) {
+                      const sendData = await sendRes.json();
+                      const greetMsgId = sendData?.key?.id ?? crypto.randomUUID();
+
+                      await sb.from("whatsapp_messages").insert({
+                        organization_id: channel.organization_id,
+                        instance_name: instanceName,
+                        remote_jid: remoteJid,
+                        from_me: true,
+                        message_id: greetMsgId,
+                        message_type: "text",
+                        message_text: greetingText,
+                        sender_type: "system",
+                        timestamp: new Date().toISOString(),
+                        channel_type: "broker",
+                        broker_channel_id: channel.id,
+                      });
+
+                      console.log(`[broker-webhook] Auto-greeting sent to ${remoteJid}`);
+                    }
+                  }
+                }
+              }
+            }
+          } catch (greetErr) {
+            console.warn("[broker-webhook] Greeting error:", greetErr);
+          }
         }
       }
 
