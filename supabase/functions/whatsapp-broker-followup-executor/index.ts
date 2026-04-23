@@ -182,11 +182,19 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    // Replace placeholders
+    // Replace all supported placeholders
     const leadName = row.lead_name ?? "";
+    const leadPhone = row.lead_phone ?? "";
+    const propertyInterest = row.property_interest ?? "";
+    const today = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+
     const messageText = template.body
       .replace(/\{nome\}/gi, leadName)
       .replace(/\{lead\.name\}/gi, leadName)
+      .replace(/\{imovel\}/gi, propertyInterest)
+      .replace(/\{telefone\}/gi, leadPhone)
+      .replace(/\{corretor\}/gi, "") // filled below if profile available
+      .replace(/\{data\}/gi, today)
       .replace(/\{tentativa\}/gi, String(row.attempt_count + 1))
       .trim();
 
