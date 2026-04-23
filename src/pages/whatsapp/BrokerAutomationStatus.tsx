@@ -59,9 +59,9 @@ export default function BrokerAutomationStatus() {
         {/* Stats cards */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <StatCard icon={<BarChart3 className="h-4 w-4" />} label="Total na fila" value={stats.total} />
-          <StatCard icon={<Clock className="h-4 w-4 text-yellow-500" />} label="Pendentes" value={stats.pending} />
-          <StatCard icon={<MessageSquare className="h-4 w-4 text-blue-500" />} label="Responderam" value={stats.responded} />
-          <StatCard icon={<CheckCircle2 className="h-4 w-4 text-green-500" />} label="Concluídos" value={stats.completed} />
+          <StatCard icon={<Clock className="h-4 w-4 text-muted-foreground" />} label="Pendentes" value={stats.pending} />
+          <StatCard icon={<MessageSquare className="h-4 w-4 text-primary" />} label="Responderam" value={stats.responded} />
+          <StatCard icon={<CheckCircle2 className="h-4 w-4 text-primary" />} label="Concluídos" value={stats.completed} />
           <StatCard icon={<XCircle className="h-4 w-4 text-destructive" />} label="Opt-out" value={stats.optedOut} />
         </div>
 
