@@ -106,7 +106,22 @@ export function VariationsGrid({ rows, onChange, errors = [] }: VariationsGridPr
           if (ci < cells.length && cells[ci]) {
             const val = cells[ci];
             if (col.type === "number") {
-              const num = Number(val.replace(/[^\d.,\-]/g, "").replace(",", "."));
+              const cleaned = val.replace(/[^\d.,\-]/g, "");
+              const hasComma = cleaned.includes(",");
+              const hasDot = cleaned.includes(".");
+              let sanitized = cleaned;
+              if (hasComma && hasDot) {
+                sanitized = cleaned.replace(/\./g, "").replace(",", ".");
+              } else if (hasComma) {
+                if (/,\d{3}$/.test(cleaned)) {
+                  sanitized = cleaned.replace(",", "");
+                } else {
+                  sanitized = cleaned.replace(",", ".");
+                }
+              } else if (hasDot && /\.\d{3}$/.test(cleaned)) {
+                sanitized = cleaned.replace(/\./g, "");
+              }
+              const num = Number(sanitized);
               (row as any)[col.key] = isNaN(num) ? null : num;
             } else {
               (row as any)[col.key] = val;
