@@ -107,7 +107,7 @@ export function BrokerConnectionCard() {
             <>
               <Button
                 variant="outline"
-                onClick={() => disconnect()}
+                onClick={() => disconnect(undefined)}
                 disabled={isDisconnecting}
                 className="gap-2"
               >
@@ -117,7 +117,7 @@ export function BrokerConnectionCard() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => deleteInstance()}
+                onClick={() => deleteInstance(undefined)}
                 className="text-destructive hover:text-destructive"
                 title="Remover instância"
               >
