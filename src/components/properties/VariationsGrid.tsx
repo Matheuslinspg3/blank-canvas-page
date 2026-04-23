@@ -24,6 +24,36 @@ export function VariationsGrid({ rows, onChange, errors = [] }: VariationsGridPr
   const getFieldError = (rowIndex: number, field: string) =>
     errors.find((e) => e.rowIndex === rowIndex && e.field === field);
 
+  const parseLocalizedNumber = useCallback((value: string): number | null => {
+    if (!value || value.trim() === "") return null;
+    // Handle Brazilian format: 450.000,50 → 450000.50
+    // If value contains both dots and commas, dots are thousands separators
+    const hasComma = value.includes(",");
+    const hasDot = value.includes(".");
+    let sanitized = value;
+    if (hasComma && hasDot) {
+      // 450.000,50 → 450000.50
+      sanitized = value.replace(/\./g, "").replace(",", ".");
+    } else if (hasComma && !hasDot) {
+      // 450000,50 → 450000.50 OR 450,000 → could be ambiguous
+      // If comma is followed by exactly 3 digits at end, treat as thousands separator
+      if (/,\d{3}$/.test(value) && !/,\d{1,2}$/.test(value)) {
+        sanitized = value.replace(",", "");
+      } else {
+        sanitized = value.replace(",", ".");
+      }
+    } else if (hasDot && !hasComma) {
+      // 450.000 → could be 450 (decimal) or 450000 (thousands)
+      // If dot is followed by exactly 3 digits at end, treat as thousands separator
+      if (/\.\d{3}$/.test(value) && (value.match(/\./g) || []).length >= 1) {
+        sanitized = value.replace(/\./g, "");
+      }
+      // else keep as-is (e.g. 450.5 stays 450.5)
+    }
+    const num = Number(sanitized);
+    return isNaN(num) ? null : num;
+  }, []);
+
   const updateRow = useCallback(
     (rowId: string, field: ColumnKey, value: string) => {
       onChange(
@@ -31,14 +61,14 @@ export function VariationsGrid({ rows, onChange, errors = [] }: VariationsGridPr
           if (r.id !== rowId) return r;
           const col = COLUMNS.find((c) => c.key === field)!;
           if (col.type === "number") {
-            const num = value === "" ? null : Number(value);
+            const num = parseLocalizedNumber(value);
             return { ...r, [field]: num };
           }
           return { ...r, [field]: value };
         })
       );
     },
-    [rows, onChange]
+    [rows, onChange, parseLocalizedNumber]
   );
 
   const addRow = () => onChange([...rows, createEmptyRow()]);
@@ -76,7 +106,22 @@ export function VariationsGrid({ rows, onChange, errors = [] }: VariationsGridPr
           if (ci < cells.length && cells[ci]) {
             const val = cells[ci];
             if (col.type === "number") {
-              const num = Number(val.replace(/[^\d.,\-]/g, "").replace(",", "."));
+              const cleaned = val.replace(/[^\d.,\-]/g, "");
+              const hasComma = cleaned.includes(",");
+              const hasDot = cleaned.includes(".");
+              let sanitized = cleaned;
+              if (hasComma && hasDot) {
+                sanitized = cleaned.replace(/\./g, "").replace(",", ".");
+              } else if (hasComma) {
+                if (/,\d{3}$/.test(cleaned)) {
+                  sanitized = cleaned.replace(",", "");
+                } else {
+                  sanitized = cleaned.replace(",", ".");
+                }
+              } else if (hasDot && /\.\d{3}$/.test(cleaned)) {
+                sanitized = cleaned.replace(/\./g, "");
+              }
+              const num = Number(sanitized);
               (row as any)[col.key] = isNaN(num) ? null : num;
             } else {
               (row as any)[col.key] = val;
@@ -136,7 +181,8 @@ export function VariationsGrid({ rows, onChange, errors = [] }: VariationsGridPr
                   return (
                     <TableCell key={col.key} className="p-1">
                       <Input
-                        type={col.type === "number" ? "number" : "text"}
+                        type={col.key === "sale_price" ? "text" : col.type === "number" ? "number" : "text"}
+                        inputMode={col.key === "sale_price" ? "numeric" : undefined}
                         value={
                           col.type === "number"
                             ? (row as any)[col.key] ?? ""
