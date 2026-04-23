@@ -13,9 +13,9 @@ export function UpdateBanner() {
     updateServiceWorker,
   } = useRegisterSW({
     onRegisteredSW(_swUrl, registration) {
-      // Check for updates every 60s via official API
+      // Check for SW updates every 30s
       if (registration) {
-        setInterval(() => registration.update(), 60_000);
+        setInterval(() => registration.update(), 30_000);
       }
     },
     onRegisterError(error) {
