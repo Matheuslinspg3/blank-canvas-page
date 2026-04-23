@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
     serviceRoleKey && authHeader.includes(serviceRoleKey);
   const hasAnonKey = anonKey && authHeader.includes(anonKey);
 
-  console.log(`[broker-followup-executor] Auth check: secret=${!!hasValidSecret}, serviceKey=${!!hasServiceKey}, anonKey=${!!hasAnonKey}`);
+  console.log(`[broker-followup-executor] Auth: method=${req.method}`);
 
   if (!hasValidSecret && !hasServiceKey && !hasAnonKey) {
     return errorResponse("Unauthorized", 401);
