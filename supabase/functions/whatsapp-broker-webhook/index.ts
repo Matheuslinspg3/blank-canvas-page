@@ -146,69 +146,95 @@ serve(async (req) => {
         // ── AUTO-GREETING (first contact, inbound only) ──
         if (!fromMe && channel.status === "connected") {
           try {
-            // Reload channel with greeting config
+            // Reload channel with greeting + followup config
             const { data: chFull } = await sb
               .from("broker_whatsapp_channels")
-              .select("greeting_enabled, greeting_template_id, user_id")
+              .select("greeting_enabled, greeting_template_id, user_id, followup_enabled, followup_intervals, followup_max_attempts")
               .eq("id", channel.id)
               .single();
 
-            if (chFull?.greeting_enabled && chFull.greeting_template_id) {
-              // Check if this is first contact (no previous messages from this jid)
-              const { count } = await sb
-                .from("whatsapp_messages")
-                .select("id", { count: "exact", head: true })
-                .eq("instance_name", instanceName)
-                .eq("remote_jid", remoteJid)
-                .eq("channel_type", "broker")
-                .neq("message_id", messageId);
+            // Check if this is first contact (no previous messages from this jid)
+            const { count } = await sb
+              .from("whatsapp_messages")
+              .select("id", { count: "exact", head: true })
+              .eq("instance_name", instanceName)
+              .eq("remote_jid", remoteJid)
+              .eq("channel_type", "broker")
+              .neq("message_id", messageId);
 
-              if (count === 0) {
-                // Get greeting template
-                const { data: tmpl } = await sb
-                  .from("broker_message_templates")
-                  .select("body")
-                  .eq("id", chFull.greeting_template_id)
-                  .eq("is_active", true)
-                  .single();
+            const isFirstContact = count === 0;
 
-                if (tmpl?.body && EVOLUTION_API_URL && EVOLUTION_API_KEY) {
-                  // Replace placeholders
-                  const pushName = msg.pushName ?? msg.verifiedBizName ?? "";
-                  const greetingText = tmpl.body
-                    .replace(/\{nome\}/gi, pushName || "")
-                    .replace(/\{lead\.name\}/gi, pushName || "")
-                    .trim();
+            // ── Send greeting on first contact ──
+            if (isFirstContact && chFull?.greeting_enabled && chFull.greeting_template_id) {
+              const { data: tmpl } = await sb
+                .from("broker_message_templates")
+                .select("body")
+                .eq("id", chFull.greeting_template_id)
+                .eq("is_active", true)
+                .single();
 
-                  if (greetingText) {
-                    const sendRes = await fetch(`${EVOLUTION_API_URL}/message/sendText/${instanceName}`, {
-                      method: "POST",
-                      headers: { apikey: EVOLUTION_API_KEY, "Content-Type": "application/json" },
-                      body: JSON.stringify({ number: remoteJid, text: greetingText }),
+              if (tmpl?.body && EVOLUTION_API_URL && EVOLUTION_API_KEY) {
+                const pushName = msg.pushName ?? msg.verifiedBizName ?? "";
+                const greetingText = tmpl.body
+                  .replace(/\{nome\}/gi, pushName || "")
+                  .replace(/\{lead\.name\}/gi, pushName || "")
+                  .trim();
+
+                if (greetingText) {
+                  const sendRes = await fetch(`${EVOLUTION_API_URL}/message/sendText/${instanceName}`, {
+                    method: "POST",
+                    headers: { apikey: EVOLUTION_API_KEY, "Content-Type": "application/json" },
+                    body: JSON.stringify({ number: remoteJid, text: greetingText }),
+                  });
+
+                  if (sendRes.ok) {
+                    const sendData = await sendRes.json();
+                    const greetMsgId = sendData?.key?.id ?? crypto.randomUUID();
+
+                    await sb.from("whatsapp_messages").insert({
+                      organization_id: channel.organization_id,
+                      instance_name: instanceName,
+                      remote_jid: remoteJid,
+                      from_me: true,
+                      message_id: greetMsgId,
+                      message_type: "text",
+                      message_text: greetingText,
+                      sender_type: "system",
+                      timestamp: new Date().toISOString(),
+                      channel_type: "broker",
+                      broker_channel_id: channel.id,
                     });
 
-                    if (sendRes.ok) {
-                      const sendData = await sendRes.json();
-                      const greetMsgId = sendData?.key?.id ?? crypto.randomUUID();
-
-                      await sb.from("whatsapp_messages").insert({
-                        organization_id: channel.organization_id,
-                        instance_name: instanceName,
-                        remote_jid: remoteJid,
-                        from_me: true,
-                        message_id: greetMsgId,
-                        message_type: "text",
-                        message_text: greetingText,
-                        sender_type: "system",
-                        timestamp: new Date().toISOString(),
-                        channel_type: "broker",
-                        broker_channel_id: channel.id,
-                      });
-
-                      console.log(`[broker-webhook] Auto-greeting sent to ${remoteJid}`);
-                    }
+                    console.log(`[broker-webhook] Auto-greeting sent to ${remoteJid}`);
                   }
                 }
+              }
+            }
+
+            // ── Enqueue in follow_up_queue on first contact ──
+            if (isFirstContact && chFull?.followup_enabled) {
+              const phone = remoteJid.replace(/@s\.whatsapp\.net$/, "");
+              const intervals = (chFull.followup_intervals as number[]) ?? [24, 48, 72];
+              const firstIntervalHours = intervals[0] ?? 24;
+              const nextFollowup = new Date(Date.now() + firstIntervalHours * 3600 * 1000).toISOString();
+
+              const { error: queueErr } = await sb.from("follow_up_queue").insert({
+                org_id: channel.organization_id,
+                lead_phone: phone,
+                lead_name: msg.pushName ?? msg.verifiedBizName ?? null,
+                instance_name: instanceName,
+                status: "pending",
+                attempt_count: 0,
+                next_followup_at: nextFollowup,
+                last_inbound_at: new Date().toISOString(),
+                channel_type: "broker",
+                broker_channel_id: channel.id,
+              });
+
+              if (queueErr && queueErr.code !== "23505") {
+                console.warn("[broker-webhook] Follow-up queue insert error:", queueErr);
+              } else {
+                console.log(`[broker-webhook] Enqueued follow-up for ${phone} on broker channel`);
               }
             }
           } catch (greetErr) {
