@@ -181,7 +181,8 @@ export function VariationsGrid({ rows, onChange, errors = [] }: VariationsGridPr
                   return (
                     <TableCell key={col.key} className="p-1">
                       <Input
-                        type={col.type === "number" ? "number" : "text"}
+                        type={col.key === "sale_price" ? "text" : col.type === "number" ? "number" : "text"}
+                        inputMode={col.key === "sale_price" ? "numeric" : undefined}
                         value={
                           col.type === "number"
                             ? (row as any)[col.key] ?? ""
