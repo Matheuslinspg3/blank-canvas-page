@@ -124,7 +124,8 @@ export default function BrokerAutomationStatus() {
           </CardContent>
         </Card>
 
-
+        {/* Config summary */}
+        {config && (
           <Card>
             <CardContent className="py-3 px-4">
               <div className="flex flex-wrap items-center gap-4 text-sm">
