@@ -112,12 +112,23 @@ Deno.serve(async (req) => {
     return json({ processed: 0, skipped: "no_pending" });
   }
 
-  // ── 4. Load follow-up templates per user ──
+  // ── 4. Load follow-up templates and broker profiles per user ──
   const userIds = [
     ...new Set(
       Array.from(eligibleChannels.values()).map((c: any) => c.user_id)
     ),
   ];
+
+  // Load broker names
+  const { data: profiles } = await sb
+    .from("profiles")
+    .select("user_id, full_name")
+    .in("user_id", userIds);
+
+  const brokerNameByUserId = new Map<string, string>();
+  for (const p of profiles ?? []) {
+    brokerNameByUserId.set(p.user_id, p.full_name ?? "");
+  }
   const { data: templates } = await sb
     .from("broker_message_templates")
     .select("id, user_id, name, body")
@@ -182,11 +193,19 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    // Replace placeholders
+    // Replace all supported placeholders
     const leadName = row.lead_name ?? "";
+    const leadPhone = row.lead_phone ?? "";
+    const propertyInterest = row.property_interest ?? "";
+    const today = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+
     const messageText = template.body
       .replace(/\{nome\}/gi, leadName)
       .replace(/\{lead\.name\}/gi, leadName)
+      .replace(/\{imovel\}/gi, propertyInterest)
+      .replace(/\{telefone\}/gi, leadPhone)
+      .replace(/\{corretor\}/gi, brokerNameByUserId.get(ch.user_id) ?? "")
+      .replace(/\{data\}/gi, today)
       .replace(/\{tentativa\}/gi, String(row.attempt_count + 1))
       .trim();
 

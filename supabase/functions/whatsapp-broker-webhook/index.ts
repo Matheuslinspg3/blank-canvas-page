@@ -175,9 +175,15 @@ serve(async (req) => {
 
               if (tmpl?.body && EVOLUTION_API_URL && EVOLUTION_API_KEY) {
                 const pushName = msg.pushName ?? msg.verifiedBizName ?? "";
+                const today = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
                 const greetingText = tmpl.body
                   .replace(/\{nome\}/gi, pushName || "")
                   .replace(/\{lead\.name\}/gi, pushName || "")
+                  .replace(/\{imovel\}/gi, "")
+                  .replace(/\{telefone\}/gi, remoteJid.replace(/@s\.whatsapp\.net$/, ""))
+                  .replace(/\{corretor\}/gi, "")
+                  .replace(/\{data\}/gi, today)
+                  .replace(/\{tentativa\}/gi, "1")
                   .trim();
 
                 if (greetingText) {
