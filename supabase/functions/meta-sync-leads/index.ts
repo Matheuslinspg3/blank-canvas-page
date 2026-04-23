@@ -8,6 +8,107 @@ const corsHeaders = {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// ─── Robust dedup helper ───
+
+function normalizePhone(raw: string): string {
+  return raw.replace(/\D/g, "").replace(/^0+/, "");
+}
+
+function normalizeEmail(raw: string): string {
+  return raw.trim().toLowerCase();
+}
+
+/**
+ * Finds an existing CRM lead by email (case-insensitive), phone (suffix match),
+ * or exact name match as last resort.
+ * Returns the lead id or null.
+ */
+async function findExistingCrmLead(
+  supabase: any,
+  orgId: string,
+  email: string | null,
+  phone: string | null,
+  name: string | null
+): Promise<string | null> {
+  // 1. Email match (case-insensitive)
+  if (email) {
+    const normalized = normalizeEmail(email);
+    const { data } = await supabase
+      .from("leads")
+      .select("id")
+      .eq("organization_id", orgId)
+      .eq("is_active", true)
+      .ilike("email", normalized)
+      .limit(1)
+      .maybeSingle();
+    if (data) return data.id;
+  }
+
+  // 2. Phone match (normalized suffix matching)
+  if (phone) {
+    const digits = normalizePhone(phone);
+    if (digits.length >= 8) {
+      // Use last 8-11 digits for suffix match to handle country code variations
+      const suffix = digits.slice(-11);
+      const shortSuffix = digits.slice(-8);
+
+      const { data: phoneCandidates } = await supabase
+        .from("leads")
+        .select("id, phone")
+        .eq("organization_id", orgId)
+        .eq("is_active", true)
+        .not("phone", "is", null)
+        .limit(500);
+
+      if (phoneCandidates?.length) {
+        const match = phoneCandidates.find((l: any) => {
+          const lDigits = normalizePhone(l.phone || "");
+          if (lDigits.length < 8) return false;
+          // Match if the last 8+ digits overlap
+          return (
+            lDigits === digits ||
+            lDigits.endsWith(shortSuffix) ||
+            suffix.endsWith(lDigits.slice(-8))
+          );
+        });
+        if (match) return match.id;
+      }
+    }
+  }
+
+  // 3. Name match (exact, trimmed, case-insensitive) — only if name is meaningful
+  if (name && name.length >= 3) {
+    const trimmed = name.trim();
+    const { data } = await supabase
+      .from("leads")
+      .select("id")
+      .eq("organization_id", orgId)
+      .eq("is_active", true)
+      .ilike("name", trimmed)
+      .limit(1)
+      .maybeSingle();
+    if (data) return data.id;
+  }
+
+  return null;
+}
+
+/**
+ * Marks an ad_lead as sent_to_crm, linking it to an existing CRM lead.
+ */
+async function linkAdLeadToCrm(supabase: any, adLeadId: string, crmLeadId: string) {
+  await supabase
+    .from("ad_leads")
+    .update({
+      status: "sent_to_crm",
+      crm_record_id: crmLeadId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", adLeadId);
+}
+
+// ─── Main handler ───
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -77,12 +178,10 @@ Deno.serve(async (req) => {
     const selectedLeadIds: string[] = body.selected_lead_ids || [];
     const crmStageId: string | null = body.crm_stage_id || null;
 
-    // ── IMPORT MODE ──
     if (mode === "import") {
       return await handleImport(supabase, orgId, userId, selectedLeadIds, crmStageId);
     }
 
-    // ── PREVIEW & SYNC MODES ──
     const result = await syncOrgLeads(supabase, accessToken, orgId, userId, daysBack);
 
     if (mode === "sync") {
@@ -92,7 +191,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // PREVIEW
     return new Response(
       JSON.stringify({ leads: result.newLeads, total: result.newLeads.length, pages: result.pages }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -103,7 +201,7 @@ Deno.serve(async (req) => {
   }
 });
 
-// ─── AUTO SYNC: called by pg_cron, iterates all orgs with active Meta accounts ───
+// ─── AUTO SYNC ───
 
 async function handleAutoSync(supabase: any): Promise<Response> {
   console.log("[meta-auto-sync] Starting auto sync for all orgs...");
@@ -135,7 +233,6 @@ async function handleAutoSync(supabase: any): Promise<Response> {
     }
 
     try {
-      // Get an admin user for this org
       const { data: adminProfile } = await supabase
         .from("profiles")
         .select("user_id")
@@ -149,9 +246,9 @@ async function handleAutoSync(supabase: any): Promise<Response> {
       }
 
       const syncResult = await syncOrgLeads(supabase, accessToken, orgId, adminProfile.user_id, 3);
-      results.push({ org: orgId, synced: syncResult.synced, auto_sent: syncResult.autoSent });
+      results.push({ org: orgId, synced: syncResult.synced, auto_sent: syncResult.autoSent, duplicates: syncResult.duplicates });
 
-      await sleep(1500); // Rate limit between orgs
+      await sleep(1500);
     } catch (orgErr: any) {
       console.error(`[meta-auto-sync] Error for org ${orgId}:`, orgErr);
       results.push({ org: orgId, error: orgErr.message });
@@ -166,7 +263,7 @@ async function handleAutoSync(supabase: any): Promise<Response> {
   );
 }
 
-// ─── Core sync logic for a single org ───
+// ─── Core sync logic ───
 
 async function syncOrgLeads(
   supabase: any,
@@ -174,11 +271,10 @@ async function syncOrgLeads(
   orgId: string,
   userId: string,
   daysBack: number
-): Promise<{ synced: number; skipped: number; autoSent: number; forms: number; pages: number; newLeads: any[] }> {
+): Promise<{ synced: number; skipped: number; autoSent: number; duplicates: number; forms: number; pages: number; newLeads: any[] }> {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - daysBack);
 
-  // Step 1: Get Pages
   const pagesRes = await fetch(
     `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,access_token&limit=100&access_token=${accessToken}`
   );
@@ -191,7 +287,7 @@ async function syncOrgLeads(
 
   const pages = pagesData.data || [];
   if (pages.length === 0) {
-    return { synced: 0, skipped: 0, autoSent: 0, forms: 0, pages: 0, newLeads: [] };
+    return { synced: 0, skipped: 0, autoSent: 0, duplicates: 0, forms: 0, pages: 0, newLeads: [] };
   }
 
   const allLeads: any[] = [];
@@ -266,7 +362,7 @@ async function syncOrgLeads(
     }
   }
 
-  // ── Auto-send to CRM ──
+  // ── Auto-send to CRM with robust dedup ──
   const { data: adSettings } = await supabase
     .from("ad_settings")
     .select("auto_send_to_crm, crm_stage_id")
@@ -274,45 +370,37 @@ async function syncOrgLeads(
     .single();
 
   let autoSent = 0;
+  let duplicates = 0;
+
   if (adSettings?.auto_send_to_crm && adSettings?.crm_stage_id) {
-    const { data: newLeads } = await supabase
+    const { data: newAdLeads } = await supabase
       .from("ad_leads")
       .select("id, name, email, phone, external_ad_id")
       .eq("organization_id", orgId)
       .eq("status", "new");
 
-    for (const nl of (newLeads || [])) {
-      let existingCrmLead: any = null;
-      if (nl.email) {
-        const { data: byEmail } = await supabase
-          .from("leads").select("id")
-          .eq("organization_id", orgId).eq("email", nl.email).eq("is_active", true)
-          .limit(1).maybeSingle();
-        if (byEmail) existingCrmLead = byEmail;
+    for (const nl of (newAdLeads || [])) {
+      // Skip if already linked (race condition guard)
+      if (nl.crm_record_id) {
+        duplicates++;
+        continue;
       }
-      if (!existingCrmLead && nl.phone) {
-        const normalizedPhone = nl.phone.replace(/\D/g, "");
-        if (normalizedPhone.length >= 8) {
-          const { data: allCrmLeads } = await supabase
-            .from("leads").select("id, phone")
-            .eq("organization_id", orgId).eq("is_active", true).not("phone", "is", null);
-          const match = (allCrmLeads || []).find((l: any) => {
-            const lPhone = (l.phone || "").replace(/\D/g, "");
-            return lPhone.length >= 8 && (lPhone === normalizedPhone || lPhone.endsWith(normalizedPhone) || normalizedPhone.endsWith(lPhone));
-          });
-          if (match) existingCrmLead = match;
-        }
-      }
-      if (existingCrmLead) {
-        await supabase.from("ad_leads").update({ status: "sent_to_crm", crm_record_id: existingCrmLead.id, updated_at: new Date().toISOString() }).eq("id", nl.id);
+
+      const existingId = await findExistingCrmLead(supabase, orgId, nl.email, nl.phone, nl.name);
+
+      if (existingId) {
+        await linkAdLeadToCrm(supabase, nl.id, existingId);
+        duplicates++;
         autoSent++;
         continue;
       }
+
+      // Create new CRM lead
       const { data: crmLead, error: crmError } = await supabase
         .from("leads")
         .insert({
           name: nl.name || "Lead de Anúncio",
-          email: nl.email,
+          email: nl.email ? normalizeEmail(nl.email) : null,
           phone: nl.phone,
           organization_id: orgId,
           created_by: userId,
@@ -323,18 +411,19 @@ async function syncOrgLeads(
           consent_voice_call: resolveVoiceConsent({ source: "anuncio", explicit: null, hasPhone: !!nl.phone }),
         })
         .select("id").single();
+
       if (!crmError && crmLead) {
-        await supabase.from("ad_leads").update({ status: "sent_to_crm", crm_record_id: crmLead.id, updated_at: new Date().toISOString() }).eq("id", nl.id);
+        await linkAdLeadToCrm(supabase, nl.id, crmLead.id);
         autoSent++;
       }
     }
   }
 
   const newLeads = allLeads.filter((l: any) => l.status === "new");
-  return { synced: totalSynced, skipped: totalSkipped, autoSent, forms: totalForms, pages: pages.length, newLeads };
+  return { synced: totalSynced, skipped: totalSkipped, autoSent, duplicates, forms: totalForms, pages: pages.length, newLeads };
 }
 
-// ─── Import mode (manual selection) ───
+// ─── Import mode ───
 
 async function handleImport(
   supabase: any,
@@ -358,43 +447,10 @@ async function handleImport(
   let skipped = 0;
 
   for (const nl of (adLeads || [])) {
-    let existingCrmLead: any = null;
+    const existingId = await findExistingCrmLead(supabase, orgId, nl.email, nl.phone, nl.name);
 
-    if (nl.email) {
-      const { data: byEmail } = await supabase
-        .from("leads")
-        .select("id")
-        .eq("organization_id", orgId)
-        .eq("email", nl.email)
-        .eq("is_active", true)
-        .limit(1)
-        .maybeSingle();
-      if (byEmail) existingCrmLead = byEmail;
-    }
-
-    if (!existingCrmLead && nl.phone) {
-      const normalizedPhone = nl.phone.replace(/\D/g, "");
-      if (normalizedPhone.length >= 8) {
-        const { data: allLeads } = await supabase
-          .from("leads")
-          .select("id, phone")
-          .eq("organization_id", orgId)
-          .eq("is_active", true)
-          .not("phone", "is", null);
-        const match = (allLeads || []).find((l: any) => {
-          const lPhone = (l.phone || "").replace(/\D/g, "");
-          return lPhone.length >= 8 && (lPhone === normalizedPhone || lPhone.endsWith(normalizedPhone) || normalizedPhone.endsWith(lPhone));
-        });
-        if (match) existingCrmLead = match;
-      }
-    }
-
-    if (existingCrmLead) {
-      await supabase.from("ad_leads").update({
-        status: "sent_to_crm",
-        crm_record_id: existingCrmLead.id,
-        updated_at: new Date().toISOString(),
-      }).eq("id", nl.id);
+    if (existingId) {
+      await linkAdLeadToCrm(supabase, nl.id, existingId);
       skipped++;
       continue;
     }
@@ -403,7 +459,7 @@ async function handleImport(
       .from("leads")
       .insert({
         name: nl.name || "Lead de Anúncio",
-        email: nl.email,
+        email: nl.email ? normalizeEmail(nl.email) : null,
         phone: nl.phone,
         organization_id: orgId,
         created_by: userId,
@@ -416,11 +472,7 @@ async function handleImport(
       .single();
 
     if (!crmError && crmLead) {
-      await supabase.from("ad_leads").update({
-        status: "sent_to_crm",
-        crm_record_id: crmLead.id,
-        updated_at: new Date().toISOString(),
-      }).eq("id", nl.id);
+      await linkAdLeadToCrm(supabase, nl.id, crmLead.id);
       imported++;
     } else {
       skipped++;
