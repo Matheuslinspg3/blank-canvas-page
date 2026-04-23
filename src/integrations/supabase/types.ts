@@ -2056,9 +2056,66 @@ export type Database = {
           },
         ]
       }
+      broker_message_templates: {
+        Row: {
+          body: string
+          category: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          organization_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          category?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          organization_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          category?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          organization_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broker_message_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broker_message_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+        ]
+      }
       broker_whatsapp_channels: {
         Row: {
           created_at: string
+          followup_business_hours: Json
+          followup_enabled: boolean
+          followup_intervals: Json
+          followup_max_attempts: number
+          greeting_enabled: boolean
+          greeting_template_id: string | null
           id: string
           instance_name: string | null
           instance_token: string | null
@@ -2072,6 +2129,12 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          followup_business_hours?: Json
+          followup_enabled?: boolean
+          followup_intervals?: Json
+          followup_max_attempts?: number
+          greeting_enabled?: boolean
+          greeting_template_id?: string | null
           id?: string
           instance_name?: string | null
           instance_token?: string | null
@@ -2085,6 +2148,12 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          followup_business_hours?: Json
+          followup_enabled?: boolean
+          followup_intervals?: Json
+          followup_max_attempts?: number
+          greeting_enabled?: boolean
+          greeting_template_id?: string | null
           id?: string
           instance_name?: string | null
           instance_token?: string | null
@@ -2097,6 +2166,13 @@ export type Database = {
           webhook_url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "broker_whatsapp_channels_greeting_template_id_fkey"
+            columns: ["greeting_template_id"]
+            isOneToOne: false
+            referencedRelation: "broker_message_templates"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "broker_whatsapp_channels_organization_id_fkey"
             columns: ["organization_id"]
@@ -3182,6 +3258,9 @@ export type Database = {
       follow_up_queue: {
         Row: {
           attempt_count: number
+          broker_channel_id: string | null
+          broker_user_id: string | null
+          channel_type: string
           conversation_context: string | null
           created_at: string | null
           id: string
@@ -3199,6 +3278,9 @@ export type Database = {
         }
         Insert: {
           attempt_count?: number
+          broker_channel_id?: string | null
+          broker_user_id?: string | null
+          channel_type?: string
           conversation_context?: string | null
           created_at?: string | null
           id?: string
@@ -3216,6 +3298,9 @@ export type Database = {
         }
         Update: {
           attempt_count?: number
+          broker_channel_id?: string | null
+          broker_user_id?: string | null
+          channel_type?: string
           conversation_context?: string | null
           created_at?: string | null
           id?: string
@@ -3232,6 +3317,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "follow_up_queue_broker_channel_id_fkey"
+            columns: ["broker_channel_id"]
+            isOneToOne: false
+            referencedRelation: "broker_whatsapp_channels"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "follow_up_queue_org_id_fkey"
             columns: ["org_id"]

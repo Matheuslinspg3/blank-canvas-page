@@ -1,5 +1,7 @@
 import { Helmet } from "react-helmet-async";
 import { BrokerConnectionCard } from "@/components/whatsapp/BrokerConnectionCard";
+import { BrokerTemplatesCard } from "@/components/whatsapp/BrokerTemplatesCard";
+import { BrokerAutomationCard } from "@/components/whatsapp/BrokerAutomationCard";
 import { Card, CardContent } from "@/components/ui/card";
 import { MessageSquare, Shield, Zap } from "lucide-react";
 
@@ -19,11 +21,15 @@ export default function MyWhatsAppChannel() {
           </p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-3">
-          <div className="md:col-span-2">
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Left column: Connection + Automation */}
+          <div className="lg:col-span-2 space-y-6">
             <BrokerConnectionCard />
+            <BrokerAutomationCard />
+            <BrokerTemplatesCard />
           </div>
 
+          {/* Right column: Info */}
           <div className="space-y-4">
             <Card>
               <CardContent className="p-4 space-y-3">
@@ -54,6 +60,22 @@ export default function MyWhatsAppChannel() {
                     <p className="text-xs text-muted-foreground">
                       Mensagens do canal pessoal não consomem créditos de automação.
                     </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4 space-y-2">
+                <p className="text-sm font-medium">Placeholders disponíveis</p>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{"{nome}"}</code>
+                    <span className="text-xs text-muted-foreground">Nome do contato</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{"{imovel}"}</code>
+                    <span className="text-xs text-muted-foreground">Imóvel de interesse</span>
                   </div>
                 </div>
               </CardContent>
