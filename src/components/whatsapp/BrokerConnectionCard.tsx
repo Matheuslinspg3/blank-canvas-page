@@ -161,11 +161,20 @@ export function BrokerConnectionCard() {
                   placeholder="5511999998888"
                   value={phoneInput}
                   onChange={(e) => setPhoneInput(e.target.value)}
+                  onBlur={() => setPhoneTouched(true)}
                   inputMode="tel"
+                  aria-invalid={showError}
+                  className={showError ? "border-destructive focus-visible:ring-destructive/40" : ""}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Ex: 55 (Brasil) + 11 (DDD) + número
-                </p>
+                {showError ? (
+                  <p className="text-xs text-destructive font-medium">
+                    {validation.message}
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Ex: 55 (Brasil) + 11 (DDD) + 999998888 — total de 12 ou 13 dígitos
+                  </p>
+                )}
               </div>
 
               {pairingCode ? (
