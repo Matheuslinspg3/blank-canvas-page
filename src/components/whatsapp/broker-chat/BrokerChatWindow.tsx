@@ -1,0 +1,120 @@
+import { useEffect, useRef } from "react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Loader2, MessageSquare } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import {
+  formatPhone,
+  jidToPhone,
+  useBrokerMessages,
+} from "@/hooks/whatsapp/useBrokerChat";
+import { BrokerChatComposer } from "./BrokerChatComposer";
+
+interface Props {
+  remoteJid: string | null;
+}
+
+export function BrokerChatWindow({ remoteJid }: Props) {
+  const { data: messages, isLoading } = useBrokerMessages(remoteJid);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  if (!remoteJid) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 bg-muted/20 p-8 text-center">
+        <MessageSquare className="h-12 w-12 text-muted-foreground/50" />
+        <p className="text-sm text-muted-foreground">
+          Selecione uma conversa para começar a responder.
+        </p>
+      </div>
+    );
+  }
+
+  const phone = jidToPhone(remoteJid);
+  const initials = phone.slice(-2);
+
+  return (
+    <div className="flex h-full flex-col bg-background">
+      {/* Header */}
+      <div className="flex items-center gap-3 border-b border-border bg-card px-4 py-3">
+        <Avatar className="h-9 w-9">
+          <AvatarFallback className="bg-primary/10 text-primary text-xs">
+            {initials}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium">{formatPhone(phone)}</p>
+          <p className="text-xs text-muted-foreground">Canal pessoal</p>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-muted/10 p-4">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <ul className="flex flex-col gap-1.5">
+            {(messages ?? []).map((m) => (
+              <li
+                key={m.id}
+                className={cn(
+                  "flex max-w-[75%] flex-col gap-0.5 rounded-lg px-3 py-2 text-sm shadow-sm",
+                  m.from_me
+                    ? "self-end bg-primary text-primary-foreground"
+                    : "self-start bg-card text-card-foreground"
+                )}
+              >
+                {m.message_type === "image" && m.media_url && (
+                  <img
+                    src={m.media_url}
+                    alt="anexo"
+                    className="mb-1 max-h-64 rounded object-cover"
+                  />
+                )}
+                {m.message_type === "audio" && m.media_url && (
+                  <audio src={m.media_url} controls className="mb-1" />
+                )}
+                {m.message_type === "document" && m.media_url && (
+                  <a
+                    href={m.media_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mb-1 underline opacity-90"
+                  >
+                    📄 Abrir documento
+                  </a>
+                )}
+                {m.message_text && <span className="whitespace-pre-wrap break-words">{m.message_text}</span>}
+                <span
+                  className={cn(
+                    "self-end text-[10px] opacity-70",
+                    m.from_me ? "text-primary-foreground/80" : "text-muted-foreground"
+                  )}
+                >
+                  {format(new Date(m.timestamp), "HH:mm")}
+                  {m.sender_type === "ai" && " · IA"}
+                </span>
+              </li>
+            ))}
+            {(messages ?? []).length === 0 && (
+              <li className="self-center py-8 text-sm text-muted-foreground">
+                Nenhuma mensagem ainda
+              </li>
+            )}
+          </ul>
+        )}
+      </div>
+
+      {/* Composer */}
+      <BrokerChatComposer phone={phone} />
+    </div>
+  );
+}
