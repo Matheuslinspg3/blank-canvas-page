@@ -198,7 +198,7 @@ export function BrokerConnectionCard() {
               ) : (
                 <Button
                   onClick={handleGeneratePairing}
-                  disabled={isConnecting || phoneInput.replace(/\D/g, "").length < 10}
+                  disabled={isConnecting || !validation.valid}
                   className="w-full gap-2"
                 >
                   {isConnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
