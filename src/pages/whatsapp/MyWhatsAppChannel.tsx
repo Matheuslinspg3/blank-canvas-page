@@ -5,7 +5,7 @@ import { BrokerTemplatesCard } from "@/components/whatsapp/BrokerTemplatesCard";
 import { BrokerAutomationCard } from "@/components/whatsapp/BrokerAutomationCard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Shield, Zap, BarChart3 } from "lucide-react";
+import { MessageSquare, Shield, Zap, BarChart3, MessagesSquare } from "lucide-react";
 
 export default function MyWhatsAppChannel() {
   return (
@@ -16,11 +16,19 @@ export default function MyWhatsAppChannel() {
       </Helmet>
 
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-display font-bold tracking-tight">Meu WhatsApp</h1>
-          <p className="text-muted-foreground mt-1">
-            Conecte seu número pessoal para atender clientes diretamente pelo sistema.
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-display font-bold tracking-tight">Meu WhatsApp</h1>
+            <p className="text-muted-foreground mt-1">
+              Conecte seu número pessoal para atender clientes diretamente pelo sistema.
+            </p>
+          </div>
+          <Button asChild className="gap-1.5">
+            <Link to="/whatsapp/meu-canal/chat">
+              <MessagesSquare className="h-4 w-4" />
+              Abrir conversas
+            </Link>
+          </Button>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
