@@ -128,13 +128,38 @@ export function usePropertyBatchCreate() {
 
       updateProgress({ current: 0, total: nonEmptyRows.length, currentLabel: 'Preparando grupo...', status: 'preparing', rowResults: [] });
 
-      // 1. Create property group
+      // 1. Resolve clean base title by walking up the property_group chain to the root.
+      // This prevents accumulated unit_label suffixes when duplicating an already-duplicated property.
+      // Example: base title "X - apto 121 - apto 62" → root title "X" → new titles become "X - <new label>".
+      let cleanBaseTitle = baseProperty.title || 'Imóvel';
+      try {
+        let currentGroupId: string | null = (baseProperty as any).property_group_id ?? null;
+        let safety = 0;
+        while (currentGroupId && safety < 10) {
+          safety++;
+          const { data: grp } = await supabase
+            .from('property_groups')
+            .select('id, source_property_id, properties:source_property_id(title, property_group_id)')
+            .eq('id', currentGroupId)
+            .maybeSingle();
+          if (!grp) break;
+          const src: any = (grp as any).properties;
+          if (src?.title) cleanBaseTitle = src.title;
+          const parent = src?.property_group_id ?? null;
+          if (!parent || parent === currentGroupId) break;
+          currentGroupId = parent;
+        }
+      } catch (e) {
+        console.warn('[BatchCreate] Falha ao resolver título raiz, usando título base:', e);
+      }
+
+      // 2. Create property group
       const { data: group, error: groupError } = await supabase
         .from('property_groups')
         .insert({
           organization_id: profile.organization_id,
           source_property_id: baseProperty.id,
-          name: baseProperty.title || 'Grupo de variações',
+          name: cleanBaseTitle,
           created_by: user.id,
         })
         .select('id')
@@ -225,7 +250,7 @@ export function usePropertyBatchCreate() {
           const insertData = {
             ...baseData,
             ...mappedRow,
-            title: `${baseData.title || 'Imóvel'}${titleSuffix}`,
+            title: `${cleanBaseTitle}${titleSuffix}`,
             organization_id: profile.organization_id,
             created_by: user.id,
             property_group_id: group.id,
