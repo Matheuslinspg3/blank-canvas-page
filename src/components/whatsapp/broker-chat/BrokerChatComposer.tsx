@@ -111,12 +111,12 @@ export function BrokerChatComposer({ phone }: Props) {
                   <li key={t.id}>
                     <button
                       type="button"
-                      onClick={() => setText(t.content)}
+                      onClick={() => setText(t.body)}
                       className="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
                     >
                       <span className="block font-medium">{t.name}</span>
                       <span className="block truncate text-xs text-muted-foreground">
-                        {t.content}
+                        {t.body}
                       </span>
                     </button>
                   </li>

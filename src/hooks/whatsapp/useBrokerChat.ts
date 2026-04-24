@@ -39,7 +39,7 @@ function useMyBrokerChannelId() {
         .eq("user_id", user!.id)
         .maybeSingle();
       if (error) throw error;
-      return data as { id: string; instance_name: string | null; status: string } | null;
+      return (data as unknown) as { id: string; instance_name: string | null; status: string } | null;
     },
     enabled: !!user?.id && !!profile?.organization_id,
     staleTime: 30_000,
@@ -141,7 +141,7 @@ export function useBrokerMessages(remoteJid: string | null) {
         .order("timestamp", { ascending: true })
         .limit(200);
       if (error) throw error;
-      return (data ?? []) as BrokerMessage[];
+      return ((data ?? []) as unknown) as BrokerMessage[];
     },
     enabled: !!channel?.id && !!remoteJid,
     staleTime: 2_000,
