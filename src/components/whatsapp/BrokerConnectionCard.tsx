@@ -24,14 +24,29 @@ export function BrokerConnectionCard() {
 
   const [mode, setMode] = useState<"qr" | "pairing">("qr");
   const [phoneInput, setPhoneInput] = useState("");
+  const [phoneTouched, setPhoneTouched] = useState(false);
 
   const cfg = statusConfig[status] ?? statusConfig.disconnected;
   const StatusIcon = cfg.icon;
 
+  // Validação: DDI + DDD + número. Brasil = 12 ou 13 dígitos (55 + DDD + 8/9)
+  const digits = phoneInput.replace(/\D/g, "");
+  const validatePhone = (d: string): { valid: boolean; message: string | null } => {
+    if (d.length === 0) return { valid: false, message: "Informe o número de telefone" };
+    if (d.length < 12) return { valid: false, message: "Número incompleto. Use DDI + DDD + número (ex: 5511999998888)" };
+    if (d.length > 15) return { valid: false, message: "Número muito longo. Verifique os dígitos digitados" };
+    if (d.startsWith("55") && d.length !== 12 && d.length !== 13) {
+      return { valid: false, message: "Brasil: 55 + DDD (2 dígitos) + número (8 ou 9 dígitos)" };
+    }
+    return { valid: true, message: null };
+  };
+  const validation = validatePhone(digits);
+  const showError = phoneTouched && !validation.valid;
+
   const handleGeneratePairing = () => {
-    const digits = phoneInput.replace(/\D/g, "");
-    if (digits.length < 10) {
-      toast.error("Informe o número completo com DDD (ex: 5511999998888)");
+    setPhoneTouched(true);
+    if (!validation.valid) {
+      toast.error(validation.message ?? "Telefone inválido");
       return;
     }
     connect({ phoneNumber: digits } as any);
@@ -39,9 +54,22 @@ export function BrokerConnectionCard() {
 
   const copyPairing = async () => {
     if (!pairingCode) return;
-    await navigator.clipboard.writeText(pairingCode);
-    toast.success("Código copiado");
+    try {
+      await navigator.clipboard.writeText(pairingCode);
+      toast.success("Código copiado para a área de transferência");
+    } catch {
+      toast.error("Não foi possível copiar. Copie manualmente.");
+    }
   };
+
+  // Copia automaticamente o código de pareamento assim que ele for gerado
+  useEffect(() => {
+    if (!pairingCode) return;
+    navigator.clipboard?.writeText(pairingCode).then(
+      () => toast.success("Código copiado automaticamente"),
+      () => {/* silencioso: usuário pode copiar manualmente */}
+    );
+  }, [pairingCode]);
 
   return (
     <Card>
