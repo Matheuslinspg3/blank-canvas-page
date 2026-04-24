@@ -250,7 +250,7 @@ export function usePropertyBatchCreate() {
           const insertData = {
             ...baseData,
             ...mappedRow,
-            title: `${baseData.title || 'Imóvel'}${titleSuffix}`,
+            title: `${cleanBaseTitle}${titleSuffix}`,
             organization_id: profile.organization_id,
             created_by: user.id,
             property_group_id: group.id,
