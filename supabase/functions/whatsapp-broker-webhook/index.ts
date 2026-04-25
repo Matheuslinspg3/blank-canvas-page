@@ -120,6 +120,7 @@ serve(async (req) => {
         else if (msgContent.documentMessage) { messageType = "document"; messageText = msgContent.documentMessage.fileName ?? messageText; }
 
         // Persist in whatsapp_messages with channel_type='broker'
+        const pushNameRaw = (msg.pushName ?? msg.verifiedBizName ?? "").toString().trim() || null;
         const { error: insertErr } = await sb.from("whatsapp_messages").insert({
           organization_id: channel.organization_id,
           instance_name: instanceName,
@@ -135,7 +136,18 @@ serve(async (req) => {
             : new Date().toISOString(),
           channel_type: "broker",
           broker_channel_id: channel.id,
+          push_name: !fromMe ? pushNameRaw : null,
         });
+
+        // Backfill push_name on prior rows of this conversation if it was empty
+        if (!fromMe && pushNameRaw) {
+          await sb
+            .from("whatsapp_messages")
+            .update({ push_name: pushNameRaw })
+            .eq("broker_channel_id", channel.id)
+            .eq("remote_jid", remoteJid)
+            .is("push_name", null);
+        }
 
         if (insertErr) {
           if (insertErr.code === "23505") continue;
