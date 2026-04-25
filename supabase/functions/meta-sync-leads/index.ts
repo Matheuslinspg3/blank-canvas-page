@@ -453,7 +453,22 @@ async function syncOrgLeads(
         continue;
       }
 
-      const existingId = await findExistingCrmLead(supabase, orgId, nl.email, nl.phone, nl.name);
+      // Try to merge into an existing recent lead (records secondary source)
+      const adCtxEarly = await resolveAdContext(supabase, orgId, nl.external_ad_id);
+      const tagEarly = adCtxEarly.adName || adCtxEarly.campaignName || "Meta Ads";
+      const { data: mergedId } = await supabase.rpc("merge_external_lead", {
+        p_organization_id: orgId,
+        p_email: nl.email,
+        p_phone: nl.phone,
+        p_external_source: "meta_ads",
+        p_source: tagEarly,
+        p_traffic_source: adCtxEarly.campaignName || "Meta Ads",
+        p_conversion_identifier: adCtxEarly.adName,
+        p_external_id: nl.external_lead_id ?? null,
+        p_window_days: 30,
+      });
+      const existingId = (mergedId as string | null)
+        ?? await findExistingCrmLead(supabase, orgId, nl.email, nl.phone, nl.name);
 
       if (existingId) {
         await linkAdLeadToCrm(supabase, nl.id, existingId);
