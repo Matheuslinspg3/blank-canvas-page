@@ -9180,6 +9180,7 @@ export type Database = {
           ai_provider: string | null
           broker_channel_id: string | null
           channel_type: string
+          client_message_id: string | null
           created_at: string
           estimated_cost_usd: number | null
           from_me: boolean
@@ -9204,6 +9205,7 @@ export type Database = {
           ai_provider?: string | null
           broker_channel_id?: string | null
           channel_type?: string
+          client_message_id?: string | null
           created_at?: string
           estimated_cost_usd?: number | null
           from_me?: boolean
@@ -9228,6 +9230,7 @@ export type Database = {
           ai_provider?: string | null
           broker_channel_id?: string | null
           channel_type?: string
+          client_message_id?: string | null
           created_at?: string
           estimated_cost_usd?: number | null
           from_me?: boolean
@@ -10808,6 +10811,7 @@ export type Database = {
         Args: { p_name: string }
         Returns: number
       }
+      reprocess_broker_whatsapp_contact_names: { Args: never; Returns: number }
       resolve_itbi: {
         Args: { p_ibge: string; p_org: string; p_uf: string }
         Returns: {
