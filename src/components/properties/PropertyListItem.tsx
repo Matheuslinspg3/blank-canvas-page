@@ -14,8 +14,9 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MapPin, Bed, Bath, Car, Ruler, MoreHorizontal, Edit, Trash2, Eye, ExternalLink, Hash, Building2, Store, CopyPlus, Share2, RefreshCw } from "lucide-react";
+import { MapPin, Bed, Bath, Car, Ruler, MoreHorizontal, Edit, Trash2, Eye, ExternalLink, Hash, Building2, Store, CopyPlus, Share2, RefreshCw, CheckCircle2 } from "lucide-react";
 import { PropertyFreshnessBadge } from "./PropertyFreshnessBadge";
+import { PropertyReviewBadge } from "./PropertyReviewBadge";
 import { PropertyStatusBadge, transactionLabels } from "./PropertyStatusBadge";
 import { AvailabilityBadge } from "./AvailabilityBadge";
 import type { PropertyWithDetails } from "@/hooks/useProperties";
@@ -23,6 +24,7 @@ import { cn, proxyDriveImageUrl } from "@/lib/utils";
 import { getImageUrl, type ImageRecord } from "@/lib/imageUrl";
 import { OptimizedImage } from "@/components/ui/optimized-image";
 import { usePropertyPublicUrl } from "@/hooks/usePropertyPublicUrl";
+import { usePropertyReview } from "@/hooks/usePropertyReview";
 import { toast } from "sonner";
 
 interface PropertyListItemProps {
@@ -55,6 +57,7 @@ export const PropertyListItem = memo(function PropertyListItem({
 }: PropertyListItemProps) {
   const navigate = useNavigate();
   const { buildPublicUrl } = usePropertyPublicUrl();
+  const reviewMutation = usePropertyReview();
   const coverImageData = property.images?.find((img) => img.is_cover) || property.images?.[0] || null;
   const imageRecord = coverImageData as unknown as ImageRecord | null;
   const coverImage = (() => {
@@ -157,6 +160,7 @@ export const PropertyListItem = memo(function PropertyListItem({
               </Badge>
             )}
             {isAvailable && <PropertyFreshnessBadge updatedAt={property.updated_at} compact />}
+            {isAvailable && <PropertyReviewBadge lastReviewedAt={(property as any).last_reviewed_at} compact />}
           </div>
           <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
             <MapPin className="h-3 w-3 shrink-0" />
@@ -282,6 +286,12 @@ export const PropertyListItem = memo(function PropertyListItem({
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => onEdit(property)}>
                 <Edit className="h-4 w-4 mr-2" /> Editar
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => reviewMutation.mutate(property.id)}
+                disabled={reviewMutation.isPending}
+              >
+                <CheckCircle2 className="h-4 w-4 mr-2" /> Marcar como revisado
               </DropdownMenuItem>
               {onDuplicate && (
                 <DropdownMenuItem onClick={() => onDuplicate(property.id)}>

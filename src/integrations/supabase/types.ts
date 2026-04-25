@@ -5909,6 +5909,7 @@ export type Database = {
           inspection_fee: number | null
           iptu: number | null
           iptu_monthly: number | null
+          last_reviewed_at: string | null
           latitude: number | null
           launch_stage: Database["public"]["Enums"]["launch_stage"] | null
           longitude: number | null
@@ -5984,6 +5985,7 @@ export type Database = {
           inspection_fee?: number | null
           iptu?: number | null
           iptu_monthly?: number | null
+          last_reviewed_at?: string | null
           latitude?: number | null
           launch_stage?: Database["public"]["Enums"]["launch_stage"] | null
           longitude?: number | null
@@ -6059,6 +6061,7 @@ export type Database = {
           inspection_fee?: number | null
           iptu?: number | null
           iptu_monthly?: number | null
+          last_reviewed_at?: string | null
           latitude?: number | null
           launch_stage?: Database["public"]["Enums"]["launch_stage"] | null
           longitude?: number | null
@@ -10802,6 +10805,10 @@ export type Database = {
         Args: { p_conversation_id: string; p_read_at?: string }
         Returns: undefined
       }
+      mark_property_reviewed: {
+        Args: { p_property_id: string }
+        Returns: string
+      }
       merge_external_lead: {
         Args: {
           p_conversion_identifier?: string
@@ -10867,113 +10874,62 @@ export type Database = {
           uf: string
         }[]
       }
-      search_properties_advanced:
-        | {
-            Args: {
-              p_amenities?: string[]
-              p_cities?: string[]
-              p_city?: string
-              p_launch_stage?: string
-              p_limit?: number
-              p_max_area?: number
-              p_max_beach_distance?: number
-              p_max_condominium?: number
-              p_max_price?: number
-              p_min_area?: number
-              p_min_bedrooms?: number
-              p_min_condominium?: number
-              p_min_parking?: number
-              p_min_price?: number
-              p_min_suites?: number
-              p_neighborhood?: string
-              p_neighborhoods?: string[]
-              p_offset?: number
-              p_organization_id: string
-              p_property_code?: string
-              p_property_condition?: string
-              p_property_type_id?: string
-              p_search_text?: string
-              p_status?: string
-              p_transaction_type?: string
-            }
-            Returns: {
-              address_city: string
-              address_neighborhood: string
-              address_state: string
-              area_built: number
-              area_total: number
-              bathrooms: number
-              beach_distance_meters: number
-              bedrooms: number
-              cover_image_url: string
-              created_at: string
-              description: string
-              id: string
-              parking_spots: number
-              property_code: string
-              property_type_id: string
-              rent_price: number
-              sale_price: number
-              status: Database["public"]["Enums"]["property_status"]
-              title: string
-              transaction_type: Database["public"]["Enums"]["transaction_type"]
-              updated_at: string
-            }[]
-          }
-        | {
-            Args: {
-              p_amenities?: string[]
-              p_cities?: string[]
-              p_city?: string
-              p_launch_stage?: string
-              p_limit?: number
-              p_max_area?: number
-              p_max_beach_distance?: number
-              p_max_condominium?: number
-              p_max_price?: number
-              p_min_area?: number
-              p_min_bedrooms?: number
-              p_min_condominium?: number
-              p_min_parking?: number
-              p_min_price?: number
-              p_min_suites?: number
-              p_neighborhood?: string
-              p_neighborhoods?: string[]
-              p_offset?: number
-              p_organization_id: string
-              p_property_code?: string
-              p_property_condition?: string
-              p_property_type_id?: string
-              p_search_text?: string
-              p_sort_by?: string
-              p_status?: string
-              p_transaction_type?: string
-            }
-            Returns: {
-              address_city: string
-              address_neighborhood: string
-              address_state: string
-              area_built: number
-              area_total: number
-              bathrooms: number
-              beach_distance_meters: number
-              bedrooms: number
-              cover_image_url: string
-              created_at: string
-              description: string
-              id: string
-              parking_spots: number
-              property_code: string
-              property_type_id: string
-              rent_price: number
-              sale_price: number
-              status: string
-              title: string
-              total_count: number
-              transaction_type: string
-              updated_at: string
-            }[]
-          }
+      search_properties_advanced: {
+        Args: {
+          p_amenities?: string[]
+          p_cities?: string[]
+          p_city?: string
+          p_launch_stage?: string
+          p_limit?: number
+          p_max_area?: number
+          p_max_beach_distance?: number
+          p_max_condominium?: number
+          p_max_price?: number
+          p_min_area?: number
+          p_min_bedrooms?: number
+          p_min_condominium?: number
+          p_min_parking?: number
+          p_min_price?: number
+          p_min_suites?: number
+          p_neighborhood?: string
+          p_neighborhoods?: string[]
+          p_offset?: number
+          p_organization_id: string
+          p_owner_id?: string
+          p_property_code?: string
+          p_property_condition?: string
+          p_property_type_id?: string
+          p_search_text?: string
+          p_sort_by?: string
+          p_status?: string
+          p_transaction_type?: string
+        }
+        Returns: {
+          address_city: string
+          address_neighborhood: string
+          address_state: string
+          area_built: number
+          area_total: number
+          bathrooms: number
+          beach_distance_meters: number
+          bedrooms: number
+          cover_image_url: string
+          created_at: string
+          description: string
+          id: string
+          last_reviewed_at: string
+          parking_spots: number
+          property_code: string
+          property_type_id: string
+          rent_price: number
+          sale_price: number
+          status: string
+          title: string
+          total_count: number
+          transaction_type: string
+          updated_at: string
+        }[]
+      }
       search_properties_by_code: {
         Args: {
           p_code_prefix: string

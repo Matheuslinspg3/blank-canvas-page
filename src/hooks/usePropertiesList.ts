@@ -19,6 +19,8 @@ export interface PropertiesListOptions {
   sortBy?: SortOption;
   /** Disable the query (e.g. when an advanced search is active). */
   enabled?: boolean;
+  /** Optional fallback owner filter (primary path is the RPC). */
+  ownerId?: string | null;
 }
 
 const CARD_FIELDS = `
@@ -27,7 +29,7 @@ const CARD_FIELDS = `
   bedrooms, bathrooms, parking_spots, area_total, area_useful, area_built, suites,
   address_neighborhood, address_city, address_state,
   latitude, longitude,
-  property_type_id, organization_id, created_at, updated_at,
+  property_type_id, organization_id, created_at, updated_at, last_reviewed_at,
   featured, amenities, property_condition, launch_stage, development_name,
   beach_distance_meters, cover_image_url,
   property_type:property_types(id, name)
@@ -48,24 +50,56 @@ function getSortParams(sortBy: SortOption): { column: string; ascending: boolean
 
 export function usePropertiesList(options: PropertiesListOptions = {}) {
   const { profile } = useAuth();
-  const { pageSize = 50, page = 1, sortBy = 'recent', enabled = true } = options;
+  const { pageSize = 50, page = 1, sortBy = 'recent', enabled = true, ownerId = null } = options;
 
   const query = useQuery({
-    queryKey: ['properties-list', profile?.organization_id, page, pageSize, sortBy],
+    queryKey: ['properties-list', profile?.organization_id, page, pageSize, sortBy, ownerId ?? null],
     staleTime: 2 * 60_000,
     placeholderData: keepPreviousData,
     enabled: enabled && !!profile?.organization_id,
     queryFn: async ({ signal }) => {
       if (!profile?.organization_id) return { rows: [] as PropertyWithDetails[], total: 0 };
 
+      // Owner fallback: pre-fetch property_ids in batches to avoid the 1000-row limit.
+      let ownerIdsFilter: string[] | null = null;
+      if (ownerId) {
+        const ids: string[] = [];
+        const PAGE = 1000;
+        let from = 0;
+        while (true) {
+          const { data, error } = await supabase
+            .from('property_owners')
+            .select('property_id')
+            .eq('owner_id', ownerId)
+            .eq('organization_id', profile.organization_id)
+            .range(from, from + PAGE - 1)
+            .abortSignal(signal!);
+          if (error) throw error;
+          const batch = (data || []).map((d: any) => d.property_id).filter(Boolean);
+          ids.push(...batch);
+          if (!data || data.length < PAGE) break;
+          from += PAGE;
+        }
+        ownerIdsFilter = Array.from(new Set(ids));
+        if (ownerIdsFilter.length === 0) {
+          return { rows: [] as PropertyWithDetails[], total: 0 };
+        }
+      }
+
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
       const sort = getSortParams(sortBy);
 
-      const { data, error, count } = await supabase
+      let q = supabase
         .from('properties')
         .select(CARD_FIELDS, { count: 'exact' })
-        .eq('organization_id', profile.organization_id)
+        .eq('organization_id', profile.organization_id);
+
+      if (ownerIdsFilter) {
+        q = q.in('id', ownerIdsFilter);
+      }
+
+      const { data, error, count } = await q
         .order(sort.column, { ascending: sort.ascending })
         .range(from, to)
         .abortSignal(signal!);
