@@ -132,9 +132,31 @@ Deno.serve(async (req) => {
           null;
         const source = "RD Station (Webhook)";
 
-        // Check for duplicate by email
+        // Extract conversion identifier and traffic source up front (used both for merge + insert)
+        const conversionIdEarly = extractConversionIdentifier(leadData) || topLevelEventId;
+        const trafficSourceEarly = leadData.traffic_source ||
+          leadData.first_conversion?.content?.source ||
+          leadData.first_conversion?.source || null;
+        const externalIdEarly = leadData.id?.toString() || leadData.rd_uuid || null;
+
+        // Try cross-channel merge: if a lead with same email/phone already exists
+        // (created/updated within 30 days), attach RD as a secondary source instead of duplicating.
         let existingLead: any = null;
-        if (email) {
+        const { data: mergedId } = await supabase.rpc("merge_external_lead", {
+          p_organization_id: orgId,
+          p_email: email,
+          p_phone: phone,
+          p_external_source: "rdstation",
+          p_source: source,
+          p_traffic_source: trafficSourceEarly,
+          p_conversion_identifier: conversionIdEarly,
+          p_external_id: externalIdEarly,
+          p_window_days: 30,
+        });
+        if (mergedId) existingLead = { id: mergedId as string };
+
+        // Fallback: legacy duplicate check (older leads, beyond the 30-day window)
+        if (!existingLead && email) {
           const { data: existing } = await supabase
             .from("leads")
             .select("id")
@@ -145,8 +167,6 @@ Deno.serve(async (req) => {
             .maybeSingle();
           if (existing) existingLead = existing;
         }
-
-        // Check for duplicate by phone if no email match
         if (!existingLead && phone) {
           const normalizedPhone = phone.replace(/\D/g, "");
           if (normalizedPhone.length >= 8) {
