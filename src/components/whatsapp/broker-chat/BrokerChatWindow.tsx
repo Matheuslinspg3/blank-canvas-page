@@ -13,9 +13,10 @@ import { BrokerChatComposer } from "./BrokerChatComposer";
 
 interface Props {
   remoteJid: string | null;
+  contactName?: string | null;
 }
 
-export function BrokerChatWindow({ remoteJid }: Props) {
+export function BrokerChatWindow({ remoteJid, contactName }: Props) {
   const { data: messages, isLoading } = useBrokerMessages(remoteJid);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -37,6 +38,7 @@ export function BrokerChatWindow({ remoteJid }: Props) {
   }
 
   const phone = jidToPhone(remoteJid);
+  const displayName = contactName?.trim() || formatPhone(phone);
   const initials = phone.slice(-2);
 
   return (
@@ -49,8 +51,10 @@ export function BrokerChatWindow({ remoteJid }: Props) {
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium">{formatPhone(phone)}</p>
-          <p className="text-xs text-muted-foreground">Canal pessoal</p>
+          <p className="truncate text-sm font-medium">{displayName}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {contactName?.trim() ? formatPhone(phone) : "Canal pessoal"}
+          </p>
         </div>
       </div>
 

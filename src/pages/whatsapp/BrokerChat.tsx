@@ -10,6 +10,7 @@ import { BrokerChatWindow } from "@/components/whatsapp/broker-chat/BrokerChatWi
 export default function BrokerChat() {
   const [selectedJid, setSelectedJid] = useState<string | null>(null);
   const { data: conversations, isLoading, channelId, channelStatus } = useBrokerConversations();
+  const selectedConversation = conversations?.find((c) => c.remote_jid === selectedJid);
 
   return (
     <>
@@ -63,7 +64,7 @@ export default function BrokerChat() {
               onSelect={setSelectedJid}
               isLoading={isLoading}
             />
-            <BrokerChatWindow remoteJid={selectedJid} />
+            <BrokerChatWindow remoteJid={selectedJid} contactName={selectedConversation?.contact_name} />
           </div>
         )}
       </div>

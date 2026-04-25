@@ -42,8 +42,9 @@ function renderPreview(body: string): string {
 
 /** Find unknown placeholders like {xyz} that aren't in the supported list */
 function findUnknownPlaceholders(body: string): string[] {
-  const allTags = body.match(/\{[a-zA-Z_.]+\}/g) ?? [];
-  return allTags.filter((tag) => !SUPPORTED_TAGS.includes(tag.toLowerCase()));
+  const allTags: string[] = body.match(/\{[a-zA-Z_.]+\}/g) ?? [];
+  const supportedTags = new Set<string>(SUPPORTED_TAGS);
+  return allTags.filter((tag) => !supportedTags.has(tag.toLowerCase()));
 }
 
 export function BrokerTemplatesCard() {
