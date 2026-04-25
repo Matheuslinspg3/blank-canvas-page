@@ -24,7 +24,7 @@ import { PropertyStatusStats } from "@/components/properties/PropertyStatusStats
 import { usePropertyFilters } from "@/hooks/usePropertyFilters";
 import { useAdvancedPropertySearch } from "@/hooks/useAdvancedPropertySearch";
 import { useMarketplaceStatus } from "@/hooks/useMarketplaceStatus";
-import { useQuery } from "@tanstack/react-query";
+
 import {
   AlertDialog,
   AlertDialogAction,
