@@ -256,6 +256,7 @@ function calculateProviderScore(
 async function callGroq(
   provider: Provider, apiKey: string, prompt: string, systemPrompt: string | null,
   maxTokens: number, temperature: number, _imageBase64?: string, signal?: AbortSignal, _imageSize?: string,
+  _fileMimeType?: string,
 ) {
   const messages: any[] = [];
   if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
@@ -405,7 +406,7 @@ async function callAnthropic(
 async function callOpenAI(
   provider: Provider, apiKey: string, prompt: string, systemPrompt: string | null,
   maxTokens: number, temperature: number, imageBase64?: string, signal?: AbortSignal,
-  imageSize?: string,
+  imageSize?: string, _fileMimeType?: string,
 ) {
   const isImageModel = provider.supports_image_output && (
     provider.model_id.includes("dall-e") || provider.model_id.includes("gpt-image")
