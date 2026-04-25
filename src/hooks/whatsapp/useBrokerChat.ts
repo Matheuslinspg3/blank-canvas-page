@@ -25,6 +25,21 @@ export interface BrokerConversation {
   unread_count: number;
 }
 
+const PAGE_SIZE = 1000;
+
+async function fetchAllPages<T>(
+  buildQuery: (from: number, to: number) => any
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await buildQuery(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if ((data ?? []).length < PAGE_SIZE) break;
+  }
+  return rows;
+}
+
 /**
  * Resolve current user's broker channel id (from broker_whatsapp_channels).
  */
@@ -58,21 +73,23 @@ export function useBrokerConversations() {
   const query = useQuery({
     queryKey: ["broker-conversations", channel?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("whatsapp_messages" as any)
-        .select("remote_jid, from_me, message_text, message_type, timestamp, phone, push_name")
-        .eq("organization_id", profile!.organization_id!)
-        .eq("broker_channel_id", channel!.id)
-        .order("timestamp", { ascending: false })
-        .limit(2000);
-      if (error) throw error;
+      const data = await fetchAllPages<any>((from, to) =>
+        supabase
+          .from("whatsapp_messages" as any)
+          .select("remote_jid, from_me, message_text, message_type, timestamp, phone, push_name")
+          .eq("organization_id", profile!.organization_id!)
+          .eq("broker_channel_id", channel!.id)
+          .order("timestamp", { ascending: false })
+          .range(from, to)
+      );
 
       const map = new Map<string, BrokerConversation>();
       const nameByJid = new Map<string, string>();
       for (const row of (data ?? []) as any[]) {
         // Capture push_name from the most recent message that has one
-        if (!nameByJid.has(row.remote_jid) && row.push_name) {
-          nameByJid.set(row.remote_jid, row.push_name);
+        const cleanName = typeof row.push_name === "string" ? row.push_name.trim() : "";
+        if (cleanName && !nameByJid.has(row.remote_jid)) {
+          nameByJid.set(row.remote_jid, cleanName);
         }
         if (map.has(row.remote_jid)) continue;
         const phone = row.phone ?? row.remote_jid.split("@")[0];
@@ -107,6 +124,23 @@ export function useBrokerConversations() {
     staleTime: 5_000,
     refetchInterval: 15_000,
   });
+
+  useEffect(() => {
+    if (!channel?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase as any).rpc("reprocess_broker_whatsapp_contact_names", {
+        p_broker_channel_id: channel.id,
+      });
+      if (!cancelled && Number(data ?? 0) > 0) {
+        qc.invalidateQueries({ queryKey: ["broker-conversations", channel.id] });
+        qc.invalidateQueries({ queryKey: ["broker-messages"] });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [channel?.id, qc]);
 
   // Realtime: refetch on new inbound messages for this channel
   useEffect(() => {
@@ -145,15 +179,16 @@ export function useBrokerMessages(remoteJid: string | null) {
   return useQuery({
     queryKey: ["broker-messages", channel?.id, remoteJid],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("whatsapp_messages" as any)
-        .select("id, remote_jid, from_me, message_text, message_type, media_url, timestamp, sender_type")
-        .eq("organization_id", profile!.organization_id!)
-        .eq("broker_channel_id", channel!.id)
-        .eq("remote_jid", remoteJid!)
-        .order("timestamp", { ascending: true })
-        .limit(200);
-      if (error) throw error;
+      const data = await fetchAllPages<any>((from, to) =>
+        supabase
+          .from("whatsapp_messages" as any)
+          .select("id, remote_jid, from_me, message_text, message_type, media_url, timestamp, sender_type")
+          .eq("organization_id", profile!.organization_id!)
+          .eq("broker_channel_id", channel!.id)
+          .eq("remote_jid", remoteJid!)
+          .order("timestamp", { ascending: true })
+          .range(from, to)
+      );
       return ((data ?? []) as unknown) as BrokerMessage[];
     },
     enabled: !!channel?.id && !!remoteJid,
@@ -175,6 +210,7 @@ export function useSendBrokerMessage() {
       type?: "text" | "media";
       mediaUrl?: string;
       mediaType?: "image" | "audio" | "document" | "video";
+      clientMessageId?: string;
     }) => {
       const { data, error } = await supabase.functions.invoke("whatsapp-broker-send", {
         body: payload,

@@ -9120,6 +9120,45 @@ export type Database = {
           },
         ]
       }
+      whatsapp_broker_send_locks: {
+        Row: {
+          broker_channel_id: string
+          client_message_id: string
+          created_at: string
+          error_message: string | null
+          id: string
+          message_id: string | null
+          organization_id: string
+          remote_jid: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          broker_channel_id: string
+          client_message_id: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          message_id?: string | null
+          organization_id: string
+          remote_jid: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          broker_channel_id?: string
+          client_message_id?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          message_id?: string | null
+          organization_id?: string
+          remote_jid?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       whatsapp_instances: {
         Row: {
           created_at: string
@@ -9180,6 +9219,7 @@ export type Database = {
           ai_provider: string | null
           broker_channel_id: string | null
           channel_type: string
+          client_message_id: string | null
           created_at: string
           estimated_cost_usd: number | null
           from_me: boolean
@@ -9204,6 +9244,7 @@ export type Database = {
           ai_provider?: string | null
           broker_channel_id?: string | null
           channel_type?: string
+          client_message_id?: string | null
           created_at?: string
           estimated_cost_usd?: number | null
           from_me?: boolean
@@ -9228,6 +9269,7 @@ export type Database = {
           ai_provider?: string | null
           broker_channel_id?: string | null
           channel_type?: string
+          client_message_id?: string | null
           created_at?: string
           estimated_cost_usd?: number | null
           from_me?: boolean
@@ -10806,6 +10848,10 @@ export type Database = {
       }
       remove_amenity_from_properties: {
         Args: { p_name: string }
+        Returns: number
+      }
+      reprocess_broker_whatsapp_contact_names: {
+        Args: { p_broker_channel_id: string }
         Returns: number
       }
       resolve_itbi: {
