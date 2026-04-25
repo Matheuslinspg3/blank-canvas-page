@@ -483,6 +483,7 @@ export default function Properties() {
         p_max_beach_distance: filters.maxBeachDistance,
         p_launch_stage: filters.launchStage === 'all' ? null : filters.launchStage,
         p_sort_by: 'recent',
+        p_owner_id: filters.ownerId || null,
       });
       if (data) {
         const ids = (data as any[]).map((r: any) => r.id as string);
