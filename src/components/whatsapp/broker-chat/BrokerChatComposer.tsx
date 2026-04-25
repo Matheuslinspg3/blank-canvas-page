@@ -21,24 +21,30 @@ export function BrokerChatComposer({ phone }: Props) {
   const [text, setText] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const sendingRef = useRef(false); // sync guard against double-fire (Enter + click)
   const { user, profile } = useAuth();
   const { mutateAsync: send, isPending } = useSendBrokerMessage();
   const { templates } = useBrokerTemplates();
 
   const handleSend = async () => {
+    if (sendingRef.current) return;
     const msg = text.trim();
     if (!msg) return;
+    sendingRef.current = true;
+    setText(""); // clear immediately so the user can type the next message
     try {
       await send({ phone, message: msg, type: "text" });
-      setText("");
     } catch {
-      // toast handled in hook
+      setText(msg); // restore so the user doesn't lose their message
+    } finally {
+      sendingRef.current = false;
     }
   };
 
   const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
+      e.stopPropagation();
       handleSend();
     }
   };

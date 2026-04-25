@@ -9191,6 +9191,7 @@ export type Database = {
           message_type: string | null
           organization_id: string
           phone: string | null
+          push_name: string | null
           remote_jid: string
           sender_type: string
           timestamp: string
@@ -9214,6 +9215,7 @@ export type Database = {
           message_type?: string | null
           organization_id: string
           phone?: string | null
+          push_name?: string | null
           remote_jid: string
           sender_type?: string
           timestamp?: string
@@ -9237,6 +9239,7 @@ export type Database = {
           message_type?: string | null
           organization_id?: string
           phone?: string | null
+          push_name?: string | null
           remote_jid?: string
           sender_type?: string
           timestamp?: string
