@@ -100,11 +100,14 @@ export default function Properties() {
   const searchTotal = searchData?.total ?? 0;
 
   // Lightweight listing for the page (cards only, server-paginated, cover image only).
+  // Owner is passed as a fallback path; the primary owner filter goes through the RPC
+  // when any advanced filter is active.
   const { properties: listProperties, total: listTotal, isLoading: isLoadingList, isFetching: isListFetching } = usePropertiesList({
     pageSize: pageSize === 'all' ? 2000 : pageSize,
     page: currentPage,
     sortBy,
     enabled: !hasActiveFilters,
+    ownerId: filters.ownerId || null,
   });
 
   // Full hook kept for mutations + bulk ops. The heavy listing query is NEVER
@@ -127,6 +130,7 @@ export default function Properties() {
         bathrooms: result.bathrooms, parking_spots: result.parking_spots, area_total: result.area_total,
         area_built: result.area_built, status: result.status, transaction_type: result.transaction_type,
         property_type_id: result.property_type_id, created_at: result.created_at, updated_at: result.updated_at,
+        last_reviewed_at: result.last_reviewed_at,
         beach_distance_meters: result.beach_distance_meters,
         images: result.cover_image_url ? [{ url: result.cover_image_url, is_cover: true, display_order: 0 }] : [],
       } as PropertyWithDetails))
