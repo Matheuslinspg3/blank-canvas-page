@@ -20,24 +20,33 @@ interface Props {
 export function BrokerChatComposer({ phone }: Props) {
   const [text, setText] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [sendingNow, setSendingNow] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const sendingRef = useRef(false); // sync guard against double-fire (Enter + click)
+  const lastSubmissionRef = useRef<{ key: string; at: number } | null>(null);
   const { user, profile } = useAuth();
   const { mutateAsync: send, isPending } = useSendBrokerMessage();
   const { templates } = useBrokerTemplates();
 
   const handleSend = async () => {
-    if (sendingRef.current) return;
+    if (sendingRef.current || isPending || sendingNow) return;
     const msg = text.trim();
     if (!msg) return;
+    const submissionKey = `${phone}:${msg}`;
+    const now = Date.now();
+    if (lastSubmissionRef.current?.key === submissionKey && now - lastSubmissionRef.current.at < 5000) return;
+    lastSubmissionRef.current = { key: submissionKey, at: now };
     sendingRef.current = true;
+    setSendingNow(true);
     setText(""); // clear immediately so the user can type the next message
     try {
-      await send({ phone, message: msg, type: "text" });
+      await send({ phone, message: msg, type: "text", clientMessageId: crypto.randomUUID() });
     } catch {
+      lastSubmissionRef.current = null;
       setText(msg); // restore so the user doesn't lose their message
     } finally {
       sendingRef.current = false;
+      setSendingNow(false);
     }
   };
 
@@ -45,6 +54,7 @@ export function BrokerChatComposer({ phone }: Props) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       e.stopPropagation();
+      if (e.repeat) return;
       handleSend();
     }
   };
@@ -83,6 +93,7 @@ export function BrokerChatComposer({ phone }: Props) {
         type: "media",
         mediaUrl,
         mediaType,
+        clientMessageId: crypto.randomUUID(),
       });
       setText("");
     } catch (err: any) {
@@ -165,9 +176,9 @@ export function BrokerChatComposer({ phone }: Props) {
           size="icon"
           className="h-9 w-9 shrink-0"
           onClick={handleSend}
-          disabled={isPending || !text.trim()}
+          disabled={isPending || sendingNow || !text.trim()}
         >
-          {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          {isPending || sendingNow ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </Button>
       </div>
     </div>
