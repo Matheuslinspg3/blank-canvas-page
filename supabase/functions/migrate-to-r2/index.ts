@@ -46,7 +46,7 @@ async function putObjectToR2(
   const credentialScope = `${dateStamp}/auto/s3/aws4_request`;
 
   const canonicalUri = `/${bucket}/${objectKey}`;
-  const payloadHash = await sha256(body);
+  const payloadHash = await sha256(body as unknown as BufferSource);
 
   const canonicalHeaders = `content-type:${contentType}\nhost:${host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${amzDate}\n`;
   const signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date';
@@ -69,7 +69,7 @@ async function putObjectToR2(
       'Authorization': authorization,
       'Cache-Control': 'public, max-age=31536000, immutable',
     },
-    body: body as BufferSource,
+    body: body as unknown as BodyInit,
   });
 
   return res.ok;

@@ -98,14 +98,14 @@ Deno.serve(async (req: Request) => {
 
     // Helper: fallback to properties + property_images tables
     async function fallbackFromProperties(filter: Record<string, string>) {
-      let query = supabase
+      let query: any = supabase
         .from("properties")
         .select("title, description")
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
       for (const [k, v] of Object.entries(filter)) {
         query = query.eq(k, v);
       }
+      query = query.maybeSingle();
       const { data: prop } = await query;
       if (!prop) return null;
 

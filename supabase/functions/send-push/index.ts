@@ -147,9 +147,9 @@ Deno.serve(async (req) => {
         user_id,
         reason: result.reason ?? null,
         resolvedDeviceCount: result.resolvedDeviceCount ?? null,
-        attemptedIds: result.attemptedIds ?? null,
-        invalidIdsRemoved: result.invalidIdsRemoved ?? null,
-        providerErrors: result.raw?.errors ?? null,
+        attemptedIds: (result as any).attemptedIds ?? null,
+        invalidIdsRemoved: (result as any).invalidIdsRemoved ?? null,
+        providerErrors: (result as any).raw?.errors ?? null,
       }));
     }
 
