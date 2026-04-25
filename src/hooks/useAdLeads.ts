@@ -173,20 +173,10 @@ export function useAdLeads(filters?: { externalAdId?: string; status?: AdLeadSta
         crmLeadId = crmLead.id;
       }
 
-      if (crmError) {
-        // Mark as failed
-        await supabase.from('ad_leads').update({
-          status: 'send_failed' as any,
-          status_reason: crmError.message,
-          updated_at: new Date().toISOString(),
-        }).eq('id', leadId);
-        throw crmError;
-      }
-
-      // Mark as sent
+      // Mark ad_lead as sent (whether merged or newly created)
       await supabase.from('ad_leads').update({
         status: 'sent_to_crm' as any,
-        crm_record_id: crmLead.id,
+        crm_record_id: crmLeadId,
         updated_at: new Date().toISOString(),
       }).eq('id', leadId);
     },
