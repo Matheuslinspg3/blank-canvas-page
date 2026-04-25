@@ -42,9 +42,9 @@ export function BrokerChatWindow({ remoteJid, contactName }: Props) {
   const initials = phone.slice(-2);
 
   return (
-    <div className="flex h-full flex-col bg-background">
+    <div className="flex h-full min-h-0 min-w-0 flex-col bg-background">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-border bg-card px-4 py-3">
+      <div className="flex shrink-0 items-center gap-3 border-b border-border bg-card px-4 py-3">
         <Avatar className="h-9 w-9">
           <AvatarFallback className="bg-primary/10 text-primary text-xs">
             {initials}
@@ -59,7 +59,7 @@ export function BrokerChatWindow({ remoteJid, contactName }: Props) {
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-muted/10 p-4">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto bg-muted/10 p-4">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
