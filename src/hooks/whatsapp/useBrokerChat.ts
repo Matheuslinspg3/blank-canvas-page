@@ -25,6 +25,21 @@ export interface BrokerConversation {
   unread_count: number;
 }
 
+const PAGE_SIZE = 1000;
+
+async function fetchAllPages<T>(
+  buildQuery: (from: number, to: number) => Promise<{ data: T[] | null; error: unknown }>
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await buildQuery(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if ((data ?? []).length < PAGE_SIZE) break;
+  }
+  return rows;
+}
+
 /**
  * Resolve current user's broker channel id (from broker_whatsapp_channels).
  */
@@ -58,21 +73,23 @@ export function useBrokerConversations() {
   const query = useQuery({
     queryKey: ["broker-conversations", channel?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("whatsapp_messages" as any)
-        .select("remote_jid, from_me, message_text, message_type, timestamp, phone, push_name")
-        .eq("organization_id", profile!.organization_id!)
-        .eq("broker_channel_id", channel!.id)
-        .order("timestamp", { ascending: false })
-        .limit(2000);
-      if (error) throw error;
+      const data = await fetchAllPages<any>((from, to) =>
+        supabase
+          .from("whatsapp_messages" as any)
+          .select("remote_jid, from_me, message_text, message_type, timestamp, phone, push_name")
+          .eq("organization_id", profile!.organization_id!)
+          .eq("broker_channel_id", channel!.id)
+          .order("timestamp", { ascending: false })
+          .range(from, to)
+      );
 
       const map = new Map<string, BrokerConversation>();
       const nameByJid = new Map<string, string>();
       for (const row of (data ?? []) as any[]) {
         // Capture push_name from the most recent message that has one
-        if (!nameByJid.has(row.remote_jid) && row.push_name) {
-          nameByJid.set(row.remote_jid, row.push_name);
+        const cleanName = typeof row.push_name === "string" ? row.push_name.trim() : "";
+        if (cleanName && !nameByJid.has(row.remote_jid)) {
+          nameByJid.set(row.remote_jid, cleanName);
         }
         if (map.has(row.remote_jid)) continue;
         const phone = row.phone ?? row.remote_jid.split("@")[0];
