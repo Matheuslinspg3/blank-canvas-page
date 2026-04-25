@@ -463,6 +463,8 @@ async function syncOrgLeads(
       }
 
       // Create new CRM lead
+      const adCtx = await resolveAdContext(supabase, orgId, nl.external_ad_id);
+      const metaFields = buildMetaLeadFields(adCtx, nl.external_ad_id);
       const { data: crmLead, error: crmError } = await supabase
         .from("leads")
         .insert({
@@ -473,8 +475,7 @@ async function syncOrgLeads(
           created_by: userId,
           lead_stage_id: adSettings.crm_stage_id,
           stage: "novo",
-          source: "anuncio",
-          notes: `Lead importado automaticamente de Meta Ads (Ad ID: ${nl.external_ad_id})`,
+          ...metaFields,
           consent_voice_call: resolveVoiceConsent({ source: "anuncio", explicit: null, hasPhone: !!nl.phone }),
         })
         .select("id").single();
