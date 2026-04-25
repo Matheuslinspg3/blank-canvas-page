@@ -20,11 +20,14 @@ export function usePropertyReview() {
       if (error) throw error;
       return data as string;
     },
-    onSuccess: () => {
+    onSuccess: (_data, propertyId) => {
       qc.invalidateQueries({ queryKey: ['properties-list'] });
       qc.invalidateQueries({ queryKey: ['properties-advanced-search'] });
       qc.invalidateQueries({ queryKey: ['properties'] });
       qc.invalidateQueries({ queryKey: ['owner-property-ids'] });
+      // Detalhe do imóvel específico (usado em /imoveis/:id e formulários)
+      qc.invalidateQueries({ queryKey: ['property', propertyId] });
+      qc.invalidateQueries({ queryKey: ['property-detail', propertyId] });
       toast.success('Imóvel marcado como revisado');
     },
     onError: (e: any) => {
