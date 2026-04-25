@@ -523,6 +523,8 @@ async function handleImport(
       continue;
     }
 
+    const adCtx = await resolveAdContext(supabase, orgId, nl.external_ad_id);
+    const metaFields = buildMetaLeadFields(adCtx, nl.external_ad_id);
     const { data: crmLead, error: crmError } = await supabase
       .from("leads")
       .insert({
@@ -533,8 +535,7 @@ async function handleImport(
         created_by: userId,
         lead_stage_id: crmStageId,
         stage: "novo",
-        source: "anuncio",
-        notes: `Lead importado de Meta Ads (Ad ID: ${nl.external_ad_id})`,
+        ...metaFields,
       })
       .select("id")
       .single();
