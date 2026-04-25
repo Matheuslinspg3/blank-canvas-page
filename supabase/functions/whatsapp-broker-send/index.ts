@@ -46,7 +46,7 @@ serve(async (req) => {
     if (!profile?.organization_id) throw new Error("No organization");
 
     const body = await req.json();
-    const { phone, message, type = "text", brokerChannelId, channelAccountId, mediaUrl, mediaType } = body;
+    const { phone, message, type = "text", brokerChannelId, channelAccountId, mediaUrl, mediaType, clientMessageId } = body;
 
     if (!phone || !message) throw new Error("phone and message are required");
 
@@ -90,6 +90,22 @@ serve(async (req) => {
 
     // Send via Evolution API
     const remoteJid = phone.includes("@") ? phone : `${phone}@s.whatsapp.net`;
+    const requestClientMessageId = typeof clientMessageId === "string" && clientMessageId.trim()
+      ? clientMessageId.trim()
+      : null;
+
+    if (requestClientMessageId) {
+      const { data: existingMessage } = await sb
+        .from("whatsapp_messages")
+        .select("message_id")
+        .eq("broker_channel_id", channel.id)
+        .eq("client_message_id", requestClientMessageId)
+        .maybeSingle();
+
+      if (existingMessage?.message_id) {
+        return json({ sent: true, duplicate: true, messageId: existingMessage.message_id });
+      }
+    }
 
     let evoEndpoint: string;
     let evoBody: Record<string, unknown>;
@@ -135,6 +151,7 @@ serve(async (req) => {
       timestamp: new Date().toISOString(),
       channel_type: "broker",
       broker_channel_id: channel.id,
+      client_message_id: requestClientMessageId,
     });
 
     return json({ sent: true, messageId });
