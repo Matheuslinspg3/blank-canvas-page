@@ -10850,7 +10850,10 @@ export type Database = {
         Args: { p_name: string }
         Returns: number
       }
-      reprocess_broker_whatsapp_contact_names: { Args: never; Returns: number }
+      reprocess_broker_whatsapp_contact_names: {
+        Args: { p_broker_channel_id: string }
+        Returns: number
+      }
       resolve_itbi: {
         Args: { p_ibge: string; p_org: string; p_uf: string }
         Returns: {
