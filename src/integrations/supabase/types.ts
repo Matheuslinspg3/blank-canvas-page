@@ -4537,6 +4537,7 @@ export type Database = {
           preferred_neighborhoods: string[] | null
           property_id: string | null
           score: number | null
+          secondary_sources: Json
           source: string | null
           stage: Database["public"]["Enums"]["lead_stage"]
           temperature: string | null
@@ -4584,6 +4585,7 @@ export type Database = {
           preferred_neighborhoods?: string[] | null
           property_id?: string | null
           score?: number | null
+          secondary_sources?: Json
           source?: string | null
           stage?: Database["public"]["Enums"]["lead_stage"]
           temperature?: string | null
@@ -4631,6 +4633,7 @@ export type Database = {
           preferred_neighborhoods?: string[] | null
           property_id?: string | null
           score?: number | null
+          secondary_sources?: Json
           source?: string | null
           stage?: Database["public"]["Enums"]["lead_stage"]
           temperature?: string | null
@@ -10753,6 +10756,20 @@ export type Database = {
       mark_conversation_read: {
         Args: { p_conversation_id: string; p_read_at?: string }
         Returns: undefined
+      }
+      merge_external_lead: {
+        Args: {
+          p_conversion_identifier?: string
+          p_email: string
+          p_external_id?: string
+          p_external_source: string
+          p_organization_id: string
+          p_phone: string
+          p_source: string
+          p_traffic_source?: string
+          p_window_days?: number
+        }
+        Returns: string
       }
       normalize_location_text: { Args: { val: string }; Returns: string }
       normalize_phone: { Args: { phone: string }; Returns: string }
