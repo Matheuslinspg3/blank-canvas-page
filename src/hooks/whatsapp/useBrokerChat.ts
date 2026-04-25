@@ -28,7 +28,7 @@ export interface BrokerConversation {
 const PAGE_SIZE = 1000;
 
 async function fetchAllPages<T>(
-  buildQuery: (from: number, to: number) => Promise<{ data: T[] | null; error: unknown }>
+  buildQuery: (from: number, to: number) => any
 ): Promise<T[]> {
   const rows: T[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
@@ -192,6 +192,7 @@ export function useSendBrokerMessage() {
       type?: "text" | "media";
       mediaUrl?: string;
       mediaType?: "image" | "audio" | "document" | "video";
+      clientMessageId?: string;
     }) => {
       const { data, error } = await supabase.functions.invoke("whatsapp-broker-send", {
         body: payload,
