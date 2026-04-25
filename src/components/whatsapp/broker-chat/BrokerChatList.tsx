@@ -78,7 +78,10 @@ export function BrokerChatList({ conversations, selectedJid, onSelect, isLoading
     };
 
     for (const c of conversations) {
-      if (q && !c.phone.includes(q) && !c.last_message?.toLowerCase().includes(q)) continue;
+      if (q) {
+        const name = (c.contact_name ?? "").toLowerCase();
+        if (!c.phone.includes(q) && !name.includes(q) && !c.last_message?.toLowerCase().includes(q)) continue;
+      }
       const bucket = getBucket(new Date(c.last_message_at));
       if (!passesFilter(bucket, filter)) continue;
       groups[bucket].push(c);
@@ -151,7 +154,11 @@ export function BrokerChatList({ conversations, selectedJid, onSelect, isLoading
                   <ul className="divide-y divide-border">
                     {items.map((c) => {
                       const isActive = c.remote_jid === selectedJid;
-                      const initials = c.phone.slice(-2);
+                      const displayName = c.contact_name?.trim() || formatPhone(c.phone);
+                      const initials = (c.contact_name?.trim() || c.phone)
+                        .replace(/[^\p{L}\p{N}]/gu, "")
+                        .slice(0, 2)
+                        .toUpperCase() || c.phone.slice(-2);
                       return (
                         <li key={c.remote_jid}>
                           <button
@@ -170,7 +177,7 @@ export function BrokerChatList({ conversations, selectedJid, onSelect, isLoading
                             <div className="min-w-0 flex-1">
                               <div className="flex items-baseline justify-between gap-2">
                                 <p className="truncate text-sm font-medium">
-                                  {formatPhone(c.phone)}
+                                  {displayName}
                                 </p>
                                 <span className="shrink-0 text-[10px] text-muted-foreground">
                                   {formatDistanceToNow(new Date(c.last_message_at), {
@@ -179,6 +186,11 @@ export function BrokerChatList({ conversations, selectedJid, onSelect, isLoading
                                   })}
                                 </span>
                               </div>
+                              {c.contact_name && (
+                                <p className="truncate text-[11px] text-muted-foreground/80">
+                                  {formatPhone(c.phone)}
+                                </p>
+                              )}
                               <p className="truncate text-xs text-muted-foreground">
                                 {c.last_from_me ? "Você: " : ""}
                                 {c.last_message || "—"}
