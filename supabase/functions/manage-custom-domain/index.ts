@@ -24,12 +24,12 @@ function errorJson(message: string, status = 400, extra?: Record<string, unknown
 
 function getRuntimeConfig(): RuntimeConfig {
   return {
-    supabaseUrl: Deno.env.get("SUPABASE_URL"),
-    supabaseAnonKey: Deno.env.get("SUPABASE_ANON_KEY"),
-    supabaseServiceRoleKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),
-    cloudflareToken: Deno.env.get("CLOUDFLARE_API_TOKEN"),
-    cloudflareZoneId: Deno.env.get("CLOUDFLARE_ZONE_ID"),
-    cloudflareAccountId: Deno.env.get("CLOUDFLARE_ACCOUNT_ID"),
+    supabaseUrl: Deno.env.get("SUPABASE_URL") ?? null,
+    supabaseAnonKey: Deno.env.get("SUPABASE_ANON_KEY") ?? null,
+    supabaseServiceRoleKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? null,
+    cloudflareToken: Deno.env.get("CLOUDFLARE_API_TOKEN") ?? null,
+    cloudflareZoneId: Deno.env.get("CLOUDFLARE_ZONE_ID") ?? null,
+    cloudflareAccountId: Deno.env.get("CLOUDFLARE_ACCOUNT_ID") ?? null,
   };
 }
 
@@ -515,9 +515,9 @@ Deno.serve(async (req) => {
         return errorJson(result.error || "Falha ao configurar proxy", 502, { details: result.details, ...result });
       }
       return json({
+        ...result,
         success: true,
         message: "Worker proxy configurado! Subdomínios *.portadocorretor.com.br agora funcionam.",
-        ...result,
       });
     }
 
