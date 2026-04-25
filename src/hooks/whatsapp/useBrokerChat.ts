@@ -129,7 +129,9 @@ export function useBrokerConversations() {
     if (!channel?.id) return;
     let cancelled = false;
     (async () => {
-      const { data } = await (supabase as any).rpc("reprocess_broker_whatsapp_contact_names");
+      const { data } = await (supabase as any).rpc("reprocess_broker_whatsapp_contact_names", {
+        p_broker_channel_id: channel.id,
+      });
       if (!cancelled && Number(data ?? 0) > 0) {
         qc.invalidateQueries({ queryKey: ["broker-conversations", channel.id] });
         qc.invalidateQueries({ queryKey: ["broker-messages"] });
