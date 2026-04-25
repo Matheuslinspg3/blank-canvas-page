@@ -136,21 +136,8 @@ export default function Properties() {
 
   const { publishedIds, refetch: refetchPublishedIds } = useMarketplaceStatus();
 
-  // Fetch property IDs for selected owner
-  const { data: ownerPropertyIds } = useQuery({
-    queryKey: ['owner-property-ids', filters.ownerId],
-    queryFn: async () => {
-      if (!filters.ownerId) return null;
-      const { data, error } = await supabase
-        .from('property_owners')
-        .select('property_id')
-        .eq('owner_id', filters.ownerId);
-      if (error) throw error;
-      return new Set((data || []).map(d => d.property_id));
-    },
-    enabled: !!filters.ownerId,
-    staleTime: 30000,
-  });
+  // Owner filter is now applied server-side inside the RPC (search_properties_advanced)
+  // and as a robust fallback inside usePropertiesList. No client-side filtering needed.
 
   // Handle edit from PropertyDetails navigation
   useEffect(() => {
@@ -406,14 +393,8 @@ export default function Properties() {
     setDuplicateReviewOpen(false);
     pendingBatchRef.current = null;
   }, []);
-  // Filter by owner if selected (client-side, owner data not in RPC)
-  const filteredProperties = useMemo(() => {
-    let results = allProperties;
-    if (filters.ownerId && ownerPropertyIds) {
-      results = results.filter(p => ownerPropertyIds.has(p.id));
-    }
-    return results;
-  }, [allProperties, filters.ownerId, ownerPropertyIds]);
+  // Owner filter is enforced server-side; no extra client filtering needed.
+  const filteredProperties = allProperties;
 
   // Server-side sort/pagination is now handled by the hooks.
   // No client-side sort or pagination needed.
