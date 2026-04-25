@@ -23,6 +23,73 @@ function normalizeEmail(raw: string): string {
  * or exact name match as last resort.
  * Returns the lead id or null.
  */
+/**
+ * Resolves human-readable ad / adset / campaign names for a Meta external_ad_id,
+ * walking up ad → adset → campaign via `parent_external_id` in `ad_entities`.
+ */
+async function resolveAdContext(
+  supabase: any,
+  orgId: string,
+  externalAdId: string | null | undefined,
+): Promise<{ adName: string | null; adsetName: string | null; campaignName: string | null }> {
+  if (!externalAdId || externalAdId === "unknown") {
+    return { adName: null, adsetName: null, campaignName: null };
+  }
+  const { data: ad } = await supabase
+    .from("ad_entities")
+    .select("name, parent_external_id")
+    .eq("organization_id", orgId)
+    .eq("provider", "meta")
+    .eq("entity_type", "ad")
+    .eq("external_id", externalAdId)
+    .maybeSingle();
+  if (!ad) return { adName: null, adsetName: null, campaignName: null };
+
+  let adsetName: string | null = null;
+  let campaignName: string | null = null;
+  if (ad.parent_external_id) {
+    const { data: adset } = await supabase
+      .from("ad_entities")
+      .select("name, parent_external_id")
+      .eq("organization_id", orgId)
+      .eq("provider", "meta")
+      .eq("entity_type", "adset")
+      .eq("external_id", ad.parent_external_id)
+      .maybeSingle();
+    if (adset) {
+      adsetName = adset.name ?? null;
+      if (adset.parent_external_id) {
+        const { data: campaign } = await supabase
+          .from("ad_entities")
+          .select("name")
+          .eq("organization_id", orgId)
+          .eq("provider", "meta")
+          .eq("entity_type", "campaign")
+          .eq("external_id", adset.parent_external_id)
+          .maybeSingle();
+        campaignName = campaign?.name ?? null;
+      }
+    }
+  }
+  return { adName: ad.name ?? null, adsetName, campaignName };
+}
+
+function buildMetaLeadFields(ctx: { adName: string | null; adsetName: string | null; campaignName: string | null }, externalAdId: string | null) {
+  const tag = ctx.adName || ctx.campaignName || "Meta Ads";
+  const noteParts = [`Lead importado de Meta Ads`];
+  if (ctx.campaignName) noteParts.push(`Campanha: ${ctx.campaignName}`);
+  if (ctx.adsetName) noteParts.push(`Conjunto: ${ctx.adsetName}`);
+  if (ctx.adName) noteParts.push(`Anúncio: ${ctx.adName}`);
+  if (externalAdId && externalAdId !== "unknown") noteParts.push(`Ad ID: ${externalAdId}`);
+  return {
+    source: tag,
+    external_source: "meta_ads",
+    conversion_identifier: ctx.adName || null,
+    traffic_source: ctx.campaignName || "Meta Ads",
+    notes: noteParts.join(" • "),
+  };
+}
+
 async function findExistingCrmLead(
   supabase: any,
   orgId: string,
@@ -396,6 +463,8 @@ async function syncOrgLeads(
       }
 
       // Create new CRM lead
+      const adCtx = await resolveAdContext(supabase, orgId, nl.external_ad_id);
+      const metaFields = buildMetaLeadFields(adCtx, nl.external_ad_id);
       const { data: crmLead, error: crmError } = await supabase
         .from("leads")
         .insert({
@@ -406,8 +475,7 @@ async function syncOrgLeads(
           created_by: userId,
           lead_stage_id: adSettings.crm_stage_id,
           stage: "novo",
-          source: "anuncio",
-          notes: `Lead importado automaticamente de Meta Ads (Ad ID: ${nl.external_ad_id})`,
+          ...metaFields,
           consent_voice_call: resolveVoiceConsent({ source: "anuncio", explicit: null, hasPhone: !!nl.phone }),
         })
         .select("id").single();
@@ -455,6 +523,8 @@ async function handleImport(
       continue;
     }
 
+    const adCtx = await resolveAdContext(supabase, orgId, nl.external_ad_id);
+    const metaFields = buildMetaLeadFields(adCtx, nl.external_ad_id);
     const { data: crmLead, error: crmError } = await supabase
       .from("leads")
       .insert({
@@ -465,8 +535,7 @@ async function handleImport(
         created_by: userId,
         lead_stage_id: crmStageId,
         stage: "novo",
-        source: "anuncio",
-        notes: `Lead importado de Meta Ads (Ad ID: ${nl.external_ad_id})`,
+        ...metaFields,
       })
       .select("id")
       .single();

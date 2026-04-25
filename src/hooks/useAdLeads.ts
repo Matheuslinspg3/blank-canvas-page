@@ -80,6 +80,50 @@ export function useAdLeads(filters?: { externalAdId?: string; status?: AdLeadSta
       const lead = leads.find(l => l.id === leadId);
       if (!lead || !profile?.organization_id) throw new Error('Lead não encontrado');
 
+      // Resolve ad/adset/campaign names from ad_entities to attach Meta Ads "tag"
+      let adName: string | null = null;
+      let adsetName: string | null = null;
+      let campaignName: string | null = null;
+      if (lead.external_ad_id && lead.external_ad_id !== 'unknown') {
+        const { data: adRow } = await supabase
+          .from('ad_entities')
+          .select('name, parent_external_id')
+          .eq('organization_id', profile.organization_id)
+          .eq('provider', 'meta')
+          .eq('entity_type', 'ad')
+          .eq('external_id', lead.external_ad_id)
+          .maybeSingle();
+        adName = adRow?.name ?? null;
+        if (adRow?.parent_external_id) {
+          const { data: adsetRow } = await supabase
+            .from('ad_entities')
+            .select('name, parent_external_id')
+            .eq('organization_id', profile.organization_id)
+            .eq('provider', 'meta')
+            .eq('entity_type', 'adset')
+            .eq('external_id', adRow.parent_external_id)
+            .maybeSingle();
+          adsetName = adsetRow?.name ?? null;
+          if (adsetRow?.parent_external_id) {
+            const { data: campaignRow } = await supabase
+              .from('ad_entities')
+              .select('name')
+              .eq('organization_id', profile.organization_id)
+              .eq('provider', 'meta')
+              .eq('entity_type', 'campaign')
+              .eq('external_id', adsetRow.parent_external_id)
+              .maybeSingle();
+            campaignName = campaignRow?.name ?? null;
+          }
+        }
+      }
+      const tag = adName || campaignName || 'Meta Ads';
+      const noteParts = ['Lead importado de Meta Ads'];
+      if (campaignName) noteParts.push(`Campanha: ${campaignName}`);
+      if (adsetName) noteParts.push(`Conjunto: ${adsetName}`);
+      if (adName) noteParts.push(`Anúncio: ${adName}`);
+      if (lead.external_ad_id && lead.external_ad_id !== 'unknown') noteParts.push(`Ad ID: ${lead.external_ad_id}`);
+
       // Create lead in CRM
       const { data: crmLead, error: crmError } = await supabase
         .from('leads')
@@ -91,8 +135,11 @@ export function useAdLeads(filters?: { externalAdId?: string; status?: AdLeadSta
           created_by: (await supabase.auth.getUser()).data.user!.id,
           lead_stage_id: stageId,
           stage: 'novo',
-          source: 'anuncio',
-          notes: `Lead importado de anúncio Meta Ads (Ad ID: ${lead.external_ad_id})`,
+          source: tag,
+          external_source: 'meta_ads',
+          conversion_identifier: adName,
+          traffic_source: campaignName || 'Meta Ads',
+          notes: noteParts.join(' • '),
         })
         .select('id')
         .single();
