@@ -124,25 +124,54 @@ export function useAdLeads(filters?: { externalAdId?: string; status?: AdLeadSta
       if (adName) noteParts.push(`Anúncio: ${adName}`);
       if (lead.external_ad_id && lead.external_ad_id !== 'unknown') noteParts.push(`Ad ID: ${lead.external_ad_id}`);
 
-      // Create lead in CRM
-      const { data: crmLead, error: crmError } = await supabase
-        .from('leads')
-        .insert({
-          name: lead.name || 'Lead de Anúncio',
-          email: lead.email,
-          phone: lead.phone,
-          organization_id: profile.organization_id,
-          created_by: (await supabase.auth.getUser()).data.user!.id,
-          lead_stage_id: stageId,
-          stage: 'novo',
-          source: tag,
-          external_source: 'meta_ads',
-          conversion_identifier: adName,
-          traffic_source: campaignName || 'Meta Ads',
-          notes: noteParts.join(' • '),
-        })
-        .select('id')
-        .single();
+      // Try cross-channel merge first: if lead with same email/phone exists in last 30 days,
+      // attach Meta Ads as a secondary source instead of creating a duplicate.
+      const { data: mergedId, error: mergeError } = await supabase.rpc('merge_external_lead', {
+        p_organization_id: profile.organization_id,
+        p_email: lead.email,
+        p_phone: lead.phone,
+        p_external_source: 'meta_ads',
+        p_source: tag,
+        p_traffic_source: campaignName || 'Meta Ads',
+        p_conversion_identifier: adName,
+        p_external_id: lead.external_lead_id ?? null,
+        p_window_days: 30,
+      });
+      if (mergeError) throw mergeError;
+
+      let crmLeadId: string | null = (mergedId as string | null) ?? null;
+
+      if (!crmLeadId) {
+        // No existing match — create new CRM lead
+        const { data: crmLead, error: crmError } = await supabase
+          .from('leads')
+          .insert({
+            name: lead.name || 'Lead de Anúncio',
+            email: lead.email,
+            phone: lead.phone,
+            organization_id: profile.organization_id,
+            created_by: (await supabase.auth.getUser()).data.user!.id,
+            lead_stage_id: stageId,
+            stage: 'novo',
+            source: tag,
+            external_source: 'meta_ads',
+            conversion_identifier: adName,
+            traffic_source: campaignName || 'Meta Ads',
+            notes: noteParts.join(' • '),
+          })
+          .select('id')
+          .single();
+
+        if (crmError) {
+          await supabase.from('ad_leads').update({
+            status: 'send_failed' as any,
+            status_reason: crmError.message,
+            updated_at: new Date().toISOString(),
+          }).eq('id', leadId);
+          throw crmError;
+        }
+        crmLeadId = crmLead.id;
+      }
 
       if (crmError) {
         // Mark as failed
