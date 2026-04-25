@@ -179,6 +179,12 @@ export const PropertyCard = memo(function PropertyCard({ property, onEdit, onDel
               <DropdownMenuItem onClick={() => onEdit(property)}>
                 <Edit className="h-4 w-4 mr-2" /> Editar
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => reviewMutation.mutate(property.id)}
+                disabled={reviewMutation.isPending}
+              >
+                <CheckCircle2 className="h-4 w-4 mr-2" /> Marcar como revisado
+              </DropdownMenuItem>
               {onDuplicate && (
                 <DropdownMenuItem onClick={() => onDuplicate(property.id)}>
                   <CopyPlus className="h-4 w-4 mr-2" /> Duplicar
