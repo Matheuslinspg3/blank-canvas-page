@@ -26,6 +26,7 @@ interface SearchResult {
   beach_distance_meters: number | null;
   created_at: string;
   updated_at: string;
+  last_reviewed_at: string | null;
   total_count: number;
 }
 
@@ -80,6 +81,7 @@ export function useAdvancedPropertySearch(
         p_max_beach_distance: filters.maxBeachDistance,
         p_launch_stage: filters.launchStage === 'all' ? null : filters.launchStage,
         p_sort_by: sortBy,
+        p_owner_id: filters.ownerId ?? null,
       });
 
       if (error) {
