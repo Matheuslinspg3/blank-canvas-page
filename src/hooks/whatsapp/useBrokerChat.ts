@@ -18,6 +18,7 @@ export interface BrokerMessage {
 export interface BrokerConversation {
   remote_jid: string;
   phone: string;
+  contact_name: string | null;
   last_message: string;
   last_message_at: string;
   last_from_me: boolean;
@@ -59,15 +60,20 @@ export function useBrokerConversations() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("whatsapp_messages" as any)
-        .select("remote_jid, from_me, message_text, message_type, timestamp, phone")
+        .select("remote_jid, from_me, message_text, message_type, timestamp, phone, push_name")
         .eq("organization_id", profile!.organization_id!)
         .eq("broker_channel_id", channel!.id)
         .order("timestamp", { ascending: false })
-        .limit(500);
+        .limit(2000);
       if (error) throw error;
 
       const map = new Map<string, BrokerConversation>();
+      const nameByJid = new Map<string, string>();
       for (const row of (data ?? []) as any[]) {
+        // Capture push_name from the most recent message that has one
+        if (!nameByJid.has(row.remote_jid) && row.push_name) {
+          nameByJid.set(row.remote_jid, row.push_name);
+        }
         if (map.has(row.remote_jid)) continue;
         const phone = row.phone ?? row.remote_jid.split("@")[0];
         const preview =
@@ -82,11 +88,18 @@ export function useBrokerConversations() {
         map.set(row.remote_jid, {
           remote_jid: row.remote_jid,
           phone,
+          contact_name: row.push_name ?? null,
           last_message: preview,
           last_message_at: row.timestamp,
           last_from_me: row.from_me,
           unread_count: 0,
         });
+      }
+      // Backfill names from older messages in the same scan
+      for (const [jid, conv] of map.entries()) {
+        if (!conv.contact_name && nameByJid.has(jid)) {
+          conv.contact_name = nameByJid.get(jid)!;
+        }
       }
       return Array.from(map.values());
     },
