@@ -59,7 +59,7 @@ export function BrokerChatWindow({ remoteJid, contactName }: Props) {
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-muted/10 p-4">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto bg-muted/10 p-4">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
