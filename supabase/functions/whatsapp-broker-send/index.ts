@@ -95,6 +95,28 @@ serve(async (req) => {
       : null;
 
     if (requestClientMessageId) {
+      const { data: insertedLock, error: lockErr } = await sb
+        .from("whatsapp_broker_send_locks")
+        .insert({
+          organization_id: profile.organization_id,
+          broker_channel_id: channel.id,
+          remote_jid: remoteJid,
+          client_message_id: requestClientMessageId,
+        })
+        .select("id")
+        .maybeSingle();
+
+      if (lockErr?.code === "23505") {
+        const { data: existingLock } = await sb
+          .from("whatsapp_broker_send_locks")
+          .select("message_id, status")
+          .eq("broker_channel_id", channel.id)
+          .eq("client_message_id", requestClientMessageId)
+          .maybeSingle();
+        return json({ sent: true, duplicate: true, messageId: existingLock?.message_id ?? null, status: existingLock?.status ?? "pending" });
+      }
+      if (lockErr || !insertedLock) throw lockErr ?? new Error("Falha ao criar trava de envio");
+
       const { data: existingMessage } = await sb
         .from("whatsapp_messages")
         .select("message_id")
@@ -138,7 +160,7 @@ serve(async (req) => {
     const messageId = evoData?.key?.id ?? evoData?.id ?? crypto.randomUUID();
 
     // Persist outbound message
-    await sb.from("whatsapp_messages").insert({
+    const { error: insertErr } = await sb.from("whatsapp_messages").insert({
       organization_id: profile.organization_id,
       instance_name: channel.instance_name,
       remote_jid: remoteJid,
@@ -153,6 +175,15 @@ serve(async (req) => {
       broker_channel_id: channel.id,
       client_message_id: requestClientMessageId,
     });
+    if (insertErr) throw insertErr;
+
+    if (requestClientMessageId) {
+      await sb
+        .from("whatsapp_broker_send_locks")
+        .update({ status: "sent", message_id: messageId })
+        .eq("broker_channel_id", channel.id)
+        .eq("client_message_id", requestClientMessageId);
+    }
 
     return json({ sent: true, messageId });
   } catch (err: unknown) {
