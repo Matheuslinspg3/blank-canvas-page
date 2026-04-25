@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
   return new Response("ok", { status: 200 });
 });
 
-async function processPayload(admin: ReturnType<typeof createClient>, payload: any) {
+async function processPayload(admin: any, payload: any) {
   const object = payload?.object as string | undefined; // "page" | "instagram"
   const entries: any[] = payload?.entry || [];
   if (!object || entries.length === 0) return;
@@ -119,7 +119,7 @@ async function processPayload(admin: ReturnType<typeof createClient>, payload: a
 }
 
 async function handleMessageEvent(
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   channelType: "messenger" | "instagram",
   entry: any,
   event: any,

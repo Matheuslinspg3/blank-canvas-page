@@ -69,7 +69,7 @@ async function putObjectToR2(
       'Authorization': authorization,
       'Cache-Control': 'public, max-age=31536000, immutable',
     },
-    body,
+    body: body as BufferSource,
   });
 
   return res.ok;

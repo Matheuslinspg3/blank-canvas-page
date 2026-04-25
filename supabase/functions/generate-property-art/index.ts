@@ -285,7 +285,7 @@ async function uploadBytesToR2(
     method: "PUT",
     headers: { "Content-Type": contentType },
     body: bytes,
-  });
+  } as any);
 
   if (!res.ok) {
     const errorText = await res.text();
