@@ -188,7 +188,7 @@ Deno.serve(async (req) => {
 });
 
 async function upsertChannelAccount(
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   args: {
     organizationId: string;
     channelType: "messenger" | "instagram";

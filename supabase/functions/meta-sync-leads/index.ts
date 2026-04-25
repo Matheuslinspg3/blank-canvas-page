@@ -378,8 +378,8 @@ async function syncOrgLeads(
       let leadsUrl: string | null = `https://graph.facebook.com/v21.0/${form.id}/leads?fields=id,created_time,field_data,ad_id&limit=100&access_token=${pageToken}`;
 
       while (leadsUrl) {
-        const leadsRes = await fetch(leadsUrl);
-        const leadsData = await leadsRes.json();
+        const leadsRes: Response = await fetch(leadsUrl);
+        const leadsData: any = await leadsRes.json();
         if (leadsData.error) break;
 
         for (const lead of (leadsData.data || [])) {

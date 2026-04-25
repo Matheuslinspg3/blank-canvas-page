@@ -123,7 +123,7 @@ async function exportSchemaDDL(supabaseUrl: string, serviceKey: string) {
   return result;
 }
 
-async function exportTableData(adminClient: ReturnType<typeof createClient>, table: string) {
+async function exportTableData(adminClient: any, table: string) {
   const allRows: Record<string, unknown>[] = [];
   let offset = 0;
   const PAGE = 1000;
