@@ -116,7 +116,9 @@ serve(async (req) => {
         return json({ sent: true, duplicate: true, messageId: existingLock?.message_id ?? null, status: existingLock?.status ?? "pending" });
       }
       if (lockErr || !insertedLock) throw lockErr ?? new Error("Falha ao criar trava de envio");
+    }
 
+    if (requestClientMessageId) {
       const { data: existingMessage } = await sb
         .from("whatsapp_messages")
         .select("message_id")
@@ -128,6 +130,19 @@ serve(async (req) => {
         return json({ sent: true, duplicate: true, messageId: existingMessage.message_id });
       }
     }
+
+    const { data: contactNameRow } = await sb
+      .from("whatsapp_messages")
+      .select("push_name")
+      .eq("broker_channel_id", channel.id)
+      .eq("remote_jid", remoteJid)
+      .not("push_name", "is", null)
+      .order("timestamp", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const contactPushName = typeof contactNameRow?.push_name === "string" && contactNameRow.push_name.trim()
+      ? contactNameRow.push_name.trim()
+      : null;
 
     let evoEndpoint: string;
     let evoBody: Record<string, unknown>;
@@ -174,6 +189,7 @@ serve(async (req) => {
       channel_type: "broker",
       broker_channel_id: channel.id,
       client_message_id: requestClientMessageId,
+      push_name: contactPushName,
     });
     if (insertErr) throw insertErr;
 
