@@ -10899,6 +10899,7 @@ export type Database = {
           p_property_code?: string
           p_property_condition?: string
           p_property_type_id?: string
+          p_review_status?: string
           p_search_text?: string
           p_sort_by?: string
           p_status?: string
