@@ -28,9 +28,10 @@ export interface PropertyFilters {
   launchStage: string;
   ownerId: string;
   frenteMar: boolean;
+  reviewStatus: string;
 }
 
-const defaultFilters: PropertyFilters = {
+export const defaultFilters: PropertyFilters = {
   searchText: '',
   transactionType: 'all',
   status: 'all',
@@ -53,6 +54,7 @@ const defaultFilters: PropertyFilters = {
   launchStage: 'all',
   ownerId: '',
   frenteMar: false,
+  reviewStatus: 'all',
 };
 
 export function usePropertyFilters() {
@@ -82,6 +84,7 @@ export function usePropertyFilters() {
     launchStage: searchParams.get('fase') || 'all',
     ownerId: searchParams.get('proprietario') || '',
     frenteMar: searchParams.get('frente_mar') === 'true',
+    reviewStatus: searchParams.get('revisao') || 'all',
   }));
 
   // Sync filters to URL
@@ -110,6 +113,7 @@ export function usePropertyFilters() {
     if (filters.launchStage !== 'all') params.set('fase', filters.launchStage);
     if (filters.ownerId) params.set('proprietario', filters.ownerId);
     if (filters.frenteMar) params.set('frente_mar', 'true');
+    if (filters.reviewStatus && filters.reviewStatus !== 'all') params.set('revisao', filters.reviewStatus);
 
     setSearchParams(params, { replace: true });
   }, [filters, setSearchParams]);
@@ -224,7 +228,8 @@ export function usePropertyFilters() {
       filters.maxBeachDistance !== null ||
       filters.launchStage !== 'all' ||
       filters.ownerId !== '' ||
-      filters.frenteMar
+      filters.frenteMar ||
+      (filters.reviewStatus !== 'all' && filters.reviewStatus !== '')
     );
   }, [filters]);
 
@@ -250,6 +255,7 @@ export function usePropertyFilters() {
     if (filters.launchStage !== 'all') count++;
     if (filters.ownerId !== '') count++;
     if (filters.frenteMar) count++;
+    if (filters.reviewStatus && filters.reviewStatus !== 'all') count++;
     return count;
   }, [filters]);
 
