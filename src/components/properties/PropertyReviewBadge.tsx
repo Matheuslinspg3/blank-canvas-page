@@ -7,7 +7,7 @@ interface PropertyReviewBadgeProps {
   compact?: boolean;
 }
 
-type ReviewLevel = "today" | "fresh" | "warning" | "stale" | "critical" | "never";
+type ReviewLevel = "today" | "fresh" | "warning" | "stale" | "never";
 
 function getDaysSince(iso: string): number {
   const now = new Date();
@@ -19,10 +19,9 @@ function classify(lastReviewedAt: string | null | undefined): { level: ReviewLev
   if (!lastReviewedAt) return { level: "never", days: null };
   const days = getDaysSince(lastReviewedAt);
   if (days <= 0) return { level: "today", days: 0 };
-  if (days <= 7) return { level: "fresh", days };
-  if (days <= 30) return { level: "warning", days };
-  if (days <= 60) return { level: "stale", days };
-  return { level: "critical", days };
+  if (days <= 30) return { level: "fresh", days };
+  if (days <= 60) return { level: "warning", days };
+  return { level: "stale", days };
 }
 
 function getLabel(level: ReviewLevel, days: number | null): string {
@@ -48,18 +47,13 @@ const config: Record<ReviewLevel, { className: string; dot: string; icon: typeof
     icon: Clock,
   },
   stale: {
-    className: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
-    dot: "bg-orange-500",
-    icon: AlertTriangle,
-  },
-  critical: {
     className: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
     dot: "bg-red-500",
     icon: AlertTriangle,
   },
   never: {
-    className: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-    dot: "bg-red-500",
+    className: "bg-muted text-muted-foreground border border-red-200 dark:border-red-900/40",
+    dot: "bg-muted-foreground",
     icon: CircleHelp,
   },
 };
