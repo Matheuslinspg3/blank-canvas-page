@@ -573,6 +573,20 @@ export function PropertyFilters({
               <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter('ownerId', '')} />
             </Badge>
           )}
+          {filters.reviewStatus && filters.reviewStatus !== 'all' && (
+            <Badge variant="secondary" className="gap-1">
+              {({
+                reviewed_30: 'Revisados ≤30d',
+                reviewed_60: 'Revisados ≤60d',
+                reviewed_90: 'Revisados ≤90d',
+                overdue_30: 'Sem revisão +30d',
+                overdue_60: 'Sem revisão +60d',
+                overdue_90: 'Sem revisão +90d',
+                never: 'Nunca revisados',
+              } as Record<string, string>)[filters.reviewStatus] || 'Revisão'}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter('reviewStatus', 'all')} />
+            </Badge>
+          )}
         </div>
       )}
     </div>
