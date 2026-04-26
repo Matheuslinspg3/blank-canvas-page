@@ -82,6 +82,7 @@ export function useAdvancedPropertySearch(
         p_launch_stage: filters.launchStage === 'all' ? null : filters.launchStage,
         p_sort_by: sortBy,
         p_owner_id: filters.ownerId || null,
+        p_review_status: filters.reviewStatus && filters.reviewStatus !== 'all' ? filters.reviewStatus : null,
       });
 
       if (error) {
