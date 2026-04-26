@@ -17,7 +17,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Separator } from '@/components/ui/separator';
 import { 
-  Filter, X, ChevronDown, Bed, DollarSign, MapPin, Ruler, Home, Car, Bath, Building2, Waves, Rocket, User,
+  Filter, X, ChevronDown, Bed, DollarSign, MapPin, Ruler, Home, Car, Bath, Building2, Waves, Rocket, User, History,
 } from 'lucide-react';
 import { PropertyFilters as FiltersType } from '@/hooks/usePropertyFilters';
 import { usePropertyTypes } from '@/hooks/usePropertyTypes';
@@ -143,6 +143,31 @@ export function PropertyFilters({
                 </Select>
               </div>
             )}
+
+            <Separator />
+
+            {/* Review status */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2 text-sm font-medium">
+                <History className="h-4 w-4 text-muted-foreground" /> Revisão
+              </Label>
+              <Select
+                value={filters.reviewStatus || 'all'}
+                onValueChange={(value) => onUpdateFilter('reviewStatus', value)}
+              >
+                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="reviewed_30">Revisados há 30 dias ou menos</SelectItem>
+                  <SelectItem value="reviewed_60">Revisados há 60 dias ou menos</SelectItem>
+                  <SelectItem value="reviewed_90">Revisados há 90 dias ou menos</SelectItem>
+                  <SelectItem value="overdue_30">Sem revisão há mais de 30 dias</SelectItem>
+                  <SelectItem value="overdue_60">Sem revisão há mais de 60 dias</SelectItem>
+                  <SelectItem value="overdue_90">Sem revisão há mais de 90 dias</SelectItem>
+                  <SelectItem value="never">Nunca revisados</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             <Separator />
 
