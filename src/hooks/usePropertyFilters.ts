@@ -31,31 +31,37 @@ export interface PropertyFilters {
   reviewStatus: string;
 }
 
-export const defaultFilters: PropertyFilters = {
-  searchText: '',
-  transactionType: 'all',
-  status: 'all',
-  availabilityStatus: 'all',
-  propertyTypeId: 'all',
-  minPrice: null,
-  maxPrice: null,
-  minBedrooms: null,
-  neighborhoods: [],
-  cities: [],
-  minArea: null,
-  minSuites: null,
-  minParking: null,
-  maxArea: null,
-  minCondominium: null,
-  maxCondominium: null,
-  amenities: [],
-  propertyCondition: 'all',
-  maxBeachDistance: null,
-  launchStage: 'all',
-  ownerId: '',
-  frenteMar: false,
-  reviewStatus: 'all',
-};
+export function createDefaultPropertyFilters(): PropertyFilters {
+  return {
+    searchText: '',
+    transactionType: 'all',
+    status: 'all',
+    availabilityStatus: 'all',
+    propertyTypeId: 'all',
+    minPrice: null,
+    maxPrice: null,
+    minBedrooms: null,
+    neighborhoods: [],
+    cities: [],
+    minArea: null,
+    minSuites: null,
+    minParking: null,
+    maxArea: null,
+    minCondominium: null,
+    maxCondominium: null,
+    amenities: [],
+    propertyCondition: 'all',
+    maxBeachDistance: null,
+    launchStage: 'all',
+    ownerId: '',
+    frenteMar: false,
+    reviewStatus: 'all',
+  };
+}
+
+// Frozen singleton kept for backward compatibility with read-only consumers.
+// New code should call createDefaultPropertyFilters() to get a fresh, mutable copy.
+export const defaultFilters: PropertyFilters = Object.freeze(createDefaultPropertyFilters()) as PropertyFilters;
 
 export function usePropertyFilters() {
   const { profile } = useAuth();
