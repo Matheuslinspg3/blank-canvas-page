@@ -17,7 +17,7 @@ import { OwnerAliases } from "./OwnerAliases";
 import { OwnerPropertyListItem, type OwnerPropertyItem } from "./OwnerPropertyListItem";
 import type { OwnerWithDetails } from "@/hooks/useOwners";
 import { useAdvancedPropertySearch } from "@/hooks/useAdvancedPropertySearch";
-import { defaultFilters, type PropertyFilters } from "@/hooks/usePropertyFilters";
+import { createDefaultPropertyFilters, type PropertyFilters } from "@/hooks/usePropertyFilters";
 import { useDebounce } from "@/hooks/useDebounce";
 
 interface OwnerDetailsProps {
@@ -48,7 +48,7 @@ export function OwnerDetails({ owner, open, onOpenChange, onEdit }: OwnerDetails
 
   const localFilters = useMemo<PropertyFilters>(
     () => ({
-      ...defaultFilters,
+      ...createDefaultPropertyFilters(),
       ownerId: owner?.id || "",
       searchText: debouncedSearch,
       status: statusFilter,

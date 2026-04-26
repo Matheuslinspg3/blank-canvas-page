@@ -208,7 +208,7 @@ export function usePropertyFilters() {
   }, []);
 
   const clearFilters = useCallback(() => {
-    setFilters(defaultFilters);
+    setFilters(createDefaultPropertyFilters());
   }, []);
 
   const hasActiveFilters = useMemo(() => {

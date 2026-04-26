@@ -83,7 +83,7 @@ export const OwnerPropertyListItem = memo(function OwnerPropertyListItem({ prope
           <DropdownMenuItem onClick={() => goTo(`/imoveis/${property.id}`)}>
             <Eye className="h-4 w-4 mr-2" /> Ver imóvel
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => goTo(`/imoveis/${property.id}?edit=1`)}>
+          <DropdownMenuItem onClick={() => goTo(`/imoveis/${property.id}?edit=true`)}>
             <Edit className="h-4 w-4 mr-2" /> Editar
           </DropdownMenuItem>
           <DropdownMenuSeparator />
