@@ -80,14 +80,18 @@ export function BatchVariationsDialog({
     resetProgress();
     const nonEmptyRows = rows.filter((r) => !isRowEmpty(r));
     try {
-      const result = await createBatch({ baseProperty, rows: nonEmptyRows });
+      const trimmedTitle = titleOverride.trim();
+      const effectiveBase = trimmedTitle && trimmedTitle !== (p.title || "")
+        ? ({ ...baseProperty, title: trimmedTitle } as typeof baseProperty)
+        : baseProperty;
+      const result = await createBatch({ baseProperty: effectiveBase, rows: nonEmptyRows });
       setReviewOpen(false);
       setReportRows(nonEmptyRows);
       setReportResult(result);
     } catch {
       // error handled by mutation
     }
-  }, [rows, baseProperty, createBatch, resetProgress]);
+  }, [rows, baseProperty, createBatch, resetProgress, titleOverride, p.title]);
 
   const handleCloseReport = (openState: boolean) => {
     if (!openState) {
