@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Building2, Camera, Loader2, Search, ShieldCheck } from "lucide-react";
+import { PropertyReviewSettingsCard } from "./PropertyReviewSettingsCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRoles } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
@@ -241,6 +242,8 @@ export function SettingsCompanyTab() {
           )}
         </CardContent>
       </Card>
+
+      <PropertyReviewSettingsCard />
     </div>
   );
 }
