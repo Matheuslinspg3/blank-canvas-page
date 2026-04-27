@@ -276,6 +276,88 @@ export function SettingsCompanyTab() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Store className="h-5 w-5 text-primary" />
+            Marketplace
+          </CardTitle>
+          <CardDescription>
+            Define o telefone que outros corretores verão por padrão nos seus imóveis publicados no Marketplace.
+            Esta configuração vale apenas para <strong>novos imóveis</strong>: imóveis já existentes mantêm a configuração individual.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Label className="text-sm font-medium">Telefone padrão dos imóveis no Marketplace</Label>
+          <RadioGroup
+            value={mpDefaultSource}
+            onValueChange={(v) => canEditCompany && setMpDefaultSource(v as MpDefaultSource)}
+            className="grid gap-2"
+          >
+            <label
+              htmlFor="mp-default-organization"
+              className={cn(
+                "flex items-start gap-3 rounded-md border p-3 transition-colors",
+                mpDefaultSource === "organization" ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40",
+                canEditCompany ? "cursor-pointer" : "cursor-not-allowed opacity-70",
+              )}
+            >
+              <RadioGroupItem value="organization" id="mp-default-organization" className="mt-1" disabled={!canEditCompany} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Building className="h-4 w-4 text-muted-foreground" />
+                  Número da imobiliária
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Novos imóveis publicados no Marketplace usarão o telefone público da imobiliária por padrão.
+                </div>
+              </div>
+            </label>
+
+            <label
+              htmlFor="mp-default-owner"
+              className={cn(
+                "flex items-start gap-3 rounded-md border p-3 transition-colors",
+                mpDefaultSource === "owner" ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40",
+                canEditCompany ? "cursor-pointer" : "cursor-not-allowed opacity-70",
+              )}
+            >
+              <RadioGroupItem value="owner" id="mp-default-owner" className="mt-1" disabled={!canEditCompany} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  Número do proprietário
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Novos imóveis publicados no Marketplace usarão o telefone do proprietário primário por padrão.
+                  A publicação será bloqueada se o imóvel não tiver proprietário com telefone válido.
+                </div>
+                {mpDefaultSource === "owner" && (
+                  <div className="mt-2 flex items-start gap-1.5 text-[11px] text-warning-foreground/90 bg-warning/10 border border-warning/30 rounded px-2 py-1.5">
+                    <ShieldAlert className="h-3 w-3 mt-0.5 shrink-0" />
+                    <span>
+                      Ao usar esta opção, o telefone do proprietário poderá ficar visível para outros corretores no Marketplace nos imóveis publicados.
+                    </span>
+                  </div>
+                )}
+              </div>
+            </label>
+          </RadioGroup>
+
+          {canEditCompany && (
+            <div className="flex justify-end">
+              <Button
+                onClick={handleSaveMpDefault}
+                disabled={savingMpDefault || mpDefaultSource === mpInitialSource}
+              >
+                {savingMpDefault && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Salvar configuração
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <PropertyReviewSettingsCard />
     </div>
   );
