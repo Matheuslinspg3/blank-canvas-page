@@ -128,29 +128,38 @@ export function usePropertyBatchCreate() {
 
       updateProgress({ current: 0, total: nonEmptyRows.length, currentLabel: 'Preparando grupo...', status: 'preparing', rowResults: [] });
 
-      // 1. Resolve clean base title by walking up the property_group chain to the root.
-      // This prevents accumulated unit_label suffixes when duplicating an already-duplicated property.
-      // Example: base title "X - apto 121 - apto 62" → root title "X" → new titles become "X - <new label>".
+      // 1. Resolve clean base title.
+      // If the caller passed a title that differs from the persisted property title,
+      // it means the user explicitly overrode it in the dialog — respect it as-is and
+      // skip the root-walk (which would otherwise discard the override).
       let cleanBaseTitle = baseProperty.title || 'Imóvel';
-      try {
-        let currentGroupId: string | null = (baseProperty as any).property_group_id ?? null;
-        let safety = 0;
-        while (currentGroupId && safety < 10) {
-          safety++;
-          const { data: grp } = await supabase
-            .from('property_groups')
-            .select('id, source_property_id, properties:source_property_id(title, property_group_id)')
-            .eq('id', currentGroupId)
-            .maybeSingle();
-          if (!grp) break;
-          const src: any = (grp as any).properties;
-          if (src?.title) cleanBaseTitle = src.title;
-          const parent = src?.property_group_id ?? null;
-          if (!parent || parent === currentGroupId) break;
-          currentGroupId = parent;
+      const persistedTitle = (baseProperty as any)?._persistedTitle ?? null;
+      const userOverrodeTitle = persistedTitle !== null && persistedTitle !== baseProperty.title;
+
+      if (!userOverrodeTitle) {
+        // Walk up the property_group chain to the root to prevent accumulated unit_label
+        // suffixes when duplicating an already-duplicated property.
+        // Example: base title "X - apto 121 - apto 62" → root title "X" → new titles become "X - <new label>".
+        try {
+          let currentGroupId: string | null = (baseProperty as any).property_group_id ?? null;
+          let safety = 0;
+          while (currentGroupId && safety < 10) {
+            safety++;
+            const { data: grp } = await supabase
+              .from('property_groups')
+              .select('id, source_property_id, properties:source_property_id(title, property_group_id)')
+              .eq('id', currentGroupId)
+              .maybeSingle();
+            if (!grp) break;
+            const src: any = (grp as any).properties;
+            if (src?.title) cleanBaseTitle = src.title;
+            const parent = src?.property_group_id ?? null;
+            if (!parent || parent === currentGroupId) break;
+            currentGroupId = parent;
+          }
+        } catch (e) {
+          console.warn('[BatchCreate] Falha ao resolver título raiz, usando título base:', e);
         }
-      } catch (e) {
-        console.warn('[BatchCreate] Falha ao resolver título raiz, usando título base:', e);
       }
 
       // 2. Create property group
