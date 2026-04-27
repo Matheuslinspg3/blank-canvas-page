@@ -579,6 +579,9 @@ export function PropertyFilters({
           {filters.reviewStatus && filters.reviewStatus !== 'all' && (
             <Badge variant="secondary" className="gap-1">
               {({
+                overdue_configured: 'Desatualizados (config)',
+                near_due: 'Próximos do prazo',
+                within_due: 'Dentro do prazo',
                 reviewed_30: 'Revisados ≤30d',
                 reviewed_60: 'Revisados ≤60d',
                 reviewed_90: 'Revisados ≤90d',
