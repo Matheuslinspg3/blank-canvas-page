@@ -13,6 +13,7 @@ import { Eye, Edit, MoreHorizontal, CheckCircle2, Hash, Building2, MapPin } from
 import { PropertyStatusBadge } from "@/components/properties/PropertyStatusBadge";
 import { PropertyReviewBadge } from "@/components/properties/PropertyReviewBadge";
 import { usePropertyReview } from "@/hooks/usePropertyReview";
+import type { PropertyReviewSettings } from "@/hooks/usePropertyReviewSettings";
 
 export interface OwnerPropertyItem {
   id: string;
@@ -28,9 +29,10 @@ export interface OwnerPropertyItem {
 interface Props {
   property: OwnerPropertyItem;
   onNavigate: () => void;
+  reviewSettings?: PropertyReviewSettings;
 }
 
-export const OwnerPropertyListItem = memo(function OwnerPropertyListItem({ property, onNavigate }: Props) {
+export const OwnerPropertyListItem = memo(function OwnerPropertyListItem({ property, onNavigate, reviewSettings }: Props) {
   const navigate = useNavigate();
   const reviewMutation = usePropertyReview();
 
@@ -69,7 +71,7 @@ export const OwnerPropertyListItem = memo(function OwnerPropertyListItem({ prope
         </div>
         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
           <PropertyStatusBadge status={property.status} className="text-[10px]" />
-          <PropertyReviewBadge lastReviewedAt={property.last_reviewed_at} />
+          <PropertyReviewBadge lastReviewedAt={property.last_reviewed_at} settings={reviewSettings} />
         </div>
       </div>
 
