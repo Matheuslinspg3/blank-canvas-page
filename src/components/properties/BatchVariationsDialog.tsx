@@ -1,7 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { MapPin, Home, Eye, Loader2 } from "lucide-react";
 import { VariationsGrid } from "./VariationsGrid";
 import { VariationsReviewDialog } from "./VariationsReviewDialog";
@@ -43,6 +45,12 @@ export function BatchVariationsDialog({
   const [isValidating, setIsValidating] = useState(false);
   const [reportResult, setReportResult] = useState<BatchResult | null>(null);
   const [reportRows, setReportRows] = useState<VariationRow[]>([]);
+  const [titleOverride, setTitleOverride] = useState<string>(p.title || "");
+
+  // Reset title override when the base property changes (e.g. dialog reopened on another property)
+  useEffect(() => {
+    setTitleOverride(p.title || "");
+  }, [p.id, p.title]);
 
   const validCount = rows.filter((r) => !isRowEmpty(r)).length;
 
@@ -72,14 +80,19 @@ export function BatchVariationsDialog({
     resetProgress();
     const nonEmptyRows = rows.filter((r) => !isRowEmpty(r));
     try {
-      const result = await createBatch({ baseProperty, rows: nonEmptyRows });
+      const trimmedTitle = titleOverride.trim();
+      const persistedTitle = p.title || "";
+      const effectiveBase = trimmedTitle && trimmedTitle !== persistedTitle
+        ? ({ ...baseProperty, title: trimmedTitle, _persistedTitle: persistedTitle } as typeof baseProperty)
+        : baseProperty;
+      const result = await createBatch({ baseProperty: effectiveBase, rows: nonEmptyRows });
       setReviewOpen(false);
       setReportRows(nonEmptyRows);
       setReportResult(result);
     } catch {
       // error handled by mutation
     }
-  }, [rows, baseProperty, createBatch, resetProgress]);
+  }, [rows, baseProperty, createBatch, resetProgress, titleOverride, p.title]);
 
   const handleCloseReport = (openState: boolean) => {
     if (!openState) {
@@ -107,15 +120,26 @@ export function BatchVariationsDialog({
           </DialogHeader>
 
           {/* Base property summary */}
-          <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1">
+          <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
               <Badge variant="secondary" className="text-xs">
                 <Home className="h-3 w-3 mr-1" /> Imóvel base
               </Badge>
-              <span className="text-sm font-medium">{p.title || "Sem título"}</span>
               {p.property_code && (
                 <span className="text-xs text-muted-foreground font-mono">#{p.property_code}</span>
               )}
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="batch-base-title" className="text-xs text-muted-foreground">
+                Título base (prefixo das variações)
+              </Label>
+              <Input
+                id="batch-base-title"
+                value={titleOverride}
+                onChange={(e) => setTitleOverride(e.target.value)}
+                placeholder="Ex: Apartamento - Caiçara - Praia Grande"
+                className="h-9 text-sm"
+              />
             </div>
             {address && (
               <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -123,7 +147,7 @@ export function BatchVariationsDialog({
               </p>
             )}
             <p className="text-[11px] text-muted-foreground">
-              Os dados acima serão herdados por todos os imóveis criados. Preencha abaixo apenas o que varia.
+              Cada cópia será criada como <span className="font-mono">"{(titleOverride.trim() || "Título base")} - &lt;Unidade/Lote&gt;"</span>. Editar aqui não altera o imóvel base original.
             </p>
           </div>
 
