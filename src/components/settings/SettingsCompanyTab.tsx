@@ -127,6 +127,24 @@ export function SettingsCompanyTab() {
     else toast.success("Dados da empresa atualizados");
   };
 
+  const handleSaveMpDefault = async () => {
+    if (!profile?.organization_id || !canEditCompany) return;
+    if (mpDefaultSource === mpInitialSource) return;
+    setSavingMpDefault(true);
+    const { error } = await supabase
+      .from("organizations")
+      .update({ marketplace_default_contact_phone_source: mpDefaultSource } as any)
+      .eq("id", profile.organization_id);
+    setSavingMpDefault(false);
+    if (error) {
+      toastError("Erro ao salvar configuração do Marketplace", error, { module: "Settings" });
+      return;
+    }
+    setMpInitialSource(mpDefaultSource);
+    queryClient.invalidateQueries({ queryKey: ["org-marketplace-defaults", profile.organization_id] });
+    toast.success("Configuração do Marketplace atualizada. Vale para novos imóveis.");
+  };
+
   return (
     <div className="grid gap-6 max-w-2xl">
       {!canEditCompany && (
