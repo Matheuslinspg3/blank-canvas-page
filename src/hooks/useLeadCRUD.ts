@@ -43,11 +43,19 @@ export type UpdateLeadInput = Partial<CreateLeadInput> & { id: string };
 /**
  * Core CRUD for leads: list (active + inactive), create, update, delete, inactivate, reactivate.
  */
-export function useLeadCRUD(opts: { leadStages: LeadStage[]; isBrokerOnly: boolean }) {
+export function useLeadCRUD(opts: {
+  leadStages: LeadStage[];
+  isBrokerOnly: boolean;
+  isCorretorOnly?: boolean;
+  isAssistenteOnly?: boolean;
+}) {
   const { toast } = useToast();
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
-  const { leadStages, isBrokerOnly } = opts;
+  const { leadStages, isBrokerOnly, isCorretorOnly = false, isAssistenteOnly = false } = opts;
+
+  const isRlsError = (e: any) =>
+    e?.code === '42501' || /row-level security/i.test(e?.message ?? '');
 
   const { data: leads = [], isLoading: isLoadingLeads, error, refetch } = useQuery({
     queryKey: ['leads', profile?.organization_id],
@@ -154,9 +162,26 @@ export function useLeadCRUD(opts: { leadStages: LeadStage[]; isBrokerOnly: boole
       const { lead_stage_id, ...rest } = input;
       const defaultStageId = leadStages[0]?.id;
 
+      // Gate por papel — corretor vs assistente
+      const payload: Record<string, any> = { ...rest };
+      if (isCorretorOnly) {
+        if (payload.broker_id && payload.broker_id !== user.id) {
+          throw new Error('Corretores não podem atribuir leads diretamente para outro responsável.');
+        }
+        payload.broker_id = user.id;
+      } else if (isAssistenteOnly) {
+        if (payload.broker_id) {
+          throw new Error('Assistentes não podem atribuir leads diretamente para outro responsável.');
+        }
+        // mantém broker_id ausente → NULL
+      }
+
       const { data, error } = await supabase.from('leads').insert({
-        ...rest, organization_id: profile.organization_id, created_by: user.id,
-        lead_stage_id: lead_stage_id || defaultStageId, stage: 'novo',
+        ...payload,
+        organization_id: profile.organization_id,
+        // created_by é definido pelo trigger no banco
+        lead_stage_id: lead_stage_id || defaultStageId,
+        stage: 'novo',
       }).select(`*, lead_type:lead_types(*)`).single();
       if (error) throw error;
       return data as Lead;
@@ -166,8 +191,13 @@ export function useLeadCRUD(opts: { leadStages: LeadStage[]; isBrokerOnly: boole
       trackEvent('lead_enviado');
       toast({ title: 'Lead criado', description: 'O lead foi criado com sucesso.' });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       const isDuplicate = error.message?.includes('Lead duplicado');
+      if (isRlsError(error)) {
+        console.error('[leads.create] RLS denied', { code: error.code, orgId: profile?.organization_id, userId: user?.id });
+        toast({ title: 'Permissão negada', description: 'Você não tem permissão para criar este lead.', variant: 'destructive' });
+        return;
+      }
       toast({
         title: isDuplicate ? 'Lead duplicado' : 'Erro ao criar lead',
         description: isDuplicate
