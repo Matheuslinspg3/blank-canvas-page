@@ -72,14 +72,24 @@ const propertySchema = z.object({
   owner_document: z.string().optional().nullable(),
   owner_notes: z.string().optional().nullable(),
   marketplace_contact_phone: z.string().trim().regex(/^[0-9+()\-\s]{8,20}$/, 'Telefone inválido (8 a 20 dígitos, com +, -, () permitidos)').optional().nullable().or(z.literal("")),
-}).refine((data) => {
-  if (data.transaction_type === "venda" && !data.sale_price) return false;
-  if (data.transaction_type === "aluguel" && !data.rent_price) return false;
-  if (data.transaction_type === "ambos" && !data.sale_price && !data.rent_price) return false;
-  return true;
-}, {
-  message: "Informe pelo menos um preço para o tipo de transação selecionado",
-  path: ["sale_price"],
+  marketplace_contact_phone_source: z.enum(["organization", "owner", "custom"] as const).default("organization"),
+}).superRefine((data, ctx) => {
+  if (data.transaction_type === "venda" && !data.sale_price) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sale_price"], message: "Informe pelo menos um preço para o tipo de transação selecionado" });
+  }
+  if (data.transaction_type === "aluguel" && !data.rent_price) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sale_price"], message: "Informe pelo menos um preço para o tipo de transação selecionado" });
+  }
+  if (data.transaction_type === "ambos" && !data.sale_price && !data.rent_price) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sale_price"], message: "Informe pelo menos um preço para o tipo de transação selecionado" });
+  }
+  // marketplace_contact_phone obrigatório quando source = custom (validação client; trigger valida no servidor)
+  if (data.marketplace_contact_phone_source === "custom") {
+    const v = (data.marketplace_contact_phone || "").trim();
+    if (v.length < 8) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["marketplace_contact_phone"], message: "Informe um telefone válido para o contato personalizado." });
+    }
+  }
 });
 
 type FormData = z.infer<typeof propertySchema>;
@@ -127,6 +137,7 @@ const DEFAULT_VALUES: FormData = {
   description: "", youtube_url: "", amenities: [], payment_options: [],
   owner_name: "", owner_phone: "", owner_email: "", owner_document: "", owner_notes: "",
   marketplace_contact_phone: "",
+  marketplace_contact_phone_source: "organization",
 };
 
 export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitting, prefillData, isPublished = false }: PropertyFormProps) {
@@ -237,6 +248,9 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
           owner_name: ownerName, owner_phone: ownerPhone, owner_email: ownerEmail,
           owner_document: ownerDocument, owner_notes: ownerNotes,
           marketplace_contact_phone: (property as any).marketplace_contact_phone || "",
+          marketplace_contact_phone_source:
+            ((property as any).marketplace_contact_phone_source as "organization" | "owner" | "custom" | undefined)
+            ?? ((property as any).marketplace_contact_phone ? "custom" : "organization"),
         });
         setImages(allImages);
       };
@@ -281,11 +295,22 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
       );
       if (!ok) return;
     }
-    const { owner_name, owner_phone, owner_email, owner_document, owner_notes, area_useful, sale_price_financed, marketplace_contact_phone, ...restData } = data;
+    const { owner_name, owner_phone, owner_email, owner_document, owner_notes, area_useful, sale_price_financed, marketplace_contact_phone, marketplace_contact_phone_source, ...restData } = data;
     const selectedType = propertyTypes.find(t => t.id === restData.property_type_id);
     const autoTitle = [selectedType?.name, restData.address_neighborhood, restData.address_city].filter(Boolean).join(' - ') || 'Imóvel sem título';
-    const normalizedMpPhone = marketplace_contact_phone && String(marketplace_contact_phone).trim() !== "" ? String(marketplace_contact_phone).trim() : null;
-    const propertyData = { ...restData, title: autoTitle, area_useful: area_useful as any, sale_price_financed: sale_price_financed as any, marketplace_contact_phone: normalizedMpPhone as any };
+    // Defesa em profundidade: se source != custom, força telefone manual = null (trigger também faz).
+    const finalSource = (marketplace_contact_phone_source ?? "organization") as "organization" | "owner" | "custom";
+    const normalizedMpPhone = finalSource === "custom"
+      ? (marketplace_contact_phone && String(marketplace_contact_phone).trim() !== "" ? String(marketplace_contact_phone).trim() : null)
+      : null;
+    const propertyData = {
+      ...restData,
+      title: autoTitle,
+      area_useful: area_useful as any,
+      sale_price_financed: sale_price_financed as any,
+      marketplace_contact_phone: normalizedMpPhone as any,
+      marketplace_contact_phone_source: finalSource as any,
+    };
     const ownerData: OwnerData | undefined = owner_name ? {
       name: owner_name, phone: owner_phone || undefined, email: owner_email || undefined,
       document: owner_document || undefined, notes: owner_notes || undefined,
@@ -351,7 +376,7 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
                 ))}
               </TabsList>
 
-              <TabsContent value="basic" className="flex-1 overflow-y-auto"><BasicTab form={form} publishToMarketplace={publishToMarketplace} /></TabsContent>
+              <TabsContent value="basic" className="flex-1 overflow-y-auto"><BasicTab form={form} publishToMarketplace={publishToMarketplace} propertyId={property?.id ?? null} /></TabsContent>
               <TabsContent value="values" className="flex-1 overflow-y-auto"><ValuesTab form={form} /></TabsContent>
               <TabsContent value="features" className="flex-1 overflow-y-auto"><FeaturesTab form={form} /></TabsContent>
               <TabsContent value="location" className="flex-1 overflow-y-auto">

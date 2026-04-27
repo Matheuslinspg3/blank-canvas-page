@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { UseFormReturn } from "react-hook-form";
 import {
   FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage,
@@ -8,21 +8,57 @@ import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Plus, Store } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Loader2, Plus, Store, Building, User, Phone, AlertCircle, ShieldAlert } from "lucide-react";
 import { usePropertyTypes } from "@/hooks/usePropertyTypes";
 import { useBrokers } from "@/hooks/useBrokers";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 
 interface BasicTabProps {
   form: UseFormReturn<any>;
   publishToMarketplace?: boolean;
+  /** Optional id of the property being edited (used to look up primary owner phone) */
+  propertyId?: string | null;
 }
 
-export function BasicTab({ form, publishToMarketplace = false }: BasicTabProps) {
+type Source = "organization" | "owner" | "custom";
+
+export function BasicTab({ form, publishToMarketplace = false, propertyId }: BasicTabProps) {
   const { propertyTypes, createPropertyType, isCreating: isCreatingType } = usePropertyTypes();
   const { brokers } = useBrokers();
+  const { profile } = useAuth();
   const [showNewTypeInput, setShowNewTypeInput] = useState(false);
   const [newTypeName, setNewTypeName] = useState("");
   const propertyCondition = form.watch("property_condition");
+  const sourceValue = (form.watch("marketplace_contact_phone_source") as Source) || "organization";
+  const formOwnerPhone = form.watch("owner_phone") as string | null | undefined;
+
+  // Resolve organization & primary-owner phones to display in the radio cards.
+  const [orgPhone, setOrgPhone] = useState<string | null>(null);
+  const [ownerPhoneFromDb, setOwnerPhoneFromDb] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!profile?.organization_id) return;
+    let cancelled = false;
+    supabase.from("organizations").select("phone").eq("id", profile.organization_id).maybeSingle()
+      .then(({ data }) => { if (!cancelled) setOrgPhone((data?.phone as string | null) ?? null); });
+    return () => { cancelled = true; };
+  }, [profile?.organization_id]);
+
+  useEffect(() => {
+    if (!propertyId) { setOwnerPhoneFromDb(null); return; }
+    let cancelled = false;
+    supabase.from("property_owners").select("phone").eq("property_id", propertyId).eq("is_primary", true).maybeSingle()
+      .then(({ data }) => { if (!cancelled) setOwnerPhoneFromDb((data?.phone as string | null) ?? null); });
+    return () => { cancelled = true; };
+  }, [propertyId]);
+
+  // Effective owner phone: prefer the value already typed in the form (live), fallback to DB.
+  const effectiveOwnerPhone = (formOwnerPhone && String(formOwnerPhone).trim().length > 0)
+    ? String(formOwnerPhone).trim()
+    : ownerPhoneFromDb;
 
   const handleCreateNewType = () => {
     if (newTypeName.trim()) {
@@ -31,6 +67,10 @@ export function BasicTab({ form, publishToMarketplace = false }: BasicTabProps) 
       setShowNewTypeInput(false);
     }
   };
+
+  const orgPhoneValid = !!(orgPhone && orgPhone.trim().length >= 8);
+  const ownerPhoneValid = !!(effectiveOwnerPhone && effectiveOwnerPhone.trim().length >= 8);
+  const sourceIsOwnerWithoutPhone = sourceValue === "owner" && !ownerPhoneValid;
 
   return (
     <div className="space-y-4 mt-4">
@@ -201,29 +241,129 @@ export function BasicTab({ form, publishToMarketplace = false }: BasicTabProps) 
       )}
 
       {publishToMarketplace && (
-        <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-2">
+        <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-3">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Store className="h-4 w-4 text-primary" />
-            Telefone para contato no Marketplace
-            <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+            Telefone exibido no Marketplace
           </div>
+          <p className="text-xs text-muted-foreground">
+            Escolha qual número outros corretores verão no card deste imóvel.
+            Não afeta landing pages nem o contato exibido para clientes finais.
+          </p>
+
           <FormField
             control={form.control}
-            name="marketplace_contact_phone"
+            name="marketplace_contact_phone_source"
             render={({ field }) => (
               <FormItem>
                 <FormControl>
-                  <Input
-                    placeholder="(11) 99999-9999"
-                    {...field}
-                    value={field.value || ""}
-                    inputMode="tel"
-                    maxLength={20}
-                  />
+                  <RadioGroup
+                    value={(field.value as Source) || "organization"}
+                    onValueChange={field.onChange}
+                    className="grid gap-2"
+                  >
+                    {/* Organization */}
+                    <label
+                      htmlFor="src-organization"
+                      className={cn(
+                        "flex items-start gap-3 rounded-md border p-3 cursor-pointer transition-colors",
+                        sourceValue === "organization" ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40",
+                      )}
+                    >
+                      <RadioGroupItem value="organization" id="src-organization" className="mt-1" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                          <Building className="h-4 w-4 text-muted-foreground" />
+                          Número da imobiliária
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                          {orgPhoneValid ? orgPhone : "Imobiliária sem telefone público cadastrado"}
+                        </div>
+                      </div>
+                    </label>
+
+                    {/* Owner */}
+                    <label
+                      htmlFor="src-owner"
+                      className={cn(
+                        "flex items-start gap-3 rounded-md border p-3 cursor-pointer transition-colors",
+                        sourceValue === "owner" ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40",
+                      )}
+                    >
+                      <RadioGroupItem value="owner" id="src-owner" className="mt-1" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          Número do proprietário
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                          {ownerPhoneValid ? effectiveOwnerPhone : "Proprietário sem telefone cadastrado"}
+                        </div>
+                        {sourceValue === "owner" && (
+                          <div className="mt-2 flex items-start gap-1.5 text-[11px] text-warning-foreground/90 bg-warning/10 border border-warning/30 rounded px-2 py-1.5">
+                            <ShieldAlert className="h-3 w-3 mt-0.5 shrink-0" />
+                            <span>
+                              Ao selecionar esta opção, o telefone do proprietário ficará visível para outros corretores no Marketplace.
+                            </span>
+                          </div>
+                        )}
+                        {sourceIsOwnerWithoutPhone && (
+                          <div className="mt-2 flex items-start gap-1.5 text-[11px] text-destructive bg-destructive/10 border border-destructive/30 rounded px-2 py-1.5">
+                            <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+                            <span>
+                              Telefone do proprietário ausente. Cadastre um telefone na aba "Local" antes de publicar.
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </label>
+
+                    {/* Custom */}
+                    <label
+                      htmlFor="src-custom"
+                      className={cn(
+                        "flex items-start gap-3 rounded-md border p-3 cursor-pointer transition-colors",
+                        sourceValue === "custom" ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40",
+                      )}
+                    >
+                      <RadioGroupItem value="custom" id="src-custom" className="mt-1" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                          <Phone className="h-4 w-4 text-muted-foreground" />
+                          Telefone personalizado
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          Use um número específico para este anúncio.
+                        </div>
+                        {sourceValue === "custom" && (
+                          <div className="mt-2">
+                            <FormField
+                              control={form.control}
+                              name="marketplace_contact_phone"
+                              render={({ field: phoneField }) => (
+                                <FormItem>
+                                  <FormControl>
+                                    <Input
+                                      placeholder="(11) 99999-9999"
+                                      {...phoneField}
+                                      value={phoneField.value || ""}
+                                      inputMode="tel"
+                                      maxLength={20}
+                                    />
+                                  </FormControl>
+                                  <FormDescription className="text-[11px]">
+                                    Apenas dígitos, +, -, ( ) e espaços (8 a 20 caracteres).
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </label>
+                  </RadioGroup>
                 </FormControl>
-                <FormDescription className="text-xs">
-                  Número que outros corretores verão no card deste imóvel no Marketplace. Se vazio, usaremos o telefone público da imobiliária. <strong>Não afeta landing pages</strong> nem o contato exibido para clientes finais.
-                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
