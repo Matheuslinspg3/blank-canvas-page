@@ -158,6 +158,9 @@ export function PropertyFilters({
                 <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="overdue_configured">Desatualizados (configuração)</SelectItem>
+                  <SelectItem value="near_due">Próximos do prazo</SelectItem>
+                  <SelectItem value="within_due">Dentro do prazo seguro</SelectItem>
                   <SelectItem value="reviewed_30">Revisados há 30 dias ou menos</SelectItem>
                   <SelectItem value="reviewed_60">Revisados há 60 dias ou menos</SelectItem>
                   <SelectItem value="reviewed_90">Revisados há 90 dias ou menos</SelectItem>
