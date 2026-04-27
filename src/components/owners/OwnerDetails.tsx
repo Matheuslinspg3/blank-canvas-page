@@ -198,6 +198,7 @@ export function OwnerDetails({ owner, open, onOpenChange, onEdit }: OwnerDetails
                       key={prop.id}
                       property={prop}
                       onNavigate={() => onOpenChange(false)}
+                      reviewSettings={reviewSettings}
                     />
                   ))}
                 </div>
