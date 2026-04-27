@@ -369,27 +369,31 @@ export function KanbanBoard() {
   }, [selectedLead]);
 
   const handleFormSubmit = async (data: CreateLeadInput) => {
-    if (editingLead) {
-      await new Promise<void>((resolve, reject) => {
-        updateLead(
-          { id: editingLead.id, ...data },
-          { onSuccess: () => resolve(), onError: reject }
-        );
-      });
-    } else {
-      await new Promise<void>((resolve, reject) => {
-        createLead(data, {
-          onSuccess: () => {
-            // Show property suggestions after creating a new lead with interests
-            if (data.transaction_interest) {
-              setLastCreatedLeadData(data);
-              setSuggestionsOpen(true);
-            }
-            resolve();
-          },
-          onError: reject,
+    try {
+      if (editingLead) {
+        await new Promise<void>((resolve, reject) => {
+          updateLead(
+            { id: editingLead.id, ...data },
+            { onSuccess: () => resolve(), onError: reject }
+          );
         });
-      });
+      } else {
+        await new Promise<void>((resolve, reject) => {
+          createLead(data, {
+            onSuccess: () => {
+              if (data.transaction_interest) {
+                setLastCreatedLeadData(data);
+                setSuggestionsOpen(true);
+              }
+              resolve();
+            },
+            onError: reject,
+          });
+        });
+      }
+    } catch (err) {
+      // Toast já foi exibido pelas mutações; aqui apenas evitamos Unhandled Promise Rejection.
+      console.error('[KanbanBoard] form submit failed', err);
     }
   };
 
