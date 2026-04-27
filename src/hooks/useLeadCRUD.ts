@@ -211,6 +211,13 @@ export function useLeadCRUD(opts: {
 
   const updateLead = useMutation({
     mutationFn: async ({ id, ...input }: UpdateLeadInput) => {
+      // Gate por papel para alterações em broker_id
+      if (isCorretorOnly && 'broker_id' in input && input.broker_id !== user?.id) {
+        throw new Error('Corretores não podem alterar o responsável do lead.');
+      }
+      if (isAssistenteOnly && 'broker_id' in input && input.broker_id) {
+        throw new Error('Assistentes não podem atribuir leads a um responsável.');
+      }
       const { data, error } = await supabase.from('leads').update(input).eq('id', id)
         .select(`*, lead_type:lead_types(*)`).single();
       if (error) throw error;
@@ -220,7 +227,14 @@ export function useLeadCRUD(opts: {
       queryClient.invalidateQueries({ queryKey: ['leads'], refetchType: 'active' });
       toast({ title: 'Lead atualizado', description: 'O lead foi atualizado com sucesso.' });
     },
-    onError: (error) => { toast({ title: 'Erro ao atualizar lead', description: error.message, variant: 'destructive' }); },
+    onError: (error: any) => {
+      if (isRlsError(error)) {
+        console.error('[leads.update] RLS denied', { code: error.code, orgId: profile?.organization_id, userId: user?.id });
+        toast({ title: 'Permissão negada', description: 'Você não tem permissão para atualizar este lead.', variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'Erro ao atualizar lead', description: error.message, variant: 'destructive' });
+    },
   });
 
   const updateLeadStage = useMutation({
