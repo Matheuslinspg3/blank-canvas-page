@@ -45,6 +45,12 @@ export function BatchVariationsDialog({
   const [isValidating, setIsValidating] = useState(false);
   const [reportResult, setReportResult] = useState<BatchResult | null>(null);
   const [reportRows, setReportRows] = useState<VariationRow[]>([]);
+  const [titleOverride, setTitleOverride] = useState<string>(p.title || "");
+
+  // Reset title override when the base property changes (e.g. dialog reopened on another property)
+  useEffect(() => {
+    setTitleOverride(p.title || "");
+  }, [p.id, p.title]);
 
   const validCount = rows.filter((r) => !isRowEmpty(r)).length;
 
