@@ -144,9 +144,27 @@ export function usePropertyCRUD(options?: { enabled?: boolean }) {
         throw new Error(`Limite de ${limit} imóveis atingido no seu plano. Faça upgrade para adicionar mais.`);
       }
 
+      // Aplica default da organização para `marketplace_contact_phone_source`
+      // APENAS quando o payload não trouxer valor explícito. Nunca sobrescreve.
+      let resolvedPhoneSource = (propertyData as any)?.marketplace_contact_phone_source;
+      if (!resolvedPhoneSource) {
+        const { data: orgRow } = await supabase
+          .from('organizations')
+          .select('marketplace_default_contact_phone_source')
+          .eq('id', profile.organization_id)
+          .maybeSingle();
+        const orgDefault = (orgRow as any)?.marketplace_default_contact_phone_source;
+        resolvedPhoneSource = orgDefault === 'owner' ? 'owner' : 'organization';
+      }
+
       const { data, error } = await supabase
         .from('properties')
-        .insert({ ...propertyData, organization_id: profile.organization_id, created_by: user!.id })
+        .insert({
+          ...propertyData,
+          marketplace_contact_phone_source: resolvedPhoneSource,
+          organization_id: profile.organization_id,
+          created_by: user!.id,
+        })
         .select()
         .single();
       if (error) throw normalizeError(error);

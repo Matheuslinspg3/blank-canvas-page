@@ -24,6 +24,7 @@ import { LocationTab } from "./form/LocationTab";
 import { PhotosTab } from "./form/PhotosTab";
 import { DescriptionTab } from "./form/DescriptionTab";
 import { OwnerSection } from "./form/OwnerSection";
+import { useOrgMarketplaceDefaults } from "@/hooks/useOrgMarketplaceDefaults";
 
 // Re-export constants for backward compatibility
 export { AMENITIES_OPTIONS, PAYMENT_OPTIONS } from "./form/constants";
@@ -143,6 +144,7 @@ const DEFAULT_VALUES: FormData = {
 export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitting, prefillData, isPublished = false }: PropertyFormProps) {
   const { propertyTypes } = usePropertyTypes();
   const { toast } = useToast();
+  const { defaultSource: orgDefaultSource, isFetched: orgDefaultFetched } = useOrgMarketplaceDefaults();
   const [images, setImages] = useState<PropertyImage[]>([]);
   const [activeTab, setActiveTab] = useState("basic");
   const [publishToMarketplace, setPublishToMarketplace] = useState(false);
@@ -256,16 +258,41 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
       };
       loadPropertyData();
     } else if (prefillData) {
-      form.reset({ ...DEFAULT_VALUES, ...prefillData });
+      // Novo imóvel com prefill: respeita source explícito do payload; senão usa default da org (se já carregado), senão fallback estático.
+      const prefillSource = (prefillData as any)?.marketplace_contact_phone_source;
+      const initialSource = prefillSource
+        ?? (orgDefaultFetched ? orgDefaultSource : DEFAULT_VALUES.marketplace_contact_phone_source);
+      form.reset({ ...DEFAULT_VALUES, ...prefillData, marketplace_contact_phone_source: initialSource });
       setImages([]);
     } else {
-      form.reset(DEFAULT_VALUES);
+      // Novo imóvel: usa default da organização se já carregado; senão fallback estático.
+      const initialSource = orgDefaultFetched ? orgDefaultSource : DEFAULT_VALUES.marketplace_contact_phone_source;
+      form.reset({ ...DEFAULT_VALUES, marketplace_contact_phone_source: initialSource });
       setImages([]);
     }
     setActiveTab("basic");
     // Reflect actual marketplace state when editing; default OFF for new properties.
     setPublishToMarketplace(property ? isPublished : false);
-  }, [property, prefillData, form, open, isPublished]);
+  }, [property, prefillData, form, open, isPublished, orgDefaultFetched, orgDefaultSource]);
+
+  // Late-arriving org default for NEW properties: if the hook resolves AFTER
+  // the initial reset and the user hasn't touched the field yet, sync silently.
+  // Never runs for existing properties (preserves saved value).
+  useEffect(() => {
+    if (!open) return;
+    if (property) return;
+    if (!orgDefaultFetched) return;
+    const dirty = (form.formState.dirtyFields as any)?.marketplace_contact_phone_source;
+    if (dirty) return;
+    const current = form.getValues("marketplace_contact_phone_source");
+    if (current !== orgDefaultSource) {
+      form.setValue("marketplace_contact_phone_source", orgDefaultSource, {
+        shouldDirty: false,
+        shouldTouch: false,
+        shouldValidate: false,
+      });
+    }
+  }, [open, property, orgDefaultFetched, orgDefaultSource, form]);
 
   const getTabHasErrors = (tabKey: string): boolean => {
     const fields = TAB_FIELDS[tabKey];

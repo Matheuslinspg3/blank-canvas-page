@@ -6,7 +6,8 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, Camera, Loader2, Search, ShieldCheck } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Building2, Camera, Loader2, Search, ShieldCheck, ShieldAlert, Store, Building, User } from "lucide-react";
 import { PropertyReviewSettingsCard } from "./PropertyReviewSettingsCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRoles } from "@/hooks/useUserRole";
@@ -14,6 +15,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
 import { useImageUpload } from "@/hooks/useImageUpload";
+import { useQueryClient } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
+
+type MpDefaultSource = "organization" | "owner";
 
 const BRAZILIAN_STATES = [
   "AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT",
@@ -25,6 +30,7 @@ export function SettingsCompanyTab() {
   const { isAdminOrAbove } = useUserRoles();
   const { uploadImage, isUploading: isUploadingAvatar } = useImageUpload();
   const canEditCompany = isAdminOrAbove;
+  const queryClient = useQueryClient();
 
   const [companyName, setCompanyName] = useState("");
   const [companyCnpj, setCompanyCnpj] = useState("");
@@ -42,10 +48,15 @@ export function SettingsCompanyTab() {
   const [searchingCnpj, setSearchingCnpj] = useState(false);
   const [searchingCep, setSearchingCep] = useState(false);
 
+  // Marketplace default phone source (per organization)
+  const [mpDefaultSource, setMpDefaultSource] = useState<MpDefaultSource>("organization");
+  const [mpInitialSource, setMpInitialSource] = useState<MpDefaultSource>("organization");
+  const [savingMpDefault, setSavingMpDefault] = useState(false);
+
   useEffect(() => {
     if (!profile?.organization_id) return;
     supabase.from("organizations")
-      .select("name, cnpj, phone, email, logo_url, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, address_zipcode")
+      .select("name, cnpj, phone, email, logo_url, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, address_zipcode, marketplace_default_contact_phone_source")
       .eq("id", profile.organization_id).maybeSingle().then(({ data }) => {
         if (!data) return;
         setCompanyName(data.name || ""); setCompanyCnpj(data.cnpj || "");
@@ -54,6 +65,10 @@ export function SettingsCompanyTab() {
         setCompanyNumber(data.address_number || ""); setCompanyComplement(data.address_complement || "");
         setCompanyNeighborhood(data.address_neighborhood || ""); setCompanyCity(data.address_city || "");
         setCompanyState(data.address_state || ""); setCompanyZipcode(data.address_zipcode || "");
+        const raw = (data as any).marketplace_default_contact_phone_source;
+        const normalized: MpDefaultSource = raw === "owner" ? "owner" : "organization";
+        setMpDefaultSource(normalized);
+        setMpInitialSource(normalized);
       });
   }, [profile?.organization_id]);
 
@@ -110,6 +125,24 @@ export function SettingsCompanyTab() {
     setSavingCompany(false);
     if (error) toastError("Erro ao salvar dados da empresa", undefined, { module: "Settings" });
     else toast.success("Dados da empresa atualizados");
+  };
+
+  const handleSaveMpDefault = async () => {
+    if (!profile?.organization_id || !canEditCompany) return;
+    if (mpDefaultSource === mpInitialSource) return;
+    setSavingMpDefault(true);
+    const { error } = await supabase
+      .from("organizations")
+      .update({ marketplace_default_contact_phone_source: mpDefaultSource } as any)
+      .eq("id", profile.organization_id);
+    setSavingMpDefault(false);
+    if (error) {
+      toastError("Erro ao salvar configuração do Marketplace", error, { module: "Settings" });
+      return;
+    }
+    setMpInitialSource(mpDefaultSource);
+    queryClient.invalidateQueries({ queryKey: ["org-marketplace-defaults", profile.organization_id] });
+    toast.success("Configuração do Marketplace atualizada. Vale para novos imóveis.");
   };
 
   return (
@@ -237,6 +270,88 @@ export function SettingsCompanyTab() {
               <Button onClick={handleSaveCompany} disabled={savingCompany}>
                 {savingCompany && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Salvar alterações
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Store className="h-5 w-5 text-primary" />
+            Marketplace
+          </CardTitle>
+          <CardDescription>
+            Define o telefone que outros corretores verão por padrão nos seus imóveis publicados no Marketplace.
+            Esta configuração vale apenas para <strong>novos imóveis</strong>: imóveis já existentes mantêm a configuração individual.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Label className="text-sm font-medium">Telefone padrão dos imóveis no Marketplace</Label>
+          <RadioGroup
+            value={mpDefaultSource}
+            onValueChange={(v) => canEditCompany && setMpDefaultSource(v as MpDefaultSource)}
+            className="grid gap-2"
+          >
+            <label
+              htmlFor="mp-default-organization"
+              className={cn(
+                "flex items-start gap-3 rounded-md border p-3 transition-colors",
+                mpDefaultSource === "organization" ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40",
+                canEditCompany ? "cursor-pointer" : "cursor-not-allowed opacity-70",
+              )}
+            >
+              <RadioGroupItem value="organization" id="mp-default-organization" className="mt-1" disabled={!canEditCompany} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Building className="h-4 w-4 text-muted-foreground" />
+                  Número da imobiliária
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Novos imóveis publicados no Marketplace usarão o telefone público da imobiliária por padrão.
+                </div>
+              </div>
+            </label>
+
+            <label
+              htmlFor="mp-default-owner"
+              className={cn(
+                "flex items-start gap-3 rounded-md border p-3 transition-colors",
+                mpDefaultSource === "owner" ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40",
+                canEditCompany ? "cursor-pointer" : "cursor-not-allowed opacity-70",
+              )}
+            >
+              <RadioGroupItem value="owner" id="mp-default-owner" className="mt-1" disabled={!canEditCompany} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  Número do proprietário
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Novos imóveis publicados no Marketplace usarão o telefone do proprietário primário por padrão.
+                  A publicação será bloqueada se o imóvel não tiver proprietário com telefone válido.
+                </div>
+                {mpDefaultSource === "owner" && (
+                  <div className="mt-2 flex items-start gap-1.5 text-[11px] text-warning-foreground/90 bg-warning/10 border border-warning/30 rounded px-2 py-1.5">
+                    <ShieldAlert className="h-3 w-3 mt-0.5 shrink-0" />
+                    <span>
+                      Ao usar esta opção, o telefone do proprietário poderá ficar visível para outros corretores no Marketplace nos imóveis publicados.
+                    </span>
+                  </div>
+                )}
+              </div>
+            </label>
+          </RadioGroup>
+
+          {canEditCompany && (
+            <div className="flex justify-end">
+              <Button
+                onClick={handleSaveMpDefault}
+                disabled={savingMpDefault || mpDefaultSource === mpInitialSource}
+              >
+                {savingMpDefault && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Salvar configuração
               </Button>
             </div>
           )}

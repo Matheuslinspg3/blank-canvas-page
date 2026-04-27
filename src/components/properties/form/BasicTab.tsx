@@ -15,6 +15,7 @@ import { useBrokers } from "@/hooks/useBrokers";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { useOrgMarketplaceDefaults } from "@/hooks/useOrgMarketplaceDefaults";
 
 interface BasicTabProps {
   form: UseFormReturn<any>;
@@ -34,6 +35,8 @@ export function BasicTab({ form, publishToMarketplace = false, propertyId }: Bas
   const propertyCondition = form.watch("property_condition");
   const sourceValue = (form.watch("marketplace_contact_phone_source") as Source) || "organization";
   const formOwnerPhone = form.watch("owner_phone") as string | null | undefined;
+  const { defaultSource: orgDefaultSource } = useOrgMarketplaceDefaults();
+  const orgDefaultLabel = orgDefaultSource === "owner" ? "Número do proprietário" : "Número da imobiliária";
 
   // Resolve organization & primary-owner phones to display in the radio cards.
   const [orgPhone, setOrgPhone] = useState<string | null>(null);
@@ -249,6 +252,9 @@ export function BasicTab({ form, publishToMarketplace = false, propertyId }: Bas
           <p className="text-xs text-muted-foreground">
             Escolha qual número outros corretores verão no card deste imóvel.
             Não afeta landing pages nem o contato exibido para clientes finais.
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            Padrão da imobiliária: <span className="font-medium text-foreground">{orgDefaultLabel}</span>
           </p>
 
           <FormField
