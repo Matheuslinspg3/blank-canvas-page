@@ -17,6 +17,7 @@ import {
 import { MapPin, Bed, Bath, Car, Ruler, MoreHorizontal, Edit, Trash2, Building2, Eye, ExternalLink, Hash, Store, ImageIcon, FileText, Import, Share2, Copy, CopyPlus, RefreshCw, CheckCircle2 } from "lucide-react";
 import { PropertyFreshnessBadge } from "./PropertyFreshnessBadge";
 import { PropertyReviewBadge } from "./PropertyReviewBadge";
+import type { PropertyReviewSettings } from "@/hooks/usePropertyReviewSettings";
 import { AvailabilityBadge } from "./AvailabilityBadge";
 import { PropertyStatusBadge, transactionLabels } from "./PropertyStatusBadge";
 import type { PropertyWithDetails } from "@/hooks/useProperties";
@@ -36,10 +37,11 @@ interface PropertyCardProps {
   onDuplicate?: (id: string) => void;
   onChangeStatus?: (id: string, status: string) => void;
   isPublished?: boolean;
+  reviewSettings?: PropertyReviewSettings;
 }
 
 // PERF: memo prevents re-render when parent re-renders but props haven't changed
-export const PropertyCard = memo(function PropertyCard({ property, onEdit, onDelete, onPublish, onUnpublish, onDuplicate, onChangeStatus, isPublished }: PropertyCardProps) {
+export const PropertyCard = memo(function PropertyCard({ property, onEdit, onDelete, onPublish, onUnpublish, onDuplicate, onChangeStatus, isPublished, reviewSettings }: PropertyCardProps) {
   const navigate = useNavigate();
   const { buildPublicUrl } = usePropertyPublicUrl();
   const reviewMutation = usePropertyReview();
@@ -264,7 +266,7 @@ export const PropertyCard = memo(function PropertyCard({ property, onEdit, onDel
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-semibold truncate text-sm">{property.title || "Sem título"}</h3>
               <PropertyFreshnessBadge updatedAt={property.updated_at} compact />
-              <PropertyReviewBadge lastReviewedAt={(property as any).last_reviewed_at} compact />
+              <PropertyReviewBadge lastReviewedAt={(property as any).last_reviewed_at} settings={reviewSettings} compact />
             </div>
             <div className="flex items-center text-xs text-muted-foreground">
               <MapPin className="h-3 w-3 mr-1 flex-shrink-0" />
