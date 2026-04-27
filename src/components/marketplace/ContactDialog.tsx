@@ -25,6 +25,10 @@ interface ContactData {
   broker_avatar: string | null;
   owner_name: string | null;
   owner_phone: string | null;
+  marketplace_contact_source?: 'organization' | 'owner' | 'custom' | null;
+  resolved_marketplace_contact_phone?: string | null;
+  resolved_marketplace_contact_label?: string | null;
+  contact_resolution_status?: 'ok' | 'fallback' | 'missing' | null;
 }
 
 export function ContactDialog({ property, open, onOpenChange }: ContactDialogProps) {
@@ -241,10 +245,17 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
               </div>
             )}
 
-            {/* Org Phone */}
+            {/* Org Phone (resolvido por source) */}
             {orgPhone && showBothPhones && (
               <div className="space-y-2">
-                <p className="text-xs text-muted-foreground font-medium">Imobiliária</p>
+                <p className="text-xs text-muted-foreground font-medium">
+                  {contactData.resolved_marketplace_contact_label || 'Imobiliária'}
+                </p>
+                {contactData.contact_resolution_status === 'fallback' && contactData.marketplace_contact_source === 'owner' && (
+                  <div className="text-[11px] text-warning-foreground/90 bg-warning/10 border border-warning/30 rounded px-2 py-1.5">
+                    Telefone do proprietário indisponível — usando contato da imobiliária.
+                  </div>
+                )}
                 <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                   <div className="flex items-center gap-3 min-w-0">
                     <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -265,6 +276,14 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
             {/* Fallback: only org phone when no broker phone */}
             {orgPhone && !brokerPhone && (
               <div className="space-y-2">
+                <p className="text-xs text-muted-foreground font-medium">
+                  {contactData.resolved_marketplace_contact_label || 'Contato'}
+                </p>
+                {contactData.contact_resolution_status === 'fallback' && contactData.marketplace_contact_source === 'owner' && (
+                  <div className="text-[11px] text-warning-foreground/90 bg-warning/10 border border-warning/30 rounded px-2 py-1.5">
+                    Telefone do proprietário indisponível — usando contato da imobiliária.
+                  </div>
+                )}
                 <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                   <div className="flex items-center gap-3 min-w-0">
                     <Phone className="h-4 w-4 text-muted-foreground shrink-0" />

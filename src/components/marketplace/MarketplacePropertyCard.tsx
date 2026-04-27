@@ -87,7 +87,12 @@ export const MarketplacePropertyCard = React.memo(function MarketplacePropertyCa
                   {property.transaction_type === "venda" ? "Venda" : property.transaction_type === "aluguel" ? "Aluguel" : "Venda/Aluguel"}
                 </Badge>
               </div>
-              {property.marketplace_contact_phone && (
+              {property.marketplace_contact_phone_source === 'owner' && (
+                <Badge variant="outline" className="text-[10px] rounded-full px-2 gap-1 border-primary/30 text-primary">
+                  <BadgeCheck className="h-3 w-3" /> Contato do proprietário
+                </Badge>
+              )}
+              {property.marketplace_contact_phone_source === 'custom' && (
                 <Badge variant="outline" className="text-[10px] rounded-full px-2 gap-1 border-primary/30 text-primary">
                   <BadgeCheck className="h-3 w-3" /> Contato direto do anúncio
                 </Badge>
@@ -195,7 +200,12 @@ export const MarketplacePropertyCard = React.memo(function MarketplacePropertyCa
             >
               {property.transaction_type === "venda" ? "Venda" : property.transaction_type === "aluguel" ? "Aluguel" : "Venda/Aluguel"}
             </Badge>
-            {property.marketplace_contact_phone && (
+            {property.marketplace_contact_phone_source === 'owner' && (
+              <Badge variant="outline" className="text-[10px] rounded-full px-2 gap-1 border-primary/40 bg-background/80 backdrop-blur-sm text-primary shadow-sm">
+                <BadgeCheck className="h-3 w-3" /> Contato do proprietário
+              </Badge>
+            )}
+            {property.marketplace_contact_phone_source === 'custom' && (
               <Badge variant="outline" className="text-[10px] rounded-full px-2 gap-1 border-primary/40 bg-background/80 backdrop-blur-sm text-primary shadow-sm">
                 <BadgeCheck className="h-3 w-3" /> Contato direto
               </Badge>
