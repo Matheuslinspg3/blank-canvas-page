@@ -200,7 +200,7 @@ export function usePropertyBulkOps() {
 
       for (let i = 0; i < rows.length; i += CHUNK) {
         const chunk = rows.slice(i, i + CHUNK);
-        const { error } = await supabase.from('marketplace_properties').upsert(chunk, { onConflict: 'id' });
+        const { error } = await supabase.from('marketplace_properties').upsert(chunk as any, { onConflict: 'id' });
         if (error) throw error;
       }
       return rows.length;
