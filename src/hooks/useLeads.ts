@@ -64,7 +64,9 @@ export function useLeads() {
     enabled: !!user?.id,
     staleTime: 5 * 60 * 1000,
   });
-  const isBrokerOnly = userRoles.length > 0 && userRoles.every(r => r === 'corretor' || r === 'assistente');
+  const isCorretorOnly = userRoles.length > 0 && userRoles.every(r => r === 'corretor');
+  const isAssistenteOnly = userRoles.length > 0 && userRoles.every(r => r === 'assistente');
+  const isBrokerOnly = isCorretorOnly || isAssistenteOnly;
 
   const leadStages = isDemoMode ? DEMO_STAGES : dynamicStages;
 
@@ -95,7 +97,7 @@ export function useLeads() {
     };
   }
 
-  const crud = useLeadCRUD({ leadStages, isBrokerOnly });
+  const crud = useLeadCRUD({ leadStages, isBrokerOnly, isCorretorOnly, isAssistenteOnly });
   const bulk = useLeadBulkOps();
 
   const { leads, inactiveLeads, isLoadingLeads, isLoadingInactive, error, refetch } = crud;
