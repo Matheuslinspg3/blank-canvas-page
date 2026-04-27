@@ -4876,6 +4876,7 @@ export type Database = {
           images: string[] | null
           is_featured: boolean
           marketplace_contact_phone: string | null
+          marketplace_contact_phone_source: string
           organization_id: string | null
           owner_email: string | null
           owner_name: string | null
@@ -4913,6 +4914,7 @@ export type Database = {
           images?: string[] | null
           is_featured?: boolean
           marketplace_contact_phone?: string | null
+          marketplace_contact_phone_source?: string
           organization_id?: string | null
           owner_email?: string | null
           owner_name?: string | null
@@ -4950,6 +4952,7 @@ export type Database = {
           images?: string[] | null
           is_featured?: boolean
           marketplace_contact_phone?: string | null
+          marketplace_contact_phone_source?: string
           organization_id?: string | null
           owner_email?: string | null
           owner_name?: string | null
@@ -5914,6 +5917,7 @@ export type Database = {
           launch_stage: Database["public"]["Enums"]["launch_stage"] | null
           longitude: number | null
           marketplace_contact_phone: string | null
+          marketplace_contact_phone_source: string
           organization_id: string
           parking_spots: number | null
           payment_options: string[] | null
@@ -5990,6 +5994,7 @@ export type Database = {
           launch_stage?: Database["public"]["Enums"]["launch_stage"] | null
           longitude?: number | null
           marketplace_contact_phone?: string | null
+          marketplace_contact_phone_source?: string
           organization_id: string
           parking_spots?: number | null
           payment_options?: string[] | null
@@ -6066,6 +6071,7 @@ export type Database = {
           launch_stage?: Database["public"]["Enums"]["launch_stage"] | null
           longitude?: number | null
           marketplace_contact_phone?: string | null
+          marketplace_contact_phone_source?: string
           organization_id?: string
           parking_spots?: number | null
           payment_options?: string[] | null
@@ -9801,6 +9807,7 @@ export type Database = {
           images: string[] | null
           is_featured: boolean | null
           marketplace_contact_phone: string | null
+          marketplace_contact_phone_source: string | null
           organization_id: string | null
           parking_spots: number | null
           payment_options: string[] | null
@@ -10479,6 +10486,7 @@ export type Database = {
           images: string[]
           is_featured: boolean
           marketplace_contact_phone: string
+          marketplace_contact_phone_source: string
           organization_id: string
           parking_spots: number
           payment_options: string[]

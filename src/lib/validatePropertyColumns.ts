@@ -19,7 +19,8 @@ const VALID_PROPERTY_COLUMNS = new Set([
   'sale_price_financed', 'youtube_url', 'geocode_status', 'geocode_precision',
   'geocoded_at', 'geocode_provider', 'geocode_hash', 'geocode_error',
   'availability_status', 'availability_status_updated_at', 'ai_blacklist',
-  'building_id', 'marketplace_contact_phone', 'cover_image_url',
+  'building_id', 'marketplace_contact_phone', 'marketplace_contact_phone_source',
+  'cover_image_url',
   'property_group_id',
 ]);
 
