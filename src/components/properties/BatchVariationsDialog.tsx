@@ -81,8 +81,9 @@ export function BatchVariationsDialog({
     const nonEmptyRows = rows.filter((r) => !isRowEmpty(r));
     try {
       const trimmedTitle = titleOverride.trim();
-      const effectiveBase = trimmedTitle && trimmedTitle !== (p.title || "")
-        ? ({ ...baseProperty, title: trimmedTitle } as typeof baseProperty)
+      const persistedTitle = p.title || "";
+      const effectiveBase = trimmedTitle && trimmedTitle !== persistedTitle
+        ? ({ ...baseProperty, title: trimmedTitle, _persistedTitle: persistedTitle } as typeof baseProperty)
         : baseProperty;
       const result = await createBatch({ baseProperty: effectiveBase, rows: nonEmptyRows });
       setReviewOpen(false);
