@@ -363,8 +363,10 @@ export function usePropertyBatchCreate() {
 }
 
 export function isRowEmpty(row: VariationRow): boolean {
-  // Rows created from base start as _pristine — treated as empty until edited
-  if (row._pristine) return true;
+  // A row only counts as empty when it has NO data of its own.
+  // Pre-filled rows from `createRowFromBase` carry inherited numeric values
+  // and therefore should be considered ready to create — even if the user
+  // didn't touch them. The user can always remove unwanted rows manually.
   return (
     !row.property_code &&
     !row.unit_label &&
@@ -410,6 +412,5 @@ export function createRowFromBase(base: any): VariationRow {
     sale_price: base.sale_price ?? null,
     status: 'disponivel',
     notes: '',
-    _pristine: true, // marks row as untouched — isRowEmpty treats it as empty
   };
 }
