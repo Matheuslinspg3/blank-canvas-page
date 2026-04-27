@@ -1,342 +1,153 @@
-# Fase 3 — Controle de Revisão de Imóveis (Build)
+# Origem configurável do telefone do Marketplace — Plano Final
 
-Plano final auditado, alinhado aos ajustes obrigatórios. Implementação direta após aprovação.
+Implementação aditiva e idempotente. Mantém `marketplace_contact_phone`. Não altera landing pages, card público de cliente final, regras de plano/RLS/paginação do Marketplace.
 
-## Achados de auditoria (confirmados via SQL)
+---
 
-- `properties.status` valores reais: `disponivel, reservado, vendido, inativo`. **Não existe `com_proposta`** → dashboard filtrará por `('disponivel','reservado')` e índice será **genérico** (sem cláusula parcial) para evitar dependência da lista.
-- `owners.primary_name` é a coluna de nome (não `full_name`).
-- `property_owners.is_primary` existe.
-- `app_role` inclui `admin, sub_admin, leader, developer` (também `corretor, assistente, atendente, desenvolvedor`).
-- `search_properties_advanced` **não tem tenant guard** hoje — será adicionado.
-- `usePropertyReview` já existe e invalida `properties-list`, `properties-advanced-search`, etc.
-- `PropertyReviewBadge` é usado em `PropertyCard`, `PropertyListItem`, `OwnerPropertyListItem`.
-- `StalePropertiesAlert` só é importado em `Dashboard.tsx` — será substituído mas o arquivo será **mantido** no repo.
-- `useUserRoles().isAdminOrAbove` cobre admin/sub_admin/leader/developer.
-- Tabela `property_review_settings` ainda não existe.
+## 1) Migration (nova, idempotente)
 
-## 1. Migration
+Arquivo: `supabase/migrations/<ts>_marketplace_contact_phone_source.sql`
 
-### 1.1 Tabela `property_review_settings`
+### 1.1 Coluna `marketplace_contact_phone_source`
+- `properties.marketplace_contact_phone_source text NOT NULL DEFAULT 'organization'`
+- `marketplace_properties.marketplace_contact_phone_source text NOT NULL DEFAULT 'organization'`
+- CHECK em ambas: valores aceitos `'organization' | 'owner' | 'custom'` (drop+create por nome para idempotência).
 
-```sql
-CREATE TABLE public.property_review_settings (
-  organization_id uuid PRIMARY KEY REFERENCES public.organizations(id) ON DELETE CASCADE,
-  overdue_after_days  integer NOT NULL DEFAULT 60,
-  warning_before_days integer NOT NULL DEFAULT 15,
-  show_dashboard_card boolean NOT NULL DEFAULT true,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT prs_overdue_range CHECK (overdue_after_days BETWEEN 7 AND 365),
-  CONSTRAINT prs_warning_range CHECK (warning_before_days BETWEEN 1 AND 60),
-  CONSTRAINT prs_warning_lt_overdue CHECK (warning_before_days < overdue_after_days)
-);
+### 1.2 Backfill (UPDATE one-shot, safe re-run)
+- `marketplace_contact_phone` preenchido & não-vazio + source ainda no default `'organization'` ⇒ `source = 'custom'`.
+- Caso contrário permanece `'organization'`.
+- Aplicado tanto em `properties` quanto em `marketplace_properties`.
 
-ALTER TABLE public.property_review_settings ENABLE ROW LEVEL SECURITY;
+### 1.3 Trigger consolidado de sanitização + domínio (`trg_00_*`)
+Função `public.sanitize_marketplace_contact_source()` (SET search_path = public):
+- Normaliza `source` (lowercase, default `'organization'` se NULL; rejeita valores fora do enum).
+- Trim em `marketplace_contact_phone`; vazio ⇒ NULL.
+- **Regra-chave:** se `source != 'custom'` ⇒ `marketplace_contact_phone := NULL` (limpa telefone manual antigo).
+- Se `source = 'custom'` e telefone presente ⇒ valida regex `^[0-9+()\-\s]{8,20}$`.
 
--- SELECT: membros da própria org
-CREATE POLICY "prs_select_own_org"
-  ON public.property_review_settings
-  FOR SELECT TO authenticated
-  USING (organization_id = public.get_user_organization_id());
+Triggers (drop antigos `trg_sanitize_marketplace_contact_phone_*` + cria com nomes ordenados):
+- `trg_00_sanitize_marketplace_contact_source_props` BEFORE INSERT/UPDATE OF (phone, source) em `properties`.
+- `trg_00_sanitize_marketplace_contact_source_mp` BEFORE INSERT/UPDATE OF (phone, source) em `marketplace_properties`.
 
--- INSERT: admin/sub_admin/leader/developer da própria org
-CREATE POLICY "prs_insert_admins"
-  ON public.property_review_settings
-  FOR INSERT TO authenticated
-  WITH CHECK (
-    organization_id = public.get_user_organization_id()
-    AND (
-      public.has_role(auth.uid(), 'admin'::app_role)
-      OR public.has_role(auth.uid(), 'sub_admin'::app_role)
-      OR public.has_role(auth.uid(), 'leader'::app_role)
-      OR public.has_role(auth.uid(), 'developer'::app_role)
-    )
-  );
+### 1.4 Trigger de validação de publicação (`trg_10_*`) — só dispara em INSERT em `marketplace_properties`
+Função `public.trg_marketplace_require_contact()`:
+- `source = 'custom'`: exige `marketplace_contact_phone` válido (≥8 dígitos sanitizado).
+- `source = 'owner'`: exige proprietário primário com `phone` válido (consulta `property_owners` JOIN `owners`, fallback `marketplace_properties.owner_phone` legado).
+- `source = 'organization'`: exige `organizations.phone` válido OU pelo menos 1 `profile.phone` da org.
+- Caso contrário ⇒ `RAISE EXCEPTION` com mensagem amigável.
+- Drop antigo `marketplace_require_contact`; cria `trg_10_marketplace_require_contact` BEFORE INSERT.
 
--- UPDATE: idem
-CREATE POLICY "prs_update_admins"
-  ON public.property_review_settings
-  FOR UPDATE TO authenticated
-  USING (
-    organization_id = public.get_user_organization_id()
-    AND (
-      public.has_role(auth.uid(), 'admin'::app_role)
-      OR public.has_role(auth.uid(), 'sub_admin'::app_role)
-      OR public.has_role(auth.uid(), 'leader'::app_role)
-      OR public.has_role(auth.uid(), 'developer'::app_role)
-    )
-  )
-  WITH CHECK (organization_id = public.get_user_organization_id());
+> Resultado: só bloqueia quando `publish_to_marketplace = true` (porque a app só insere em `marketplace_properties` nesse caso). Salvar rascunho em `properties` com qualquer source continua permitido.
 
--- Sem DELETE policy (intencional)
+### 1.5 Sync trigger `properties → marketplace_properties`
+Atualiza `sync_marketplace_on_property_update()` para também copiar `marketplace_contact_phone_source` no UPDATE.
+WHEN clause inclui `OLD.marketplace_contact_phone_source IS DISTINCT FROM NEW.marketplace_contact_phone_source` para garantir propagação.
 
-CREATE TRIGGER trg_prs_updated_at
-  BEFORE UPDATE ON public.property_review_settings
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-```
+### 1.6 Listagem pública (`marketplace_properties_public` + `get_marketplace_properties_public()`)
+- Recria função e view incluindo `marketplace_contact_phone_source`.
+- **Não expõe** `owner_phone` cru. Mantém `marketplace_contact_phone` na listagem para compat (pode ser NULL para `source != 'custom'`).
+- Telefone resolvido continua exclusivamente via RPC `get_marketplace_contact`.
 
-### 1.2 Índice
+### 1.7 RPC `get_marketplace_contact(p_property_id)` reescrita
+Resolve por `source`:
+- `custom`: usa `marketplace_contact_phone`. Se ausente ⇒ fallback para org.phone, status `'fallback'` ou `'missing'`.
+- `owner`: usa telefone do proprietário primário. Se ausente ⇒ fallback para org.phone, status `'fallback'`. Importante: nunca devolve telefone da imobiliária com label de proprietário.
+- `organization`: usa `organizations.phone` (com fallback para profile admin/sub_admin).
 
-Genérico (status enum não inclui `com_proposta` — evitar surpresas):
-```sql
-CREATE INDEX IF NOT EXISTS idx_properties_org_last_reviewed
-  ON public.properties (organization_id, last_reviewed_at NULLS FIRST);
-```
+Retorno JSON inclui:
+- **NOVO canônico**: `marketplace_contact_source`, `resolved_marketplace_contact_phone`, `resolved_marketplace_contact_label`, `contact_resolution_status` (`'ok' | 'fallback' | 'missing'`).
+- **Compat (legado)**: `org_phone` e `marketplace_contact_phone` apontam para o telefone resolvido. Comentário explícito no SQL avisando que `org_phone` é legado e que, se algum componente futuro precisar do telefone real da imobiliária, deve usar um campo separado (`organization_phone`).
+- **Não vaza**: `owner_phone` retorna `NULL`.
+- Mantém `org_name`, `org_email`, `org_logo`, `broker_*`, `owner_name`.
 
-### 1.3 RPC `search_properties_advanced` — tenant guard + 3 novos status
+Labels:
+- `organization` → "Telefone da imobiliária"
+- `owner`        → "Telefone do proprietário"
+- `custom`       → "Contato direto do anúncio"
 
-`CREATE OR REPLACE` mantendo assinatura. Mudanças:
+GRANT EXECUTE para `anon, authenticated` (mantido).
 
-1. **Tenant guard** no início (LANGUAGE plpgsql wrapper; ou via `WHERE` com COALESCE+EXCEPTION). Estratégia: converter para `LANGUAGE plpgsql` mantendo retorno via `RETURN QUERY` com a mesma SQL. Adicionar:
-```sql
-DECLARE v_user_org uuid := public.get_user_organization_id();
-BEGIN
-  IF v_user_org IS NULL OR p_organization_id <> v_user_org THEN
-    RETURN; -- vazio, sem vazar dados cross-tenant
-  END IF;
-  ...
-```
-2. **CTE `cfg`** para resolver thresholds:
-```sql
-WITH cfg AS (
-  SELECT COALESCE(s.overdue_after_days, 60)  AS overdue_days,
-         COALESCE(s.warning_before_days, 15) AS warning_days
-  FROM (SELECT p_organization_id AS oid) x
-  LEFT JOIN public.property_review_settings s ON s.organization_id = x.oid
-)
-```
-3. **3 novos valores em `p_review_status`** (preferir `interval` numérico):
-```sql
-OR (p_review_status = 'overdue_configured'
-    AND (p.last_reviewed_at IS NULL
-         OR p.last_reviewed_at < now() - ((SELECT overdue_days FROM cfg) * interval '1 day')))
-OR (p_review_status = 'near_due'
-    AND p.last_reviewed_at IS NOT NULL
-    AND p.last_reviewed_at <  now() - (((SELECT overdue_days FROM cfg) - (SELECT warning_days FROM cfg)) * interval '1 day')
-    AND p.last_reviewed_at >= now() - ((SELECT overdue_days FROM cfg) * interval '1 day'))
-OR (p_review_status = 'within_due'
-    AND p.last_reviewed_at IS NOT NULL
-    AND p.last_reviewed_at >= now() - (((SELECT overdue_days FROM cfg) - (SELECT warning_days FROM cfg)) * interval '1 day'))
-```
-Todos os filtros existentes preservados; paginação/`total_count` intactos.
+---
 
-### 1.4 Nova RPC `get_property_review_dashboard(p_limit int DEFAULT 10)`
+## 2) Frontend
 
-```sql
-CREATE OR REPLACE FUNCTION public.get_property_review_dashboard(p_limit int DEFAULT 10)
-RETURNS jsonb
-LANGUAGE plpgsql STABLE SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_org uuid := public.get_user_organization_id();
-  v_overdue int;
-  v_warning int;
-  v_safe int;
-  v_counts jsonb;
-  v_critical jsonb;
-BEGIN
-  IF v_org IS NULL THEN
-    RETURN jsonb_build_object(
-      'overdue_count', 0, 'never_count', 0, 'warning_count', 0,
-      'overdue_after_days', 60, 'warning_before_days', 15,
-      'critical', '[]'::jsonb
-    );
-  END IF;
+### 2.1 `src/components/properties/PropertyForm.tsx`
+- Adiciona ao schema Zod: `marketplace_contact_phone_source: z.enum(['organization','owner','custom']).default('organization')`.
+- DEFAULT_VALUES: `marketplace_contact_phone_source: 'organization'`.
+- Reset com base no imóvel: usa `(property as any).marketplace_contact_phone_source ?? (legacy phone ? 'custom' : 'organization')`.
+- Em `handleSubmit`: se `source !== 'custom'`, força `marketplace_contact_phone = null` no payload (defesa em profundidade; trigger também faz).
+- Encaminha o source no objeto `propertyData`.
 
-  SELECT COALESCE(s.overdue_after_days, 60),
-         COALESCE(s.warning_before_days, 15)
-    INTO v_overdue, v_warning
-  FROM (SELECT v_org AS oid) x
-  LEFT JOIN public.property_review_settings s ON s.organization_id = x.oid;
+### 2.2 `src/components/properties/form/BasicTab.tsx`
+- Substitui o input solto por um `RadioGroup` com 3 cards (já temos `radio-group.tsx`).
+- Props extra opcionais: `organizationPhone?: string | null`, `ownerPhone?: string | null` (vêm via `useAuth`/lookup leve no `PropertyForm`).
+- Card 1 — `'organization'` (default): mostra "Número da imobiliária — &lt;telefone&gt;" ou aviso "Imobiliária sem telefone público cadastrado".
+- Card 2 — `'owner'`: mostra "Número do proprietário — &lt;telefone&gt;". Se ausente ⇒ disabled + aviso "Proprietário sem telefone cadastrado". Inclui aviso de privacidade: "Ao selecionar esta opção, o telefone do proprietário ficará visível para outros corretores no Marketplace."
+- Card 3 — `'custom'`: ao selecionar, mostra `Input` com máscara (mantém o input atual). Validação client: não-vazio quando selecionado.
+- Quando o source carregado for `'owner'` mas o telefone não existir mais, **não desmarca**: deixa selecionado, mostra alerta inline.
+- Mantém o texto informativo: "Número que outros corretores verão no card deste imóvel no Marketplace. Não afeta landing pages nem o contato exibido para clientes finais."
 
-  v_safe := v_overdue - v_warning;
+### 2.3 `src/components/marketplace/MarketplacePropertyCard.tsx`
+Lógica de badge baseada em `property.marketplace_contact_phone_source`:
+- `'owner'`  → badge "Contato do proprietário".
+- `'custom'` → badge "Contato direto do anúncio" (mantém atual quando phone existe).
+- `'organization'` → sem badge.
+- Remove a checagem antiga `property.marketplace_contact_phone &&` para badge — agora é por source.
 
-  -- Sem dupla contagem:
-  --  never_count   = last_reviewed_at IS NULL
-  --  overdue_count = NOT NULL AND vencido
-  --  warning_count = NOT NULL AND janela de aviso AND ainda não vencido
-  SELECT jsonb_build_object(
-    'never_count',   count(*) FILTER (WHERE last_reviewed_at IS NULL),
-    'overdue_count', count(*) FILTER (WHERE last_reviewed_at IS NOT NULL
-                       AND last_reviewed_at <  now() - (v_overdue * interval '1 day')),
-    'warning_count', count(*) FILTER (WHERE last_reviewed_at IS NOT NULL
-                       AND last_reviewed_at <  now() - (v_safe    * interval '1 day')
-                       AND last_reviewed_at >= now() - (v_overdue * interval '1 day')),
-    'overdue_after_days', v_overdue,
-    'warning_before_days', v_warning
-  ) INTO v_counts
-  FROM public.properties
-  WHERE organization_id = v_org
-    AND status::text IN ('disponivel','reservado');
+### 2.4 `src/components/marketplace/ContactDialog.tsx`
+- Atualiza `ContactData` para incluir `marketplace_contact_source`, `resolved_marketplace_contact_phone`, `resolved_marketplace_contact_label`, `contact_resolution_status`.
+- Acima do telefone exibido, mostra `resolved_marketplace_contact_label` ("Telefone da imobiliária" / "Telefone do proprietário" / "Contato direto do anúncio").
+- Se `contact_resolution_status === 'fallback'` e source original era `'owner'`: mostra alerta "Telefone do proprietário indisponível — usando contato da imobiliária."
+- Mantém botões de WhatsApp/copiar com o telefone resolvido (`org_phone` continua = resolvido).
 
-  -- Lista crítica: nunca + vencidos + próximos
-  SELECT jsonb_agg(row_to_json(t))
-    INTO v_critical
-  FROM (
-    SELECT
-      p.id,
-      p.title,
-      p.property_code::text AS property_code,
-      p.status::text AS status,
-      p.last_reviewed_at,
-      CASE WHEN p.last_reviewed_at IS NULL THEN NULL
-           ELSE EXTRACT(day FROM now() - p.last_reviewed_at)::int END AS days_since,
-      CASE
-        WHEN p.last_reviewed_at IS NULL THEN 1
-        WHEN p.last_reviewed_at <  now() - (v_overdue * interval '1 day') THEN 2
-        ELSE 3
-      END AS priority,
-      (
-        SELECT o.primary_name
-        FROM public.property_owners po
-        JOIN public.owners o ON o.id = po.owner_id
-        WHERE po.property_id = p.id
-        ORDER BY po.is_primary DESC NULLS LAST
-        LIMIT 1
-      ) AS owner_name
-    FROM public.properties p
-    WHERE p.organization_id = v_org
-      AND p.status::text IN ('disponivel','reservado')
-      AND (
-        p.last_reviewed_at IS NULL
-        OR p.last_reviewed_at < now() - (v_safe * interval '1 day')
-      )
-    ORDER BY priority ASC, days_since DESC NULLS FIRST
-    LIMIT GREATEST(COALESCE(p_limit, 10), 1)
-  ) t;
+### 2.5 Hooks/Tipos
+- `src/hooks/useMarketplace.ts`: tipo `MarketplaceProperty` ganha `marketplace_contact_phone_source: 'organization' | 'owner' | 'custom' | null`. SELECT inclui a coluna.
+- `src/hooks/usePropertyCRUD.ts`: SELECT inclui `marketplace_contact_phone_source`.
+- `src/hooks/usePropertyBulkOps.ts`: ao publicar (`upsert` em `marketplace_properties`), inclui `marketplace_contact_phone_source: prop.marketplace_contact_phone_source ?? 'organization'`.
+- `src/lib/validatePropertyColumns.ts`: adiciona `'marketplace_contact_phone_source'` ao whitelist.
 
-  RETURN v_counts || jsonb_build_object('critical', COALESCE(v_critical, '[]'::jsonb));
-END;
-$$;
+### 2.6 Tipos do Supabase
+- Não editamos `src/integrations/supabase/types.ts` manualmente (proibido). Usamos `as any` onde necessário até regen automática.
 
-REVOKE ALL ON FUNCTION public.get_property_review_dashboard(int) FROM public;
-GRANT EXECUTE ON FUNCTION public.get_property_review_dashboard(int) TO authenticated;
-```
+---
 
-## 2. Hooks
+## 3) Lógica final resumida
 
-### `src/hooks/usePropertyReviewSettings.ts` (novo)
-- React Query, key `['property-review-settings', organization_id]`, `staleTime: 5*60_000`.
-- `select * from property_review_settings where organization_id=...`. Se sem linha → defaults `{overdueAfterDays:60, warningBeforeDays:15, showDashboardCard:true}`.
-- Exporta tipo `PropertyReviewSettings` e helper puro:
-```ts
-export function classifyReview(last: string|null|undefined, s: PropertyReviewSettings):
-  'fresh'|'near_due'|'overdue'|'never' {
-  if (!last) return 'never';
-  const days = Math.floor((Date.now() - new Date(last).getTime())/86400000);
-  if (days > s.overdueAfterDays) return 'overdue';
-  if (days > s.overdueAfterDays - s.warningBeforeDays) return 'near_due';
-  return 'fresh';
-}
-export const DEFAULT_REVIEW_SETTINGS: PropertyReviewSettings =
-  { overdueAfterDays: 60, warningBeforeDays: 15, showDashboardCard: true };
-```
+| source         | salvo em properties | publicação válida quando…                              | `marketplace_contact_phone` armazenado | Telefone exibido no Marketplace                | Badge no card             | Label no diálogo            |
+|----------------|---------------------|--------------------------------------------------------|----------------------------------------|------------------------------------------------|---------------------------|-----------------------------|
+| `organization` | sempre              | org.phone ≥ 8 dígitos OU profile.phone existe          | NULL (limpo)                           | telefone real da imobiliária                   | (sem badge)               | "Telefone da imobiliária"   |
+| `owner`        | sempre              | proprietário primário tem phone ≥ 8 dígitos            | NULL (limpo)                           | telefone do proprietário (ou fallback p/ org)  | "Contato do proprietário" | "Telefone do proprietário"* |
+| `custom`       | sempre              | `marketplace_contact_phone` ≥ 8 dígitos válido         | preservado                             | `marketplace_contact_phone`                    | "Contato direto do anúncio" | "Contato direto do anúncio" |
 
-### `src/hooks/useUpdatePropertyReviewSettings.ts` (novo)
-- Mutation upsert `onConflict: 'organization_id'`.
-- Invalida `['property-review-settings', orgId]`, `['property-review-dashboard', orgId]`, `['properties-advanced-search']`, `['properties-list']` (badges/filtros refletirem nova config).
+\* Se o telefone do proprietário foi removido depois da publicação, `contact_resolution_status = 'fallback'` aciona aviso no diálogo: "Telefone do proprietário indisponível — usando contato da imobiliária."
 
-### `src/hooks/usePropertyReviewDashboard.ts` (novo)
-- `supabase.rpc('get_property_review_dashboard', { p_limit: 10 })`.
-- Key `['property-review-dashboard', organization_id]`, `staleTime: 2*60_000`.
-- **Aceita opção `enabled`** — usado pelo dashboard quando `show_dashboard_card=false` para não chamar a RPC.
+Validação só corre quando o app insere em `marketplace_properties` (i.e., `publish_to_marketplace = true`). Salvar rascunho em `properties` com qualquer source nunca é bloqueado.
 
-## 3. Hooks alterados
+---
 
-- `usePropertyFilters.ts` — manter tipo `reviewStatus: string` (já é string genérica). Sem mudanças estruturais. **Adicionar mapeamento de label** no PropertyFilters (ver §4).
-- `useAdvancedPropertySearch.ts` — sem mudança (já repassa `reviewStatus`).
+## 4) Não alterado
+- Landing pages (`src/pages/Landing*`, `property_share_links`): não consomem a RPC nem o source.
+- Card público de cliente final / `vw_landing_links_without_contact`: intacto.
+- RLS de `marketplace_properties`, `properties`, plano/feature gating, paginação, filtros do Marketplace.
 
-## 4. UI — alterações
+---
 
-### `src/components/properties/PropertyReviewBadge.tsx` (refator)
-- **NÃO chamar hook internamente**. Aceita prop opcional `settings?: PropertyReviewSettings`.
-- Se `settings` ausente, usa `DEFAULT_REVIEW_SETTINGS` (60/15/true) — sem hooks/queries no badge.
-- Usa `classifyReview` para determinar nível: `fresh|near_due|overdue|never`.
-- Mantém labels: "Revisado hoje" / "Revisado há X dias" / "Nunca revisado". Mantém modo `compact`.
-- Cores: fresh=verde, near_due=amarelo, overdue=vermelho, never=cinza com borda.
+## 5) Validação automatizada
+- `npx tsc --noEmit` (deve passar).
+- `npx vite build` (deve passar).
 
-### `src/components/properties/PropertyFilters.tsx`
-- Adicionar 3 itens no Select de Revisão (após `never`):
-  - `overdue_configured` → "Desatualizados (configuração)"
-  - `near_due` → "Próximos do prazo"
-  - `within_due` → "Dentro do prazo seguro"
-- Atualizar mapa de labels do badge ativo (linhas 578-586) com as 3 entradas.
-
-### `src/components/properties/PropertyCard.tsx`, `PropertyListItem.tsx`, `OwnerPropertyListItem.tsx`
-- Aceitar prop opcional `reviewSettings` e repassar ao `PropertyReviewBadge`. Onde renderizado em listas, a página pai busca settings 1× e propaga.
-
-### Páginas que renderizam listas
-- `Properties.tsx` (e equivalentes) — chamar `usePropertyReviewSettings()` 1× e propagar via prop. Se a página atual já mapeia cards num loop, passar `reviewSettings={settings}` em cada item.
-- `OwnerDetails.tsx` — idem para a lista de imóveis do proprietário.
-- (Se a propagação por prop exigir alterações grandes em muitos lugares, manter o badge funcionando com defaults — comportamento já equivalente a Fase 2 quando settings = 60/15.)
-
-### Configuração — `src/components/settings/PropertyReviewSettingsCard.tsx` (novo)
-- Card com:
-  - Title: "Controle de revisão de imóveis"
-  - Number input: "Considerar imóvel desatualizado após X dias" (7–365)
-  - Number input: "Avisar quando estiver faltando X dias" (1–60)
-  - Switch: "Exibir imóveis desatualizados no dashboard"
-- Validação client-side espelhando os CHECKs (warning < overdue, ranges).
-- Gate: `useUserRoles().isAdminOrAbove`. Sem permissão → inputs `disabled`, sem botão Salvar.
-- Mutation via `useUpdatePropertyReviewSettings`.
-- Integrado no final de `SettingsCompanyTab.tsx` (antes do `</div>` final).
-
-### Dashboard — `src/components/dashboard/PropertyReviewDashboardCard.tsx` (novo)
-- Usa `usePropertyReviewSettings` + `usePropertyReviewDashboard({ enabled: settings.showDashboardCard })`.
-- Se `!settings.showDashboardCard` → retorna `null` (não chama RPC).
-- Estados:
-  - Loading → Skeleton.
-  - Erro → mensagem discreta + botão "Tentar novamente" (refetch).
-  - Vazio (todos zero) → mensagem "Todos os imóveis estão dentro do prazo de revisão." (ou ocultar — escolher: ocultar para reduzir ruído).
-- Conteúdo:
-  - Header com 3 contadores (overdue, never, warning) + "Ver todos" → `/imoveis?revisao=overdue_configured`.
-  - Lista até 10 imóveis (do `critical[]`): título, código, owner_name, badge usando `<PropertyReviewBadge settings={settings} ...>`, dias.
-  - Ação "Marcar como revisado" inline via `usePropertyReview()`.
-
-### `src/pages/Dashboard.tsx`
-- Substituir `<StalePropertiesAlert />` por `<PropertyReviewDashboardCard />` (mantido dentro do `<LazySection>`).
-- **Não remover** `StalePropertiesAlert.tsx` do repo (mantido como deprecated — sem imports após esta troca).
-
-## 5. Segurança / Multi-tenant
-
-- `property_review_settings`: RLS estrita por org + role para escrita; sem DELETE policy.
-- `search_properties_advanced`: tenant guard server-side (rejeita `p_organization_id` ≠ org do usuário).
-- `get_property_review_dashboard`: `SECURITY DEFINER`, deriva org de `auth.uid()`, **não recebe org do client**.
-- Frontend nunca envia `organization_id` para a nova RPC.
-
-## 6. Riscos e mitigações
-
-| Risco | Mitigação |
-|---|---|
-| `LANGUAGE sql` impede `IF` no guard | Converter `search_properties_advanced` para `plpgsql` com `RETURN QUERY` |
-| Quebra de chamadas existentes da RPC | Assinatura preservada; comportamento idêntico para callers da própria org |
-| Dupla contagem no dashboard | FILTERs distinguem NULL vs vencido vs aviso |
-| N+1 settings em listas | Página busca 1×; badge usa default puro quando prop ausente |
-| `showDashboardCard=false` ainda dispara RPC | Hook com `enabled` e curto-circuito no componente |
-| Status `com_proposta` não existe | Dashboard filtra `('disponivel','reservado')`; índice genérico |
-
-## 7. Ordem de implementação
-
-1. **Migration** (tudo em uma): tabela + RLS + índice + `search_properties_advanced` (rewrite plpgsql) + `get_property_review_dashboard`.
-2. **Hooks** novos (3) + helper `classifyReview` + `DEFAULT_REVIEW_SETTINGS`.
-3. **Refator** `PropertyReviewBadge` (sem hook).
-4. **PropertyFilters**: 3 opções + labels.
-5. **PropertyReviewSettingsCard** + integração em `SettingsCompanyTab`.
-6. **PropertyReviewDashboardCard** + substituição em `Dashboard.tsx`.
-7. **Validação**: `npx tsc --noEmit` + `npx vite build`.
-8. `supabase--linter` para validar RLS.
-
-## 8. Checklist de validação manual
-
-- Configuração visível em Configurações > Empresa; admin salva 45/10 e persiste; cliente bloqueia 60/70.
-- Toggle `show_dashboard_card=false` → card some no Dashboard e RPC não é chamada (verificar Network).
-- Badge: 10d→verde, 50d (60/15)→amarelo, 70d→vermelho, null→cinza.
-- Filtros: 3 novos valores retornam conjuntos esperados; URL `?revisao=overdue_configured` aplica.
-- Dashboard: 3 contadores corretos; ordenação never→mais dias→vencidos→próximos; "Ver todos" aplica filtro; "Marcar como revisado" remove item.
-- Multi-tenant: outra org não vê imóveis cross-tenant; tentativa de `search_properties_advanced` com `p_organization_id` de outra org retorna vazio.
-
-## 9. Fora do escopo
-
-Notificações automáticas, WhatsApp, automações, relatório semanal, histórico completo de revisões, auditoria por usuário, IA outbound, tarefas recorrentes.
+## 6) Checklist manual
+- [ ] Imóvel novo é criado com `source = 'organization'`.
+- [ ] Imóvel legado com `marketplace_contact_phone` preenchido aparece com `source = 'custom'` selecionado e o telefone no campo.
+- [ ] Imóvel legado sem telefone manual aparece com `source = 'organization'`.
+- [ ] Trocar de `custom` → `organization` ou `owner` limpa `marketplace_contact_phone` (DB).
+- [ ] Publicar com `owner` sem telefone ⇒ trigger bloqueia com mensagem clara.
+- [ ] Publicar com `organization` sem telefone da imobiliária ⇒ trigger bloqueia.
+- [ ] Publicar com `custom` vazio ⇒ trigger bloqueia.
+- [ ] Imóvel já publicado: trocar source ⇒ `marketplace_properties` sincroniza (sync trigger).
+- [ ] Card do Marketplace mostra badge correto por source (none / owner / custom).
+- [ ] ContactDialog mostra label correto e telefone resolvido.
+- [ ] `source = 'owner'` com proprietário sem telefone exibe aviso de fallback no diálogo (não publicável, mas se já estava publicado, não quebra).
+- [ ] Listagem pública não expõe `owner_phone` cru.
+- [ ] Landing pages e card público para cliente final inalterados.
+- [ ] `tsc` e `vite build` limpos.
