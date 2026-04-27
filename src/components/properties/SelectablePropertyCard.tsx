@@ -4,6 +4,7 @@ import { PropertyCard } from "./PropertyCard";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import type { PropertyReviewSettings } from "@/hooks/usePropertyReviewSettings";
 
 interface SelectablePropertyCardProps {
   property: PropertyWithDetails;
@@ -18,6 +19,7 @@ interface SelectablePropertyCardProps {
   onChangeStatus?: (id: string, status: string) => void;
   isPublished?: boolean;
   onLongPressSelect?: (id: string) => void;
+  reviewSettings?: PropertyReviewSettings;
 }
 
 // PERF: memo prevents re-render of unaffected cards in selection mode
@@ -34,6 +36,7 @@ export const SelectablePropertyCard = memo(function SelectablePropertyCard({
   onChangeStatus,
   isPublished,
   onLongPressSelect,
+  reviewSettings,
 }: SelectablePropertyCardProps) {
   const isMobile = useIsMobile();
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -130,6 +133,7 @@ export const SelectablePropertyCard = memo(function SelectablePropertyCard({
         onDuplicate={onDuplicate}
         onChangeStatus={onChangeStatus}
         isPublished={isPublished}
+        reviewSettings={reviewSettings}
       />
     </div>
   );
