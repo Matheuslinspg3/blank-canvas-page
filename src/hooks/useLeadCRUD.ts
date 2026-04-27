@@ -179,7 +179,7 @@ export function useLeadCRUD(opts: {
       const { data, error } = await supabase.from('leads').insert({
         ...payload,
         organization_id: profile.organization_id,
-        // created_by é definido pelo trigger no banco
+        created_by: user.id, // sobrescrito pelo trigger; mantido para satisfazer o tipo
         lead_stage_id: lead_stage_id || defaultStageId,
         stage: 'novo',
       }).select(`*, lead_type:lead_types(*)`).single();
