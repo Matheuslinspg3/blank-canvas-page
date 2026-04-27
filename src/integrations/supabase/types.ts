@@ -6761,6 +6761,48 @@ export type Database = {
           },
         ]
       }
+      property_review_settings: {
+        Row: {
+          created_at: string
+          organization_id: string
+          overdue_after_days: number
+          show_dashboard_card: boolean
+          updated_at: string
+          warning_before_days: number
+        }
+        Insert: {
+          created_at?: string
+          organization_id: string
+          overdue_after_days?: number
+          show_dashboard_card?: boolean
+          updated_at?: string
+          warning_before_days?: number
+        }
+        Update: {
+          created_at?: string
+          organization_id?: string
+          overdue_after_days?: number
+          show_dashboard_card?: boolean
+          updated_at?: string
+          warning_before_days?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_review_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_review_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+        ]
+      }
       property_share_links: {
         Row: {
           active: boolean
@@ -10532,6 +10574,10 @@ export type Database = {
           count: number
           neighborhood: string
         }[]
+      }
+      get_property_review_dashboard: {
+        Args: { p_limit?: number }
+        Returns: Json
       }
       get_property_type_name: { Args: { p_type_id: string }; Returns: string }
       get_public_brand_settings: {

@@ -1,36 +1,51 @@
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CheckCircle2, Clock, AlertTriangle, CircleHelp } from "lucide-react";
+import {
+  classifyReview,
+  DEFAULT_REVIEW_SETTINGS,
+  type PropertyReviewSettings,
+} from "@/hooks/usePropertyReviewSettings";
 
 interface PropertyReviewBadgeProps {
   lastReviewedAt: string | null | undefined;
+  /**
+   * Optional review configuration. If omitted the badge falls back to
+   * DEFAULT_REVIEW_SETTINGS (60/15/true). The badge intentionally does NOT
+   * call any hook to avoid N+1 queries when rendered inside lists.
+   * Pages should fetch settings once with `usePropertyReviewSettings()` and
+   * pass the same object down to each badge instance.
+   */
+  settings?: PropertyReviewSettings;
   compact?: boolean;
 }
 
-type ReviewLevel = "today" | "fresh" | "warning" | "stale" | "never";
+type Level = "today" | "fresh" | "near_due" | "overdue" | "never";
 
 function getDaysSince(iso: string): number {
-  const now = new Date();
-  const then = new Date(iso);
-  return Math.floor((now.getTime() - then.getTime()) / (1000 * 60 * 60 * 24));
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
 }
 
-function classify(lastReviewedAt: string | null | undefined): { level: ReviewLevel; days: number | null } {
-  if (!lastReviewedAt) return { level: "never", days: null };
-  const days = getDaysSince(lastReviewedAt);
-  if (days <= 0) return { level: "today", days: 0 };
-  if (days <= 30) return { level: "fresh", days };
-  if (days <= 60) return { level: "warning", days };
-  return { level: "stale", days };
+function resolveLevel(
+  lastReviewedAt: string | null | undefined,
+  s: PropertyReviewSettings,
+): { level: Level; days: number | null } {
+  const cls = classifyReview(lastReviewedAt, s);
+  if (cls === "never") return { level: "never", days: null };
+  const days = getDaysSince(lastReviewedAt as string);
+  if (cls === "fresh" && days <= 0) return { level: "today", days: 0 };
+  if (cls === "fresh") return { level: "fresh", days };
+  if (cls === "near_due") return { level: "near_due", days };
+  return { level: "overdue", days };
 }
 
-function getLabel(level: ReviewLevel, days: number | null): string {
+function getLabel(level: Level, days: number | null): string {
   if (level === "never") return "Nunca revisado";
   if (level === "today") return "Revisado hoje";
   return `Revisado há ${days} dia${days === 1 ? "" : "s"}`;
 }
 
-const config: Record<ReviewLevel, { className: string; dot: string; icon: typeof CheckCircle2 }> = {
+const config: Record<Level, { className: string; dot: string; icon: typeof CheckCircle2 }> = {
   today: {
     className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
     dot: "bg-green-500",
@@ -41,12 +56,12 @@ const config: Record<ReviewLevel, { className: string; dot: string; icon: typeof
     dot: "bg-green-500",
     icon: CheckCircle2,
   },
-  warning: {
+  near_due: {
     className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
     dot: "bg-yellow-500",
     icon: Clock,
   },
-  stale: {
+  overdue: {
     className: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
     dot: "bg-red-500",
     icon: AlertTriangle,
@@ -58,8 +73,12 @@ const config: Record<ReviewLevel, { className: string; dot: string; icon: typeof
   },
 };
 
-export function PropertyReviewBadge({ lastReviewedAt, compact = false }: PropertyReviewBadgeProps) {
-  const { level, days } = classify(lastReviewedAt);
+export function PropertyReviewBadge({
+  lastReviewedAt,
+  settings = DEFAULT_REVIEW_SETTINGS,
+  compact = false,
+}: PropertyReviewBadgeProps) {
+  const { level, days } = resolveLevel(lastReviewedAt, settings);
   const label = getLabel(level, days);
   const cfg = config[level];
   const Icon = cfg.icon;
