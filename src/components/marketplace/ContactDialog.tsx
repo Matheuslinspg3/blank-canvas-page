@@ -218,7 +218,7 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
             )}
 
             {/* Broker section */}
-            {contactData.broker_name && (
+            {!hideBroker && contactData.broker_name && (
               <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
                 <Avatar className="h-10 w-10 shrink-0">
                   {contactData.broker_avatar && <AvatarImage src={contactData.broker_avatar} alt={contactData.broker_name} />}
