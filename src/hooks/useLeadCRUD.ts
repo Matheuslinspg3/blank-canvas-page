@@ -176,13 +176,14 @@ export function useLeadCRUD(opts: {
         // mantém broker_id ausente → NULL
       }
 
-      const { data, error } = await supabase.from('leads').insert({
+      const insertRow = {
         ...payload,
         organization_id: profile.organization_id,
         created_by: user.id, // sobrescrito pelo trigger; mantido para satisfazer o tipo
         lead_stage_id: lead_stage_id || defaultStageId,
         stage: 'novo',
-      }).select(`*, lead_type:lead_types(*)`).single();
+      } as any;
+      const { data, error } = await supabase.from('leads').insert(insertRow).select(`*, lead_type:lead_types(*)`).single();
       if (error) throw error;
       return data as Lead;
     },
