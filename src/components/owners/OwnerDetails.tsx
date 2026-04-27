@@ -64,6 +64,9 @@ export function OwnerDetails({ owner, open, onOpenChange, onEdit }: OwnerDetails
     { page, pageSize: PAGE_SIZE, sortBy: "recent" }
   );
 
+  // PERF: load review-settings ONCE for the panel and pass to badges
+  const { settings: reviewSettings } = usePropertyReviewSettings();
+
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const properties: OwnerPropertyItem[] = (data?.rows ?? []).map((r) => ({
