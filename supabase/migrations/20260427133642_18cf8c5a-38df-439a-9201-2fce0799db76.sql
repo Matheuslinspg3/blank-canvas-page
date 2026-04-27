@@ -1,21 +1,3 @@
-# Backfill DML-only — Porto Caiçara Imóveis (versão final aprovada)
-
-Apenas dados. Nenhum schema change. Nenhuma alteração de código, UI, RPC, RLS, triggers ou views.
-
-## Alvo
-- Org: **Porto Caiçara Imóveis Ltda** — `cdf3f0e6-da64-4090-bc76-1758796bea28`
-- Regra de elegibilidade: `length(regexp_replace(coalesce(owner_phone,''), '\D','','g')) >= 10`
-- Snapshot atual: 1.314 publicados / **~1.168 elegíveis** / **~146 pendentes**
-
-## Ajustes incorporados
-1. Verificação de leftover **também** em `marketplace_properties.marketplace_contact_phone` → `ROLLBACK` se houver qualquer registro atualizado com telefone preenchido lá.
-2. Amostras finais emitidas **dentro do `DO`** via `RAISE NOTICE` (a temp table tem `ON COMMIT DROP`, então não pode ser lida após o COMMIT). Amostras adicionais pós-commit consultam diretamente as tabelas reais.
-
----
-
-## Bloco a ser executado (migration DML-only, 1 transação)
-
-```sql
 DO $$
 DECLARE
   v_org uuid := 'cdf3f0e6-da64-4090-bc76-1758796bea28';
@@ -60,19 +42,17 @@ BEGIN
     INTO v_targets, v_from_org, v_from_custom, v_already_owner
   FROM _pcaicara_targets;
 
-  RAISE NOTICE '[BACKFILL] Targets=% (org→%, custom→%, já owner=%)',
+  RAISE NOTICE '[BACKFILL] Targets=% (org->%, custom->%, ja owner=%)',
     v_targets, v_from_org, v_from_custom, v_already_owner;
 
-  -- 1) UPDATE properties — trigger trg_00_sanitize_marketplace_contact_source_props
-  --    zera automaticamente marketplace_contact_phone porque source != 'custom'.
+  -- 1) UPDATE properties (trigger de sanitizacao zera marketplace_contact_phone)
   UPDATE public.properties p
      SET marketplace_contact_phone_source = 'owner'
     FROM _pcaicara_targets t
    WHERE p.id = t.property_id;
   GET DIAGNOSTICS v_updated_props = ROW_COUNT;
 
-  -- 2) UPDATE espelhado em marketplace_properties (defesa em profundidade, idempotente).
-  --    Mesma trigger de sanitização limpa marketplace_contact_phone aqui também.
+  -- 2) UPDATE espelhado em marketplace_properties (defesa em profundidade)
   UPDATE public.marketplace_properties mp
      SET marketplace_contact_phone_source = 'owner',
          marketplace_contact_phone = NULL
@@ -82,18 +62,17 @@ BEGIN
           OR mp.marketplace_contact_phone IS NOT NULL);
   GET DIAGNOSTICS v_updated_mp = ROW_COUNT;
 
-  -- Verificações
+  -- Verificacoes
   SELECT COUNT(*) INTO v_remaining_not_owner
   FROM public.properties p
-  JOIN public.marketplace_properties mp ON mp.id = p.id
-  WHERE p.organization_id = v_org
-    AND p.marketplace_contact_phone_source <> 'owner';
+  JOIN _pcaicara_targets t ON t.property_id = p.id
+  WHERE p.marketplace_contact_phone_source <> 'owner';
 
   SELECT COUNT(*) INTO v_desync
   FROM public.properties p
   JOIN public.marketplace_properties mp ON mp.id = p.id
-  WHERE p.organization_id = v_org
-    AND p.marketplace_contact_phone_source IS DISTINCT FROM mp.marketplace_contact_phone_source;
+  JOIN _pcaicara_targets t ON t.property_id = p.id
+  WHERE p.marketplace_contact_phone_source IS DISTINCT FROM mp.marketplace_contact_phone_source;
 
   SELECT COUNT(*) INTO v_leftover_phone_props
   FROM public.properties p
@@ -113,22 +92,26 @@ BEGIN
   RAISE NOTICE '[BACKFILL] Amostra de 5 atualizados:';
   FOR r IN
     SELECT t.property_id, t.title, t.old_source, t.owner_name, t.owner_phone,
-           p.marketplace_contact_phone_source AS new_source
+           p.marketplace_contact_phone_source AS new_source,
+           p.marketplace_contact_phone AS new_custom_phone
       FROM _pcaicara_targets t
       JOIN public.properties p ON p.id = t.property_id
-      ORDER BY t.title
+      ORDER BY t.title NULLS LAST, t.property_id
       LIMIT 5
   LOOP
-    RAISE NOTICE '  - id=% | title=% | old=% → new=% | owner=% | phone=%',
-      r.property_id, r.title, r.old_source, r.new_source, r.owner_name, r.owner_phone;
+    RAISE NOTICE '  - id=% | title=% | old=% -> new=% | owner=% | owner_phone=% | new_custom=%',
+      r.property_id, r.title, r.old_source, r.new_source, r.owner_name, r.owner_phone, r.new_custom_phone;
   END LOOP;
 
-  -- Critérios de commit (qualquer divergência → ROLLBACK)
+  -- Criterios de commit
   IF v_updated_props <> v_targets THEN
     RAISE EXCEPTION 'ROLLBACK: updated_props (%) != targets (%)', v_updated_props, v_targets;
   END IF;
+  IF v_remaining_not_owner <> 0 THEN
+    RAISE EXCEPTION 'ROLLBACK: % alvos nao ficaram com source=owner', v_remaining_not_owner;
+  END IF;
   IF v_desync <> 0 THEN
-    RAISE EXCEPTION 'ROLLBACK: desync properties↔marketplace_properties = %', v_desync;
+    RAISE EXCEPTION 'ROLLBACK: desync properties<->marketplace_properties = %', v_desync;
   END IF;
   IF v_leftover_phone_props <> 0 THEN
     RAISE EXCEPTION 'ROLLBACK: properties.marketplace_contact_phone ainda preenchido em % atualizados', v_leftover_phone_props;
@@ -137,26 +120,3 @@ BEGIN
     RAISE EXCEPTION 'ROLLBACK: marketplace_properties.marketplace_contact_phone ainda preenchido em % atualizados', v_leftover_phone_mp;
   END IF;
 END $$;
-```
-
-Após o COMMIT, executo SELECTs (read-only) para colher:
-- contagens finais por `old_source` (recalculando via WHERE em properties + condição de "já era owner" derivada do estado atual);
-- amostra de 5 pendentes (publicados sem proprietário com telefone ≥ 10 dígitos);
-- confirmação final de 0 desync e 0 leftover em ambas as tabelas.
-
-## Salvaguardas
-- Filtro estrito por `organization_id` em todos os UPDATEs (via JOIN na temp table que já filtra a org).
-- Nenhuma alteração em outras orgs, schemas, triggers, RLS, RPC ou views.
-- Idempotente.
-
-## Entrega final no chat
-- organization_id;
-- quantidade atualizada;
-- quantidade ignorada (~146);
-- breakdown organization→owner / custom→owner / já owner (vindo dos `RAISE NOTICE`);
-- amostra de 5 atualizados (dos `RAISE NOTICE`);
-- amostra de 5 pendentes (SELECT pós-commit);
-- confirmação de 0 desync;
-- confirmação de `marketplace_contact_phone` NULL em **ambas** as tabelas.
-
-**Aprovar para que eu execute como migration DML-only.**
