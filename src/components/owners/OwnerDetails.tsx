@@ -17,6 +17,7 @@ import { OwnerAliases } from "./OwnerAliases";
 import { OwnerPropertyListItem, type OwnerPropertyItem } from "./OwnerPropertyListItem";
 import type { OwnerWithDetails } from "@/hooks/useOwners";
 import { useAdvancedPropertySearch } from "@/hooks/useAdvancedPropertySearch";
+import { usePropertyReviewSettings } from "@/hooks/usePropertyReviewSettings";
 import { createDefaultPropertyFilters, type PropertyFilters } from "@/hooks/usePropertyFilters";
 import { useDebounce } from "@/hooks/useDebounce";
 
@@ -62,6 +63,9 @@ export function OwnerDetails({ owner, open, onOpenChange, onEdit }: OwnerDetails
     !!owner && open,
     { page, pageSize: PAGE_SIZE, sortBy: "recent" }
   );
+
+  // PERF: load review-settings ONCE for the panel and pass to badges
+  const { settings: reviewSettings } = usePropertyReviewSettings();
 
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -197,6 +201,7 @@ export function OwnerDetails({ owner, open, onOpenChange, onEdit }: OwnerDetails
                       key={prop.id}
                       property={prop}
                       onNavigate={() => onOpenChange(false)}
+                      reviewSettings={reviewSettings}
                     />
                   ))}
                 </div>

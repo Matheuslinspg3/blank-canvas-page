@@ -1,3 +1,8 @@
+/**
+ * @deprecated Substituído por `PropertyReviewDashboardCard` na Fase 3 do
+ * Controle de Revisão de Imóveis. Mantido no repositório por compatibilidade,
+ * mas não é mais usado no Dashboard. Não importar em código novo.
+ */
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";

@@ -23,6 +23,7 @@ import { PropertyViewControls, ViewMode, PageSize, SortOption } from "@/componen
 import { PropertyStatusStats } from "@/components/properties/PropertyStatusStats";
 import { usePropertyFilters } from "@/hooks/usePropertyFilters";
 import { useAdvancedPropertySearch } from "@/hooks/useAdvancedPropertySearch";
+import { usePropertyReviewSettings } from "@/hooks/usePropertyReviewSettings";
 import { useMarketplaceStatus } from "@/hooks/useMarketplaceStatus";
 
 import {
@@ -97,6 +98,8 @@ export default function Properties() {
     { page: currentPage, pageSize: pageSize === 'all' ? 2000 : pageSize, sortBy }
   );
   const searchResults = searchData?.rows;
+  // PERF: load review-settings ONCE for the page and pass down to badges to avoid N+1
+  const { settings: reviewSettings } = usePropertyReviewSettings();
   const searchTotal = searchData?.total ?? 0;
 
   // Lightweight listing for the page (cards only, server-paginated, cover image only).
@@ -783,6 +786,7 @@ export default function Properties() {
                 onDuplicate={handleDuplicate}
                 onChangeStatus={handleChangeStatus}
                 onLongPressSelect={handleLongPressSelect}
+                reviewSettings={reviewSettings}
               />
             )}
 
@@ -799,6 +803,7 @@ export default function Properties() {
                 onPublish={handlePublishSingle}
                 onUnpublish={handleUnpublishSingle}
                 onChangeStatus={handleChangeStatus}
+                reviewSettings={reviewSettings}
               />
             )}
 

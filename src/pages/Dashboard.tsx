@@ -12,7 +12,7 @@ import { RecentActivities } from "@/components/dashboard/RecentActivities";
 import { TodayTasks } from "@/components/dashboard/TodayTasks";
 import { PipelineSummary } from "@/components/dashboard/PipelineSummary";
 import { UpcomingAppointments } from "@/components/dashboard/UpcomingAppointments";
-import { StalePropertiesAlert } from "@/components/dashboard/StalePropertiesAlert";
+import { PropertyReviewDashboardCard } from "@/components/dashboard/PropertyReviewDashboardCard";
 import { PWAInstallBanner } from "@/components/dashboard/PWAInstallBanner";
 import { CarnivalBanner } from "@/components/dashboard/CarnivalBanner";
 import { MarketplaceMetricsCard } from "@/components/marketplace/MarketplaceMetricsCard";
@@ -130,7 +130,7 @@ export default function Dashboard() {
 
         {/* Lazy-loaded sections below the fold */}
         <LazySection>
-          <StalePropertiesAlert />
+          <PropertyReviewDashboardCard />
         </LazySection>
 
         <LazySection>

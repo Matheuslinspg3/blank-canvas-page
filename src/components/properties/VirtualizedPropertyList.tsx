@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { PropertyListItem } from "./PropertyListItem";
 import type { PropertyWithDetails } from "@/hooks/useProperties";
+import type { PropertyReviewSettings } from "@/hooks/usePropertyReviewSettings";
 
 const ESTIMATED_ITEM_HEIGHT = 72;
 const OVERSCAN = 3;
@@ -18,6 +19,7 @@ interface VirtualizedPropertyListProps {
   onPublish?: (id: string) => void;
   onUnpublish?: (id: string) => void;
   onChangeStatus?: (id: string, status: string) => void;
+  reviewSettings?: PropertyReviewSettings;
 }
 
 export function VirtualizedPropertyList({
@@ -32,6 +34,7 @@ export function VirtualizedPropertyList({
   onPublish,
   onUnpublish,
   onChangeStatus,
+  reviewSettings,
 }: VirtualizedPropertyListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -70,6 +73,7 @@ export function VirtualizedPropertyList({
                 onUnpublish={onUnpublish}
                 onChangeStatus={onChangeStatus}
                 isPublished={publishedIds.has(property.id)}
+                reviewSettings={reviewSettings}
               />
             </div>
           );

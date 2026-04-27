@@ -2,6 +2,7 @@ import { useRef, useMemo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { SelectablePropertyCard } from "./SelectablePropertyCard";
 import type { PropertyWithDetails } from "@/hooks/useProperties";
+import type { PropertyReviewSettings } from "@/hooks/usePropertyReviewSettings";
 
 const ESTIMATED_ROW_HEIGHT = 340;
 const OVERSCAN = 3;
@@ -19,6 +20,7 @@ interface VirtualizedPropertyGridProps {
   onDuplicate?: (id: string) => void;
   onChangeStatus?: (id: string, status: string) => void;
   onLongPressSelect: (id: string) => void;
+  reviewSettings?: PropertyReviewSettings;
 }
 
 function getColumns() {
@@ -43,6 +45,7 @@ export function VirtualizedPropertyGrid({
   onDuplicate,
   onChangeStatus,
   onLongPressSelect,
+  reviewSettings,
 }: VirtualizedPropertyGridProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const columns = useMemo(() => getColumns(), []);
@@ -92,6 +95,7 @@ export function VirtualizedPropertyGrid({
                   onChangeStatus={onChangeStatus}
                   isPublished={publishedIds.has(property.id)}
                   onLongPressSelect={onLongPressSelect}
+                  reviewSettings={reviewSettings}
                 />
               ))}
             </div>

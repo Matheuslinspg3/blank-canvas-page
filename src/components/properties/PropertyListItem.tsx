@@ -17,6 +17,7 @@ import {
 import { MapPin, Bed, Bath, Car, Ruler, MoreHorizontal, Edit, Trash2, Eye, ExternalLink, Hash, Building2, Store, CopyPlus, Share2, RefreshCw, CheckCircle2 } from "lucide-react";
 import { PropertyFreshnessBadge } from "./PropertyFreshnessBadge";
 import { PropertyReviewBadge } from "./PropertyReviewBadge";
+import type { PropertyReviewSettings } from "@/hooks/usePropertyReviewSettings";
 import { PropertyStatusBadge, transactionLabels } from "./PropertyStatusBadge";
 import { AvailabilityBadge } from "./AvailabilityBadge";
 import type { PropertyWithDetails } from "@/hooks/useProperties";
@@ -39,6 +40,7 @@ interface PropertyListItemProps {
   onUnpublish?: (id: string) => void;
   onChangeStatus?: (id: string, status: string) => void;
   isPublished?: boolean;
+  reviewSettings?: PropertyReviewSettings;
 }
 
 // PERF: memo prevents re-render when sibling list items change
@@ -54,6 +56,7 @@ export const PropertyListItem = memo(function PropertyListItem({
   onUnpublish,
   onChangeStatus,
   isPublished,
+  reviewSettings,
 }: PropertyListItemProps) {
   const navigate = useNavigate();
   const { buildPublicUrl } = usePropertyPublicUrl();
@@ -160,7 +163,7 @@ export const PropertyListItem = memo(function PropertyListItem({
               </Badge>
             )}
             {isAvailable && <PropertyFreshnessBadge updatedAt={property.updated_at} compact />}
-            {isAvailable && <PropertyReviewBadge lastReviewedAt={(property as any).last_reviewed_at} compact />}
+            {isAvailable && <PropertyReviewBadge lastReviewedAt={(property as any).last_reviewed_at} settings={reviewSettings} compact />}
           </div>
           <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
             <MapPin className="h-3 w-3 shrink-0" />
