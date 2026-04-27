@@ -17,6 +17,7 @@ import { OwnerAliases } from "./OwnerAliases";
 import { OwnerPropertyListItem, type OwnerPropertyItem } from "./OwnerPropertyListItem";
 import type { OwnerWithDetails } from "@/hooks/useOwners";
 import { useAdvancedPropertySearch } from "@/hooks/useAdvancedPropertySearch";
+import { usePropertyReviewSettings } from "@/hooks/usePropertyReviewSettings";
 import { createDefaultPropertyFilters, type PropertyFilters } from "@/hooks/usePropertyFilters";
 import { useDebounce } from "@/hooks/useDebounce";
 
