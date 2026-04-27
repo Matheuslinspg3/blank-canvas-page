@@ -119,15 +119,26 @@ export function BatchVariationsDialog({
           </DialogHeader>
 
           {/* Base property summary */}
-          <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1">
+          <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
               <Badge variant="secondary" className="text-xs">
                 <Home className="h-3 w-3 mr-1" /> Imóvel base
               </Badge>
-              <span className="text-sm font-medium">{p.title || "Sem título"}</span>
               {p.property_code && (
                 <span className="text-xs text-muted-foreground font-mono">#{p.property_code}</span>
               )}
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="batch-base-title" className="text-xs text-muted-foreground">
+                Título base (prefixo das variações)
+              </Label>
+              <Input
+                id="batch-base-title"
+                value={titleOverride}
+                onChange={(e) => setTitleOverride(e.target.value)}
+                placeholder="Ex: Apartamento - Caiçara - Praia Grande"
+                className="h-9 text-sm"
+              />
             </div>
             {address && (
               <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -135,7 +146,7 @@ export function BatchVariationsDialog({
               </p>
             )}
             <p className="text-[11px] text-muted-foreground">
-              Os dados acima serão herdados por todos os imóveis criados. Preencha abaixo apenas o que varia.
+              Cada cópia será criada como <span className="font-mono">"{(titleOverride.trim() || "Título base")} - &lt;Unidade/Lote&gt;"</span>. Editar aqui não altera o imóvel base original.
             </p>
           </div>
 
