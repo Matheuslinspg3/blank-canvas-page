@@ -144,8 +144,9 @@ export function usePropertyBulkOps() {
         sale_price_financed: (prop as any).sale_price_financed ? Math.round((prop as any).sale_price_financed) : null,
         payment_options: (prop as any).payment_options || null,
         marketplace_contact_phone: (prop as any).marketplace_contact_phone || null,
+        marketplace_contact_phone_source: (prop as any).marketplace_contact_phone_source || 'organization',
         is_featured: false, organization_id: profile.organization_id,
-      }, { onConflict: 'id' });
+      } as any, { onConflict: 'id' });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -192,6 +193,7 @@ export function usePropertyBulkOps() {
           sale_price_financed: (prop as any).sale_price_financed ? Math.round((prop as any).sale_price_financed) : null,
           payment_options: (prop as any).payment_options || null,
           marketplace_contact_phone: (prop as any).marketplace_contact_phone || null,
+          marketplace_contact_phone_source: (prop as any).marketplace_contact_phone_source || 'organization',
           is_featured: false, organization_id: profile.organization_id,
         };
       });
