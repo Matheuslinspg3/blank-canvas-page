@@ -23,6 +23,7 @@ import { PropertyViewControls, ViewMode, PageSize, SortOption } from "@/componen
 import { PropertyStatusStats } from "@/components/properties/PropertyStatusStats";
 import { usePropertyFilters } from "@/hooks/usePropertyFilters";
 import { useAdvancedPropertySearch } from "@/hooks/useAdvancedPropertySearch";
+import { usePropertyReviewSettings } from "@/hooks/usePropertyReviewSettings";
 import { useMarketplaceStatus } from "@/hooks/useMarketplaceStatus";
 
 import {
