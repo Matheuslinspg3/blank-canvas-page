@@ -60,7 +60,7 @@ export function VariationsGrid({ rows, onChange, errors = [] }: VariationsGridPr
         rows.map((r) => {
           if (r.id !== rowId) return r;
           const col = COLUMNS.find((c) => c.key === field)!;
-          const updated = { ...r, _pristine: false };
+          const updated = { ...r };
           if (col.type === "number") {
             const num = parseLocalizedNumber(value);
             return { ...updated, [field]: num };

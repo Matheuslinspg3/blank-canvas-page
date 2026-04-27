@@ -109,7 +109,7 @@ describe('createEmptyRow / isRowEmpty', () => {
 });
 
 describe('createRowFromBase', () => {
-  it('copies numeric fields from base property and marks as pristine', () => {
+  it('copies numeric fields from base property and counts as non-empty', () => {
     const base = { bedrooms: 3, suites: 1, bathrooms: 2, parking_spots: 2, area_useful: 80, area_total: 100, sale_price: 500000 };
     const row = createRowFromBase(base);
     expect(row.bedrooms).toBe(3);
@@ -117,8 +117,7 @@ describe('createRowFromBase', () => {
     expect(row.sale_price).toBe(500000);
     expect(row.notes).toBe('');
     expect(row.status).toBe('disponivel');
-    expect(row._pristine).toBe(true);
-    expect(isRowEmpty(row)).toBe(true); // pristine rows are empty
+    expect(isRowEmpty(row)).toBe(false); // pre-filled rows already count
   });
 });
 
