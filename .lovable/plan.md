@@ -1,101 +1,178 @@
-# Origem padrão do telefone do Marketplace por organização
+## Causa raiz (final)
 
-Aprovado. Implementação aditiva, sem backfill, sem alterar imóveis existentes, sem tocar em `get_marketplace_contact`, `MarketplacePropertyCard`, `ContactDialog` ou landing pages.
+`INSERT … .select().single()` exige que a linha recém-criada também passe pelo USING do SELECT. Para corretor/assistente isso falha quando `broker_id` é nulo ou pertence a outro usuário. A correção combina **policy + trigger no banco** com **gate de papel diferenciado no frontend** (corretor ≠ assistente).
 
-## 1. Migration (aditiva, idempotente)
+## Regra de produto final
 
-`supabase/migrations/<ts>_org_default_marketplace_phone_source.sql`
+| Papel | INSERT sem `broker_id` | INSERT com `broker_id = self` | INSERT com `broker_id = outro` | UPDATE: transferir broker | UPDATE: desatribuir (`broker_id → NULL`) |
+|---|---|---|---|---|---|
+| corretor | ✅ frontend preenche `self` | ✅ | ❌ toast | ❌ | ❌ (bloqueado) |
+| assistente | ✅ permanece `NULL` | ❌ toast (não pode ser responsável) | ❌ toast | ❌ | ❌ |
+| admin / sub_admin / leader / developer | ✅ | ✅ | ✅ (broker elegível da mesma org) | ✅ | ✅ |
 
-- `ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS marketplace_default_contact_phone_source text NOT NULL DEFAULT 'organization'`.
-- Trigger `validate_org_marketplace_default_phone_source` (BEFORE INSERT/UPDATE OF a coluna) — normaliza para lower/trim e bloqueia qualquer valor que não seja `organization` ou `owner`. `custom` rejeitado nesta fase.
-- Zero `UPDATE` em `properties` / `marketplace_properties`.
+Regra extra: corretor **não** pode desatribuir o próprio lead (não pode mover para `NULL`); só manager pode.
 
-## 2. Hook novo
+## Migration
 
-`src/hooks/useOrgMarketplaceDefaults.ts`
-- React Query, `staleTime: 5 min`.
-- Retorna `{ defaultSource: 'organization' | 'owner', isLoading, isFetched, refetch }`.
-- Fail-soft para `'organization'` em caso de erro.
+`supabase/migrations/20260427211423_fix_leads_rls_select_update.sql`
 
-## 3. PropertyForm.tsx — carregamento assíncrono seguro
+### Helpers (SECURITY DEFINER)
+- `public.is_org_manager(_uid uuid) returns boolean` — true se `_uid` tem `admin | sub_admin | leader | developer`.
+- `public.is_lead_eligible_responsible(_uid uuid, _org uuid) returns boolean` — true se `_uid` pertence à org `_org` E tem role `corretor | admin | sub_admin | leader | developer` (assistente é falso).
 
-- Importar `useOrgMarketplaceDefaults`.
-- Em `DEFAULT_VALUES` manter `"organization"` como fallback estático.
-- No `useEffect` de reset:
-  - **Editando imóvel**: continua exatamente como hoje (preserva `property.marketplace_contact_phone_source`). Nunca sobrescrever.
-  - **Novo imóvel** (`prefillData` ou nenhum): usar `defaultSource` do hook se já tiver carregado; caso contrário, manter `"organization"`.
-- Adicionar segundo `useEffect` que **só dispara quando `!property` E `isFetched` E o usuário ainda não mexeu** no campo (`!form.formState.dirtyFields.marketplace_contact_phone_source`): faz `form.setValue('marketplace_contact_phone_source', defaultSource, { shouldDirty: false })`. Isso garante que se o hook resolver depois do reset, o form novo absorve o default sem prender em "organization", e nunca pisa em escolha do usuário ou em valor de imóvel existente.
+### Policies (todas com `DROP POLICY IF EXISTS` antes)
 
-## 4. BasicTab.tsx — texto indicativo
+**INSERT**
+```sql
+WITH CHECK (
+  organization_id = get_user_organization_id()
+  AND (
+    public.is_org_manager(auth.uid())
+    OR broker_id IS NULL
+    OR broker_id = auth.uid()
+  )
+)
+```
+`created_by` não é checado aqui porque o trigger BEFORE INSERT vai forçar `auth.uid()`.
 
-- Consumir `useOrgMarketplaceDefaults`.
-- Abaixo do RadioGroup (dentro do bloco `publishToMarketplace`), texto pequeno em `text-muted-foreground`:
-  - `Padrão da imobiliária: Número do proprietário` ou
-  - `Padrão da imobiliária: Número da imobiliária`.
-- Radio individual continua editável.
+**SELECT (USING)**
+```sql
+USING (
+  is_member_of_org(organization_id) AND (
+    public.is_org_manager(auth.uid())
+    OR broker_id = auth.uid()
+    OR (created_by = auth.uid() AND broker_id IS NULL)
+  )
+)
+```
+A última cláusula garante que assistente (e corretor antes do preenchimento) leia a linha recém-criada sem responsável.
 
-## 5. usePropertyCRUD.ts — fallback no insert
+**UPDATE (USING idêntica ao SELECT)**
 
-No `createProperty.mutationFn`, antes do `insert`:
-- Se `propertyData.marketplace_contact_phone_source` for falsy (não informado): buscar `organizations.marketplace_default_contact_phone_source` e aplicar (`owner` ou `organization`). Se o payload já trouxer valor explícito, respeita.
-- Aplica também a importações/cadastro rápido que reutilizam essa mutation.
-- Duplicação / `BatchVariationsDialog` / `usePropertyBatchCreate`: mantém `source` copiado do imóvel base (sem mudança).
+**UPDATE WITH CHECK**
+```sql
+WITH CHECK (
+  organization_id = get_user_organization_id()
+  AND (
+    public.is_org_manager(auth.uid())
+    OR (
+      -- corretor/assistente: broker_id final só pode ser self
+      -- (impede transferência E impede desatribuir)
+      broker_id = auth.uid()
+    )
+  )
+)
+```
+Consequência: corretor não consegue passar `broker_id` para `NULL` nem para outro usuário. Assistente não consegue editar nada que altere `broker_id` para outro valor que não seja ele mesmo — e como assistente nunca é responsável, na prática o UPDATE de assistente sobre leads onde `broker_id IS NULL AND created_by = self` precisa preservar `broker_id IS NULL`. Para suportar isso, ajustamos:
 
-## 6. SettingsCompanyTab.tsx — Card "Marketplace"
+```sql
+WITH CHECK (
+  organization_id = get_user_organization_id()
+  AND (
+    public.is_org_manager(auth.uid())
+    OR broker_id = auth.uid()
+    OR (broker_id IS NULL AND created_by = auth.uid())
+  )
+)
+```
+Isso dá: assistente pode continuar editando o próprio lead enquanto `broker_id` permanecer `NULL`; corretor pode editar enquanto `broker_id` permanecer ele mesmo. Nenhum dos dois consegue transferir.
 
-Novo Card abaixo de "Dados da Empresa" e acima de `PropertyReviewSettingsCard`:
+### Trigger `protect_lead_authorship_and_broker` (BEFORE INSERT OR UPDATE)
+- **INSERT**: `NEW.created_by := auth.uid();` (autoridade do banco; frontend não decide).
+- **UPDATE**: `NEW.created_by := OLD.created_by;` (imutável).
+- **INSERT/UPDATE**: se `NEW.broker_id IS NOT NULL`, validar:
+  - broker pertence à mesma `organization_id` do lead (cruzando `profiles`);
+  - `public.is_lead_eligible_responsible(NEW.broker_id, NEW.organization_id)` — bloqueia atribuir a assistente.
+- Erros via `RAISE EXCEPTION USING ERRCODE = 'check_violation'`.
 
-- Título: **Marketplace**.
-- Campo: **Telefone padrão dos imóveis no Marketplace**.
-- RadioGroup com 2 opções:
-  - **Número da imobiliária** — "Novos imóveis publicados no Marketplace usarão o telefone público da imobiliária por padrão."
-  - **Número do proprietário** — "Novos imóveis publicados no Marketplace usarão o telefone do proprietário primário por padrão. A publicação será bloqueada se o imóvel não tiver proprietário com telefone válido."
-- Quando `owner` selecionado, alerta amarelo:
-  - "Ao usar esta opção, o telefone do proprietário poderá ficar visível para outros corretores no Marketplace nos imóveis publicados."
-- Carrega/salva via `supabase.from('organizations').select/update`.
-- `disabled={!canEditCompany}` (admin/sub_admin/leader/developer editam; demais leem).
-- Após salvar, `queryClient.invalidateQueries({ queryKey: ['org-marketplace-defaults', orgId] })`.
+## Frontend
 
-## 7. Regra de prioridade (final)
+### `src/hooks/useLeads.ts`
+Substituir `isBrokerOnly` por dois flags:
+```ts
+const isCorretorOnly  = userRoles.length > 0 && userRoles.every(r => r === 'corretor');
+const isAssistenteOnly = userRoles.length > 0 && userRoles.every(r => r === 'assistente');
+```
+Repassar ambos para `useLeadCRUD`. Lista de leads continua filtrando por `broker_id === user.id` para corretor; para assistente, mostrar leads onde `created_by === user.id AND broker_id IS NULL` (até existir regra de produto mais ampla).
 
-```text
-source efetivo do imóvel:
-  1. properties.marketplace_contact_phone_source salvo (NUNCA sobrescrever em edição)
-  2. payload explícito vindo do fluxo de criação/import
-  3. organizations.marketplace_default_contact_phone_source
-  4. fallback: 'organization'
+### `src/hooks/useLeadCRUD.ts`
+- Aceitar `{ leadStages, isCorretorOnly, isAssistenteOnly }`.
+- Helper `isRlsError(e)`: `e?.code === '42501' || /row-level security/i.test(e?.message ?? '')`.
+
+**createLead.mutationFn (gate antes do insert)**
+```ts
+const payload = { ...rest };
+
+if (isCorretorOnly) {
+  if (payload.broker_id && payload.broker_id !== user.id) {
+    throw new Error('Corretores não podem atribuir leads diretamente para outro responsável.');
+  }
+  payload.broker_id = user.id;
+}
+
+if (isAssistenteOnly) {
+  if (payload.broker_id) {
+    throw new Error('Assistentes não podem atribuir leads diretamente para outro responsável.');
+  }
+  // mantém broker_id ausente → NULL
+}
+
+// não envia created_by (trigger preenche)
+const { data, error } = await supabase.from('leads').insert({
+  ...payload, organization_id: profile.organization_id,
+  lead_stage_id: lead_stage_id || defaultStageId, stage: 'novo',
+}).select(`*, lead_type:lead_types(*)`).single();
 ```
 
-## 8. O que NÃO muda
+**updateLead.mutationFn (mesmo gate antes do update)**
+```ts
+if (isCorretorOnly) {
+  if ('broker_id' in input && input.broker_id !== user.id) {
+    throw new Error('Corretores não podem alterar o responsável do lead.');
+  }
+}
+if (isAssistenteOnly) {
+  if ('broker_id' in input && input.broker_id) {
+    throw new Error('Assistentes não podem atribuir leads a um responsável.');
+  }
+}
+```
 
-- Triggers de validação de publicação (organization/owner/custom): intactos.
-- `get_marketplace_contact` RPC, `MarketplacePropertyCard`, `ContactDialog`, landing pages, contato público para cliente final: intactos.
-- Limpeza `marketplace_contact_phone = null` quando `source !== 'custom'`: intacta.
-- `BatchVariationsDialog` / `usePropertyBatchCreate`: source do imóvel base preservado.
-- Imóveis existentes da Porto Caiçara: zero `UPDATE`.
+**onError em ambos**
+```ts
+if (isRlsError(error)) {
+  toast({ title: 'Permissão negada', description: 'Você não tem permissão para esta ação.', variant: 'destructive' });
+  console.error('[leads] RLS denied', { code: error.code, orgId: profile?.organization_id, userId: user?.id });
+  return;
+}
+```
 
-## 9. Caso Porto Caiçara
+### `src/components/crm/KanbanBoard.tsx`
+Envolver `handleFormSubmit` em `try/catch` para evitar Unhandled Promise Rejection no Sentry; toast já é mostrado pelas mutações.
 
-Após deploy, em **Configurações → Empresa → Card Marketplace**, escolher **Número do proprietário** para `organization_id = cdf3f0e6-da64-4090-bc76-1758796bea28`. Apenas novos imóveis nascem com `owner`. Existentes ficam como estão.
+## Arquivos alterados
 
-## 10. Entregáveis
+- `supabase/migrations/20260427211423_fix_leads_rls_select_update.sql` (novo, com `DROP POLICY IF EXISTS`)
+- `src/hooks/useLeads.ts` (split de flags)
+- `src/hooks/useLeadCRUD.ts` (gates por papel + tratamento 42501 + remover envio de `created_by`)
+- `src/components/crm/KanbanBoard.tsx` (try/catch)
 
-- Arquivos criados:
-  - `supabase/migrations/<ts>_org_default_marketplace_phone_source.sql`
-  - `src/hooks/useOrgMarketplaceDefaults.ts`
-- Arquivos editados:
-  - `src/components/properties/PropertyForm.tsx`
-  - `src/components/properties/form/BasicTab.tsx`
-  - `src/hooks/usePropertyCRUD.ts`
-  - `src/components/settings/SettingsCompanyTab.tsx`
-- Local na UI: **Configurações → Empresa → Card "Marketplace"**.
-- `npx tsc --noEmit` e `npx vite build` rodados após implementação.
-- Checklist manual:
-  1. Org com default `organization` → novo imóvel nasce `organization`.
-  2. Mudar default para `owner` → novo imóvel nasce `owner` (mesmo se o hook resolver após o reset inicial — ver §3).
-  3. Editar imóvel existente: `source` salvo é mantido, mesmo se diferente do default.
-  4. Publicar novo com `owner` sem proprietário válido → bloqueio do trigger atual.
-  5. Duplicar imóvel: source do original preservado.
-  6. Corretor comum: card visível em modo leitura.
-  7. Tentar gravar `custom`/`xyz` via SQL na coluna org: trigger rejeita.
-  8. Imóveis antigos da Porto Caiçara: `marketplace_contact_phone_source` inalterado.
+## Checklist de testes
+
+| # | Cenário | Esperado |
+|---|---|---|
+| 1 | Corretor cria lead sem broker | OK; trigger preenche `created_by`; frontend preenche `broker_id = self`; INSERT-RETURNING retorna 200 |
+| 2 | Assistente cria lead sem broker | OK; `broker_id` permanece NULL; SELECT passa via `created_by = auth.uid() AND broker_id IS NULL` |
+| 3 | Assistente tenta atribuir broker no formulário | Bloqueado no frontend com toast; nenhum POST disparado |
+| 4 | Admin cria lead para corretor X | OK |
+| 5 | Corretor tenta transferir lead próprio para outro corretor | Bloqueado no frontend; se forçado via API, bloqueado pelo UPDATE WITH CHECK |
+| 6 | Corretor tenta desatribuir o próprio lead (`broker_id → NULL`) | Bloqueado pelo UPDATE WITH CHECK |
+| 7 | Manager tenta atribuir lead a um assistente | Bloqueado pelo trigger (`is_lead_eligible_responsible` = false) |
+| 8 | Tentativa de spoofar `created_by` em UPDATE | Trigger restaura `OLD.created_by` |
+| 9 | INSERT com `broker_id` de outra org | Trigger lança `check_violation` |
+| 10 | `npx tsc --noEmit`, `npx vite build`, `supabase--linter` | Verde |
+| 11 | Sentry pós-deploy | Sem novos `Unhandled Promise Rejection` em KanbanBoard nem `42501` no fluxo normal |
+
+## Riscos
+
+Baixo. Defesa em três camadas (frontend, policy, trigger). Multi-tenant preservado por `is_member_of_org` em todas as policies. A regra "assistente nunca é responsável" pode ser flexibilizada no futuro alterando apenas `is_lead_eligible_responsible`.

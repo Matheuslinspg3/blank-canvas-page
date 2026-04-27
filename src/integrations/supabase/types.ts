@@ -10831,6 +10831,11 @@ export type Database = {
         }
         Returns: undefined
       }
+      is_lead_eligible_responsible: {
+        Args: { _org: string; _uid: string }
+        Returns: boolean
+      }
+      is_leads_org_manager: { Args: { _uid: string }; Returns: boolean }
       is_maintenance_blocked: { Args: never; Returns: boolean }
       is_member_of_org: { Args: { _org_id: string }; Returns: boolean }
       is_org_admin: { Args: { _user_id: string }; Returns: boolean }
