@@ -116,7 +116,14 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
 
   if (!property) return null;
 
-  const brokerPhone = contactData?.broker_phone;
+  const source = contactData?.marketplace_contact_source ?? 'organization';
+  const resolutionStatus = contactData?.contact_resolution_status ?? 'ok';
+  // Quando o anunciante escolheu expor o telefone do proprietário ou um custom,
+  // o contato do corretor é ocultado para respeitar a intenção do anúncio.
+  // Em fallback (proprietário sem telefone válido), também ocultamos o corretor:
+  // a imobiliária deve receber o lead, não o corretor individualmente.
+  const hideBroker = source === 'owner' || source === 'custom';
+  const brokerPhone = hideBroker ? null : contactData?.broker_phone;
   const orgPhone = contactData?.org_phone;
   const hasPhone = !!(brokerPhone || orgPhone);
   // Show both phones if different, otherwise just one
@@ -211,7 +218,7 @@ export function ContactDialog({ property, open, onOpenChange }: ContactDialogPro
             )}
 
             {/* Broker section */}
-            {contactData.broker_name && (
+            {!hideBroker && contactData.broker_name && (
               <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
                 <Avatar className="h-10 w-10 shrink-0">
                   {contactData.broker_avatar && <AvatarImage src={contactData.broker_avatar} alt={contactData.broker_name} />}
