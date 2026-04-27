@@ -6,7 +6,8 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, Camera, Loader2, Search, ShieldCheck } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Building2, Camera, Loader2, Search, ShieldCheck, ShieldAlert, Store, Building, User } from "lucide-react";
 import { PropertyReviewSettingsCard } from "./PropertyReviewSettingsCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRoles } from "@/hooks/useUserRole";
@@ -14,6 +15,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
 import { useImageUpload } from "@/hooks/useImageUpload";
+import { useQueryClient } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
+
+type MpDefaultSource = "organization" | "owner";
 
 const BRAZILIAN_STATES = [
   "AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT",
@@ -25,6 +30,7 @@ export function SettingsCompanyTab() {
   const { isAdminOrAbove } = useUserRoles();
   const { uploadImage, isUploading: isUploadingAvatar } = useImageUpload();
   const canEditCompany = isAdminOrAbove;
+  const queryClient = useQueryClient();
 
   const [companyName, setCompanyName] = useState("");
   const [companyCnpj, setCompanyCnpj] = useState("");
@@ -42,10 +48,15 @@ export function SettingsCompanyTab() {
   const [searchingCnpj, setSearchingCnpj] = useState(false);
   const [searchingCep, setSearchingCep] = useState(false);
 
+  // Marketplace default phone source (per organization)
+  const [mpDefaultSource, setMpDefaultSource] = useState<MpDefaultSource>("organization");
+  const [mpInitialSource, setMpInitialSource] = useState<MpDefaultSource>("organization");
+  const [savingMpDefault, setSavingMpDefault] = useState(false);
+
   useEffect(() => {
     if (!profile?.organization_id) return;
     supabase.from("organizations")
-      .select("name, cnpj, phone, email, logo_url, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, address_zipcode")
+      .select("name, cnpj, phone, email, logo_url, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, address_zipcode, marketplace_default_contact_phone_source")
       .eq("id", profile.organization_id).maybeSingle().then(({ data }) => {
         if (!data) return;
         setCompanyName(data.name || ""); setCompanyCnpj(data.cnpj || "");
@@ -54,6 +65,10 @@ export function SettingsCompanyTab() {
         setCompanyNumber(data.address_number || ""); setCompanyComplement(data.address_complement || "");
         setCompanyNeighborhood(data.address_neighborhood || ""); setCompanyCity(data.address_city || "");
         setCompanyState(data.address_state || ""); setCompanyZipcode(data.address_zipcode || "");
+        const raw = (data as any).marketplace_default_contact_phone_source;
+        const normalized: MpDefaultSource = raw === "owner" ? "owner" : "organization";
+        setMpDefaultSource(normalized);
+        setMpInitialSource(normalized);
       });
   }, [profile?.organization_id]);
 
