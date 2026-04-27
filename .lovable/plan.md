@@ -1,162 +1,101 @@
-# Backfill DML-only — Porto Caiçara Imóveis (versão final aprovada)
+# Origem padrão do telefone do Marketplace por organização
 
-Apenas dados. Nenhum schema change. Nenhuma alteração de código, UI, RPC, RLS, triggers ou views.
+Aprovado. Implementação aditiva, sem backfill, sem alterar imóveis existentes, sem tocar em `get_marketplace_contact`, `MarketplacePropertyCard`, `ContactDialog` ou landing pages.
 
-## Alvo
-- Org: **Porto Caiçara Imóveis Ltda** — `cdf3f0e6-da64-4090-bc76-1758796bea28`
-- Regra de elegibilidade: `length(regexp_replace(coalesce(owner_phone,''), '\D','','g')) >= 10`
-- Snapshot atual: 1.314 publicados / **~1.168 elegíveis** / **~146 pendentes**
+## 1. Migration (aditiva, idempotente)
 
-## Ajustes incorporados
-1. Verificação de leftover **também** em `marketplace_properties.marketplace_contact_phone` → `ROLLBACK` se houver qualquer registro atualizado com telefone preenchido lá.
-2. Amostras finais emitidas **dentro do `DO`** via `RAISE NOTICE` (a temp table tem `ON COMMIT DROP`, então não pode ser lida após o COMMIT). Amostras adicionais pós-commit consultam diretamente as tabelas reais.
+`supabase/migrations/<ts>_org_default_marketplace_phone_source.sql`
 
----
+- `ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS marketplace_default_contact_phone_source text NOT NULL DEFAULT 'organization'`.
+- Trigger `validate_org_marketplace_default_phone_source` (BEFORE INSERT/UPDATE OF a coluna) — normaliza para lower/trim e bloqueia qualquer valor que não seja `organization` ou `owner`. `custom` rejeitado nesta fase.
+- Zero `UPDATE` em `properties` / `marketplace_properties`.
 
-## Bloco a ser executado (migration DML-only, 1 transação)
+## 2. Hook novo
 
-```sql
-DO $$
-DECLARE
-  v_org uuid := 'cdf3f0e6-da64-4090-bc76-1758796bea28';
-  v_targets int;
-  v_updated_props int;
-  v_updated_mp int;
-  v_from_org int;
-  v_from_custom int;
-  v_already_owner int;
-  v_remaining_not_owner int;
-  v_desync int;
-  v_leftover_phone_props int;
-  v_leftover_phone_mp int;
-  r record;
-BEGIN
-  CREATE TEMP TABLE _pcaicara_targets ON COMMIT DROP AS
-  WITH primary_owner AS (
-    SELECT DISTINCT ON (po.property_id)
-      po.property_id, ow.phone, ow.primary_name
-    FROM public.property_owners po
-    JOIN public.owners ow ON ow.id = po.owner_id
-    ORDER BY po.property_id,
-             COALESCE(po.is_primary,false) DESC,
-             po.created_at ASC
-  )
-  SELECT p.id AS property_id,
-         p.title,
-         p.marketplace_contact_phone_source AS old_source,
-         p.marketplace_contact_phone        AS old_custom_phone,
-         po.phone                           AS owner_phone,
-         po.primary_name                    AS owner_name
-  FROM public.properties p
-  JOIN public.marketplace_properties mp ON mp.id = p.id
-  JOIN primary_owner po ON po.property_id = p.id
-  WHERE p.organization_id = v_org
-    AND length(regexp_replace(coalesce(po.phone,''), '\D','','g')) >= 10;
+`src/hooks/useOrgMarketplaceDefaults.ts`
+- React Query, `staleTime: 5 min`.
+- Retorna `{ defaultSource: 'organization' | 'owner', isLoading, isFetched, refetch }`.
+- Fail-soft para `'organization'` em caso de erro.
 
-  SELECT COUNT(*),
-         COUNT(*) FILTER (WHERE old_source = 'organization'),
-         COUNT(*) FILTER (WHERE old_source = 'custom'),
-         COUNT(*) FILTER (WHERE old_source = 'owner')
-    INTO v_targets, v_from_org, v_from_custom, v_already_owner
-  FROM _pcaicara_targets;
+## 3. PropertyForm.tsx — carregamento assíncrono seguro
 
-  RAISE NOTICE '[BACKFILL] Targets=% (org→%, custom→%, já owner=%)',
-    v_targets, v_from_org, v_from_custom, v_already_owner;
+- Importar `useOrgMarketplaceDefaults`.
+- Em `DEFAULT_VALUES` manter `"organization"` como fallback estático.
+- No `useEffect` de reset:
+  - **Editando imóvel**: continua exatamente como hoje (preserva `property.marketplace_contact_phone_source`). Nunca sobrescrever.
+  - **Novo imóvel** (`prefillData` ou nenhum): usar `defaultSource` do hook se já tiver carregado; caso contrário, manter `"organization"`.
+- Adicionar segundo `useEffect` que **só dispara quando `!property` E `isFetched` E o usuário ainda não mexeu** no campo (`!form.formState.dirtyFields.marketplace_contact_phone_source`): faz `form.setValue('marketplace_contact_phone_source', defaultSource, { shouldDirty: false })`. Isso garante que se o hook resolver depois do reset, o form novo absorve o default sem prender em "organization", e nunca pisa em escolha do usuário ou em valor de imóvel existente.
 
-  -- 1) UPDATE properties — trigger trg_00_sanitize_marketplace_contact_source_props
-  --    zera automaticamente marketplace_contact_phone porque source != 'custom'.
-  UPDATE public.properties p
-     SET marketplace_contact_phone_source = 'owner'
-    FROM _pcaicara_targets t
-   WHERE p.id = t.property_id;
-  GET DIAGNOSTICS v_updated_props = ROW_COUNT;
+## 4. BasicTab.tsx — texto indicativo
 
-  -- 2) UPDATE espelhado em marketplace_properties (defesa em profundidade, idempotente).
-  --    Mesma trigger de sanitização limpa marketplace_contact_phone aqui também.
-  UPDATE public.marketplace_properties mp
-     SET marketplace_contact_phone_source = 'owner',
-         marketplace_contact_phone = NULL
-    FROM _pcaicara_targets t
-   WHERE mp.id = t.property_id
-     AND (mp.marketplace_contact_phone_source IS DISTINCT FROM 'owner'
-          OR mp.marketplace_contact_phone IS NOT NULL);
-  GET DIAGNOSTICS v_updated_mp = ROW_COUNT;
+- Consumir `useOrgMarketplaceDefaults`.
+- Abaixo do RadioGroup (dentro do bloco `publishToMarketplace`), texto pequeno em `text-muted-foreground`:
+  - `Padrão da imobiliária: Número do proprietário` ou
+  - `Padrão da imobiliária: Número da imobiliária`.
+- Radio individual continua editável.
 
-  -- Verificações
-  SELECT COUNT(*) INTO v_remaining_not_owner
-  FROM public.properties p
-  JOIN public.marketplace_properties mp ON mp.id = p.id
-  WHERE p.organization_id = v_org
-    AND p.marketplace_contact_phone_source <> 'owner';
+## 5. usePropertyCRUD.ts — fallback no insert
 
-  SELECT COUNT(*) INTO v_desync
-  FROM public.properties p
-  JOIN public.marketplace_properties mp ON mp.id = p.id
-  WHERE p.organization_id = v_org
-    AND p.marketplace_contact_phone_source IS DISTINCT FROM mp.marketplace_contact_phone_source;
+No `createProperty.mutationFn`, antes do `insert`:
+- Se `propertyData.marketplace_contact_phone_source` for falsy (não informado): buscar `organizations.marketplace_default_contact_phone_source` e aplicar (`owner` ou `organization`). Se o payload já trouxer valor explícito, respeita.
+- Aplica também a importações/cadastro rápido que reutilizam essa mutation.
+- Duplicação / `BatchVariationsDialog` / `usePropertyBatchCreate`: mantém `source` copiado do imóvel base (sem mudança).
 
-  SELECT COUNT(*) INTO v_leftover_phone_props
-  FROM public.properties p
-  JOIN _pcaicara_targets t ON t.property_id = p.id
-  WHERE p.marketplace_contact_phone IS NOT NULL;
+## 6. SettingsCompanyTab.tsx — Card "Marketplace"
 
-  SELECT COUNT(*) INTO v_leftover_phone_mp
-  FROM public.marketplace_properties mp
-  JOIN _pcaicara_targets t ON t.property_id = mp.id
-  WHERE mp.marketplace_contact_phone IS NOT NULL;
+Novo Card abaixo de "Dados da Empresa" e acima de `PropertyReviewSettingsCard`:
 
-  RAISE NOTICE '[BACKFILL] updated_props=%, updated_mp=%, remaining_not_owner=%, desync=%, leftover_props=%, leftover_mp=%',
-    v_updated_props, v_updated_mp, v_remaining_not_owner, v_desync,
-    v_leftover_phone_props, v_leftover_phone_mp;
+- Título: **Marketplace**.
+- Campo: **Telefone padrão dos imóveis no Marketplace**.
+- RadioGroup com 2 opções:
+  - **Número da imobiliária** — "Novos imóveis publicados no Marketplace usarão o telefone público da imobiliária por padrão."
+  - **Número do proprietário** — "Novos imóveis publicados no Marketplace usarão o telefone do proprietário primário por padrão. A publicação será bloqueada se o imóvel não tiver proprietário com telefone válido."
+- Quando `owner` selecionado, alerta amarelo:
+  - "Ao usar esta opção, o telefone do proprietário poderá ficar visível para outros corretores no Marketplace nos imóveis publicados."
+- Carrega/salva via `supabase.from('organizations').select/update`.
+- `disabled={!canEditCompany}` (admin/sub_admin/leader/developer editam; demais leem).
+- Após salvar, `queryClient.invalidateQueries({ queryKey: ['org-marketplace-defaults', orgId] })`.
 
-  -- Amostra de 5 atualizados (dentro do DO porque a temp table morre no COMMIT)
-  RAISE NOTICE '[BACKFILL] Amostra de 5 atualizados:';
-  FOR r IN
-    SELECT t.property_id, t.title, t.old_source, t.owner_name, t.owner_phone,
-           p.marketplace_contact_phone_source AS new_source
-      FROM _pcaicara_targets t
-      JOIN public.properties p ON p.id = t.property_id
-      ORDER BY t.title
-      LIMIT 5
-  LOOP
-    RAISE NOTICE '  - id=% | title=% | old=% → new=% | owner=% | phone=%',
-      r.property_id, r.title, r.old_source, r.new_source, r.owner_name, r.owner_phone;
-  END LOOP;
+## 7. Regra de prioridade (final)
 
-  -- Critérios de commit (qualquer divergência → ROLLBACK)
-  IF v_updated_props <> v_targets THEN
-    RAISE EXCEPTION 'ROLLBACK: updated_props (%) != targets (%)', v_updated_props, v_targets;
-  END IF;
-  IF v_desync <> 0 THEN
-    RAISE EXCEPTION 'ROLLBACK: desync properties↔marketplace_properties = %', v_desync;
-  END IF;
-  IF v_leftover_phone_props <> 0 THEN
-    RAISE EXCEPTION 'ROLLBACK: properties.marketplace_contact_phone ainda preenchido em % atualizados', v_leftover_phone_props;
-  END IF;
-  IF v_leftover_phone_mp <> 0 THEN
-    RAISE EXCEPTION 'ROLLBACK: marketplace_properties.marketplace_contact_phone ainda preenchido em % atualizados', v_leftover_phone_mp;
-  END IF;
-END $$;
+```text
+source efetivo do imóvel:
+  1. properties.marketplace_contact_phone_source salvo (NUNCA sobrescrever em edição)
+  2. payload explícito vindo do fluxo de criação/import
+  3. organizations.marketplace_default_contact_phone_source
+  4. fallback: 'organization'
 ```
 
-Após o COMMIT, executo SELECTs (read-only) para colher:
-- contagens finais por `old_source` (recalculando via WHERE em properties + condição de "já era owner" derivada do estado atual);
-- amostra de 5 pendentes (publicados sem proprietário com telefone ≥ 10 dígitos);
-- confirmação final de 0 desync e 0 leftover em ambas as tabelas.
+## 8. O que NÃO muda
 
-## Salvaguardas
-- Filtro estrito por `organization_id` em todos os UPDATEs (via JOIN na temp table que já filtra a org).
-- Nenhuma alteração em outras orgs, schemas, triggers, RLS, RPC ou views.
-- Idempotente.
+- Triggers de validação de publicação (organization/owner/custom): intactos.
+- `get_marketplace_contact` RPC, `MarketplacePropertyCard`, `ContactDialog`, landing pages, contato público para cliente final: intactos.
+- Limpeza `marketplace_contact_phone = null` quando `source !== 'custom'`: intacta.
+- `BatchVariationsDialog` / `usePropertyBatchCreate`: source do imóvel base preservado.
+- Imóveis existentes da Porto Caiçara: zero `UPDATE`.
 
-## Entrega final no chat
-- organization_id;
-- quantidade atualizada;
-- quantidade ignorada (~146);
-- breakdown organization→owner / custom→owner / já owner (vindo dos `RAISE NOTICE`);
-- amostra de 5 atualizados (dos `RAISE NOTICE`);
-- amostra de 5 pendentes (SELECT pós-commit);
-- confirmação de 0 desync;
-- confirmação de `marketplace_contact_phone` NULL em **ambas** as tabelas.
+## 9. Caso Porto Caiçara
 
-**Aprovar para que eu execute como migration DML-only.**
+Após deploy, em **Configurações → Empresa → Card Marketplace**, escolher **Número do proprietário** para `organization_id = cdf3f0e6-da64-4090-bc76-1758796bea28`. Apenas novos imóveis nascem com `owner`. Existentes ficam como estão.
+
+## 10. Entregáveis
+
+- Arquivos criados:
+  - `supabase/migrations/<ts>_org_default_marketplace_phone_source.sql`
+  - `src/hooks/useOrgMarketplaceDefaults.ts`
+- Arquivos editados:
+  - `src/components/properties/PropertyForm.tsx`
+  - `src/components/properties/form/BasicTab.tsx`
+  - `src/hooks/usePropertyCRUD.ts`
+  - `src/components/settings/SettingsCompanyTab.tsx`
+- Local na UI: **Configurações → Empresa → Card "Marketplace"**.
+- `npx tsc --noEmit` e `npx vite build` rodados após implementação.
+- Checklist manual:
+  1. Org com default `organization` → novo imóvel nasce `organization`.
+  2. Mudar default para `owner` → novo imóvel nasce `owner` (mesmo se o hook resolver após o reset inicial — ver §3).
+  3. Editar imóvel existente: `source` salvo é mantido, mesmo se diferente do default.
+  4. Publicar novo com `owner` sem proprietário válido → bloqueio do trigger atual.
+  5. Duplicar imóvel: source do original preservado.
+  6. Corretor comum: card visível em modo leitura.
+  7. Tentar gravar `custom`/`xyz` via SQL na coluna org: trigger rejeita.
+  8. Imóveis antigos da Porto Caiçara: `marketplace_contact_phone_source` inalterado.

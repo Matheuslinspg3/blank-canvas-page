@@ -5373,6 +5373,7 @@ export type Database = {
           lead_stages_seeded: boolean
           lead_types_seeded: boolean
           logo_url: string | null
+          marketplace_default_contact_phone_source: string
           name: string
           phone: string | null
           slug: string
@@ -5400,6 +5401,7 @@ export type Database = {
           lead_stages_seeded?: boolean
           lead_types_seeded?: boolean
           logo_url?: string | null
+          marketplace_default_contact_phone_source?: string
           name: string
           phone?: string | null
           slug: string
@@ -5427,6 +5429,7 @@ export type Database = {
           lead_stages_seeded?: boolean
           lead_types_seeded?: boolean
           logo_url?: string | null
+          marketplace_default_contact_phone_source?: string
           name?: string
           phone?: string | null
           slug?: string
