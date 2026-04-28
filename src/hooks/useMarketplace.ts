@@ -67,7 +67,10 @@ interface MarketplaceViewRow {
   organization_id?: string | null;
 }
 
-export function useMarketplace(filters: MarketplaceFiltersState) {
+export function useMarketplace(
+  filters: MarketplaceFiltersState,
+  variantMaps?: { cityVariants?: Record<string, string[]>; neighborhoodVariants?: Record<string, string[]> },
+) {
   const { profile } = useAuth();
   const organizationId = profile?.organization_id;
 
@@ -75,9 +78,31 @@ export function useMarketplace(filters: MarketplaceFiltersState) {
     let query = q.eq("status", "disponivel");
     if (organizationId) query = query.neq("organization_id", organizationId);
     if (filters.transactionType && filters.transactionType !== "all") query = query.eq("transaction_type", filters.transactionType);
-    if (filters.propertyTypeId && filters.propertyTypeId !== "all") query = query.eq("property_type_id", filters.propertyTypeId);
-    if (filters.city) query = query.ilike("address_city", `%${filters.city}%`);
-    if (filters.neighborhood) query = query.ilike("address_neighborhood", `%${filters.neighborhood}%`);
+
+    // Multi-select: tipo de imóvel (OR dentro do campo)
+    if (filters.propertyTypeIds && filters.propertyTypeIds.length > 0) {
+      query = query.in("property_type_id", filters.propertyTypeIds);
+    } else if (filters.propertyTypeId && filters.propertyTypeId !== "all") {
+      // backward compat
+      query = query.eq("property_type_id", filters.propertyTypeId);
+    }
+
+    // Multi-select: cidades (OR + variantes acentuadas)
+    if (filters.cities && filters.cities.length > 0) {
+      const expanded = expandAccentVariants(filters.cities, variantMaps?.cityVariants);
+      if (expanded.length > 0) query = query.in("address_city", expanded);
+    } else if (filters.city) {
+      query = query.ilike("address_city", `%${filters.city}%`);
+    }
+
+    // Multi-select: bairros
+    if (filters.neighborhoods && filters.neighborhoods.length > 0) {
+      const expanded = expandAccentVariants(filters.neighborhoods, variantMaps?.neighborhoodVariants);
+      if (expanded.length > 0) query = query.in("address_neighborhood", expanded);
+    } else if (filters.neighborhood) {
+      query = query.ilike("address_neighborhood", `%${filters.neighborhood}%`);
+    }
+
     if (filters.minPrice) query = query.or(`sale_price.gte.${filters.minPrice},rent_price.gte.${filters.minPrice}`);
     if (filters.maxPrice) query = query.or(`sale_price.lte.${filters.maxPrice},rent_price.lte.${filters.maxPrice}`);
     if (filters.minBedrooms) query = query.gte("bedrooms", filters.minBedrooms);
@@ -89,7 +114,7 @@ export function useMarketplace(filters: MarketplaceFiltersState) {
     if (filters.featured) query = query.eq("is_featured", true);
     if (filters.amenities.length > 0) query = query.contains("amenities", filters.amenities);
     return query;
-  }, [organizationId, filters]);
+  }, [organizationId, filters, variantMaps]);
 
   const { data, isLoading, error, isFetching } = useQuery({
     queryKey: ["marketplace-properties", filters],
