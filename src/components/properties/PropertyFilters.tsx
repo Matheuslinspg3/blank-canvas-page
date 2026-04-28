@@ -22,6 +22,7 @@ import {
 import { PropertyFilters as FiltersType } from '@/hooks/usePropertyFilters';
 import { usePropertyTypes } from '@/hooks/usePropertyTypes';
 import { usePropertyOwners } from '@/hooks/usePropertyOwners';
+import { MultiSelectFilter } from '@/components/ui/multi-select-filter';
 import { formatCurrency } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
