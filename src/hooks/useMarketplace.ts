@@ -5,6 +5,26 @@ import { useCallback, useMemo } from "react";
 import { type MarketplaceFiltersState, defaultMarketplaceFilters } from "@/components/marketplace/MarketplaceFilters";
 import { normalizeAccentsKey } from "@/lib/normalizeText";
 
+/**
+ * Expands a list of selected display values to ALL variants that share the same
+ * accent-normalized key. Ensures that selecting "Mongaguá" also matches rows
+ * stored as "Mongagua" (without accent).
+ */
+function expandAccentVariants(
+  selected: string[],
+  variantsMap: Record<string, string[]> | undefined,
+): string[] {
+  if (!selected.length) return [];
+  if (!variantsMap) return selected;
+  const out = new Set<string>();
+  for (const sel of selected) {
+    const key = normalizeAccentsKey(sel);
+    const variants = variantsMap[key] ?? [sel];
+    variants.forEach((v) => out.add(v));
+  }
+  return Array.from(out);
+}
+
 export interface MarketplaceProperty {
   id: string;
   external_code: string | null;
