@@ -24,8 +24,21 @@ type Row = Record<string, any>;
 const db: Record<string, Row[]> = {};
 
 function table(name: string) {
-  db[name] = db[name] ?? [];
+  if (!db[name]) db[name] = [];
   return db[name];
+}
+
+// profiles_public is a view: project from `profiles` on read.
+function readSource(name: string): Row[] {
+  if (name === "profiles_public") {
+    return table("profiles")
+      .filter((p) => p.removed_at === null && p.organization_id !== null)
+      .map((p) => ({
+        id: p.id, user_id: p.user_id, full_name: p.full_name,
+        avatar_url: p.avatar_url ?? null, organization_id: p.organization_id,
+      }));
+  }
+  return table(name);
 }
 
 function resetDb() {
