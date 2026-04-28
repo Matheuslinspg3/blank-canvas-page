@@ -361,6 +361,43 @@ Deno.serve(async (req) => {
         // Non-fatal
       }
 
+      // Notify the removed member by email (non-blocking, best-effort).
+      try {
+        const removedAt = new Date().toISOString();
+        const { data: targetAuthUser } = await adminClient.auth.admin.getUserById(targetId);
+        const targetEmail = targetAuthUser?.user?.email;
+        const { data: org } = await adminClient
+          .from("organizations")
+          .select("name")
+          .eq("id", callerProfile.organization_id)
+          .single();
+        const orgName = org?.name || "sua equipe";
+
+        if (targetEmail) {
+          await fetch(`${supabaseUrl}/functions/v1/send-removal-notification`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-internal-secret": serviceKey,
+            },
+            body: JSON.stringify({
+              to: targetEmail,
+              recipient_name: targetProfile.full_name,
+              org_name: orgName,
+              reason: reason || null,
+              removed_at: removedAt,
+            }),
+          }).catch((err) =>
+            console.error("[manage-member] removal email dispatch failed:", err),
+          );
+        } else {
+          console.warn("[manage-member] no email found for removed user", targetId);
+        }
+      } catch (emailErr) {
+        // Non-fatal — removal already succeeded.
+        console.error("[manage-member] removal email setup failed:", emailErr);
+      }
+
       // Security audit
       await auditLog({
         event_type: "member_removal",

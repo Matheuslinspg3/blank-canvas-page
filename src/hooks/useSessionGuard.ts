@@ -66,9 +66,35 @@ export function useSessionGuard(userId: string | undefined) {
       });
 
       if (data === false) {
-        toast.error('Sua sessão foi encerrada pois outro dispositivo fez login.', {
-          duration: 8000,
-        });
+        // Distinguish "removed from organization" from "another device logged in".
+        // If the user's profile shows organization_id=null + removed_at set,
+        // the session was killed by a manage-member.remove_member action.
+        let reason: 'removed' | 'concurrent' = 'concurrent';
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('organization_id, removed_at')
+            .eq('user_id', userId)
+            .maybeSingle();
+          if (profile && profile.organization_id === null && profile.removed_at) {
+            reason = 'removed';
+          }
+        } catch {
+          // If we cannot fetch the profile (e.g. token already revoked),
+          // fall back to the generic message.
+        }
+
+        if (reason === 'removed') {
+          toast.error(
+            'Seu acesso foi revogado pelo administrador da equipe. Você foi desconectado.',
+            { duration: 12000 },
+          );
+        } else {
+          toast.error('Sua sessão foi encerrada pois outro dispositivo fez login.', {
+            duration: 8000,
+          });
+        }
+
         // Clean up and sign out
         localStorage.removeItem(SESSION_TOKEN_KEY);
         registeredRef.current = false;
