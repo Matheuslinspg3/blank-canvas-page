@@ -25,7 +25,7 @@ function removalEmailHtml(opts: {
   const formattedDate = new Date(removedAt).toLocaleString("pt-BR", {
     timeZone: "America/Sao_Paulo",
     dateStyle: "long",
-    timeTimeStyle: "short" as any,
+    timeStyle: "short",
   });
   return `
 <!DOCTYPE html>
