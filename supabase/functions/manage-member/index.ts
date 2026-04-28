@@ -304,6 +304,8 @@ Deno.serve(async (req) => {
 
       await adminClient.from("user_roles").delete().eq("user_id", targetId);
 
+      // Unassign across all org-scoped resources so the removed member
+      // does not retain any active linkage.
       await adminClient
         .from("leads")
         .update({ broker_id: null })
@@ -315,6 +317,44 @@ Deno.serve(async (req) => {
         .update({ assigned_to: null } as any)
         .eq("assigned_to", targetId)
         .eq("organization_id", callerProfile.organization_id);
+
+      await adminClient
+        .from("appointments")
+        .update({ assigned_to: null } as any)
+        .eq("assigned_to", targetId)
+        .eq("organization_id", callerProfile.organization_id);
+
+      await adminClient
+        .from("inbox_assignments")
+        .update({ assigned_to: null } as any)
+        .eq("assigned_to", targetId)
+        .eq("organization_id", callerProfile.organization_id);
+
+      await adminClient
+        .from("contracts")
+        .update({ broker_id: null } as any)
+        .eq("broker_id", targetId)
+        .eq("organization_id", callerProfile.organization_id);
+
+      await adminClient
+        .from("commissions")
+        .update({ broker_id: null } as any)
+        .eq("broker_id", targetId)
+        .eq("organization_id", callerProfile.organization_id);
+
+      // Invalidate ALL active sessions immediately (kills JWT + refresh tokens).
+      try {
+        await adminClient.auth.admin.signOut(targetId, "global");
+      } catch (signOutErr) {
+        console.error("[manage-member] signOut failed:", signOutErr);
+      }
+
+      // Also clean our internal session tracking table (used by useSessionGuard).
+      try {
+        await adminClient.from("user_sessions").delete().eq("user_id", targetId);
+      } catch {
+        // Non-fatal
+      }
 
       // Security audit
       await auditLog({
