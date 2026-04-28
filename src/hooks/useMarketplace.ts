@@ -155,10 +155,15 @@ export function useMarketplaceFilterData(cityFilter?: string) {
       (data as MarketplaceViewRow[]).forEach((d) => {
         const city = (d.address_city as string | null)?.trim();
         if (city) {
-          const key = city.toLowerCase();
+          const key = normalizeAccentsKey(city);
+          if (!key) return;
           const existing = cityMap.get(key);
           if (existing) {
             existing.count++;
+            // Prefere a grafia com acento como display
+            const displayHasAccent = normalizeAccentsKey(existing.display) !== existing.display.toLowerCase();
+            const cityHasAccent = key !== city.toLowerCase();
+            if (cityHasAccent && !displayHasAccent) existing.display = city;
           } else {
             cityMap.set(key, { display: city, count: 1 });
           }
