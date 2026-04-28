@@ -222,6 +222,7 @@ export function usePropertyFilters() {
       filters.status !== 'all' ||
       filters.availabilityStatus !== 'all' ||
       filters.propertyTypeId !== 'all' ||
+      filters.propertyTypeIds.length > 0 ||
       filters.minPrice !== null ||
       filters.maxPrice !== null ||
       filters.minBedrooms !== null ||
