@@ -150,20 +150,19 @@ export function MarketplaceFilters({
 
             <Separator />
 
-            {/* Property Type */}
+            {/* Property Type (multi-select) */}
             {propertyTypes.length > 0 && (
               <>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Tipo de Imóvel</Label>
-                  <Select value={filters.propertyTypeId} onValueChange={(value) => onUpdateFilter("propertyTypeId", value)}>
-                    <SelectTrigger><SelectValue placeholder="Todos os tipos" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos os tipos</SelectItem>
-                      {propertyTypes.map((type) => (
-                        <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <MultiSelectFilter
+                    value={filters.propertyTypeIds}
+                    onChange={(next) => onUpdateFilter("propertyTypeIds", next)}
+                    options={propertyTypes.map((t) => ({ value: t.id, label: t.name }))}
+                    triggerLabel="Tipos"
+                    placeholder="Todos os tipos"
+                    triggerClassName="w-full"
+                  />
                 </div>
                 <Separator />
               </>
