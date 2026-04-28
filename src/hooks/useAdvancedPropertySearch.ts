@@ -57,6 +57,7 @@ export function useAdvancedPropertySearch(
         p_transaction_type: filters.transactionType === 'all' ? null : filters.transactionType,
         p_status: filters.status === 'all' ? null : filters.status,
         p_property_type_id: filters.propertyTypeId === 'all' ? null : filters.propertyTypeId,
+        p_property_type_ids: filters.propertyTypeIds && filters.propertyTypeIds.length > 0 ? filters.propertyTypeIds : null,
         p_min_price: filters.minPrice,
         p_max_price: filters.maxPrice,
         p_min_bedrooms: filters.minBedrooms,

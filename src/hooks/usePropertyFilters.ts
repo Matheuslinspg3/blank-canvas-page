@@ -39,6 +39,7 @@ export function createDefaultPropertyFilters(): PropertyFilters {
     status: 'all',
     availabilityStatus: 'all',
     propertyTypeId: 'all',
+    propertyTypeIds: [],
     minPrice: null,
     maxPrice: null,
     minBedrooms: null,
@@ -74,6 +75,7 @@ export function usePropertyFilters() {
     status: searchParams.get('status') || 'all',
     availabilityStatus: searchParams.get('disponibilidade') || 'all',
     propertyTypeId: searchParams.get('tipo_imovel') || 'all',
+    propertyTypeIds: searchParams.get('tipos') ? searchParams.get('tipos')!.split(',').filter(Boolean) : [],
     minPrice: searchParams.get('min_preco') ? Number(searchParams.get('min_preco')) : null,
     maxPrice: searchParams.get('max_preco') ? Number(searchParams.get('max_preco')) : null,
     minBedrooms: searchParams.get('quartos') ? Number(searchParams.get('quartos')) : null,
@@ -103,6 +105,7 @@ export function usePropertyFilters() {
     if (filters.status !== 'all') params.set('status', filters.status);
     if (filters.availabilityStatus !== 'all') params.set('disponibilidade', filters.availabilityStatus);
     if (filters.propertyTypeId !== 'all') params.set('tipo_imovel', filters.propertyTypeId);
+    if (filters.propertyTypeIds.length > 0) params.set('tipos', filters.propertyTypeIds.join(','));
     if (filters.minPrice) params.set('min_preco', String(filters.minPrice));
     if (filters.maxPrice) params.set('max_preco', String(filters.maxPrice));
     if (filters.minBedrooms) params.set('quartos', String(filters.minBedrooms));
@@ -219,6 +222,7 @@ export function usePropertyFilters() {
       filters.status !== 'all' ||
       filters.availabilityStatus !== 'all' ||
       filters.propertyTypeId !== 'all' ||
+      filters.propertyTypeIds.length > 0 ||
       filters.minPrice !== null ||
       filters.maxPrice !== null ||
       filters.minBedrooms !== null ||
@@ -246,6 +250,7 @@ export function usePropertyFilters() {
     if (filters.status !== 'all') count++;
     if (filters.availabilityStatus !== 'all') count++;
     if (filters.propertyTypeId !== 'all') count++;
+    if (filters.propertyTypeIds.length > 0) count++;
     if (filters.minPrice !== null) count++;
     if (filters.maxPrice !== null) count++;
     if (filters.minBedrooms !== null) count++;

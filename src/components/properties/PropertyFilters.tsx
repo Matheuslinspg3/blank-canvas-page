@@ -22,6 +22,7 @@ import {
 import { PropertyFilters as FiltersType } from '@/hooks/usePropertyFilters';
 import { usePropertyTypes } from '@/hooks/usePropertyTypes';
 import { usePropertyOwners } from '@/hooks/usePropertyOwners';
+import { MultiSelectFilter } from '@/components/ui/multi-select-filter';
 import { formatCurrency } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
@@ -110,18 +111,18 @@ export function PropertyFilters({
 
             <Separator />
 
-            {/* Property Type */}
+            {/* Property Type (multi) */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Tipo de Imóvel</Label>
-              <Select value={filters.propertyTypeId} onValueChange={(value) => onUpdateFilter('propertyTypeId', value)}>
-                <SelectTrigger><SelectValue placeholder="Todos os tipos" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os tipos</SelectItem>
-                  {propertyTypes.map((type) => (
-                    <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <MultiSelectFilter
+                value={filters.propertyTypeIds}
+                onChange={(next) => onUpdateFilter('propertyTypeIds', next)}
+                options={propertyTypes.map((t) => ({ value: t.id, label: t.name }))}
+                triggerLabel="Todos os tipos"
+                placeholder="Todos os tipos"
+                searchPlaceholder="Buscar tipo..."
+                triggerClassName="w-full"
+              />
             </div>
 
             <Separator />
@@ -270,58 +271,33 @@ export function PropertyFilters({
                 {cities.length > 0 && (
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Cidades</Label>
-                    <div className="flex flex-wrap gap-1 mb-1">
-                      {filters.cities.map(c => (
-                        <Badge key={c} variant="secondary" className="gap-1 text-xs">
-                          {c}
-                          <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter('cities', filters.cities.filter(x => x !== c))} />
-                        </Badge>
-                      ))}
-                    </div>
-                    <Select value="" onValueChange={(value) => {
-                      if (value && !filters.cities.includes(value)) {
-                        onUpdateFilter('cities', [...filters.cities, value]);
-                      }
-                    }}>
-                      <SelectTrigger><SelectValue placeholder="Adicionar cidade..." /></SelectTrigger>
-                      <SelectContent>
-                        {cities.filter(c => !filters.cities.includes(c.city)).map((c) => (
-                          <SelectItem key={c.city} value={c.city}>
-                            {c.city}{c.state ? ` - ${c.state}` : ''} ({c.count})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <MultiSelectFilter
+                      value={filters.cities}
+                      onChange={(next) => onUpdateFilter('cities', next)}
+                      options={cities.map((c) => ({
+                        value: c.city,
+                        label: c.state ? `${c.city} - ${c.state}` : c.city,
+                        count: c.count,
+                      }))}
+                      triggerLabel="Todas as cidades"
+                      searchPlaceholder="Buscar cidade..."
+                      triggerClassName="w-full"
+                    />
                   </div>
                 )}
                 {neighborhoods.length > 0 && (
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Bairros</Label>
-                    <div className="flex flex-wrap gap-1 mb-1">
-                      {filters.neighborhoods.map(n => (
-                        <Badge key={n} variant="secondary" className="gap-1 text-xs">
-                          {n}
-                          <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter('neighborhoods', filters.neighborhoods.filter(x => x !== n))} />
-                        </Badge>
-                      ))}
-                    </div>
-                    <Select value="" onValueChange={(value) => {
-                      if (value && !filters.neighborhoods.includes(value)) {
-                        onUpdateFilter('neighborhoods', [...filters.neighborhoods, value]);
-                      }
-                    }}>
-                      <SelectTrigger><SelectValue placeholder="Adicionar bairro..." /></SelectTrigger>
-                      <SelectContent>
-                        {neighborhoods
-                          .filter(n => !filters.neighborhoods.includes(n.neighborhood))
-                          .filter(n => filters.cities.length === 0 || filters.cities.includes(n.city))
-                          .map((n) => (
-                            <SelectItem key={n.neighborhood} value={n.neighborhood}>
-                              {n.neighborhood} ({n.count})
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
+                    <MultiSelectFilter
+                      value={filters.neighborhoods}
+                      onChange={(next) => onUpdateFilter('neighborhoods', next)}
+                      options={neighborhoods
+                        .filter((n) => filters.cities.length === 0 || filters.cities.includes(n.city))
+                        .map((n) => ({ value: n.neighborhood, label: n.neighborhood, count: n.count }))}
+                      triggerLabel="Todos os bairros"
+                      searchPlaceholder="Buscar bairro..."
+                      triggerClassName="w-full"
+                    />
                   </div>
                 )}
               </CollapsibleContent>
