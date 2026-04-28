@@ -324,9 +324,11 @@ Deno.serve(async (req) => {
         .eq("assigned_to", targetId)
         .eq("organization_id", callerProfile.organization_id);
 
+      // inbox_assignments.assigned_to is NOT NULL — delete the row so the
+      // conversation goes back to the unassigned pool.
       await adminClient
         .from("inbox_assignments")
-        .update({ assigned_to: null } as any)
+        .delete()
         .eq("assigned_to", targetId)
         .eq("organization_id", callerProfile.organization_id);
 
@@ -336,9 +338,12 @@ Deno.serve(async (req) => {
         .eq("broker_id", targetId)
         .eq("organization_id", callerProfile.organization_id);
 
+      // commissions.broker_id is NOT NULL — keep historical record but mark
+      // the broker reference as the org admin (caller) so reports stay intact.
+      // We do NOT delete because commissions are financial history.
       await adminClient
         .from("commissions")
-        .update({ broker_id: null } as any)
+        .update({ broker_id: callerId } as any)
         .eq("broker_id", targetId)
         .eq("organization_id", callerProfile.organization_id);
 
