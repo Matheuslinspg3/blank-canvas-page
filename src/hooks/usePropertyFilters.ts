@@ -250,6 +250,7 @@ export function usePropertyFilters() {
     if (filters.status !== 'all') count++;
     if (filters.availabilityStatus !== 'all') count++;
     if (filters.propertyTypeId !== 'all') count++;
+    if (filters.propertyTypeIds.length > 0) count++;
     if (filters.minPrice !== null) count++;
     if (filters.maxPrice !== null) count++;
     if (filters.minBedrooms !== null) count++;
