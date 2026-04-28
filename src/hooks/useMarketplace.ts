@@ -193,10 +193,14 @@ export function useMarketplaceFilterData(cityFilter?: string) {
       (data as MarketplaceViewRow[]).forEach((d) => {
         const n = (d.address_neighborhood as string | null)?.trim();
         if (n) {
-          const key = n.toLowerCase();
+          const key = normalizeAccentsKey(n);
+          if (!key) return;
           const existing = neighMap.get(key);
           if (existing) {
             existing.count++;
+            const displayHasAccent = normalizeAccentsKey(existing.display) !== existing.display.toLowerCase();
+            const nHasAccent = key !== n.toLowerCase();
+            if (nHasAccent && !displayHasAccent) existing.display = n;
           } else {
             neighMap.set(key, { display: n, count: 1 });
           }
