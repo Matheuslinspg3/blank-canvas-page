@@ -254,38 +254,38 @@ export function MarketplaceFilters({
 
             <Separator />
 
-            {/* Location */}
-            <Collapsible defaultOpen={!!filters.city || !!filters.neighborhood}>
+            {/* Location (multi-select) */}
+            <Collapsible defaultOpen={filters.cities.length > 0 || filters.neighborhoods.length > 0}>
               <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium w-full">
                 <MapPin className="h-4 w-4 text-muted-foreground" /> Localização
                 <ChevronDown className="h-4 w-4 ml-auto" />
               </CollapsibleTrigger>
               <CollapsibleContent className="pt-2 space-y-2">
                 {cities.length > 0 && (
-                  <Select value={filters.city || "all"} onValueChange={(value) => onUpdateFilter("city", value === "all" ? "" : value)}>
-                    <SelectTrigger><SelectValue placeholder="Cidade" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas as cidades</SelectItem>
-                      {cities.map((c) => (
-                        <SelectItem key={c.city} value={c.city}>
-                          {c.city} ({c.count})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Cidades</Label>
+                    <MultiSelectFilter
+                      value={filters.cities}
+                      onChange={(next) => onUpdateFilter("cities", next)}
+                      options={cities.map((c) => ({ value: c.city, label: c.city, count: c.count }))}
+                      triggerLabel="Cidades"
+                      placeholder="Todas as cidades"
+                      triggerClassName="w-full"
+                    />
+                  </div>
                 )}
                 {filteredNeighborhoods.length > 0 && (
-                  <Select value={filters.neighborhood || "all"} onValueChange={(value) => onUpdateFilter("neighborhood", value === "all" ? "" : value)}>
-                    <SelectTrigger><SelectValue placeholder="Bairro" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos os bairros</SelectItem>
-                      {filteredNeighborhoods.map((n) => (
-                        <SelectItem key={n.neighborhood} value={n.neighborhood}>
-                          {n.neighborhood} ({n.count})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Bairros</Label>
+                    <MultiSelectFilter
+                      value={filters.neighborhoods}
+                      onChange={(next) => onUpdateFilter("neighborhoods", next)}
+                      options={filteredNeighborhoods.map((n) => ({ value: n.neighborhood, label: n.neighborhood, count: n.count }))}
+                      triggerLabel="Bairros"
+                      placeholder="Todos os bairros"
+                      triggerClassName="w-full"
+                    />
+                  </div>
                 )}
               </CollapsibleContent>
             </Collapsible>
