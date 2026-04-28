@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import type { StorefrontProperty } from "@/hooks/useStorefront";
+import { normalizeAccentsKey } from "@/lib/normalizeText";
 
 export interface StorefrontFilterState {
   search: string;
@@ -8,8 +9,10 @@ export interface StorefrontFilterState {
   minParking: number | null;
   minPrice: number | null;
   maxPrice: number | null;
-  city: string;
-  neighborhood: string;
+  /** Multi-select: cidades selecionadas (display strings). */
+  cities: string[];
+  /** Multi-select: bairros selecionados (display strings). */
+  neighborhoods: string[];
   minArea: number | null;
   maxArea: number | null;
 }
@@ -21,8 +24,8 @@ const defaultFilters: StorefrontFilterState = {
   minParking: null,
   minPrice: null,
   maxPrice: null,
-  city: "",
-  neighborhood: "",
+  cities: [],
+  neighborhoods: [],
   minArea: null,
   maxArea: null,
 };
@@ -44,8 +47,8 @@ export function useStorefrontFilters(properties: StorefrontProperty[]) {
       filters.minParking !== null ||
       filters.minPrice !== null ||
       filters.maxPrice !== null ||
-      filters.city !== "" ||
-      filters.neighborhood !== "" ||
+      filters.cities.length > 0 ||
+      filters.neighborhoods.length > 0 ||
       filters.minArea !== null ||
       filters.maxArea !== null
     );
@@ -57,30 +60,63 @@ export function useStorefrontFilters(properties: StorefrontProperty[]) {
     if (filters.minBedrooms !== null) count++;
     if (filters.minParking !== null) count++;
     if (filters.minPrice !== null || filters.maxPrice !== null) count++;
-    if (filters.city !== "") count++;
-    if (filters.neighborhood !== "") count++;
+    if (filters.cities.length > 0) count++;
+    if (filters.neighborhoods.length > 0) count++;
     if (filters.minArea !== null || filters.maxArea !== null) count++;
     return count;
   }, [filters]);
 
-  // Extract unique cities and neighborhoods from properties
+  // Selected cities/neighborhoods as normalized keys (sets) for comparison
+  const selectedCityKeys = useMemo(
+    () => new Set(filters.cities.map((c) => normalizeAccentsKey(c))),
+    [filters.cities],
+  );
+  const selectedNeighborhoodKeys = useMemo(
+    () => new Set(filters.neighborhoods.map((n) => normalizeAccentsKey(n))),
+    [filters.neighborhoods],
+  );
+
+  // Available cities (deduped by accent key)
   const availableCities = useMemo(() => {
-    const cities = new Set<string>();
-    properties.forEach((p) => { if (p.address_city) cities.add(p.address_city); });
-    return Array.from(cities).sort();
+    const map = new Map<string, string>(); // key → preferred display
+    properties.forEach((p) => {
+      const c = p.address_city?.trim();
+      if (!c) return;
+      const key = normalizeAccentsKey(c);
+      const existing = map.get(key);
+      const cHasAccent = key !== c.toLowerCase();
+      if (!existing) {
+        map.set(key, c);
+      } else {
+        const existingHasAccent = key !== existing.toLowerCase();
+        if (cHasAccent && !existingHasAccent) map.set(key, c);
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [properties]);
 
   const availableNeighborhoods = useMemo(() => {
-    const neighborhoods = new Set<string>();
+    const map = new Map<string, string>();
     properties.forEach((p) => {
-      if (p.address_neighborhood) {
-        if (!filters.city || p.address_city === filters.city) {
-          neighborhoods.add(p.address_neighborhood);
-        }
+      const n = p.address_neighborhood?.trim();
+      if (!n) return;
+      // If cidades selected, only include neighborhoods inside those cities
+      if (selectedCityKeys.size > 0) {
+        const cKey = normalizeAccentsKey(p.address_city);
+        if (!selectedCityKeys.has(cKey)) return;
+      }
+      const key = normalizeAccentsKey(n);
+      const existing = map.get(key);
+      const nHasAccent = key !== n.toLowerCase();
+      if (!existing) {
+        map.set(key, n);
+      } else {
+        const existingHasAccent = key !== existing.toLowerCase();
+        if (nHasAccent && !existingHasAccent) map.set(key, n);
       }
     });
-    return Array.from(neighborhoods).sort();
-  }, [properties, filters.city]);
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [properties, selectedCityKeys]);
 
   const filtered = useMemo(() => {
     return properties.filter((p) => {
@@ -108,11 +144,17 @@ export function useStorefrontFilters(properties: StorefrontProperty[]) {
       if (filters.minPrice !== null && (price == null || price < filters.minPrice)) return false;
       if (filters.maxPrice !== null && (price == null || price > filters.maxPrice)) return false;
 
-      // City
-      if (filters.city && p.address_city !== filters.city) return false;
+      // Cities (OR within field, accent-insensitive)
+      if (selectedCityKeys.size > 0) {
+        const cKey = normalizeAccentsKey(p.address_city);
+        if (!selectedCityKeys.has(cKey)) return false;
+      }
 
-      // Neighborhood
-      if (filters.neighborhood && p.address_neighborhood !== filters.neighborhood) return false;
+      // Neighborhoods
+      if (selectedNeighborhoodKeys.size > 0) {
+        const nKey = normalizeAccentsKey(p.address_neighborhood);
+        if (!selectedNeighborhoodKeys.has(nKey)) return false;
+      }
 
       // Area
       if (filters.minArea !== null && (p.area_total == null || p.area_total < filters.minArea)) return false;
@@ -120,7 +162,7 @@ export function useStorefrontFilters(properties: StorefrontProperty[]) {
 
       return true;
     });
-  }, [properties, filters]);
+  }, [properties, filters, selectedCityKeys, selectedNeighborhoodKeys]);
 
   return {
     filters,
