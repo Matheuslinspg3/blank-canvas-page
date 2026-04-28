@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Search, SlidersHorizontal, X, Bed, Car, MapPin, Ruler, DollarSign } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import type { StorefrontFilterState } from "@/hooks/useStorefrontFilters";
+import { MultiSelectFilter } from "@/components/ui/multi-select-filter";
 
 interface StorefrontFiltersProps {
   filters: StorefrontFilterState;
