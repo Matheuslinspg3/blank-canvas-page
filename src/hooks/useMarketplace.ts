@@ -322,5 +322,5 @@ export function useMarketplaceFilterData(citiesFilter?: string[]) {
     staleTime: 60000,
   });
 
-  return { cities, neighborhoods, propertyTypes, availableAmenities };
+  return { cities, neighborhoods, propertyTypes, availableAmenities, cityVariants, neighborhoodVariants };
 }
