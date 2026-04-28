@@ -97,7 +97,7 @@ function from(tableName: string) {
       return sub;
     },
     then: (resolve: any) => {
-      const out = rows.filter((r) => filters.every((f) => f(r)));
+      const out = getRows().filter((r) => filters.every((f) => f(r)));
       resolve({ data: out, error: null });
     },
   };
