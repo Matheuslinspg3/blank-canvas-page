@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { dedupeByAccentKey } from "@/lib/normalizeText";
 
 export function useMarketplaceNeighborhoods(city?: string) {
   const { profile } = useAuth();
@@ -25,17 +26,8 @@ export function useMarketplaceNeighborhoods(city?: string) {
       const { data, error } = await query;
       if (error) throw error;
 
-      // Case-insensitive deduplication
-      const seen = new Map<string, string>();
-      for (const d of data as any[]) {
-        const val = d.address_neighborhood?.trim();
-        if (val) {
-          const key = val.toLowerCase();
-          if (!seen.has(key)) seen.set(key, val);
-        }
-      }
-
-      return Array.from(seen.values()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+      // Dedupe ignorando caixa E acentos (ex.: "Mongaguá" e "Mongagua" → 1 item)
+      return dedupeByAccentKey((data as any[]).map((d) => d.address_neighborhood));
     },
     enabled: !!profile?.organization_id,
   });

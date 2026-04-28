@@ -10885,7 +10885,7 @@ export type Database = {
         }
         Returns: string
       }
-      normalize_location_text: { Args: { val: string }; Returns: string }
+      normalize_location_text: { Args: { input: string }; Returns: string }
       normalize_phone: { Args: { phone: string }; Returns: string }
       normalize_phone_br_e164: { Args: { p: string }; Returns: string }
       notify_marketplace_interest: {

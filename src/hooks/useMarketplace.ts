@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCallback, useMemo } from "react";
 import { type MarketplaceFiltersState, defaultMarketplaceFilters } from "@/components/marketplace/MarketplaceFilters";
+import { normalizeAccentsKey } from "@/lib/normalizeText";
 
 export interface MarketplaceProperty {
   id: string;
@@ -154,10 +155,15 @@ export function useMarketplaceFilterData(cityFilter?: string) {
       (data as MarketplaceViewRow[]).forEach((d) => {
         const city = (d.address_city as string | null)?.trim();
         if (city) {
-          const key = city.toLowerCase();
+          const key = normalizeAccentsKey(city);
+          if (!key) return;
           const existing = cityMap.get(key);
           if (existing) {
             existing.count++;
+            // Prefere a grafia com acento como display
+            const displayHasAccent = normalizeAccentsKey(existing.display) !== existing.display.toLowerCase();
+            const cityHasAccent = key !== city.toLowerCase();
+            if (cityHasAccent && !displayHasAccent) existing.display = city;
           } else {
             cityMap.set(key, { display: city, count: 1 });
           }
@@ -187,10 +193,14 @@ export function useMarketplaceFilterData(cityFilter?: string) {
       (data as MarketplaceViewRow[]).forEach((d) => {
         const n = (d.address_neighborhood as string | null)?.trim();
         if (n) {
-          const key = n.toLowerCase();
+          const key = normalizeAccentsKey(n);
+          if (!key) return;
           const existing = neighMap.get(key);
           if (existing) {
             existing.count++;
+            const displayHasAccent = normalizeAccentsKey(existing.display) !== existing.display.toLowerCase();
+            const nHasAccent = key !== n.toLowerCase();
+            if (nHasAccent && !displayHasAccent) existing.display = n;
           } else {
             neighMap.set(key, { display: n, count: 1 });
           }
