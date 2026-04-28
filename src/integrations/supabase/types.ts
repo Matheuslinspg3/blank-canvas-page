@@ -10831,6 +10831,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      is_active_member: { Args: never; Returns: boolean }
       is_lead_eligible_responsible: {
         Args: { _org: string; _uid: string }
         Returns: boolean
