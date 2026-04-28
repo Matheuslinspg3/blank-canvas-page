@@ -1,17 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { dedupeByAccentKey } from '@/lib/normalizeText';
 
-function deduplicateCaseInsensitive(items: string[]): string[] {
-  const seen = new Map<string, string>();
-  for (const item of items) {
-    const key = item.trim().toLowerCase();
-    if (key && !seen.has(key)) {
-      seen.set(key, item.trim());
-    }
-  }
-  return Array.from(seen.values()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-}
+// Deduplica ignorando caixa E acentos (ex.: "Mongaguá" e "Mongagua" viram um item só)
+const deduplicateCaseInsensitive = dedupeByAccentKey;
 
 export function usePropertyLocations() {
   const { user } = useAuth();
