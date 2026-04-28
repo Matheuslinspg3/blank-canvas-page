@@ -195,8 +195,21 @@ export function useLeadCRUD(opts: {
     onError: (error: any) => {
       const isDuplicate = error.message?.includes('Lead duplicado');
       if (isRlsError(error)) {
-        console.error('[leads.create] RLS denied', { code: error.code, orgId: profile?.organization_id, userId: user?.id });
-        toast({ title: 'Permissão negada', description: 'Você não tem permissão para criar este lead.', variant: 'destructive' });
+        console.error('[leads] RLS denied', {
+          mutation: 'createLead',
+          table: 'leads',
+          operation: 'insert',
+          code: error?.code,
+          status: error?.status,
+          hint: error?.hint,
+          orgId: profile?.organization_id,
+          userId: user?.id,
+        });
+        toast({
+          title: 'Permissão negada',
+          description: 'Não foi possível salvar o lead por falta de permissão ou organização inválida. Atualize a página e tente novamente.',
+          variant: 'destructive',
+        });
         return;
       }
       toast({
@@ -229,8 +242,21 @@ export function useLeadCRUD(opts: {
     },
     onError: (error: any) => {
       if (isRlsError(error)) {
-        console.error('[leads.update] RLS denied', { code: error.code, orgId: profile?.organization_id, userId: user?.id });
-        toast({ title: 'Permissão negada', description: 'Você não tem permissão para atualizar este lead.', variant: 'destructive' });
+        console.error('[leads] RLS denied', {
+          mutation: 'updateLead',
+          table: 'leads',
+          operation: 'update',
+          code: error?.code,
+          status: error?.status,
+          hint: error?.hint,
+          orgId: profile?.organization_id,
+          userId: user?.id,
+        });
+        toast({
+          title: 'Permissão negada',
+          description: 'Não foi possível salvar o lead por falta de permissão ou organização inválida. Atualize a página e tente novamente.',
+          variant: 'destructive',
+        });
         return;
       }
       toast({ title: 'Erro ao atualizar lead', description: error.message, variant: 'destructive' });
