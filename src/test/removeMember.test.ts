@@ -47,7 +47,8 @@ function resetDb() {
 
 // Minimal supabase-js-like query builder backed by `db`
 function from(tableName: string) {
-  let rows = [...table(tableName)];
+  // Re-read on each terminal call so views reflect latest mutations.
+  const getRows = () => [...readSource(tableName)];
   const filters: Array<(r: Row) => boolean> = [];
   const builder: any = {
     select: (_cols?: string) => builder,
