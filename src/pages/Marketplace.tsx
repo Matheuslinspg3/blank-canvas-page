@@ -72,8 +72,8 @@ export default function Marketplace() {
 
   const handleApplyFilters = useCallback(() => {
     setAppliedExternalFilters({
-      city: filters.city || undefined,
-      neighborhood: filters.neighborhood || undefined,
+      city: filters.cities[0] || filters.city || undefined,
+      neighborhood: filters.neighborhoods[0] || filters.neighborhood || undefined,
       transactionType: filters.transactionType !== "all" ? filters.transactionType : undefined,
       bedrooms: filters.minBedrooms ?? undefined,
       suites: filters.minSuites ?? undefined,
@@ -83,20 +83,20 @@ export default function Marketplace() {
       maxPrice: filters.maxPrice ?? undefined,
       appliedAt: Date.now(),
     });
-  }, [filters.city, filters.neighborhood, filters.transactionType, filters.minBedrooms, filters.minSuites, filters.minParking]);
+  }, [filters]);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filters.transactionType !== "all") count++;
-    if (filters.propertyTypeId !== "all") count++;
+    if (filters.propertyTypeIds.length > 0) count++;
     if (filters.minPrice !== null) count++;
     if (filters.maxPrice !== null) count++;
     if (filters.minBedrooms !== null) count++;
     if (filters.minSuites !== null) count++;
     if (filters.minBathrooms !== null) count++;
     if (filters.minParking !== null) count++;
-    if (filters.city) count++;
-    if (filters.neighborhood) count++;
+    if (filters.cities.length > 0) count++;
+    if (filters.neighborhoods.length > 0) count++;
     if (filters.minArea !== null) count++;
     if (filters.maxArea !== null) count++;
     if (filters.amenities.length > 0) count++;
