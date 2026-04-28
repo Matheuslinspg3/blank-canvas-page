@@ -5,9 +5,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
 import {
@@ -20,12 +17,19 @@ import {
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { MultiSelectFilter } from "@/components/ui/multi-select-filter";
 
 export interface MarketplaceFiltersState {
   transactionType: string;
+  /** @deprecated use cities (multi). Kept for backward compatibility. */
   city: string;
+  /** @deprecated use neighborhoods (multi). Kept for backward compatibility. */
   neighborhood: string;
+  /** @deprecated use propertyTypeIds (multi). Kept for backward compatibility. */
   propertyTypeId: string;
+  cities: string[];
+  neighborhoods: string[];
+  propertyTypeIds: string[];
   minPrice: number | null;
   maxPrice: number | null;
   minBedrooms: number | null;
@@ -43,6 +47,9 @@ export const defaultMarketplaceFilters: MarketplaceFiltersState = {
   city: "",
   neighborhood: "",
   propertyTypeId: "all",
+  cities: [],
+  neighborhoods: [],
+  propertyTypeIds: [],
   minPrice: null,
   maxPrice: null,
   minBedrooms: null,
@@ -143,20 +150,19 @@ export function MarketplaceFilters({
 
             <Separator />
 
-            {/* Property Type */}
+            {/* Property Type (multi-select) */}
             {propertyTypes.length > 0 && (
               <>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Tipo de Imóvel</Label>
-                  <Select value={filters.propertyTypeId} onValueChange={(value) => onUpdateFilter("propertyTypeId", value)}>
-                    <SelectTrigger><SelectValue placeholder="Todos os tipos" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos os tipos</SelectItem>
-                      {propertyTypes.map((type) => (
-                        <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <MultiSelectFilter
+                    value={filters.propertyTypeIds}
+                    onChange={(next) => onUpdateFilter("propertyTypeIds", next)}
+                    options={propertyTypes.map((t) => ({ value: t.id, label: t.name }))}
+                    triggerLabel="Tipos"
+                    placeholder="Todos os tipos"
+                    triggerClassName="w-full"
+                  />
                 </div>
                 <Separator />
               </>
@@ -248,38 +254,38 @@ export function MarketplaceFilters({
 
             <Separator />
 
-            {/* Location */}
-            <Collapsible defaultOpen={!!filters.city || !!filters.neighborhood}>
+            {/* Location (multi-select) */}
+            <Collapsible defaultOpen={filters.cities.length > 0 || filters.neighborhoods.length > 0}>
               <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium w-full">
                 <MapPin className="h-4 w-4 text-muted-foreground" /> Localização
                 <ChevronDown className="h-4 w-4 ml-auto" />
               </CollapsibleTrigger>
               <CollapsibleContent className="pt-2 space-y-2">
                 {cities.length > 0 && (
-                  <Select value={filters.city || "all"} onValueChange={(value) => onUpdateFilter("city", value === "all" ? "" : value)}>
-                    <SelectTrigger><SelectValue placeholder="Cidade" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas as cidades</SelectItem>
-                      {cities.map((c) => (
-                        <SelectItem key={c.city} value={c.city}>
-                          {c.city} ({c.count})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Cidades</Label>
+                    <MultiSelectFilter
+                      value={filters.cities}
+                      onChange={(next) => onUpdateFilter("cities", next)}
+                      options={cities.map((c) => ({ value: c.city, label: c.city, count: c.count }))}
+                      triggerLabel="Cidades"
+                      placeholder="Todas as cidades"
+                      triggerClassName="w-full"
+                    />
+                  </div>
                 )}
                 {filteredNeighborhoods.length > 0 && (
-                  <Select value={filters.neighborhood || "all"} onValueChange={(value) => onUpdateFilter("neighborhood", value === "all" ? "" : value)}>
-                    <SelectTrigger><SelectValue placeholder="Bairro" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos os bairros</SelectItem>
-                      {filteredNeighborhoods.map((n) => (
-                        <SelectItem key={n.neighborhood} value={n.neighborhood}>
-                          {n.neighborhood} ({n.count})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Bairros</Label>
+                    <MultiSelectFilter
+                      value={filters.neighborhoods}
+                      onChange={(next) => onUpdateFilter("neighborhoods", next)}
+                      options={filteredNeighborhoods.map((n) => ({ value: n.neighborhood, label: n.neighborhood, count: n.count }))}
+                      triggerLabel="Bairros"
+                      placeholder="Todos os bairros"
+                      triggerClassName="w-full"
+                    />
+                  </div>
                 )}
               </CollapsibleContent>
             </Collapsible>
@@ -385,16 +391,24 @@ export function MarketplaceFilters({
               <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter("minParking", null)} />
             </Badge>
           )}
-          {filters.city && (
-            <Badge variant="secondary" className="gap-1">
-              {filters.city}
-              <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter("city", "")} />
+          {filters.cities.map((c) => (
+            <Badge key={`city-${c}`} variant="secondary" className="gap-1">
+              {c}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter("cities", filters.cities.filter((x) => x !== c))} />
             </Badge>
-          )}
-          {filters.neighborhood && (
+          ))}
+          {filters.neighborhoods.map((n) => (
+            <Badge key={`neigh-${n}`} variant="secondary" className="gap-1">
+              {n}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter("neighborhoods", filters.neighborhoods.filter((x) => x !== n))} />
+            </Badge>
+          ))}
+          {filters.propertyTypeIds.length > 0 && (
             <Badge variant="secondary" className="gap-1">
-              {filters.neighborhood}
-              <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter("neighborhood", "")} />
+              {filters.propertyTypeIds.length === 1
+                ? propertyTypes.find((t) => t.id === filters.propertyTypeIds[0])?.name ?? "Tipo"
+                : `${filters.propertyTypeIds.length} tipos`}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter("propertyTypeIds", [])} />
             </Badge>
           )}
           {(filters.minPrice || filters.maxPrice) && (

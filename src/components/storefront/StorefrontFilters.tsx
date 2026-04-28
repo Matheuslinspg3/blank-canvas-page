@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Search, SlidersHorizontal, X, Bed, Car, MapPin, Ruler, DollarSign } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import type { StorefrontFilterState } from "@/hooks/useStorefrontFilters";
+import { MultiSelectFilter } from "@/components/ui/multi-select-filter";
 
 interface StorefrontFiltersProps {
   filters: StorefrontFilterState;
@@ -163,45 +164,44 @@ export function StorefrontFilters({
               </div>
             </div>
 
-            {/* City */}
+            {/* Cities (multi-select) */}
             {availableCities.length > 0 && (
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
-                  <MapPin className="h-3.5 w-3.5" /> Cidade
+                  <MapPin className="h-3.5 w-3.5" /> Cidades
                 </label>
-                <select
-                  value={filters.city}
-                  onChange={(e) => {
-                    onUpdateFilter("city", e.target.value);
-                    if (e.target.value !== filters.city) onUpdateFilter("neighborhood", "");
+                <MultiSelectFilter
+                  value={filters.cities}
+                  onChange={(next) => {
+                    onUpdateFilter("cities", next);
+                    // Clear neighborhoods that no longer belong to selected cities
+                    if (next.length > 0 && filters.neighborhoods.length > 0) {
+                      // simple safe path: if cities changed, reset neighborhoods
+                      onUpdateFilter("neighborhoods", []);
+                    }
                   }}
-                  className="w-full h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-0"
-                  style={{ focusRingColor: primaryColor } as any}
-                >
-                  <option value="">Todas as cidades</option>
-                  {availableCities.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                  options={availableCities.map((c) => ({ value: c, label: c }))}
+                  triggerLabel="Cidades"
+                  placeholder="Todas as cidades"
+                  triggerClassName="w-full h-9"
+                />
               </div>
             )}
 
-            {/* Neighborhood */}
+            {/* Neighborhoods (multi-select) */}
             {availableNeighborhoods.length > 0 && (
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
-                  <MapPin className="h-3.5 w-3.5" /> Bairro
+                  <MapPin className="h-3.5 w-3.5" /> Bairros
                 </label>
-                <select
-                  value={filters.neighborhood}
-                  onChange={(e) => onUpdateFilter("neighborhood", e.target.value)}
-                  className="w-full h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-0"
-                >
-                  <option value="">Todos os bairros</option>
-                  {availableNeighborhoods.map((n) => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                </select>
+                <MultiSelectFilter
+                  value={filters.neighborhoods}
+                  onChange={(next) => onUpdateFilter("neighborhoods", next)}
+                  options={availableNeighborhoods.map((n) => ({ value: n, label: n }))}
+                  triggerLabel="Bairros"
+                  placeholder="Todos os bairros"
+                  triggerClassName="w-full h-9"
+                />
               </div>
             )}
 
@@ -270,12 +270,12 @@ export function StorefrontFilters({
               {filters.minParking !== null && (
                 <FilterBadge label={`${filters.minParking}+ vagas`} onRemove={() => onUpdateFilter("minParking", null)} primaryColor={primaryColor} />
               )}
-              {filters.city && (
-                <FilterBadge label={filters.city} onRemove={() => { onUpdateFilter("city", ""); onUpdateFilter("neighborhood", ""); }} primaryColor={primaryColor} />
-              )}
-              {filters.neighborhood && (
-                <FilterBadge label={filters.neighborhood} onRemove={() => onUpdateFilter("neighborhood", "")} primaryColor={primaryColor} />
-              )}
+              {filters.cities.map((c) => (
+                <FilterBadge key={`c-${c}`} label={c} onRemove={() => onUpdateFilter("cities", filters.cities.filter((x) => x !== c))} primaryColor={primaryColor} />
+              ))}
+              {filters.neighborhoods.map((n) => (
+                <FilterBadge key={`n-${n}`} label={n} onRemove={() => onUpdateFilter("neighborhoods", filters.neighborhoods.filter((x) => x !== n))} primaryColor={primaryColor} />
+              ))}
               {(filters.minPrice !== null || filters.maxPrice !== null) && (
                 <FilterBadge
                   label={`R$ ${formatPriceBR(filters.minPrice) || "0"} - ${formatPriceBR(filters.maxPrice) || "∞"}`}
@@ -307,12 +307,12 @@ export function StorefrontFilters({
           {filters.minParking !== null && (
             <FilterBadge label={`${filters.minParking}+ vagas`} onRemove={() => onUpdateFilter("minParking", null)} primaryColor={primaryColor} />
           )}
-          {filters.city && (
-            <FilterBadge label={filters.city} onRemove={() => { onUpdateFilter("city", ""); onUpdateFilter("neighborhood", ""); }} primaryColor={primaryColor} />
-          )}
-          {filters.neighborhood && (
-            <FilterBadge label={filters.neighborhood} onRemove={() => onUpdateFilter("neighborhood", "")} primaryColor={primaryColor} />
-          )}
+          {filters.cities.map((c) => (
+            <FilterBadge key={`c2-${c}`} label={c} onRemove={() => onUpdateFilter("cities", filters.cities.filter((x) => x !== c))} primaryColor={primaryColor} />
+          ))}
+          {filters.neighborhoods.map((n) => (
+            <FilterBadge key={`n2-${n}`} label={n} onRemove={() => onUpdateFilter("neighborhoods", filters.neighborhoods.filter((x) => x !== n))} primaryColor={primaryColor} />
+          ))}
           {(filters.minPrice !== null || filters.maxPrice !== null) && (
             <FilterBadge
               label={`R$ ${formatPriceBR(filters.minPrice) || "0"} - ${formatPriceBR(filters.maxPrice) || "∞"}`}

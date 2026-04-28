@@ -11,6 +11,7 @@ export interface PropertyFilters {
   status: string;
   availabilityStatus: string;
   propertyTypeId: string;
+  propertyTypeIds: string[];
   minPrice: number | null;
   maxPrice: number | null;
   minBedrooms: number | null;
