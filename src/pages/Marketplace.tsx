@@ -24,8 +24,8 @@ export default function Marketplace() {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [orgPageSize, setOrgPageSize] = useState<number>(10);
 
-  const { properties, isLoading, isFetching, totalCount, logContactAccess } = useMarketplace(filters);
-  const { cities, neighborhoods, propertyTypes, availableAmenities } = useMarketplaceFilterData(filters.city || undefined);
+  const { cities, neighborhoods, propertyTypes, availableAmenities, cityVariants, neighborhoodVariants } = useMarketplaceFilterData(filters.cities.length > 0 ? filters.cities : undefined);
+  const { properties, isLoading, isFetching, totalCount, logContactAccess } = useMarketplace(filters, { cityVariants, neighborhoodVariants });
 
   // External listings — only triggered when user clicks "Aplicar Filtros"
   const { data: externalListings = [], isLoading: externalLoading, isPolling: externalPolling } = useExternalListings(
