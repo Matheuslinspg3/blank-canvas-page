@@ -181,11 +181,11 @@ export function useMarketplaceOrganizations(orgIds: string[]) {
   });
 }
 
-export function useMarketplaceFilterData(cityFilter?: string) {
+export function useMarketplaceFilterData(citiesFilter?: string[]) {
   const { profile } = useAuth();
   const organizationId = profile?.organization_id;
 
-  const { data: cities = [] } = useQuery({
+  const { data: citiesData } = useQuery({
     queryKey: ["marketplace-cities", organizationId],
     queryFn: async () => {
       let query = supabase
@@ -196,7 +196,7 @@ export function useMarketplaceFilterData(cityFilter?: string) {
       if (organizationId) query = query.neq("organization_id", organizationId);
       const { data, error } = await query;
       if (error) throw error;
-      const cityMap = new Map<string, { display: string; count: number }>();
+      const cityMap = new Map<string, { display: string; count: number; variants: Set<string> }>();
       (data as MarketplaceViewRow[]).forEach((d) => {
         const city = (d.address_city as string | null)?.trim();
         if (city) {
@@ -205,25 +205,31 @@ export function useMarketplaceFilterData(cityFilter?: string) {
           const existing = cityMap.get(key);
           if (existing) {
             existing.count++;
-            // Prefere a grafia com acento como display
+            existing.variants.add(city);
             const displayHasAccent = normalizeAccentsKey(existing.display) !== existing.display.toLowerCase();
             const cityHasAccent = key !== city.toLowerCase();
             if (cityHasAccent && !displayHasAccent) existing.display = city;
           } else {
-            cityMap.set(key, { display: city, count: 1 });
+            cityMap.set(key, { display: city, count: 1, variants: new Set([city]) });
           }
         }
       });
-      return Array.from(cityMap.values())
+      const list = Array.from(cityMap.values())
         .map(({ display, count }) => ({ city: display, count }))
         .sort((a, b) => a.city.localeCompare(b.city, 'pt-BR'));
+      const variants: Record<string, string[]> = {};
+      for (const [key, v] of cityMap.entries()) variants[key] = Array.from(v.variants);
+      return { list, variants };
     },
     enabled: !!organizationId,
     staleTime: 60000,
   });
 
-  const { data: neighborhoods = [] } = useQuery({
-    queryKey: ["marketplace-neighborhoods-filter", organizationId, cityFilter],
+  const cities = citiesData?.list ?? [];
+  const cityVariants = citiesData?.variants;
+
+  const { data: neighborhoodsData } = useQuery({
+    queryKey: ["marketplace-neighborhoods-filter", organizationId, citiesFilter?.join(",") ?? ""],
     queryFn: async () => {
       let query = supabase
         .from("marketplace_properties_public")
@@ -231,10 +237,14 @@ export function useMarketplaceFilterData(cityFilter?: string) {
         .eq("status", "disponivel")
         .not("address_neighborhood", "is", null);
       if (organizationId) query = query.neq("organization_id", organizationId);
-      if (cityFilter) query = query.ilike("address_city", `%${cityFilter}%`);
+      if (citiesFilter && citiesFilter.length > 0) {
+        // Expand to include accented variants when filtering neighborhoods by cities
+        const expanded = expandAccentVariants(citiesFilter, cityVariants);
+        if (expanded.length > 0) query = query.in("address_city", expanded);
+      }
       const { data, error } = await query;
       if (error) throw error;
-      const neighMap = new Map<string, { display: string; count: number }>();
+      const neighMap = new Map<string, { display: string; count: number; variants: Set<string> }>();
       (data as MarketplaceViewRow[]).forEach((d) => {
         const n = (d.address_neighborhood as string | null)?.trim();
         if (n) {
@@ -243,21 +253,28 @@ export function useMarketplaceFilterData(cityFilter?: string) {
           const existing = neighMap.get(key);
           if (existing) {
             existing.count++;
+            existing.variants.add(n);
             const displayHasAccent = normalizeAccentsKey(existing.display) !== existing.display.toLowerCase();
             const nHasAccent = key !== n.toLowerCase();
             if (nHasAccent && !displayHasAccent) existing.display = n;
           } else {
-            neighMap.set(key, { display: n, count: 1 });
+            neighMap.set(key, { display: n, count: 1, variants: new Set([n]) });
           }
         }
       });
-      return Array.from(neighMap.values())
+      const list = Array.from(neighMap.values())
         .map(({ display, count }) => ({ neighborhood: display, count }))
         .sort((a, b) => a.neighborhood.localeCompare(b.neighborhood, 'pt-BR'));
+      const variants: Record<string, string[]> = {};
+      for (const [key, v] of neighMap.entries()) variants[key] = Array.from(v.variants);
+      return { list, variants };
     },
     enabled: !!organizationId,
     staleTime: 60000,
   });
+
+  const neighborhoods = neighborhoodsData?.list ?? [];
+  const neighborhoodVariants = neighborhoodsData?.variants;
 
   const { data: propertyTypes = [] } = useQuery({
     queryKey: ["marketplace-property-types", organizationId],
