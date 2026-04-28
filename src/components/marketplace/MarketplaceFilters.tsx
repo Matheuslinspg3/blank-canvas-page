@@ -23,9 +23,15 @@ import { cn } from "@/lib/utils";
 
 export interface MarketplaceFiltersState {
   transactionType: string;
+  /** @deprecated use cities (multi). Kept for backward compatibility. */
   city: string;
+  /** @deprecated use neighborhoods (multi). Kept for backward compatibility. */
   neighborhood: string;
+  /** @deprecated use propertyTypeIds (multi). Kept for backward compatibility. */
   propertyTypeId: string;
+  cities: string[];
+  neighborhoods: string[];
+  propertyTypeIds: string[];
   minPrice: number | null;
   maxPrice: number | null;
   minBedrooms: number | null;
@@ -43,6 +49,9 @@ export const defaultMarketplaceFilters: MarketplaceFiltersState = {
   city: "",
   neighborhood: "",
   propertyTypeId: "all",
+  cities: [],
+  neighborhoods: [],
+  propertyTypeIds: [],
   minPrice: null,
   maxPrice: null,
   minBedrooms: null,
