@@ -1,178 +1,202 @@
-## Causa raiz (final)
+## Final consolidated fix — production RLS 42501 on `POST /rest/v1/leads`
 
-`INSERT … .select().single()` exige que a linha recém-criada também passe pelo USING do SELECT. Para corretor/assistente isso falha quando `broker_id` é nulo ou pertence a outro usuário. A correção combina **policy + trigger no banco** com **gate de papel diferenciado no frontend** (corretor ≠ assistente).
+I'm currently in plan mode (read-only) so writes were blocked. Approving this plan switches me to default mode and I will execute the steps below in this exact order.
 
-## Regra de produto final
+### Pre-flight evidence already collected (read-only)
 
-| Papel | INSERT sem `broker_id` | INSERT com `broker_id = self` | INSERT com `broker_id = outro` | UPDATE: transferir broker | UPDATE: desatribuir (`broker_id → NULL`) |
-|---|---|---|---|---|---|
-| corretor | ✅ frontend preenche `self` | ✅ | ❌ toast | ❌ | ❌ (bloqueado) |
-| assistente | ✅ permanece `NULL` | ❌ toast (não pode ser responsável) | ❌ toast | ❌ | ❌ |
-| admin / sub_admin / leader / developer | ✅ | ✅ | ✅ (broker elegível da mesma org) | ✅ | ✅ |
+`pg_policies` for `public.leads` confirms:
+- Legacy permissive policies still present: `Users can create leads`, `Users can view leads based on role`, `Users can update leads based on role`.
+- Maintenance policies present and **PERMISSIVE** (not RESTRICTIVE): `Block inserts during maintenance`, `Block updates during maintenance`, `Block deletes during maintenance`.
+- v2 policies present: `leads_insert_v2`, `leads_select_v2`, `leads_update_v2`. Manager DELETE policy (`Managers can delete leads`) preserved.
 
-Regra extra: corretor **não** pode desatribuir o próprio lead (não pode mover para `NULL`); só manager pode.
+`pg_proc` for the helpers confirms:
+- `is_lead_eligible_responsible(_uid, _org)` joins `user_roles ur ON ur.user_id = p.id` and filters `p.id = _uid` — bug: `_uid` is an auth user id, must match `p.user_id`.
+- `protect_lead_authorship_and_broker` does `SELECT organization_id FROM profiles WHERE id = NEW.broker_id` — same bug.
+- `is_leads_org_manager(_uid)` is correct (filters `user_roles.user_id = _uid`); will keep as-is.
 
-## Migration
+### Step 1 — Create new migration
 
-`supabase/migrations/20260427211423_fix_leads_rls_select_update.sql`
-
-### Helpers (SECURITY DEFINER)
-- `public.is_org_manager(_uid uuid) returns boolean` — true se `_uid` tem `admin | sub_admin | leader | developer`.
-- `public.is_lead_eligible_responsible(_uid uuid, _org uuid) returns boolean` — true se `_uid` pertence à org `_org` E tem role `corretor | admin | sub_admin | leader | developer` (assistente é falso).
-
-### Policies (todas com `DROP POLICY IF EXISTS` antes)
-
-**INSERT**
-```sql
-WITH CHECK (
-  organization_id = get_user_organization_id()
-  AND (
-    public.is_org_manager(auth.uid())
-    OR broker_id IS NULL
-    OR broker_id = auth.uid()
-  )
-)
-```
-`created_by` não é checado aqui porque o trigger BEFORE INSERT vai forçar `auth.uid()`.
-
-**SELECT (USING)**
-```sql
-USING (
-  is_member_of_org(organization_id) AND (
-    public.is_org_manager(auth.uid())
-    OR broker_id = auth.uid()
-    OR (created_by = auth.uid() AND broker_id IS NULL)
-  )
-)
-```
-A última cláusula garante que assistente (e corretor antes do preenchimento) leia a linha recém-criada sem responsável.
-
-**UPDATE (USING idêntica ao SELECT)**
-
-**UPDATE WITH CHECK**
-```sql
-WITH CHECK (
-  organization_id = get_user_organization_id()
-  AND (
-    public.is_org_manager(auth.uid())
-    OR (
-      -- corretor/assistente: broker_id final só pode ser self
-      -- (impede transferência E impede desatribuir)
-      broker_id = auth.uid()
-    )
-  )
-)
-```
-Consequência: corretor não consegue passar `broker_id` para `NULL` nem para outro usuário. Assistente não consegue editar nada que altere `broker_id` para outro valor que não seja ele mesmo — e como assistente nunca é responsável, na prática o UPDATE de assistente sobre leads onde `broker_id IS NULL AND created_by = self` precisa preservar `broker_id IS NULL`. Para suportar isso, ajustamos:
+`supabase/migrations/<timestamp>_fix_leads_rls_dedup_restrictive_profile_lookup.sql`
 
 ```sql
-WITH CHECK (
-  organization_id = get_user_organization_id()
-  AND (
-    public.is_org_manager(auth.uid())
-    OR broker_id = auth.uid()
-    OR (broker_id IS NULL AND created_by = auth.uid())
-  )
-)
+BEGIN;
+
+-- 1) Drop legacy permissive policies that conflict with v2
+DROP POLICY IF EXISTS "Users can create leads"               ON public.leads;
+DROP POLICY IF EXISTS "Users can view leads based on role"   ON public.leads;
+DROP POLICY IF EXISTS "Users can update leads based on role" ON public.leads;
+
+-- 2) Recreate maintenance blocks as RESTRICTIVE (AND-combined)
+DROP POLICY IF EXISTS "Block inserts during maintenance" ON public.leads;
+DROP POLICY IF EXISTS "Block updates during maintenance" ON public.leads;
+DROP POLICY IF EXISTS "Block deletes during maintenance" ON public.leads;
+
+CREATE POLICY "Block inserts during maintenance"
+  ON public.leads AS RESTRICTIVE FOR INSERT TO authenticated
+  WITH CHECK (NOT public.is_maintenance_blocked());
+
+CREATE POLICY "Block updates during maintenance"
+  ON public.leads AS RESTRICTIVE FOR UPDATE TO authenticated
+  USING (NOT public.is_maintenance_blocked())
+  WITH CHECK (NOT public.is_maintenance_blocked());
+
+CREATE POLICY "Block deletes during maintenance"
+  ON public.leads AS RESTRICTIVE FOR DELETE TO authenticated
+  USING (NOT public.is_maintenance_blocked());
+
+-- 3) Fix is_lead_eligible_responsible — lookup by profiles.user_id (auth uid)
+CREATE OR REPLACE FUNCTION public.is_lead_eligible_responsible(_uid uuid, _org uuid)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
+AS $function$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    JOIN public.user_roles ur ON ur.user_id = p.user_id
+    WHERE p.user_id = _uid
+      AND p.organization_id = _org
+      AND ur.role::text IN ('corretor','admin','sub_admin','leader','developer')
+  );
+$function$;
+
+REVOKE ALL ON FUNCTION public.is_lead_eligible_responsible(uuid, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_lead_eligible_responsible(uuid, uuid) TO authenticated;
+
+-- 4) Fix trigger to look up broker by profiles.user_id
+CREATE OR REPLACE FUNCTION public.protect_lead_authorship_and_broker()
+RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_broker_org uuid;
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    NEW.created_by := COALESCE(auth.uid(), NEW.created_by);
+  ELSIF TG_OP = 'UPDATE' THEN
+    NEW.created_by := OLD.created_by;
+    IF NEW.broker_id IS DISTINCT FROM OLD.broker_id
+       AND auth.uid() IS NOT NULL
+       AND NOT public.is_leads_org_manager(auth.uid())
+    THEN
+      RAISE EXCEPTION 'Only organization managers can change lead responsible'
+        USING ERRCODE = '42501';
+    END IF;
+  END IF;
+
+  IF NEW.broker_id IS NOT NULL THEN
+    SELECT organization_id INTO v_broker_org
+    FROM public.profiles
+    WHERE user_id = NEW.broker_id;
+
+    IF v_broker_org IS NULL OR v_broker_org <> NEW.organization_id THEN
+      RAISE EXCEPTION 'Broker does not belong to the lead organization'
+        USING ERRCODE = 'check_violation';
+    END IF;
+
+    IF NOT public.is_lead_eligible_responsible(NEW.broker_id, NEW.organization_id) THEN
+      RAISE EXCEPTION 'Broker role is not eligible to be assigned as lead responsible'
+        USING ERRCODE = 'check_violation';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
+
+-- 5) Verification — fail migration if anything is off
+DO $$
+DECLARE
+  r record;
+  legacy_cnt int;
+  maintenance_cnt int;
+BEGIN
+  SELECT count(*) INTO legacy_cnt FROM pg_policies
+   WHERE schemaname='public' AND tablename='leads'
+     AND policyname IN ('Users can create leads',
+                        'Users can view leads based on role',
+                        'Users can update leads based on role');
+  IF legacy_cnt <> 0 THEN
+    RAISE EXCEPTION 'Legacy policies still present on public.leads (% remaining)', legacy_cnt;
+  END IF;
+
+  SELECT count(*) INTO maintenance_cnt FROM pg_policies
+   WHERE schemaname='public' AND tablename='leads'
+     AND policyname IN ('Block inserts during maintenance',
+                        'Block updates during maintenance',
+                        'Block deletes during maintenance');
+  IF maintenance_cnt <> 3 THEN
+    RAISE EXCEPTION 'Expected exactly 3 maintenance policies on public.leads, found %', maintenance_cnt;
+  END IF;
+
+  FOR r IN SELECT policyname, permissive FROM pg_policies
+            WHERE schemaname='public' AND tablename='leads'
+              AND policyname IN ('Block inserts during maintenance',
+                                 'Block updates during maintenance',
+                                 'Block deletes during maintenance')
+  LOOP
+    IF r.permissive <> 'RESTRICTIVE' THEN
+      RAISE EXCEPTION 'Maintenance policy % is not RESTRICTIVE (got %)', r.policyname, r.permissive;
+    END IF;
+  END LOOP;
+END $$;
+
+COMMIT;
 ```
-Isso dá: assistente pode continuar editando o próprio lead enquanto `broker_id` permanecer `NULL`; corretor pode editar enquanto `broker_id` permanecer ele mesmo. Nenhum dos dois consegue transferir.
 
-### Trigger `protect_lead_authorship_and_broker` (BEFORE INSERT OR UPDATE)
-- **INSERT**: `NEW.created_by := auth.uid();` (autoridade do banco; frontend não decide).
-- **UPDATE**: `NEW.created_by := OLD.created_by;` (imutável).
-- **INSERT/UPDATE**: se `NEW.broker_id IS NOT NULL`, validar:
-  - broker pertence à mesma `organization_id` do lead (cruzando `profiles`);
-  - `public.is_lead_eligible_responsible(NEW.broker_id, NEW.organization_id)` — bloqueia atribuir a assistente.
-- Erros via `RAISE EXCEPTION USING ERRCODE = 'check_violation'`.
+### Step 2 — Edit `src/hooks/useLeadCRUD.ts` (only error toasts/logs)
 
-## Frontend
+In `createLead.onError` and `updateLead.onError` blocks (lines ~195–209 and ~230–237):
 
-### `src/hooks/useLeads.ts`
-Substituir `isBrokerOnly` por dois flags:
-```ts
-const isCorretorOnly  = userRoles.length > 0 && userRoles.every(r => r === 'corretor');
-const isAssistenteOnly = userRoles.length > 0 && userRoles.every(r => r === 'assistente');
-```
-Repassar ambos para `useLeadCRUD`. Lista de leads continua filtrando por `broker_id === user.id` para corretor; para assistente, mostrar leads onde `created_by === user.id AND broker_id IS NULL` (até existir regra de produto mais ampla).
+- New copy when `isRlsError(error)` is true:
+  *"Não foi possível salvar o lead por falta de permissão ou organização inválida. Atualize a página e tente novamente."*
+- Enhanced `console.error` payload (no PII):
+  ```ts
+  console.error('[leads] RLS denied', {
+    mutation: 'createLead' | 'updateLead',
+    table: 'leads',
+    operation: 'insert' | 'update',
+    code: error?.code,
+    status: error?.status,
+    hint: error?.hint,
+    orgId: profile?.organization_id,
+    userId: user?.id,
+  });
+  ```
+No other behavior changes; gates by role and trigger preservation remain intact.
 
-### `src/hooks/useLeadCRUD.ts`
-- Aceitar `{ leadStages, isCorretorOnly, isAssistenteOnly }`.
-- Helper `isRlsError(e)`: `e?.code === '42501' || /row-level security/i.test(e?.message ?? '')`.
+### Step 3 — Validation (ran after migration applies)
 
-**createLead.mutationFn (gate antes do insert)**
-```ts
-const payload = { ...rest };
+1. `supabase--read_query` →
+   ```sql
+   SELECT policyname, permissive, cmd FROM pg_policies
+    WHERE schemaname='public' AND tablename='leads' ORDER BY policyname;
+   ```
+   Expect: `Block …` rows show `permissive='RESTRICTIVE'`; no `Users can …` rows; v2 + Managers delete preserved.
+2. `supabase--read_query` → eligibility check using a real broker user id from `user_roles` (role='corretor') and their `profiles.organization_id`:
+   ```sql
+   SELECT public.is_lead_eligible_responsible(<auth_uid>, <org_id>);
+   ```
+   Expect `true`.
+3. `supabase--linter` — confirm no new errors on `public.leads` policies/functions.
+4. `npx tsc --noEmit` — expect clean.
+5. `npx vite build` — expect clean.
 
-if (isCorretorOnly) {
-  if (payload.broker_id && payload.broker_id !== user.id) {
-    throw new Error('Corretores não podem atribuir leads diretamente para outro responsável.');
-  }
-  payload.broker_id = user.id;
-}
+### Out of scope (will NOT touch)
 
-if (isAssistenteOnly) {
-  if (payload.broker_id) {
-    throw new Error('Assistentes não podem atribuir leads diretamente para outro responsável.');
-  }
-  // mantém broker_id ausente → NULL
-}
+- `src/components/crm/KanbanBoard.tsx`
+- Edge function `website-lead` (uses service_role, bypasses RLS)
+- Schema of `public.leads`
+- Multi-tenant helpers (`is_member_of_org`, `get_user_organization_id`, `is_leads_org_manager`)
+- No new permissive policy will be created
 
-// não envia created_by (trigger preenche)
-const { data, error } = await supabase.from('leads').insert({
-  ...payload, organization_id: profile.organization_id,
-  lead_stage_id: lead_stage_id || defaultStageId, stage: 'novo',
-}).select(`*, lead_type:lead_types(*)`).single();
-```
+### Deliverables I will return after execution
 
-**updateLead.mutationFn (mesmo gate antes do update)**
-```ts
-if (isCorretorOnly) {
-  if ('broker_id' in input && input.broker_id !== user.id) {
-    throw new Error('Corretores não podem alterar o responsável do lead.');
-  }
-}
-if (isAssistenteOnly) {
-  if ('broker_id' in input && input.broker_id) {
-    throw new Error('Assistentes não podem atribuir leads a um responsável.');
-  }
-}
-```
+1. Final migration SQL (as applied).
+2. Diff of `src/hooks/useLeadCRUD.ts`.
+3. `pg_policies` output for `public.leads` post-migration.
+4. Result of `is_lead_eligible_responsible(<real corretor uid>, <org>)`.
+5. `npx tsc --noEmit` output.
+6. `npx vite build` output.
+7. `supabase--linter` output.
 
-**onError em ambos**
-```ts
-if (isRlsError(error)) {
-  toast({ title: 'Permissão negada', description: 'Você não tem permissão para esta ação.', variant: 'destructive' });
-  console.error('[leads] RLS denied', { code: error.code, orgId: profile?.organization_id, userId: user?.id });
-  return;
-}
-```
-
-### `src/components/crm/KanbanBoard.tsx`
-Envolver `handleFormSubmit` em `try/catch` para evitar Unhandled Promise Rejection no Sentry; toast já é mostrado pelas mutações.
-
-## Arquivos alterados
-
-- `supabase/migrations/20260427211423_fix_leads_rls_select_update.sql` (novo, com `DROP POLICY IF EXISTS`)
-- `src/hooks/useLeads.ts` (split de flags)
-- `src/hooks/useLeadCRUD.ts` (gates por papel + tratamento 42501 + remover envio de `created_by`)
-- `src/components/crm/KanbanBoard.tsx` (try/catch)
-
-## Checklist de testes
-
-| # | Cenário | Esperado |
-|---|---|---|
-| 1 | Corretor cria lead sem broker | OK; trigger preenche `created_by`; frontend preenche `broker_id = self`; INSERT-RETURNING retorna 200 |
-| 2 | Assistente cria lead sem broker | OK; `broker_id` permanece NULL; SELECT passa via `created_by = auth.uid() AND broker_id IS NULL` |
-| 3 | Assistente tenta atribuir broker no formulário | Bloqueado no frontend com toast; nenhum POST disparado |
-| 4 | Admin cria lead para corretor X | OK |
-| 5 | Corretor tenta transferir lead próprio para outro corretor | Bloqueado no frontend; se forçado via API, bloqueado pelo UPDATE WITH CHECK |
-| 6 | Corretor tenta desatribuir o próprio lead (`broker_id → NULL`) | Bloqueado pelo UPDATE WITH CHECK |
-| 7 | Manager tenta atribuir lead a um assistente | Bloqueado pelo trigger (`is_lead_eligible_responsible` = false) |
-| 8 | Tentativa de spoofar `created_by` em UPDATE | Trigger restaura `OLD.created_by` |
-| 9 | INSERT com `broker_id` de outra org | Trigger lança `check_violation` |
-| 10 | `npx tsc --noEmit`, `npx vite build`, `supabase--linter` | Verde |
-| 11 | Sentry pós-deploy | Sem novos `Unhandled Promise Rejection` em KanbanBoard nem `42501` no fluxo normal |
-
-## Riscos
-
-Baixo. Defesa em três camadas (frontend, policy, trigger). Multi-tenant preservado por `is_member_of_org` em todas as policies. A regra "assistente nunca é responsável" pode ser flexibilizada no futuro alterando apenas `is_lead_eligible_responsible`.
+Approve this plan to switch out of plan mode so I can write the migration file, edit `useLeadCRUD.ts`, and run the validations.
