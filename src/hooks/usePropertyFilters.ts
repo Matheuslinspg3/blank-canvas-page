@@ -39,6 +39,7 @@ export function createDefaultPropertyFilters(): PropertyFilters {
     status: 'all',
     availabilityStatus: 'all',
     propertyTypeId: 'all',
+    propertyTypeIds: [],
     minPrice: null,
     maxPrice: null,
     minBedrooms: null,
