@@ -76,10 +76,15 @@ export function useTransactions() {
         description: 'A transação foi registrada com sucesso.',
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      const isRls =
+        error?.code === '42501' ||
+        /row-level security|permission denied/i.test(error?.message || '');
       toast({
         title: 'Erro ao criar transação',
-        description: error.message,
+        description: isRls
+          ? 'Você não tem permissão para criar transações. Solicite acesso ao administrador da organização.'
+          : error.message,
         variant: 'destructive',
       });
     },
