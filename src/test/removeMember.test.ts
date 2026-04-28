@@ -164,15 +164,7 @@ describe("broker removal contract", () => {
       { user_id: "broker-uid", id: "broker-pid", full_name: "Broker To Remove",
         organization_id: "org-1", removed_at: null, custom_role_id: null },
     );
-    // profiles_public mirrors profiles but filters removed_at IS NULL + org_id NOT NULL
-    Object.defineProperty(db, "profiles_public", {
-      get() {
-        return table("profiles").filter(
-          (p) => p.removed_at === null && p.organization_id !== null,
-        );
-      },
-      configurable: true,
-    });
+    // profiles_public is a view; readSource() projects it from `profiles`.
     table("user_roles").push(
       { user_id: "admin-uid", role: "admin" },
       { user_id: "broker-uid", role: "corretor" },
