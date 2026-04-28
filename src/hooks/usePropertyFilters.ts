@@ -75,6 +75,7 @@ export function usePropertyFilters() {
     status: searchParams.get('status') || 'all',
     availabilityStatus: searchParams.get('disponibilidade') || 'all',
     propertyTypeId: searchParams.get('tipo_imovel') || 'all',
+    propertyTypeIds: searchParams.get('tipos') ? searchParams.get('tipos')!.split(',').filter(Boolean) : [],
     minPrice: searchParams.get('min_preco') ? Number(searchParams.get('min_preco')) : null,
     maxPrice: searchParams.get('max_preco') ? Number(searchParams.get('max_preco')) : null,
     minBedrooms: searchParams.get('quartos') ? Number(searchParams.get('quartos')) : null,
