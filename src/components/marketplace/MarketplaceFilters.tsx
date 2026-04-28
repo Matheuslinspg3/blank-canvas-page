@@ -391,16 +391,24 @@ export function MarketplaceFilters({
               <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter("minParking", null)} />
             </Badge>
           )}
-          {filters.city && (
-            <Badge variant="secondary" className="gap-1">
-              {filters.city}
-              <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter("city", "")} />
+          {filters.cities.map((c) => (
+            <Badge key={`city-${c}`} variant="secondary" className="gap-1">
+              {c}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter("cities", filters.cities.filter((x) => x !== c))} />
             </Badge>
-          )}
-          {filters.neighborhood && (
+          ))}
+          {filters.neighborhoods.map((n) => (
+            <Badge key={`neigh-${n}`} variant="secondary" className="gap-1">
+              {n}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter("neighborhoods", filters.neighborhoods.filter((x) => x !== n))} />
+            </Badge>
+          ))}
+          {filters.propertyTypeIds.length > 0 && (
             <Badge variant="secondary" className="gap-1">
-              {filters.neighborhood}
-              <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter("neighborhood", "")} />
+              {filters.propertyTypeIds.length === 1
+                ? propertyTypes.find((t) => t.id === filters.propertyTypeIds[0])?.name ?? "Tipo"
+                : `${filters.propertyTypeIds.length} tipos`}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter("propertyTypeIds", [])} />
             </Badge>
           )}
           {(filters.minPrice || filters.maxPrice) && (
