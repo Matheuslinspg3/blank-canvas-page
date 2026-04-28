@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCallback, useMemo } from "react";
 import { type MarketplaceFiltersState, defaultMarketplaceFilters } from "@/components/marketplace/MarketplaceFilters";
+import { normalizeAccentsKey } from "@/lib/normalizeText";
 
 export interface MarketplaceProperty {
   id: string;
