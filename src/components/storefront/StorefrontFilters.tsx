@@ -270,12 +270,12 @@ export function StorefrontFilters({
               {filters.minParking !== null && (
                 <FilterBadge label={`${filters.minParking}+ vagas`} onRemove={() => onUpdateFilter("minParking", null)} primaryColor={primaryColor} />
               )}
-              {filters.city && (
-                <FilterBadge label={filters.city} onRemove={() => { onUpdateFilter("city", ""); onUpdateFilter("neighborhood", ""); }} primaryColor={primaryColor} />
-              )}
-              {filters.neighborhood && (
-                <FilterBadge label={filters.neighborhood} onRemove={() => onUpdateFilter("neighborhood", "")} primaryColor={primaryColor} />
-              )}
+              {filters.cities.map((c) => (
+                <FilterBadge key={`c-${c}`} label={c} onRemove={() => onUpdateFilter("cities", filters.cities.filter((x) => x !== c))} primaryColor={primaryColor} />
+              ))}
+              {filters.neighborhoods.map((n) => (
+                <FilterBadge key={`n-${n}`} label={n} onRemove={() => onUpdateFilter("neighborhoods", filters.neighborhoods.filter((x) => x !== n))} primaryColor={primaryColor} />
+              ))}
               {(filters.minPrice !== null || filters.maxPrice !== null) && (
                 <FilterBadge
                   label={`R$ ${formatPriceBR(filters.minPrice) || "0"} - ${formatPriceBR(filters.maxPrice) || "∞"}`}
@@ -307,12 +307,12 @@ export function StorefrontFilters({
           {filters.minParking !== null && (
             <FilterBadge label={`${filters.minParking}+ vagas`} onRemove={() => onUpdateFilter("minParking", null)} primaryColor={primaryColor} />
           )}
-          {filters.city && (
-            <FilterBadge label={filters.city} onRemove={() => { onUpdateFilter("city", ""); onUpdateFilter("neighborhood", ""); }} primaryColor={primaryColor} />
-          )}
-          {filters.neighborhood && (
-            <FilterBadge label={filters.neighborhood} onRemove={() => onUpdateFilter("neighborhood", "")} primaryColor={primaryColor} />
-          )}
+          {filters.cities.map((c) => (
+            <FilterBadge key={`c2-${c}`} label={c} onRemove={() => onUpdateFilter("cities", filters.cities.filter((x) => x !== c))} primaryColor={primaryColor} />
+          ))}
+          {filters.neighborhoods.map((n) => (
+            <FilterBadge key={`n2-${n}`} label={n} onRemove={() => onUpdateFilter("neighborhoods", filters.neighborhoods.filter((x) => x !== n))} primaryColor={primaryColor} />
+          ))}
           {(filters.minPrice !== null || filters.maxPrice !== null) && (
             <FilterBadge
               label={`R$ ${formatPriceBR(filters.minPrice) || "0"} - ${formatPriceBR(filters.maxPrice) || "∞"}`}
