@@ -26,6 +26,7 @@ import { MaintenanceGuard } from "@/components/MaintenanceGuard";
 import { Loader2 } from "lucide-react";
 import { lazyRetry } from "@/utils/lazyRetry";
 import { normalizeError, isExpectedBusinessError } from "@/lib/normalizeError";
+import { GlobalUpdateNotifier } from "@/components/GlobalUpdateNotifier";
 
 // Lazy-loaded pages with retry for stale chunk recovery
 const Auth = lazy(() => lazyRetry(() => import("./pages/Auth")));
@@ -167,6 +168,7 @@ const App = () => (
         <ImportProgressProvider>
             <BrowserRouter>
               <TenantRouter>
+              <GlobalUpdateNotifier />
               <ErrorBoundary>
               <DemoProvider>
                 <TooltipProvider>
