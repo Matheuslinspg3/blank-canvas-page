@@ -5,6 +5,7 @@ import { WhiteLabelStorefront } from "@/components/WhiteLabelStorefront";
 import { Loader2 } from "lucide-react";
 import { lazyWithRetry } from "@/utils/lazyWithRetry";
 import { ChunkLoadErrorBoundary } from "@/components/ChunkLoadErrorBoundary";
+import { extractPlatformSlug } from "@/config/platform";
 
 const PropertyLandingPage = lazy(() =>
   lazyWithRetry(() => import("@/pages/PropertyLandingPage"), {
