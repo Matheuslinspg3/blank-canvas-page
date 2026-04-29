@@ -96,9 +96,24 @@ interface LandingContact {
   attribution_source: string | null;
 }
 
-export default function PropertyLandingPage() {
+interface PropertyLandingPageProps {
+  /** Override for direct UUID id (used when rendered outside <Routes>, e.g. TenantRouter). */
+  propIdOverride?: string;
+  /** Override for property_code (used when URL path carries a code instead of UUID). */
+  propCodeOverride?: string;
+  /** Override for org slug (derived from hostname when route params are unavailable). */
+  orgSlugOverride?: string;
+  /** Override for organization_id (custom-domain fallback when slug is unknown). */
+  organizationIdOverride?: string;
+}
+
+export default function PropertyLandingPage(props: PropertyLandingPageProps = {}) {
   const params = useParams<{ id?: string; orgSlug?: string; propertyCode?: string; brokerToken?: string }>();
-  const { id: paramId, orgSlug, propertyCode, brokerToken } = params;
+  const paramId = props.propIdOverride ?? params.id;
+  const orgSlug = props.orgSlugOverride ?? params.orgSlug;
+  const propertyCode = props.propCodeOverride ?? params.propertyCode;
+  const brokerToken = params.brokerToken;
+  const organizationIdOverride = props.organizationIdOverride;
   const { toast } = useToast();
   const [resolvedId, setResolvedId] = useState<string | null>(paramId ?? null);
   const [property, setProperty] = useState<PropertyWithDetails | null>(null);
