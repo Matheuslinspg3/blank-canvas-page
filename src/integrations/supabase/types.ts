@@ -10693,6 +10693,12 @@ export type Database = {
           stored_url: string
         }[]
       }
+      get_public_redirect_for_hostname: {
+        Args: { p_hostname: string }
+        Returns: {
+          redirect_to: string
+        }[]
+      }
       get_public_site_document: { Args: { p_org_id: string }; Returns: Json }
       get_public_site_document_full: {
         Args: { p_org_id: string }
