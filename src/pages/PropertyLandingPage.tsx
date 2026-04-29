@@ -150,6 +150,9 @@ export default function PropertyLandingPage(props: PropertyLandingPageProps = {}
   useEffect(() => {
     async function fetchProperty() {
       if (!id) return;
+      // Defense-in-depth: get_public_property expects a UUID. If a non-UUID slipped through
+      // (e.g. property_code), skip the call and let the resolution effect convert it first.
+      if (!isUuid(id)) return;
 
       // Use secure RPC functions that only expose safe columns (no commission, internal metadata, full address)
       const { data: propertyRows, error } = await (supabase.rpc as any)('get_public_property', { p_id: id });
