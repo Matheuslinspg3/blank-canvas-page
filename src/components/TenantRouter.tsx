@@ -55,12 +55,13 @@ export function TenantRouter({ children }: Props) {
   const imovelMatch = pathname.match(/^\/imovel\/([^/]+)\/?$/);
   if (imovelMatch) {
     const idOrCode = imovelMatch[1];
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrCode);
     // Derive org slug from hostname (platform subdomain). For custom domains the
     // PropertyLandingPage will fall back to resolving by organizationId.
     const hostname = typeof window !== "undefined" ? window.location.hostname : "";
     const orgSlug = extractPlatformSlug(hostname);
 
+    // PropertyLandingPage now auto-detects whether `propIdOverride` is a UUID or a
+    // property_code and picks the correct RPC, so we just forward the raw segment.
     return (
       <ChunkLoadErrorBoundary>
         <Suspense
@@ -71,8 +72,7 @@ export function TenantRouter({ children }: Props) {
           }
         >
           <PropertyLandingPage
-            propIdOverride={isUuid ? idOrCode : undefined}
-            propCodeOverride={!isUuid ? idOrCode : undefined}
+            propIdOverride={idOrCode}
             orgSlugOverride={orgSlug ?? undefined}
             organizationIdOverride={organizationId ?? undefined}
           />
