@@ -1,81 +1,43 @@
-## Relatório Executivo — Erro ao criar transação
+# Corrigir "Missing queryFn" no Sentry (rota /marketplace)
 
-### Sintoma
-Ao clicar em **Salvar** no diálogo "Nova Transação", o request falha silenciosamente (toast de erro). O log do Postgres confirma:
+## Causa raiz (confirmada por leitura de código)
 
-```
-new row violates row-level security policy for table "transactions"
-```
+`src/components/AppSidebar.tsx`, linhas 75–105, tem um helper `safePrefetch` que chama `queryClient.prefetchQuery({ queryKey, staleTime })` **sem `queryFn`**:
 
-### Causa raiz
-A política de INSERT da tabela `public.transactions` foi restringida em `20260217034558` para apenas 3 papéis:
-
-```sql
-CREATE POLICY "Managers can create transactions" ON public.transactions
-  FOR INSERT WITH CHECK (
-    organization_id = get_user_organization_id()
-    AND (has_role(auth.uid(),'admin')
-      OR has_role(auth.uid(),'leader')
-      OR has_role(auth.uid(),'developer'))
-  );
+```ts
+const safePrefetch = (...keys: unknown[][]) => {
+  keys.forEach((queryKey) => {
+    const existing = qc.getQueryState(queryKey);
+    if (existing) {
+      qc.prefetchQuery({ queryKey, staleTime: 60_000 }); // ❌
+    }
+  });
+};
 ```
 
-Mas o sistema de papéis em uso (`user_roles`) contém também: `corretor`, `assistente`, `sub_admin`. Nenhum desses consegue inserir, e **`leader` sequer existe nos dados** — ninguém possui esse papel hoje. Resultado: somente `admin` e `developer` conseguem criar transações; qualquer outro usuário (incluindo `sub_admin`, que é gestor) recebe violação de RLS.
+Isso é disparado em `onMouseEnter` dos itens do menu lateral (linha 157). No React Query v5, `prefetchQuery` **exige `queryFn` explícito a cada chamada** — não reaproveita a função de um observer anterior. Quando o usuário está em `/marketplace` (onde `useLeadCRUD`/`useAppointments` não estão montados) e passa o mouse sobre "CRM" ou "Agenda", o cache contém entradas `["leads", orgId]` / `["appointments", orgId]` (criadas por `invalidateQueries` de várias mutations) **sem `queryFn` registrada**, e o prefetch quebra com a exceção do Sentry.
 
-O mesmo problema afeta SELECT, UPDATE e DELETE de `transactions` (todas as policies usam o mesmo trio `admin/leader/developer`), então usuários `sub_admin`/`assistente` também não veem nem editam transações existentes.
+Os hooks `useLeadCRUD` e `useAppointments` em si estão corretos.
 
-### Evidências coletadas
-- Log Postgres recente: `new row violates row-level security policy for table "transactions"`
-- Policies atuais em `pg_policy` confirmam o filtro restrito
-- Tabela `user_roles` não possui nenhum registro com role `leader`
-- Hook `useTransactions` envia payload correto (`organization_id`, `created_by`), portanto o problema não está no front
+## Correção
 
-### Solução proposta
+Remover por completo o `prefetchRoute` do `AppSidebar`. O ganho é praticamente nulo (só refresca entradas que já estavam em cache), e cada hook de destino (`useLeadCRUD`, `useAppointments`, `useTransactions`, etc.) já tem `staleTime` suficiente para uma navegação fluida.
 
-**1. Migration corrigindo as 4 policies de `public.transactions`**
+### Alterações em `src/components/AppSidebar.tsx`
 
-Substituir o trio `admin/leader/developer` por uma checagem que cubra todos os papéis de gestão reais:
+1. Linha 1–2: remover `useCallback` do import de React e remover o import `useQueryClient`:
+   ```ts
+   import React from "react";
+   ```
+2. Linhas 75–105: remover o bloco completo (`const qc = useQueryClient();` + `const prefetchRoute = useCallback(...)`).
+3. Linha 157: remover o atributo `onMouseEnter={() => prefetchRoute(item.url)}` do `<NavLink>`.
 
-```sql
--- helper já existente: is_org_admin / has_role
--- Permitir admin, sub_admin, leader (futuro) e developer
-DROP POLICY "Managers can create transactions" ON public.transactions;
-CREATE POLICY "Managers can create transactions" ON public.transactions
-FOR INSERT TO authenticated
-WITH CHECK (
-  organization_id = get_user_organization_id()
-  AND (
-    has_role(auth.uid(),'admin')
-    OR has_role(auth.uid(),'sub_admin')
-    OR has_role(auth.uid(),'leader')
-    OR has_role(auth.uid(),'developer')
-  )
-);
-```
+Nenhum outro arquivo é afetado.
 
-Aplicar o mesmo ajuste em:
-- `Managers can view transactions in their organization` (SELECT)
-- `Managers can update transactions in their organization` (UPDATE)
-- `Admins can delete transactions` — manter restrita a `admin` + `developer` (delete é destrutivo)
+## Verificação
 
-**2. Melhorar feedback de erro no front**
+Varredura completa por `prefetchQuery`/`fetchQuery`/`ensureQueryData` no projeto retorna **só** `src/components/AppSidebar.tsx:85` como ofensor. As queries da superfície do `/marketplace` (`useMarketplace`, `useMarketplaceStatus`, `useMarketplaceNeighborhoods`, `useMarketplaceMetrics`, `useExternalListings`) têm `queryFn` corretas.
 
-Em `src/hooks/useTransactions.ts`, o `onError` já mostra `error.message`, mas mensagens RLS do Postgres são técnicas. Detectar `42501`/`row-level security` e exibir:
+## Riscos
 
-> "Você não tem permissão para criar transações. Solicite acesso ao administrador."
-
-**3. Validação pós-deploy**
-- Rodar `supabase--test_edge_functions` não se aplica (sem edge function envolvida)
-- Testar manualmente como `sub_admin` e `corretor` (decidir se `corretor` deve criar ou não — ver questão abaixo)
-- Verificar que `admin` continua funcionando
-
-### Decisão necessária
-Hoje o diálogo "Nova Transação" aparece para o usuário (não há gate). Preciso confirmar **quem deve poder criar transações financeiras**:
-- Opção A (recomendada): `admin`, `sub_admin`, `leader`, `developer` — gestão financeira
-- Opção B: incluir também `corretor`/`assistente` (qualquer membro da org)
-
-Vou assumir **Opção A** salvo indicação contrária — ela alinha com a intenção original da migration `20260217` (restringir a "Managers"), apenas corrigindo a lista de papéis.
-
-### Arquivos afetados
-- `supabase/migrations/<novo>_fix_transactions_rls.sql` (criar)
-- `src/hooks/useTransactions.ts` (mensagens de erro mais amigáveis)
+Nenhum funcional. UX permanece igual (a maioria das rotas já tem dados em cache válidos por 1–2 min via `staleTime`). Elimina-se a exceção de produção.

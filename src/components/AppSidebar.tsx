@@ -1,5 +1,4 @@
-import React, { useCallback } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import React from "react";
 import {
   Users,
   DollarSign,
@@ -72,37 +71,6 @@ export function AppSidebar() {
   const currentPath = location.pathname;
   const { data: newAdLeadsCount = 0 } = useAdLeadsCount();
   const setupPending = useSetupPendingCount();
-  const qc = useQueryClient();
-
-  const prefetchRoute = useCallback((url: string) => {
-    const orgId = profile?.organization_id;
-    if (!orgId) return;
-
-    const safePrefetch = (...keys: unknown[][]) => {
-      keys.forEach((queryKey) => {
-        const existing = qc.getQueryState(queryKey);
-        if (existing) {
-          qc.prefetchQuery({ queryKey, staleTime: 60_000 });
-        }
-      });
-    };
-
-    if (url === "/imoveis") {
-      safePrefetch(["properties", orgId]);
-    } else if (url === "/crm") {
-      safePrefetch(["leads", orgId]);
-    } else if (url === "/financeiro") {
-      safePrefetch(["transactions", orgId]);
-    } else if (url === "/agenda") {
-      safePrefetch(["appointments", orgId]);
-    } else if (url === "/dashboard") {
-      safePrefetch(["dashboard-stats", orgId], ["dashboard-pipeline", orgId]);
-    } else if (url === "/marketplace") {
-      safePrefetch(["marketplace-properties", {}, 0]);
-    } else if (url === "/marketing") {
-      safePrefetch(["ad-entities", orgId]);
-    }
-  }, [qc, profile?.organization_id]);
 
   const [orgName, setOrgName] = React.useState<string>("");
 
@@ -154,7 +122,7 @@ export function AppSidebar() {
             to={item.url}
             className="flex items-center gap-3"
             activeClassName="text-primary font-medium"
-            onMouseEnter={() => prefetchRoute(item.url)}
+            
             aria-label={`Ir para ${item.title}`}
           >
             <item.icon className={`h-4 w-4 ${active ? "text-primary" : ""}`} />
