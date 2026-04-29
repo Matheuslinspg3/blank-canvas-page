@@ -10578,6 +10578,10 @@ export type Database = {
         Args: { p_code: string; p_org_slug: string }
         Returns: string
       }
+      get_property_id_by_org_id_code: {
+        Args: { p_code: string; p_org_id: string }
+        Returns: string
+      }
       get_property_neighborhoods: {
         Args: { p_organization_id: string }
         Returns: {
