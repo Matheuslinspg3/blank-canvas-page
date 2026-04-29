@@ -18,6 +18,7 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { MultiSelectFilter } from "@/components/ui/multi-select-filter";
+import { FilterField } from "@/components/ui/filter-field";
 
 export interface MarketplaceFiltersState {
   transactionType: string;
@@ -260,21 +261,36 @@ export function MarketplaceFilters({
                 <MapPin className="h-4 w-4 text-muted-foreground" /> Localização
                 <ChevronDown className="h-4 w-4 ml-auto" />
               </CollapsibleTrigger>
-              <CollapsibleContent className="pt-2 space-y-3">
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Cidades</Label>
+              <CollapsibleContent className="pt-2 space-y-3" data-testid="marketplace-location-content">
+                <FilterField
+                  id="marketplace-cities-field"
+                  label="Cidades"
+                  isEmpty={cities.length === 0}
+                  emptyMessage="Nenhuma cidade disponível no momento"
+                >
                   <MultiSelectFilter
+                    id="marketplace-cities"
                     value={filters.cities}
                     onChange={(next) => onUpdateFilter("cities", next)}
                     options={cities.map((c) => ({ value: c.city, label: c.city, count: c.count }))}
                     triggerLabel="Cidades"
                     placeholder={cities.length === 0 ? "Nenhuma cidade disponível" : "Todas as cidades"}
                     triggerClassName="w-full"
+                    emptyOptionsText="Nenhuma cidade encontrada"
                   />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Bairros</Label>
+                </FilterField>
+                <FilterField
+                  id="marketplace-neighborhoods-field"
+                  label="Bairros"
+                  isEmpty={filteredNeighborhoods.length === 0}
+                  emptyMessage={
+                    filters.cities.length > 0
+                      ? "Nenhum bairro nesta cidade"
+                      : "Selecione uma cidade ou veja todos"
+                  }
+                >
                   <MultiSelectFilter
+                    id="marketplace-neighborhoods"
                     value={filters.neighborhoods}
                     onChange={(next) => onUpdateFilter("neighborhoods", next)}
                     options={filteredNeighborhoods.map((n) => ({ value: n.neighborhood, label: n.neighborhood, count: n.count }))}
@@ -287,13 +303,9 @@ export function MarketplaceFilters({
                         : "Todos os bairros"
                     }
                     triggerClassName="w-full"
+                    emptyOptionsText="Nenhum bairro encontrado"
                   />
-                </div>
-                {cities.length === 0 && filteredNeighborhoods.length === 0 && (
-                  <p className="text-xs text-muted-foreground italic px-1">
-                    Nenhuma localização disponível no momento.
-                  </p>
-                )}
+                </FilterField>
               </CollapsibleContent>
             </Collapsible>
 
