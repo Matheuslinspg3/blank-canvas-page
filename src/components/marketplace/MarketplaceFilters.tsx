@@ -260,32 +260,39 @@ export function MarketplaceFilters({
                 <MapPin className="h-4 w-4 text-muted-foreground" /> Localização
                 <ChevronDown className="h-4 w-4 ml-auto" />
               </CollapsibleTrigger>
-              <CollapsibleContent className="pt-2 space-y-2">
-                {cities.length > 0 && (
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Cidades</Label>
-                    <MultiSelectFilter
-                      value={filters.cities}
-                      onChange={(next) => onUpdateFilter("cities", next)}
-                      options={cities.map((c) => ({ value: c.city, label: c.city, count: c.count }))}
-                      triggerLabel="Cidades"
-                      placeholder="Todas as cidades"
-                      triggerClassName="w-full"
-                    />
-                  </div>
-                )}
-                {filteredNeighborhoods.length > 0 && (
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Bairros</Label>
-                    <MultiSelectFilter
-                      value={filters.neighborhoods}
-                      onChange={(next) => onUpdateFilter("neighborhoods", next)}
-                      options={filteredNeighborhoods.map((n) => ({ value: n.neighborhood, label: n.neighborhood, count: n.count }))}
-                      triggerLabel="Bairros"
-                      placeholder="Todos os bairros"
-                      triggerClassName="w-full"
-                    />
-                  </div>
+              <CollapsibleContent className="pt-2 space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Cidades</Label>
+                  <MultiSelectFilter
+                    value={filters.cities}
+                    onChange={(next) => onUpdateFilter("cities", next)}
+                    options={cities.map((c) => ({ value: c.city, label: c.city, count: c.count }))}
+                    triggerLabel="Cidades"
+                    placeholder={cities.length === 0 ? "Nenhuma cidade disponível" : "Todas as cidades"}
+                    triggerClassName="w-full"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Bairros</Label>
+                  <MultiSelectFilter
+                    value={filters.neighborhoods}
+                    onChange={(next) => onUpdateFilter("neighborhoods", next)}
+                    options={filteredNeighborhoods.map((n) => ({ value: n.neighborhood, label: n.neighborhood, count: n.count }))}
+                    triggerLabel="Bairros"
+                    placeholder={
+                      filteredNeighborhoods.length === 0
+                        ? filters.cities.length > 0
+                          ? "Nenhum bairro nesta cidade"
+                          : "Selecione uma cidade ou veja todos"
+                        : "Todos os bairros"
+                    }
+                    triggerClassName="w-full"
+                  />
+                </div>
+                {cities.length === 0 && filteredNeighborhoods.length === 0 && (
+                  <p className="text-xs text-muted-foreground italic px-1">
+                    Nenhuma localização disponível no momento.
+                  </p>
                 )}
               </CollapsibleContent>
             </Collapsible>
