@@ -160,8 +160,32 @@ export function MultiSelectFilter({
           </div>
 
           <ScrollArea style={{ maxHeight }}>
-            <div className="p-1">
-              {filteredOptions.length === 0 ? (
+            <div className="p-1" data-testid={id ? `${id}-list` : undefined}>
+              {isLoading ? (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="flex flex-col items-center justify-center gap-2 px-3 py-6 text-sm text-muted-foreground"
+                >
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Carregando…</span>
+                </div>
+              ) : error ? (
+                <div
+                  role="alert"
+                  className="flex flex-col items-center justify-center gap-1.5 px-3 py-6 text-center text-sm text-destructive"
+                >
+                  <AlertCircle className="h-4 w-4" />
+                  <span>Não foi possível carregar as opções.</span>
+                  <span className="text-xs text-muted-foreground">
+                    {typeof error === "string" ? error : error.message}
+                  </span>
+                </div>
+              ) : options.length === 0 ? (
+                <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+                  {emptyOptionsText}
+                </p>
+              ) : filteredOptions.length === 0 ? (
                 <p className="px-3 py-6 text-center text-sm text-muted-foreground">{emptyText}</p>
               ) : (
                 filteredOptions.map((opt) => {
