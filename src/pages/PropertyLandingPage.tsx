@@ -107,13 +107,22 @@ interface PropertyLandingPageProps {
   organizationIdOverride?: string;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isUuid = (v: string | undefined | null): v is string => !!v && UUID_RE.test(v);
+
 export default function PropertyLandingPage(props: PropertyLandingPageProps = {}) {
   const params = useParams<{ id?: string; orgSlug?: string; propertyCode?: string; brokerToken?: string }>();
-  const paramId = props.propIdOverride ?? params.id;
-  const orgSlug = props.orgSlugOverride ?? params.orgSlug;
-  const propertyCode = props.propCodeOverride ?? params.propertyCode;
   const brokerToken = params.brokerToken;
   const organizationIdOverride = props.organizationIdOverride;
+
+  // Auto-detect: the `:id` segment may carry either a UUID or a property_code (e.g. "1764").
+  // We normalize here so the same component handles both formats and chooses the right RPC path.
+  const rawId = props.propIdOverride ?? params.id;
+  const paramId = isUuid(rawId) || isUuid(props.propIdOverride) ? rawId : undefined;
+  const detectedCodeFromId = !isUuid(rawId) ? rawId : undefined;
+  const orgSlug = props.orgSlugOverride ?? params.orgSlug;
+  const propertyCode = props.propCodeOverride ?? params.propertyCode ?? detectedCodeFromId;
+
   const { toast } = useToast();
   const [resolvedId, setResolvedId] = useState<string | null>(paramId ?? null);
   const [property, setProperty] = useState<PropertyWithDetails | null>(null);
