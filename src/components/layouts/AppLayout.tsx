@@ -10,19 +10,18 @@ import { SupportFAB } from "@/components/SupportFAB";
 import { OfflineBanner } from "@/components/OfflineBanner";
 
 import { RenewalBanner } from "@/components/RenewalBanner";
-import { UpdateBanner } from "@/components/UpdateBanner";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { PushPermissionBanner } from "@/components/PushPermissionBanner";
 import { APP_VERSION } from "@/config/appVersion";
 import { useModuleVisit } from "@/hooks/useAnalytics";
 import { GlobalCommandPalette } from "@/components/GlobalCommandPalette";
-import { useVersionPolling } from "@/hooks/useVersionPolling";
+// useVersionPolling + UpdateBanner moved to GlobalUpdateNotifier (mounted in App.tsx)
+// so update prompts also reach public routes (/marketplace, /site, /imovel/...).
 
 export function AppLayout() {
   const { isDemoMode } = useDemo();
   
   useModuleVisit();
-  useVersionPolling();
 
   // Push notification permission is now requested only via explicit user gesture
   // (Settings page or notification bell) — not auto-prompted here
@@ -51,7 +50,7 @@ export function AppLayout() {
         <SupportFAB />
         <MobileBottomNav />
         <PWAInstallPrompt />
-        <UpdateBanner />
+        {/* UpdateBanner now rendered globally via GlobalUpdateNotifier */}
         <GlobalCommandPalette />
         <span className="fixed bottom-1 left-1 z-[9999] text-[10px] text-muted-foreground/70 pointer-events-none select-none hidden md:block">Porta v{APP_VERSION}</span>
       </div>
