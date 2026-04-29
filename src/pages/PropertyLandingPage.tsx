@@ -224,49 +224,76 @@ export default function PropertyLandingPage(props: PropertyLandingPageProps = {}
    */
   useEffect(() => {
     if (paramId) { setResolvedId(paramId); return; }
-    if (!orgSlug || !propertyCode) return;
+    // Need a code AND either a slug or an organization_id to resolve
+    if (!propertyCode || (!orgSlug && !organizationIdOverride)) {
+      setResolvedId(null);
+      setLoading(false);
+      return;
+    }
 
     let cancelled = false;
     (async () => {
-      // Layer A — RPC pública combinada
-      try {
-        const { data: combined, error: errA } = await (supabase.rpc as any)(
-          "get_public_property_by_org_code",
-          { p_org_slug: orgSlug, p_code: propertyCode }
-        );
-        if (!cancelled && !errA && combined && (combined.id || combined.property?.id)) {
-          const propId = combined.id ?? combined.property?.id;
-          setResolvedId(propId);
-          return;
+      // Layer A — RPC pública combinada (precisa de orgSlug)
+      if (orgSlug) {
+        try {
+          const { data: combined, error: errA } = await (supabase.rpc as any)(
+            "get_public_property_by_org_code",
+            { p_org_slug: orgSlug, p_code: propertyCode }
+          );
+          if (!cancelled && !errA && combined && (combined.id || combined.property?.id)) {
+            const propId = combined.id ?? combined.property?.id;
+            setResolvedId(propId);
+            return;
+          }
+        } catch (e) {
+          console.warn("[landing] Layer A failed", e);
         }
-      } catch (e) {
-        console.warn("[landing] Layer A failed", e);
+
+        // Layer B — RPC de ID enxuta
+        try {
+          const { data: propId, error: errB } = await (supabase.rpc as any)(
+            "get_property_id_by_org_code",
+            { p_org_slug: orgSlug, p_code: propertyCode }
+          );
+          if (!cancelled && !errB && propId) {
+            setResolvedId(propId as string);
+            return;
+          }
+        } catch (e) {
+          console.warn("[landing] Layer B failed", e);
+        }
       }
 
-      // Layer B — RPC de ID enxuta
-      try {
-        const { data: propId, error: errB } = await (supabase.rpc as any)(
-          "get_property_id_by_org_code",
-          { p_org_slug: orgSlug, p_code: propertyCode }
-        );
-        if (!cancelled && !errB && propId) {
-          setResolvedId(propId as string);
-          return;
+      // Layer B2 — RPC por organization_id (custom domains sem slug conhecido)
+      if (organizationIdOverride) {
+        try {
+          const { data: propId, error: errB2 } = await (supabase.rpc as any)(
+            "get_property_id_by_org_id_code",
+            { p_org_id: organizationIdOverride, p_code: propertyCode }
+          );
+          if (!cancelled && !errB2 && propId) {
+            setResolvedId(propId as string);
+            return;
+          }
+        } catch (e) {
+          console.warn("[landing] Layer B2 failed", e);
         }
-      } catch (e) {
-        console.warn("[landing] Layer B failed", e);
       }
 
       // Layer C — fallback autenticado (preview interno)
       try {
         const { data: session } = await supabase.auth.getSession();
         if (session?.session?.user) {
-          const { data: org } = await supabase
-            .from("organizations").select("id").eq("slug", orgSlug).maybeSingle();
-          if (org) {
+          let orgId: string | null = organizationIdOverride ?? null;
+          if (!orgId && orgSlug) {
+            const { data: org } = await supabase
+              .from("organizations").select("id").eq("slug", orgSlug).maybeSingle();
+            orgId = org?.id ?? null;
+          }
+          if (orgId) {
             const { data: prop } = await supabase
               .from("properties").select("id")
-              .eq("organization_id", org.id)
+              .eq("organization_id", orgId)
               .eq("property_code", propertyCode)
               .maybeSingle();
             if (!cancelled && prop?.id) {
@@ -281,8 +308,7 @@ export default function PropertyLandingPage(props: PropertyLandingPageProps = {}
 
       if (cancelled) return;
 
-      // Todas falharam — telemetria + estado not-found
-      console.warn("[landing] not_found", { orgSlug, propertyCode });
+      console.warn("[landing] not_found", { orgSlug, propertyCode, organizationIdOverride });
       supabase.functions.invoke("track-landing-visit", {
         body: {
           broker_token: brokerToken ?? null,
@@ -299,7 +325,7 @@ export default function PropertyLandingPage(props: PropertyLandingPageProps = {}
     })();
 
     return () => { cancelled = true; };
-  }, [paramId, orgSlug, propertyCode, brokerToken]);
+  }, [paramId, orgSlug, propertyCode, brokerToken, organizationIdOverride]);
 
   // Fetch attribution contact + record visit
   useEffect(() => {
