@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Check, ChevronDown, X, Search } from "lucide-react";
+import { Check, ChevronDown, X, Search, Loader2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +32,12 @@ interface MultiSelectFilterProps {
   disabled?: boolean;
   /** Optional id used for aria/testing. */
   id?: string;
+  /** Loading state — renders skeleton inside the popover instead of the empty list. */
+  isLoading?: boolean;
+  /** Error state — renders a friendly error message inside the popover. */
+  error?: Error | string | null;
+  /** Custom message when there are zero options (and not loading/error). */
+  emptyOptionsText?: string;
 }
 
 /**
@@ -61,6 +67,9 @@ export function MultiSelectFilter({
   maxHeight = "260px",
   disabled,
   id,
+  isLoading = false,
+  error = null,
+  emptyOptionsText = "Nenhuma opção disponível",
 }: MultiSelectFilterProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
