@@ -5,6 +5,7 @@ import { WhiteLabelStorefront } from "@/components/WhiteLabelStorefront";
 import { Loader2 } from "lucide-react";
 import { lazyWithRetry } from "@/utils/lazyWithRetry";
 import { ChunkLoadErrorBoundary } from "@/components/ChunkLoadErrorBoundary";
+import { extractPlatformSlug } from "@/config/platform";
 
 const PropertyLandingPage = lazy(() =>
   lazyWithRetry(() => import("@/pages/PropertyLandingPage"), {
@@ -50,9 +51,16 @@ export function TenantRouter({ children }: Props) {
     );
   }
 
-  // Check if the path is a property landing page: /imovel/:id
+  // Check if the path is a property landing page: /imovel/:idOrCode
   const imovelMatch = pathname.match(/^\/imovel\/([^/]+)\/?$/);
   if (imovelMatch) {
+    const idOrCode = imovelMatch[1];
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrCode);
+    // Derive org slug from hostname (platform subdomain). For custom domains the
+    // PropertyLandingPage will fall back to resolving by organizationId.
+    const hostname = typeof window !== "undefined" ? window.location.hostname : "";
+    const orgSlug = extractPlatformSlug(hostname);
+
     return (
       <ChunkLoadErrorBoundary>
         <Suspense
@@ -62,7 +70,12 @@ export function TenantRouter({ children }: Props) {
             </div>
           }
         >
-          <PropertyLandingPage />
+          <PropertyLandingPage
+            propIdOverride={isUuid ? idOrCode : undefined}
+            propCodeOverride={!isUuid ? idOrCode : undefined}
+            orgSlugOverride={orgSlug ?? undefined}
+            organizationIdOverride={organizationId ?? undefined}
+          />
         </Suspense>
       </ChunkLoadErrorBoundary>
     );
