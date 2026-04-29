@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Check, ChevronDown, X, Search } from "lucide-react";
+import { Check, ChevronDown, X, Search, Loader2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +32,12 @@ interface MultiSelectFilterProps {
   disabled?: boolean;
   /** Optional id used for aria/testing. */
   id?: string;
+  /** Loading state — renders skeleton inside the popover instead of the empty list. */
+  isLoading?: boolean;
+  /** Error state — renders a friendly error message inside the popover. */
+  error?: Error | string | null;
+  /** Custom message when there are zero options (and not loading/error). */
+  emptyOptionsText?: string;
 }
 
 /**
@@ -61,6 +67,9 @@ export function MultiSelectFilter({
   maxHeight = "260px",
   disabled,
   id,
+  isLoading = false,
+  error = null,
+  emptyOptionsText = "Nenhuma opção disponível",
 }: MultiSelectFilterProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -151,8 +160,32 @@ export function MultiSelectFilter({
           </div>
 
           <ScrollArea style={{ maxHeight }}>
-            <div className="p-1">
-              {filteredOptions.length === 0 ? (
+            <div className="p-1" data-testid={id ? `${id}-list` : undefined}>
+              {isLoading ? (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="flex flex-col items-center justify-center gap-2 px-3 py-6 text-sm text-muted-foreground"
+                >
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Carregando…</span>
+                </div>
+              ) : error ? (
+                <div
+                  role="alert"
+                  className="flex flex-col items-center justify-center gap-1.5 px-3 py-6 text-center text-sm text-destructive"
+                >
+                  <AlertCircle className="h-4 w-4" />
+                  <span>Não foi possível carregar as opções.</span>
+                  <span className="text-xs text-muted-foreground">
+                    {typeof error === "string" ? error : error.message}
+                  </span>
+                </div>
+              ) : options.length === 0 ? (
+                <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+                  {emptyOptionsText}
+                </p>
+              ) : filteredOptions.length === 0 ? (
                 <p className="px-3 py-6 text-center text-sm text-muted-foreground">{emptyText}</p>
               ) : (
                 filteredOptions.map((opt) => {
