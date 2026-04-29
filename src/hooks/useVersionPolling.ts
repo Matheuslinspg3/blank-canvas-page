@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import { APP_VERSION } from "@/config/appVersion";
 
 const POLL_INTERVAL = 30_000; // 30s
-const VERSION_URL = `/version.json?_=${Date.now}`;
+// (cache-busting query string is built per-request inside checkVersion)
 
 /**
  * Polls /version.json periodically and on every navigation.
