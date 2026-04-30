@@ -104,7 +104,7 @@ const PageLoader = () => (
 );
 
 // PERF: gcTime 10min, staleTime 2min, retry with exponential backoff for resilience
-export const queryClient = new QueryClient({
+const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 2 * 60 * 1000,
