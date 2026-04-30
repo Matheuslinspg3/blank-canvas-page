@@ -44,6 +44,9 @@ export function usePushNotifications() {
   useEffect(() => {
     if (!user) return;
 
+    // Skip if setup already done for this user (across all hook instances)
+    if (setupDoneForUser === user.id) return;
+
     let cancelled = false;
 
     const setup = async () => {
