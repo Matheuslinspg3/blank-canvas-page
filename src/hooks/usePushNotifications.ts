@@ -109,7 +109,9 @@ export function usePushNotifications() {
       }
     };
 
-    setup();
+    setup().then(() => {
+      if (!cancelled) setupDoneForUser = user.id;
+    });
     return () => {
       cancelled = true;
     };
