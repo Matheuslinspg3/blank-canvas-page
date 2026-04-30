@@ -5116,6 +5116,33 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          event_type: Database["public"]["Enums"]["notification_event_type"]
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          event_type: Database["public"]["Enums"]["notification_event_type"]
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          event_type?: Database["public"]["Enums"]["notification_event_type"]
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
@@ -10398,6 +10425,18 @@ export type Database = {
         Args: { p_mode: string; p_org_id: string }
         Returns: undefined
       }
+      dispatch_notification: {
+        Args: {
+          _entity_id?: string
+          _entity_type?: string
+          _event: Database["public"]["Enums"]["notification_event_type"]
+          _message: string
+          _organization_id: string
+          _title: string
+          _user_id: string
+        }
+        Returns: string
+      }
       exec_sql: { Args: { sql_query: string }; Returns: Json }
       fix_user_without_organization: {
         Args: { p_email: string; p_full_name?: string; p_user_id: string }
@@ -10849,6 +10888,13 @@ export type Database = {
       is_leads_org_manager: { Args: { _uid: string }; Returns: boolean }
       is_maintenance_blocked: { Args: never; Returns: boolean }
       is_member_of_org: { Args: { _org_id: string }; Returns: boolean }
+      is_notification_enabled: {
+        Args: {
+          _event: Database["public"]["Enums"]["notification_event_type"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       is_org_admin: { Args: { _user_id: string }; Returns: boolean }
       is_org_manager: { Args: { _user_id: string }; Returns: boolean }
       is_org_manager_or_above: { Args: { _user_id: string }; Returns: boolean }
@@ -11201,6 +11247,14 @@ export type Database = {
         | "fechado_perdido"
       message_direction: "inbound" | "outbound"
       message_sender_type: "customer" | "agent" | "ai" | "system"
+      notification_event_type:
+        | "lead_created"
+        | "lead_assigned"
+        | "lead_stage_changed"
+        | "task_assigned"
+        | "task_due_soon"
+        | "message_received"
+        | "appointment_scheduled"
       organization_type: "imobiliaria" | "corretor_individual"
       partnership_status: "pending" | "active" | "rejected" | "expired"
       property_condition: "novo" | "usado"
@@ -11408,6 +11462,15 @@ export const Constants = {
       ],
       message_direction: ["inbound", "outbound"],
       message_sender_type: ["customer", "agent", "ai", "system"],
+      notification_event_type: [
+        "lead_created",
+        "lead_assigned",
+        "lead_stage_changed",
+        "task_assigned",
+        "task_due_soon",
+        "message_received",
+        "appointment_scheduled",
+      ],
       organization_type: ["imobiliaria", "corretor_individual"],
       partnership_status: ["pending", "active", "rejected", "expired"],
       property_condition: ["novo", "usado"],

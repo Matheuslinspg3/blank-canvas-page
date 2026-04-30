@@ -18,6 +18,7 @@ import { SettingsProfileTab } from "@/components/settings/SettingsProfileTab";
 import { SettingsCompanyTab } from "@/components/settings/SettingsCompanyTab";
 import { SettingsTeamTab } from "@/components/settings/SettingsTeamTab";
 import { PasskeysSection } from "@/components/settings/PasskeysSection";
+import { NotificationsTab } from "@/components/settings/NotificationsTab";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const WhiteLabelSettings = lazy(() => import("@/components/settings/WhiteLabelSettings"));
@@ -57,6 +58,7 @@ export default function Settings() {
                 <TabsTrigger value="team" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><Users className="h-4 w-4 shrink-0" /><span>Equipe</span></TabsTrigger>
               )}
               <TabsTrigger value="appearance" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><Palette className="h-4 w-4 shrink-0" /><span>Aparência</span></TabsTrigger>
+              <TabsTrigger value="notifications" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><Bell className="h-4 w-4 shrink-0" /><span>Notificações</span></TabsTrigger>
               {isAdminOrAbove && (
                 <TabsTrigger value="brand" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><Crown className="h-4 w-4 shrink-0" /><span>Marca</span></TabsTrigger>
               )}
@@ -106,6 +108,12 @@ export default function Settings() {
               </Card>
               <PushNotificationCard />
               <PasskeysSection />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="notifications">
+            <div className="grid gap-6 max-w-2xl">
+              <NotificationsTab />
             </div>
           </TabsContent>
 
