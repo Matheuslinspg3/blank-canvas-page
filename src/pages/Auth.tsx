@@ -800,7 +800,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                 <Label htmlFor="signup-password" className="editorial-label-muted">Senha *</Label>
                 <div className="relative">
                   <Input
-                    id="signup-password" type={showPassword ? "text" : "password"} placeholder="Mínimo 6 caracteres"
+                    id="signup-password" type={showPassword ? "text" : "password"} placeholder="Mínimo 6 caracteres" autoComplete="new-password"
                     value={signupForm.password}
                     onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
                     className="h-11 bg-muted/40 border-border/50 text-sm pr-12"
