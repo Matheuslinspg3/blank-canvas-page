@@ -16,6 +16,9 @@ import {
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
 
+// Module-level singleton to avoid duplicate setup across multiple hook instances
+let setupDoneForUser: string | null = null;
+
 export function usePushNotifications() {
   const { user } = useAuth();
   const [isSupported, setIsSupported] = useState(false);
