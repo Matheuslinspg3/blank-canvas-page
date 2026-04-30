@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { queryClient } from '@/lib/queryClient';
 import { loginOneSignal, logoutOneSignal } from '@/lib/onesignal';
 import { identifyUser, resetPostHog } from '@/lib/posthog';
 import { toast } from 'sonner';
@@ -255,7 +256,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setLoading(false);
       }
-    }).catch(() => {
+    }).catch((err) => {
+      // Corrupt/invalid stored session — clean up to avoid refresh loops
+      console.warn('[Auth] getSession failed, clearing local session:', err);
+      supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+      setSession(null);
+      setUser(null);
+      setProfile(null);
       setLoading(false);
     });
 
@@ -281,6 +288,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           hadSessionRef.current = false;
           profileFetchedForRef.current = null;
           setProfile(null);
+          // Stop all in-flight queries that might use stale tokens
+          queryClient.clear();
           setLoading(false);
         }
       }
