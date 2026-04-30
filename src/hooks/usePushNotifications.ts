@@ -119,6 +119,7 @@ export function usePushNotifications() {
 
   useEffect(() => {
     if (!user) {
+      setupDoneForUser = null;
       logoutOneSignal();
       setCanFetchToken(false);
       setIsSubscribed(false);
