@@ -288,6 +288,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           hadSessionRef.current = false;
           profileFetchedForRef.current = null;
           setProfile(null);
+          // Stop all in-flight queries that might use stale tokens
+          queryClient.clear();
           setLoading(false);
         }
       }
