@@ -1,43 +1,51 @@
-# Corrigir "Missing queryFn" no Sentry (rota /marketplace)
 
-## Causa raiz (confirmada por leitura de código)
+# Fix White-Label Color Propagation
 
-`src/components/AppSidebar.tsx`, linhas 75–105, tem um helper `safePrefetch` que chama `queryClient.prefetchQuery({ queryKey, staleTime })` **sem `queryFn`**:
+## Problem
 
-```ts
-const safePrefetch = (...keys: unknown[][]) => {
-  keys.forEach((queryKey) => {
-    const existing = qc.getQueryState(queryKey);
-    if (existing) {
-      qc.prefetchQuery({ queryKey, staleTime: 60_000 }); // ❌
-    }
-  });
-};
-```
+The `useWhiteLabel` hook currently only overrides 2 CSS variables (`--primary` and `--accent`) when white-label is active. Several UI elements use hardcoded colors that ignore the brand palette:
 
-Isso é disparado em `onMouseEnter` dos itens do menu lateral (linha 157). No React Query v5, `prefetchQuery` **exige `queryFn` explícito a cada chamada** — não reaproveita a função de um observer anterior. Quando o usuário está em `/marketplace` (onde `useLeadCRUD`/`useAppointments` não estão montados) e passa o mouse sobre "CRM" ou "Agenda", o cache contém entradas `["leads", orgId]` / `["appointments", orgId]` (criadas por `invalidateQueries` de várias mutations) **sem `queryFn` registrada**, e o prefetch quebra com a exceção do Sentry.
+1. **Gradient text classes** (`text-gradient-vibrant`, `text-gradient-warm`, etc.) — hardcoded HSL values in `index.css`. Used in WelcomeHeader (greeting name), PropertyLandingPage (prices), Auth pages.
+2. **Sidebar active/ring colors** — `--sidebar-primary`, `--sidebar-ring` never overridden, always show default orange.
+3. **Focus ring** — `--ring` never overridden.
+4. **Secondary color** — `--secondary` never overridden despite being available in the config.
 
-Os hooks `useLeadCRUD` e `useAppointments` em si estão corretos.
+## Changes
 
-## Correção
+### 1. Expand CSS variable overrides in `useWhiteLabel.ts`
 
-Remover por completo o `prefetchRoute` do `AppSidebar`. O ganho é praticamente nulo (só refresca entradas que já estavam em cache), e cada hook de destino (`useLeadCRUD`, `useAppointments`, `useTransactions`, etc.) já tem `staleTime` suficiente para uma navegação fluida.
+When white-label is enabled, also set:
+- `--secondary` (from `config.secondaryColor`)
+- `--ring` (match accent)
+- `--sidebar-primary` (match accent or primary)
+- `--sidebar-ring` (match accent)
 
-### Alterações em `src/components/AppSidebar.tsx`
+Clean up all on unmount/disable.
 
-1. Linha 1–2: remover `useCallback` do import de React e remover o import `useQueryClient`:
-   ```ts
-   import React from "react";
-   ```
-2. Linhas 75–105: remover o bloco completo (`const qc = useQueryClient();` + `const prefetchRoute = useCallback(...)`).
-3. Linha 157: remover o atributo `onMouseEnter={() => prefetchRoute(item.url)}` do `<NavLink>`.
+### 2. Make gradient text classes use CSS variables in `index.css`
 
-Nenhum outro arquivo é afetado.
+Update the gradient classes to reference `var(--primary)` and `var(--accent)` instead of hardcoded HSL:
 
-## Verificação
+- `.text-gradient-vibrant` — gradient from `hsl(var(--primary))` to `hsl(var(--accent))`
+- `.text-gradient-warm` — same approach
+- `.text-gradient-primary` — use `--primary` to `--accent`
+- `.text-gradient-gold` — use `--accent` range
+- `.text-gradient-ocean` — use `--primary` to `--accent`
 
-Varredura completa por `prefetchQuery`/`fetchQuery`/`ensureQueryData` no projeto retorna **só** `src/components/AppSidebar.tsx:85` como ofensor. As queries da superfície do `/marketplace` (`useMarketplace`, `useMarketplaceStatus`, `useMarketplaceNeighborhoods`, `useMarketplaceMetrics`, `useExternalListings`) têm `queryFn` corretas.
+This way all gradient text automatically adapts when white-label overrides the CSS vars.
 
-## Riscos
+### 3. WelcomeHeader — no code change needed
 
-Nenhum funcional. UX permanece igual (a maioria das rotas já tem dados em cache válidos por 1–2 min via `staleTime`). Elimina-se a exceção de produção.
+Once gradients use CSS vars, `text-gradient-vibrant` will automatically pick up brand colors. The component already imports `useWhiteLabel` for label text.
+
+### 4. PropertyLandingPage — no code change needed
+
+Same reason: gradient classes will inherit brand colors via CSS vars.
+
+## Technical Details
+
+**File: `src/hooks/useWhiteLabel.ts`** — Add `--secondary`, `--ring`, `--sidebar-primary`, `--sidebar-ring` to the `useEffect` that sets CSS vars.
+
+**File: `src/index.css`** — Rewrite 5 gradient classes to use `var(--primary)` and `var(--accent)` instead of literal HSL values. The default theme vars already contain the same red/orange hues, so non-white-label users see no visual change.
+
+Total: 2 files changed.
