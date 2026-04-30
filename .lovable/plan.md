@@ -1,51 +1,69 @@
 
-# Fix White-Label Color Propagation
+# Fix Production Console Issues
 
-## Problem
+## Diagnostic Summary
 
-The `useWhiteLabel` hook currently only overrides 2 CSS variables (`--primary` and `--accent`) when white-label is active. Several UI elements use hardcoded colors that ignore the brand palette:
+### 1. Auth Refresh Token (400 / Invalid Refresh Token)
+**Root cause**: When the stored refresh token is invalid (e.g. revoked, expired, or used from another tab), Supabase SDK fires `SIGNED_OUT`. Current handling is mostly correct, but:
+- `getSession().catch()` doesn't clean up local storage — can leave corrupt session data that causes retry loops.
+- No explicit invalidation of React Query cache on sign-out, so stale queries may fire briefly with dead tokens.
 
-1. **Gradient text classes** (`text-gradient-vibrant`, `text-gradient-warm`, etc.) — hardcoded HSL values in `index.css`. Used in WelcomeHeader (greeting name), PropertyLandingPage (prices), Auth pages.
-2. **Sidebar active/ring colors** — `--sidebar-primary`, `--sidebar-ring` never overridden, always show default orange.
-3. **Focus ring** — `--ring` never overridden.
-4. **Secondary color** — `--secondary` never overridden despite being available in the config.
+**Fix** (in `src/contexts/AuthContext.tsx`):
+- In the `.catch()` of `getSession()`: call `supabase.auth.signOut({ scope: 'local' })` to clear storage, reset all state.
+- In the `SIGNED_OUT` handler: call `queryClient.clear()` to stop all in-flight queries with stale tokens.
+- Export or access `queryClient` from `App.tsx` for this — or pass it via a module-level reference.
 
-## Changes
+### 2. OneSignal Duplicate Initialization
+**Root cause**: `usePushNotifications` hook mounts in 3+ places (PushPermissionBanner in AppLayout, Settings page, PushTestCard). Each mount calls `initOneSignal()` + `loginOneSignal()` again. While `initOneSignal` has a singleton guard, `loginOneSignal` doesn't — it calls `OneSignal.login(userId)` every time. The debug logs (`[Push] Inicializando...`, `[Push] SDK pronto...`) fire on every mount.
 
-### 1. Expand CSS variable overrides in `useWhiteLabel.ts`
+**Fix** (in `src/hooks/usePushNotifications.ts`):
+- Add a module-level `setupDoneForUser` variable tracking the user ID that was last set up.
+- Skip the full setup flow if `setupDoneForUser === user.id`.
+- Reset on user change/logout.
 
-When white-label is enabled, also set:
-- `--secondary` (from `config.secondaryColor`)
-- `--ring` (match accent)
-- `--sidebar-primary` (match accent or primary)
-- `--sidebar-ring` (match accent)
+### 3. Service Worker Message Handler Warning
+**Root cause**: The `sw.ts:21` warning indicates a `message` event handler registered inside an async callback or `importScripts`. The OneSignal worker at `public/push/onesignal/OneSignalSDKWorker.js` only has `importScripts(...)` — no custom `message` handler. The warning likely comes from the OneSignal SDK itself registering the handler lazily.
 
-Clean up all on unmount/disable.
+**Verdict**: This is internal to the OneSignal SDK. No fix needed from our side. The warning is benign and can be documented as known.
 
-### 2. Make gradient text classes use CSS variables in `index.css`
+### 4. Minor Warnings
 
-Update the gradient classes to reference `var(--primary)` and `var(--accent)` instead of hardcoded HSL:
+#### 4a. Password autocomplete attributes
+**File**: `src/pages/Auth.tsx`
+- Login password input (line ~595): add `autoComplete="current-password"`
+- Signup password input (line ~803): add `autoComplete="new-password"`
 
-- `.text-gradient-vibrant` — gradient from `hsl(var(--primary))` to `hsl(var(--accent))`
-- `.text-gradient-warm` — same approach
-- `.text-gradient-primary` — use `--primary` to `--accent`
-- `.text-gradient-gold` — use `--accent` range
-- `.text-gradient-ocean` — use `--primary` to `--accent`
+#### 4b. `mobile-web-app-capable` meta tag
+**File**: `index.html`
+- Already has `apple-mobile-web-app-capable`. Add `<meta name="mobile-web-app-capable" content="yes" />` right after it.
 
-This way all gradient text automatically adapts when white-label overrides the CSS vars.
+#### 4c. DialogContent without DialogDescription
+**File**: `src/components/ui/dialog.tsx`
+- Add a visually-hidden default `DialogDescription` inside `DialogContent` so all 295 usages get aria-describedby automatically without touching each file.
+- Use `<DialogPrimitive.Description className="sr-only">Dialog content</DialogPrimitive.Description>` as first child, which consumers can override by providing their own.
 
-### 3. WelcomeHeader — no code change needed
+### 5. External Scripts Resilience (Clarity, Sentry, Google Ads)
+**Findings**:
+- **Clarity**: Loaded only after LGPD consent via `loadClarityScript()`. Safe — uses `window.clarity?.()` guards.
+- **Sentry**: Loaded via `@sentry/react` import. Standard usage, resilient to network blocks.
+- **Google Ads**: Not present in the codebase at all — the blocked `pagead2.googlesyndication.com` is likely from a browser extension or ad injection. No fix needed.
+- All external script failures are handled gracefully with optional chaining / try-catch. No functional breakage.
 
-Once gradients use CSS vars, `text-gradient-vibrant` will automatically pick up brand colors. The component already imports `useWhiteLabel` for label text.
+**Verdict**: No changes needed for external scripts.
 
-### 4. PropertyLandingPage — no code change needed
+## Files to Change
 
-Same reason: gradient classes will inherit brand colors via CSS vars.
+1. **`src/contexts/AuthContext.tsx`** — Improve `getSession().catch()` cleanup; invalidate React Query on sign-out
+2. **`src/hooks/usePushNotifications.ts`** — Add singleton guard for setup per user ID
+3. **`src/pages/Auth.tsx`** — Add `autoComplete` to password inputs
+4. **`index.html`** — Add `mobile-web-app-capable` meta tag
+5. **`src/components/ui/dialog.tsx`** — Add default hidden DialogDescription
 
-## Technical Details
+## Testing
 
-**File: `src/hooks/useWhiteLabel.ts`** — Add `--secondary`, `--ring`, `--sidebar-primary`, `--sidebar-ring` to the `useEffect` that sets CSS vars.
-
-**File: `src/index.css`** — Rewrite 5 gradient classes to use `var(--primary)` and `var(--accent)` instead of literal HSL values. The default theme vars already contain the same red/orange hues, so non-white-label users see no visual change.
-
-Total: 2 files changed.
+1. **Login normal**: should work without extra console logs
+2. **Session expired**: manually clear refresh token from localStorage, reload — should redirect to `/auth` with toast, no loop
+3. **Navigation between routes**: OneSignal logs should appear only once per session, not on every route change
+4. **Dialog warnings**: open any dialog — no more "missing Description" console warning
+5. **Password fields**: browser password manager should recognize fields correctly
+6. **Blocked external scripts**: app should load normally with ad blockers active
