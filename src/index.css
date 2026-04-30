@@ -272,7 +272,7 @@
 
   /* Text gradients — warm red-orange */
   .text-gradient-primary {
-    background: linear-gradient(135deg, hsl(0 72% 50%), hsl(31 100% 48%));
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -280,14 +280,14 @@
 
   /* Legacy alias */
   .text-gradient-gold {
-    background: linear-gradient(135deg, hsl(31 100% 48%), hsl(40 97% 64%));
+    background: linear-gradient(135deg, hsl(var(--accent)), hsl(var(--warning)));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .text-gradient-ocean {
-    background: linear-gradient(135deg, hsl(0 72% 50%), hsl(31 100% 52%));
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -295,7 +295,7 @@
 
   /* Vibrant gradient — warm performance */
   .text-gradient-vibrant {
-    background: linear-gradient(135deg, hsl(0 72% 50%), hsl(31 100% 48%), hsl(40 97% 64%), hsl(31 100% 52%));
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)), hsl(var(--warning)), hsl(var(--accent)));
     background-size: 300% 100%;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -310,7 +310,7 @@
 
   /* Warm gradient */
   .text-gradient-warm {
-    background: linear-gradient(135deg, hsl(0 72% 50%), hsl(31 100% 48%), hsl(40 97% 64%));
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)), hsl(var(--warning)));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
