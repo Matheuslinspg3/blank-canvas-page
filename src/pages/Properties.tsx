@@ -42,7 +42,16 @@ import { ImportReviewBanner } from "@/components/properties/ImportReviewBanner";
 // PERF: lazy load - PropertyMapView imports leaflet (~40KB), only needed when map view selected
 const PropertyMapView = lazy(() => import("@/components/properties/PropertyMapView").then(m => ({ default: m.PropertyMapView })));
 // PERF: lazy load - PropertyForm is ~800 lines + sub-tabs, only needed when creating/editing
-const PropertyForm = lazy(() => import("@/components/properties/PropertyForm").then(m => ({ default: m.PropertyForm })));
+const PropertyForm = lazy(() =>
+  lazyWithRetry(
+    () => import("@/components/properties/PropertyForm").then(m => {
+      const Comp = m.PropertyForm ?? m.default;
+      if (!Comp) throw new Error("PropertyForm export not found in module");
+      return { default: Comp };
+    }),
+    { moduleName: "PropertyForm" },
+  ),
+);
 // PERF: lazy load - PdfImportDialog only needed when user clicks import
 const PdfImportDialog = lazy(() => import("@/components/properties/PdfImportDialog").then(m => ({ default: m.PdfImportDialog })));
 // PERF: lazy load - Duplicate dialogs only needed when duplicates detected

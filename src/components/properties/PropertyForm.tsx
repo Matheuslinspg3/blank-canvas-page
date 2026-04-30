@@ -439,3 +439,5 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
     </Dialog>
   );
 }
+
+export default PropertyForm;

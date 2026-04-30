@@ -136,7 +136,7 @@ export function usePropertyFilters() {
       const { data, error } = await supabase.rpc('get_property_neighborhoods', {
         p_organization_id: profile.organization_id,
       });
-      if (error) { console.error('Error fetching neighborhoods:', error); return []; }
+      if (error) { console.error('Error fetching neighborhoods:', JSON.stringify(error)); return []; }
       return data as { neighborhood: string; city: string; count: number }[];
     },
     enabled: !!profile?.organization_id,
@@ -151,7 +151,7 @@ export function usePropertyFilters() {
       const { data, error } = await supabase.rpc('get_property_cities', {
         p_organization_id: profile.organization_id,
       });
-      if (error) { console.error('Error fetching cities:', error); return []; }
+      if (error) { console.error('Error fetching cities:', JSON.stringify(error)); return []; }
       return data as { city: string; state: string; count: number }[];
     },
     enabled: !!profile?.organization_id,
