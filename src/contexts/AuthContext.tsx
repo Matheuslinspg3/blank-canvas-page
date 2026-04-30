@@ -256,7 +256,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setLoading(false);
       }
-    }).catch(() => {
+    }).catch((err) => {
+      // Corrupt/invalid stored session — clean up to avoid refresh loops
+      console.warn('[Auth] getSession failed, clearing local session:', err);
+      supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+      setSession(null);
+      setUser(null);
+      setProfile(null);
       setLoading(false);
     });
 
