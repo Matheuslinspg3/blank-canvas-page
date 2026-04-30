@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense } from "react";
+import { lazyWithRetry } from "@/utils/lazyWithRetry";
 import { findDuplicateProperties, DuplicatePropertyMatch } from "@/lib/duplicatePropertyDetector";
 import type { DuplicateCandidate } from "@/components/properties/DuplicateReviewDialog";
 import { useNavigate, useLocation } from "react-router-dom";
