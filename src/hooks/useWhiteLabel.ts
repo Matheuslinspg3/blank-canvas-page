@@ -101,25 +101,39 @@ export function useWhiteLabel(): WhiteLabelConfig & { isLoading: boolean; planAl
   const config = data ?? DEFAULT_CONFIG;
 
   // Apply CSS variables when white-label is active
+  const WL_VARS = [
+    "--primary",
+    "--primary-foreground",
+    "--accent",
+    "--secondary",
+    "--ring",
+    "--sidebar-primary",
+    "--sidebar-ring",
+  ] as const;
+
   useEffect(() => {
+    const root = document.documentElement;
+
     if (!config.enabled) {
-      // Remove any custom overrides
-      document.documentElement.style.removeProperty("--primary");
-      document.documentElement.style.removeProperty("--primary-foreground");
-      document.documentElement.style.removeProperty("--accent");
+      WL_VARS.forEach((v) => root.style.removeProperty(v));
       return;
     }
 
-    const root = document.documentElement;
-    root.style.setProperty("--primary", hexToHSL(config.primaryColor));
-    root.style.setProperty("--accent", hexToHSL(config.accentColor));
+    const primaryHSL = hexToHSL(config.primaryColor);
+    const accentHSL = hexToHSL(config.accentColor);
+    const secondaryHSL = hexToHSL(config.secondaryColor);
+
+    root.style.setProperty("--primary", primaryHSL);
+    root.style.setProperty("--accent", accentHSL);
+    root.style.setProperty("--secondary", secondaryHSL);
+    root.style.setProperty("--ring", accentHSL);
+    root.style.setProperty("--sidebar-primary", accentHSL);
+    root.style.setProperty("--sidebar-ring", accentHSL);
 
     return () => {
-      root.style.removeProperty("--primary");
-      root.style.removeProperty("--primary-foreground");
-      root.style.removeProperty("--accent");
+      WL_VARS.forEach((v) => root.style.removeProperty(v));
     };
-  }, [config.enabled, config.primaryColor, config.accentColor]);
+  }, [config.enabled, config.primaryColor, config.accentColor, config.secondaryColor]);
 
   return { ...config, isLoading, planAllowsWhiteLabel };
 }
