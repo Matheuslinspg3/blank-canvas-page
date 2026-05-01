@@ -7,8 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Globe, Trash2, RefreshCw, Plus, CheckCircle2, Clock, AlertCircle, Loader2, Shield, Wifi, FileCheck } from "lucide-react";
+import { Globe, Trash2, RefreshCw, Plus, CheckCircle2, Clock, AlertCircle, Loader2, Shield, Wifi, FileCheck, Lock } from "lucide-react";
 import { toast } from "sonner";
+import { useSubscription } from "@/hooks/useSubscription";
+import { useNavigate } from "react-router-dom";
 
 interface DomainRecord {
   id: string;
@@ -134,7 +136,10 @@ function StatusStepper({ domain }: { domain: DomainRecord }) {
 export function CustomDomainsManager() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [newHostname, setNewHostname] = useState("");
+  const { getFeatureLimit } = useSubscription();
+  const domainLimit = getFeatureLimit("max_custom_domains");
 
   const orgId = profile?.organization_id;
 
