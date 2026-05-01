@@ -786,7 +786,6 @@ function LeadCriteriaFields({
       <p className="text-xs text-muted-foreground">
         Todos os campos abaixo são opcionais. Use para registrar o que o lead procura e ajudar a sugerir imóveis.
       </p>
-        <CollapsibleContent className="space-y-4 pt-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField
               control={form.control}
@@ -1055,8 +1054,6 @@ function LeadCriteriaFields({
               </FormItem>
             )}
           />
-        </CollapsibleContent>
-      </Collapsible>
-    </>
+    </div>
   );
 }
