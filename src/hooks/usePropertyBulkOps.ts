@@ -3,11 +3,49 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Database, Json } from '@/integrations/supabase/types';
+import { getFeatureLimit } from '@/hooks/useSubscription';
 
 /**
  * Bulk operations and marketplace publishing for properties.
  * Separated from usePropertyCRUD to reduce file size and blast radius.
  */
+
+/**
+ * Resolves the current marketplace publish limit for an organization, then
+ * checks how many additional properties may still be published. Throws a
+ * user-friendly error if the limit would be exceeded. `incomingIds` is the
+ * set of property ids about to be published; ids already in the marketplace
+ * count against the existing-published total but do not consume new slots.
+ */
+async function assertMarketplaceLimit(orgId: string, incomingIds: string[]) {
+  const { data: subData } = await supabase
+    .from('subscriptions')
+    .select('plan:subscription_plans(*)')
+    .eq('organization_id', orgId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const plan = (subData?.plan ?? null) as any;
+  const limit = getFeatureLimit(plan, 'max_marketplace_properties');
+  if (limit === Infinity) return;
+
+  // Existing published ids for this org
+  const { data: published } = await supabase
+    .from('marketplace_properties')
+    .select('id')
+    .eq('organization_id', orgId);
+  const publishedIds = new Set((published ?? []).map((r: { id: string }) => r.id));
+  const incomingNew = incomingIds.filter((id) => !publishedIds.has(id)).length;
+  const total = publishedIds.size + incomingNew;
+  if (total > limit) {
+    const remaining = Math.max(0, limit - publishedIds.size);
+    throw new Error(
+      `Limite de ${limit} imóveis publicados no Marketplace atingido no seu plano. ` +
+        `Você pode publicar mais ${remaining}. Faça upgrade para publicar mais.`,
+    );
+  }
+}
+
 export function usePropertyBulkOps() {
   const { toast } = useToast();
   const { profile } = useAuth();
@@ -116,6 +154,9 @@ export function usePropertyBulkOps() {
     mutationFn: async (propertyId: string) => {
       if (!profile?.organization_id) throw new Error('Usuário não está vinculado a uma organização');
 
+      // Feature gate: enforce max_marketplace_properties from active plan.
+      await assertMarketplaceLimit(profile.organization_id, [propertyId]);
+
       toast({ title: '📤 Publicando no Marketplace...', description: 'Processando em segundo plano.' });
 
       const { data: prop, error: propError } = await supabase
@@ -161,6 +202,9 @@ export function usePropertyBulkOps() {
     mutationFn: async (ids: string[]) => {
       if (!profile?.organization_id) throw new Error('Usuário não está vinculado a uma organização');
       if (!ids?.length) throw new Error('Selecione ao menos 1 imóvel para continuar.');
+
+      // Feature gate: enforce max_marketplace_properties from active plan.
+      await assertMarketplaceLimit(profile.organization_id, ids);
 
       toast({ title: '📤 Publicando no Marketplace...', description: `Publicando ${ids.length} imóvel(is) em segundo plano.` });
 

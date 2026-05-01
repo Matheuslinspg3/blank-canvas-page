@@ -80,12 +80,12 @@ interface FeatureRow {
 }
 
 const featureRows: FeatureRow[] = [
-  // Limites
+  // Limites comerciais (todos enforced em código)
   { label: "Usuários", key: "max_users", type: "number", category: "Limites" },
   { label: "Imóveis próprios", key: "max_own_properties", type: "number", category: "Limites" },
   { label: "Leads", key: "max_leads", type: "number", category: "Limites" },
-  { label: "Imóveis marketplace", key: "max_marketplace_properties", type: "number", category: "Limites" },
-  { label: "Armazenamento", key: "max_storage_mb", type: "storage", category: "Limites" },
+  { label: "Imóveis no marketplace", key: "max_marketplace_properties", type: "number", category: "Limites" },
+  { label: "Domínios customizados", key: "max_custom_domains", type: "number", category: "Limites" },
   // CRM
   { label: "Financeiro", key: "has_financial", type: "bool", category: "CRM" },
   { label: "Contratos", key: "has_contracts", type: "bool", category: "CRM" },
@@ -96,16 +96,12 @@ const featureRows: FeatureRow[] = [
   { label: "Log de auditoria", key: "has_audit_log", type: "bool", category: "CRM" },
   // Créditos de IA
   { label: "Créditos de IA/mês", key: "ai_credits_limit", type: "number", category: "Créditos de IA" },
-  { label: "Artes com IA/mês", key: "ai_art_limit", type: "number", category: "Créditos de IA" },
-  { label: "Landing pages IA/mês", key: "ai_landing_limit", type: "number", category: "Créditos de IA" },
-  { label: "Vídeos com IA/mês", key: "ai_video_limit", type: "number", category: "Créditos de IA" },
   { label: "Extração PDF com IA", key: "has_pdf_extract", type: "bool", category: "Créditos de IA" },
   { label: "Contratos com IA", key: "has_contract_ai", type: "bool", category: "Créditos de IA" },
   { label: "Análise de fotos IA", key: "has_photo_analysis", type: "bool", category: "Créditos de IA" },
   // WhatsApp / Automações
   { label: "WhatsApp integrado", key: "has_whatsapp", type: "bool", category: "WhatsApp / Automações" },
   { label: "Automações", key: "has_automations", type: "bool", category: "WhatsApp / Automações" },
-  { label: "Limite automações", key: "automations_limit", type: "number", category: "WhatsApp / Automações" },
   { label: "Push notifications", key: "has_push_notifications", type: "bool", category: "WhatsApp / Automações" },
   { label: "Email automation", key: "has_email_automation", type: "bool", category: "WhatsApp / Automações" },
   // Integrações
@@ -120,6 +116,13 @@ const featureRows: FeatureRow[] = [
   { label: "Suporte prioritário", key: "has_priority_support", type: "bool", category: "Extras" },
   { label: "Nível suporte", key: "support_level", type: "text", category: "Extras" },
 ];
+
+// Limites/feature flags ainda decorativos (existem no JSON mas não são aplicados em código).
+// Mantidos fora da tabela comparativa para evitar promessas não cumpridas.
+// Quando forem implementados, mover para `featureRows` acima.
+// - max_storage_mb (uso interno técnico)
+// - ai_art_limit / ai_landing_limit / ai_video_limit (sub-limites do crédito IA)
+// - automations_limit (escopo do has_automations)
 
 const supportLabels: Record<string, string> = {
   chat_ai: "Chat IA",
