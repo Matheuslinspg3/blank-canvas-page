@@ -884,7 +884,10 @@ function PropertyPreviewRow({
                   </Badge>
                 )}
                 {item.is_reserved && (
-                  <Badge variant="secondary" className="text-xs">Reservado</Badge>
+                  <Badge variant="secondary" className="text-xs">🟡 Reservado</Badge>
+                )}
+                {item.is_rented && (
+                  <Badge variant="secondary" className="text-xs">🔵 Alugado</Badge>
                 )}
               </div>
               <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
