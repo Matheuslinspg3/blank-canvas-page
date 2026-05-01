@@ -230,6 +230,15 @@ export function usePropertyCRUD(options?: { enabled?: boolean }) {
       toast({ title: 'Imóvel cadastrado', description: 'O imóvel foi cadastrado com sucesso.' });
     },
     onError: (error) => {
+      // Expected business error: plan limit reached. Controlled UX, NOT critical.
+      if (isProductLimitError(error)) {
+        toast({
+          title: 'Limite do plano atingido',
+          description: error.message,
+          variant: 'destructive',
+        });
+        return;
+      }
       const norm = normalizeError(error);
       if (norm.code === '23505' && norm.constraint === 'properties_org_property_code_key') {
         toast({
