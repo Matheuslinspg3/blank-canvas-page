@@ -10497,9 +10497,12 @@ export type Database = {
           broker_email: string
           broker_name: string
           broker_phone: string
+          org_contact_email: string
+          org_contact_phone: string
           org_logo: string
           org_name: string
           org_phone: string
+          org_whatsapp: string
         }[]
       }
       get_marketplace_contact: {
