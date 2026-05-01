@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { QueryErrorState } from '@/components/QueryErrorState';
 import {
   DndContext,
@@ -653,9 +654,18 @@ export function KanbanBoard() {
             ))}
           </div>
 
-          <DragOverlay dropAnimation={null}>
-            {activeLead && <LeadCard lead={activeLead} />}
-          </DragOverlay>
+          {/*
+            Portal DragOverlay to <body> so the preview card is positioned
+            relative to the viewport and not to any ancestor with `transform`,
+            `overflow` or `contain` (e.g. the horizontal scroll container).
+            This fixes the diagonal-offset bug while dragging.
+          */}
+          {createPortal(
+            <DragOverlay dropAnimation={null} zIndex={9999}>
+              {activeLead ? <LeadCard lead={activeLead} /> : null}
+            </DragOverlay>,
+            document.body,
+          )}
         </DndContext>
       )}
 

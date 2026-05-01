@@ -26,9 +26,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Collapsible, CollapsibleContent, CollapsibleTrigger,
-} from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -36,7 +33,7 @@ import { CurrencyInput } from '@/components/ui/currency-input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, X, Flame, Snowflake, Sun, Zap, AlertCircle, ChevronDown } from 'lucide-react';
+import { Loader2, X, Flame, Snowflake, Sun, Zap, AlertCircle, Home } from 'lucide-react';
 import { toast } from 'sonner';
 import { toastError } from "@/lib/toastError";
 import { LeadInteractionTimeline } from './LeadInteractionTimeline';
@@ -58,7 +55,8 @@ const formSchema = z.object({
   temperature: z.string().optional(),
   notes: z.string().optional(),
   
-  // Critérios de interesse do imóvel
+  // Critérios de interesse do imóvel — TODOS opcionais.
+  // Lead pode ser salvo/movido entre estágios sem nenhum critério preenchido.
   interested_property_type_id: z.string().optional(),
   interested_property_type_ids: z.array(z.string()).optional(),
   property_id: z.string().optional(),
@@ -69,7 +67,7 @@ const formSchema = z.object({
   area: z.coerce.number().optional(),
   preferred_neighborhoods: z.array(z.string()).optional(),
   preferred_cities: z.array(z.string()).optional(),
-  transaction_interest: z.enum(['venda', 'aluguel', 'ambos'], { required_error: 'Interesse é obrigatório' }),
+  transaction_interest: z.enum(['venda', 'aluguel', 'ambos']).optional(),
   additional_requirements: z.string().optional(),
 }).refine((data) => {
   // At least phone or email must be provided
@@ -125,7 +123,7 @@ export function LeadForm({
   const isEditing = !!lead;
   const [showCustomSource, setShowCustomSource] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
-  const [showInterest, setShowInterest] = useState(false);
+  // (state `showInterest` foi removido — critérios agora são uma aba dedicada.)
   const formRef = useRef<HTMLFormElement>(null);
 
   const form = useForm<FormData>({
@@ -230,7 +228,7 @@ export function LeadForm({
     const basicHasError = BASIC_FIELDS.some((f) => f in errs);
     const interestHasError = INTEREST_FIELDS.some((f) => f in errs);
 
-    const targetTab = basicHasError ? 'basic' : interestHasError ? 'interest' : activeTab;
+    const targetTab = basicHasError ? 'basic' : interestHasError ? 'criteria' : activeTab;
 
     if (targetTab !== activeTab) {
       setActiveTab(targetTab);
@@ -326,16 +324,23 @@ export function LeadForm({
           >
             {isEditing ? (
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-2 min-h-[44px]">
+                <TabsList className="grid w-full grid-cols-3 min-h-[44px]">
                   <TabsTrigger value="basic" className="flex items-center gap-1.5 min-h-[44px] text-xs sm:text-sm">
                     Dados
-                    {(hasBasicErrors || hasInterestErrors) && <AlertCircle className="h-3.5 w-3.5 text-destructive" />}
+                    {hasBasicErrors && <AlertCircle className="h-3.5 w-3.5 text-destructive" />}
+                  </TabsTrigger>
+                  <TabsTrigger value="criteria" className="flex items-center gap-1.5 min-h-[44px] text-xs sm:text-sm">
+                    <Home className="h-3.5 w-3.5" />
+                    <span className="hidden xs:inline">Critérios</span>
+                    <span className="xs:hidden">Critérios</span>
+                    {hasInterestErrors && <AlertCircle className="h-3.5 w-3.5 text-destructive" />}
                   </TabsTrigger>
                   <TabsTrigger value="interactions" className="min-h-[44px] text-xs sm:text-sm">Interações</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="basic" className="space-y-4 mt-4">
                   <LeadFormFields
+                    section="basic"
                     form={form}
                     leadStages={leadStages}
                     brokers={brokers}
@@ -355,8 +360,31 @@ export function LeadForm({
                     setCitySearch={setCitySearch}
                     showCityDropdown={showCityDropdown}
                     setShowCityDropdown={setShowCityDropdown}
-                    showInterest={showInterest}
-                    setShowInterest={setShowInterest}
+                  />
+                </TabsContent>
+
+                <TabsContent value="criteria" className="space-y-4 mt-4">
+                  <LeadFormFields
+                    section="criteria"
+                    form={form}
+                    leadStages={leadStages}
+                    brokers={brokers}
+                    properties={properties}
+                    propertyTypes={propertyTypes}
+                    hasPhone={!!hasPhone}
+                    hasEmail={!!hasEmail}
+                    showCustomSource={showCustomSource}
+                    onSourceChange={handleSourceChange}
+                    availableNeighborhoods={availableNeighborhoods}
+                    availableCities={availableCities}
+                    neighborhoodSearch={neighborhoodSearch}
+                    setNeighborhoodSearch={setNeighborhoodSearch}
+                    showNeighborhoodDropdown={showNeighborhoodDropdown}
+                    setShowNeighborhoodDropdown={setShowNeighborhoodDropdown}
+                    citySearch={citySearch}
+                    setCitySearch={setCitySearch}
+                    showCityDropdown={showCityDropdown}
+                    setShowCityDropdown={setShowCityDropdown}
                   />
                 </TabsContent>
 
@@ -365,31 +393,72 @@ export function LeadForm({
                 </TabsContent>
               </Tabs>
             ) : (
-              <div className="space-y-4">
-                <LeadFormFields
-                  form={form}
-                  leadStages={leadStages}
-                  brokers={brokers}
-                  properties={properties}
-                  propertyTypes={propertyTypes}
-                  hasPhone={!!hasPhone}
-                  hasEmail={!!hasEmail}
-                  showCustomSource={showCustomSource}
-                  onSourceChange={handleSourceChange}
-                  availableNeighborhoods={availableNeighborhoods}
-                  availableCities={availableCities}
-                  neighborhoodSearch={neighborhoodSearch}
-                  setNeighborhoodSearch={setNeighborhoodSearch}
-                  showNeighborhoodDropdown={showNeighborhoodDropdown}
-                  setShowNeighborhoodDropdown={setShowNeighborhoodDropdown}
-                  citySearch={citySearch}
-                  setCitySearch={setCitySearch}
-                  showCityDropdown={showCityDropdown}
-                  setShowCityDropdown={setShowCityDropdown}
-                  showInterest={showInterest}
-                  setShowInterest={setShowInterest}
-                />
-              </div>
+              // Criar lead: também usamos abas (Dados / Critérios) para manter
+              // a estrutura consistente com a edição. Sem aba "Interações"
+              // porque o lead ainda não existe.
+              <Tabs value={activeTab === 'interactions' ? 'basic' : activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-2 min-h-[44px]">
+                  <TabsTrigger value="basic" className="flex items-center gap-1.5 min-h-[44px] text-xs sm:text-sm">
+                    Dados
+                    {hasBasicErrors && <AlertCircle className="h-3.5 w-3.5 text-destructive" />}
+                  </TabsTrigger>
+                  <TabsTrigger value="criteria" className="flex items-center gap-1.5 min-h-[44px] text-xs sm:text-sm">
+                    <Home className="h-3.5 w-3.5" />
+                    Critérios
+                    {hasInterestErrors && <AlertCircle className="h-3.5 w-3.5 text-destructive" />}
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="basic" className="space-y-4 mt-4">
+                  <LeadFormFields
+                    section="basic"
+                    form={form}
+                    leadStages={leadStages}
+                    brokers={brokers}
+                    properties={properties}
+                    propertyTypes={propertyTypes}
+                    hasPhone={!!hasPhone}
+                    hasEmail={!!hasEmail}
+                    showCustomSource={showCustomSource}
+                    onSourceChange={handleSourceChange}
+                    availableNeighborhoods={availableNeighborhoods}
+                    availableCities={availableCities}
+                    neighborhoodSearch={neighborhoodSearch}
+                    setNeighborhoodSearch={setNeighborhoodSearch}
+                    showNeighborhoodDropdown={showNeighborhoodDropdown}
+                    setShowNeighborhoodDropdown={setShowNeighborhoodDropdown}
+                    citySearch={citySearch}
+                    setCitySearch={setCitySearch}
+                    showCityDropdown={showCityDropdown}
+                    setShowCityDropdown={setShowCityDropdown}
+                  />
+                </TabsContent>
+
+                <TabsContent value="criteria" className="space-y-4 mt-4">
+                  <LeadFormFields
+                    section="criteria"
+                    form={form}
+                    leadStages={leadStages}
+                    brokers={brokers}
+                    properties={properties}
+                    propertyTypes={propertyTypes}
+                    hasPhone={!!hasPhone}
+                    hasEmail={!!hasEmail}
+                    showCustomSource={showCustomSource}
+                    onSourceChange={handleSourceChange}
+                    availableNeighborhoods={availableNeighborhoods}
+                    availableCities={availableCities}
+                    neighborhoodSearch={neighborhoodSearch}
+                    setNeighborhoodSearch={setNeighborhoodSearch}
+                    showNeighborhoodDropdown={showNeighborhoodDropdown}
+                    setShowNeighborhoodDropdown={setShowNeighborhoodDropdown}
+                    citySearch={citySearch}
+                    setCitySearch={setCitySearch}
+                    showCityDropdown={showCityDropdown}
+                    setShowCityDropdown={setShowCityDropdown}
+                  />
+                </TabsContent>
+              </Tabs>
             )}
 
             <div className="flex justify-end gap-2 pt-4 sticky bottom-0 bg-background pb-1">
@@ -414,7 +483,14 @@ export function LeadForm({
 }
 
 // ---- Extracted form fields component ----
+//
+// `section` controls which subset of fields is rendered:
+//   - 'basic'    → dados do lead (nome, contato, origem, estágio, observações)
+//   - 'criteria' → critérios do imóvel desejado (interesse, tipos, quartos, bairros…)
+// Mantemos um único componente para reaproveitar lógica de busca de
+// bairros/cidades sem duplicar estado.
 interface LeadFormFieldsProps {
+  section: 'basic' | 'criteria';
   form: any;
   leadStages: LeadStage[];
   brokers: Broker[];
@@ -434,18 +510,36 @@ interface LeadFormFieldsProps {
   setCitySearch: (v: string) => void;
   showCityDropdown: boolean;
   setShowCityDropdown: (v: boolean) => void;
-  showInterest: boolean;
-  setShowInterest: (v: boolean) => void;
 }
 
 function LeadFormFields({
+  section,
   form, leadStages, brokers, properties, propertyTypes,
   hasPhone, hasEmail, showCustomSource, onSourceChange,
   availableNeighborhoods, availableCities,
   neighborhoodSearch, setNeighborhoodSearch, showNeighborhoodDropdown, setShowNeighborhoodDropdown,
   citySearch, setCitySearch, showCityDropdown, setShowCityDropdown,
-  showInterest, setShowInterest,
 }: LeadFormFieldsProps) {
+  if (section === 'criteria') {
+    return (
+      <LeadCriteriaFields
+        form={form}
+        properties={properties}
+        propertyTypes={propertyTypes}
+        availableNeighborhoods={availableNeighborhoods}
+        availableCities={availableCities}
+        neighborhoodSearch={neighborhoodSearch}
+        setNeighborhoodSearch={setNeighborhoodSearch}
+        showNeighborhoodDropdown={showNeighborhoodDropdown}
+        setShowNeighborhoodDropdown={setShowNeighborhoodDropdown}
+        citySearch={citySearch}
+        setCitySearch={setCitySearch}
+        showCityDropdown={showCityDropdown}
+        setShowCityDropdown={setShowCityDropdown}
+      />
+    );
+  }
+
   return (
     <>
       {/* Basic fields */}
@@ -656,22 +750,49 @@ function LeadFormFields({
         )}
       />
 
-      {/* Interest section — collapsible */}
-      <Collapsible open={showInterest} onOpenChange={setShowInterest}>
-        <CollapsibleTrigger asChild>
-          <Button type="button" variant="ghost" size="sm" className="w-full justify-between text-muted-foreground min-h-[40px]">
-            {showInterest ? "Ocultar critérios de imóvel" : "Adicionar critérios de imóvel desejado"}
-            <ChevronDown className={`h-4 w-4 transition-transform ${showInterest ? 'rotate-180' : ''}`} />
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="space-y-4 pt-2">
+    </>
+  );
+}
+
+// ---- Critérios de imóvel desejado (aba própria) ----
+//
+// Antes era um `<Collapsible>` dentro de `LeadFormFields`. Agora é uma aba
+// dedicada do modal. Todos os campos continuam opcionais — o lead pode ser
+// salvo sem nenhum critério.
+interface LeadCriteriaFieldsProps {
+  form: any;
+  properties: { id: string; title: string }[];
+  propertyTypes: PropertyType[];
+  availableNeighborhoods: string[];
+  availableCities: string[];
+  neighborhoodSearch: string;
+  setNeighborhoodSearch: (v: string) => void;
+  showNeighborhoodDropdown: boolean;
+  setShowNeighborhoodDropdown: (v: boolean) => void;
+  citySearch: string;
+  setCitySearch: (v: string) => void;
+  showCityDropdown: boolean;
+  setShowCityDropdown: (v: boolean) => void;
+}
+
+function LeadCriteriaFields({
+  form, properties, propertyTypes,
+  availableNeighborhoods, availableCities,
+  neighborhoodSearch, setNeighborhoodSearch, showNeighborhoodDropdown, setShowNeighborhoodDropdown,
+  citySearch, setCitySearch, showCityDropdown, setShowCityDropdown,
+}: LeadCriteriaFieldsProps) {
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-muted-foreground">
+        Todos os campos abaixo são opcionais. Use para registrar o que o lead procura e ajudar a sugerir imóveis.
+      </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField
               control={form.control}
               name="transaction_interest"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Interesse *</FormLabel>
+                  <FormLabel>Interesse</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger className="min-h-[44px]">
@@ -933,8 +1054,6 @@ function LeadFormFields({
               </FormItem>
             )}
           />
-        </CollapsibleContent>
-      </Collapsible>
-    </>
+    </div>
   );
 }
