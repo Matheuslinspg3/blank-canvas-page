@@ -148,80 +148,93 @@ export default function PropertyLandingPage(props: PropertyLandingPageProps = {}
   const hideAddress = overrides?.hide_exact_address ?? true;
 
   useEffect(() => {
+    let cancelled = false;
     async function fetchProperty() {
       if (!id) return;
       // Defense-in-depth: get_public_property expects a UUID. If a non-UUID slipped through
       // (e.g. property_code), skip the call and let the resolution effect convert it first.
       if (!isUuid(id)) return;
 
-      // Use secure RPC functions that only expose safe columns (no commission, internal metadata, full address)
-      const { data: propertyRows, error } = await (supabase.rpc as any)('get_public_property', { p_id: id });
+      try {
+        // Use secure RPC functions that only expose safe columns (no commission, internal metadata, full address)
+        const { data: propertyRows, error } = await (supabase.rpc as any)('get_public_property', { p_id: id });
 
-      if (error || !propertyRows || propertyRows.length === 0) {
-        console.error("Error fetching property:", error);
+        if (cancelled) return;
+
+        if (error || !propertyRows || propertyRows.length === 0) {
+          console.error("Error fetching property:", error);
+          setProperty(null);
+          setLoading(false);
+          return;
+        }
+
+        const propData = propertyRows[0];
+
+        // Fetch property type name
+        let propertyType = null;
+        if (propData.property_type_id) {
+          const { data: typeName } = await (supabase.rpc as any)('get_property_type_name', { p_type_id: propData.property_type_id });
+          if (typeName) {
+            propertyType = { id: propData.property_type_id, name: typeName };
+          }
+        }
+
+        // Fetch images via secure function
+        const { data: imageRows } = await (supabase.rpc as any)('get_public_property_images', { p_property_id: id });
+
+        let images = (imageRows || []).map((img: any) => ({
+          id: img.id,
+          url: img.url,
+          is_cover: img.is_cover || false,
+          display_order: img.display_order || 0,
+          property_id: id!,
+          created_at: new Date().toISOString(),
+          image_type: img.image_type || 'photo',
+          source: img.source,
+          scraped_from_url: null,
+          r2_key_full: img.r2_key_full || null,
+          r2_key_thumb: img.r2_key_thumb || null,
+          storage_provider: img.storage_provider || null,
+          cached_thumbnail_url: img.cached_thumbnail_url || null,
+        }));
+
+        // Fallback to property_media if no images
+        if (images.length === 0) {
+          const { data: mediaRows } = await (supabase.rpc as any)('get_public_property_media', { p_property_id: id });
+          if (mediaRows && mediaRows.length > 0) {
+            images = mediaRows.map((m: any, idx: number) => ({
+              id: m.id,
+              url: m.stored_url || m.original_url,
+              is_cover: idx === 0,
+              display_order: m.display_order || idx,
+              property_id: id!,
+              created_at: new Date().toISOString(),
+              image_type: 'photo' as const,
+              source: 'media',
+              scraped_from_url: null,
+            }));
+          }
+        }
+
+        if (cancelled) return;
+
+        const propertyData = {
+          ...propData,
+          property_type: propertyType,
+          images,
+        } as PropertyWithDetails;
+
+        setProperty(propertyData);
+        setLoading(false);
+      } catch (err) {
+        if (cancelled) return;
+        console.error("[landing] fetchProperty threw:", err);
         setProperty(null);
         setLoading(false);
-        return;
       }
-
-      const propData = propertyRows[0];
-
-      // Fetch property type name
-      let propertyType = null;
-      if (propData.property_type_id) {
-        const { data: typeName } = await (supabase.rpc as any)('get_property_type_name', { p_type_id: propData.property_type_id });
-        if (typeName) {
-          propertyType = { id: propData.property_type_id, name: typeName };
-        }
-      }
-
-      // Fetch images via secure function
-      const { data: imageRows } = await (supabase.rpc as any)('get_public_property_images', { p_property_id: id });
-
-      let images = (imageRows || []).map((img: any) => ({
-        id: img.id,
-        url: img.url,
-        is_cover: img.is_cover || false,
-        display_order: img.display_order || 0,
-        property_id: id!,
-        created_at: new Date().toISOString(),
-        image_type: img.image_type || 'photo',
-        source: img.source,
-        scraped_from_url: null,
-        r2_key_full: img.r2_key_full || null,
-        r2_key_thumb: img.r2_key_thumb || null,
-        storage_provider: img.storage_provider || null,
-        cached_thumbnail_url: img.cached_thumbnail_url || null,
-      }));
-
-      // Fallback to property_media if no images
-      if (images.length === 0) {
-        const { data: mediaRows } = await (supabase.rpc as any)('get_public_property_media', { p_property_id: id });
-        if (mediaRows && mediaRows.length > 0) {
-          images = mediaRows.map((m: any, idx: number) => ({
-            id: m.id,
-            url: m.stored_url || m.original_url,
-            is_cover: idx === 0,
-            display_order: m.display_order || idx,
-            property_id: id!,
-            created_at: new Date().toISOString(),
-            image_type: 'photo' as const,
-            source: 'media',
-            scraped_from_url: null,
-          }));
-        }
-      }
-
-      const propertyData = {
-        ...propData,
-        property_type: propertyType,
-        images,
-      } as PropertyWithDetails;
-
-      setProperty(propertyData);
-      setLoading(false);
     }
     fetchProperty();
+    return () => { cancelled = true; };
   }, [id]);
 
   /**
