@@ -505,12 +505,24 @@ export default function PropertyLandingPage(props: PropertyLandingPageProps = {}
         title={seoTitle}
         description={seoDescription}
         ogImage={ogImage}
+        favicon={branding.faviconUrl}
+        siteName={branding.orgName}
       />
 
       {/* Minimal sticky header — Vizcom-style */}
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
-          <div />
+          {branding.logoUrl ? (
+            <img
+              src={branding.logoUrl}
+              alt={branding.orgName || "Logo"}
+              className="h-8 w-auto object-contain"
+            />
+          ) : branding.orgName ? (
+            <span className="text-base font-semibold truncate max-w-[200px]">{branding.orgName}</span>
+          ) : (
+            <div />
+          )}
           <div className="flex items-center gap-1 sm:gap-2">
             <Button variant="ghost" size="icon" onClick={() => handleShare("whatsapp")} className="h-9 w-9 rounded-full">
               <MessageCircle className="h-4 w-4" />
