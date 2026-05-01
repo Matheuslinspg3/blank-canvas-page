@@ -143,7 +143,10 @@ export default function PropertyLandingPage(props: PropertyLandingPageProps = {}
   const { content: aiContent, isLoading: isLoadingAI, isGenerating, regenerate } = useLandingContent(id);
   const { overrides } = useLandingOverrides(id);
 
-  // Merge overrides with AI content
+  // Public branding for anonymous visitors on custom domains / platform subdomains.
+  // Pulls org name + logo + brand colors directly from the public RPCs and applies
+  // CSS variables to <html> (no auth needed).
+  const branding = usePublicBranding(props.organizationIdOverride ?? null);
   const headline = overrides?.custom_headline || aiContent?.headline || property?.title;
   const subheadline = overrides?.custom_subheadline || aiContent?.subheadline;
   const description = overrides?.custom_description || aiContent?.description_persuasive || property?.description;
