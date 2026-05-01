@@ -419,24 +419,28 @@ function FinancialContent() {
             </>)}
           </TabsContent>
 
-          <TabsContent value="templates" className="mt-4">
-            <ContractTemplatesTab />
-          </TabsContent>
+          {canSeeTemplates && (
+            <TabsContent value="templates" className="mt-4">
+              <ContractTemplatesTab />
+            </TabsContent>
+          )}
 
-          <TabsContent value="financiamentos" className="mt-4 space-y-6">
-            <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-              <Tabs defaultValue="simulador">
-                <TabsList className="w-full sm:w-auto overflow-x-auto">
-                  <TabsTrigger value="simulador" className="shrink-0">Simulador</TabsTrigger>
-                  <TabsTrigger value="pipeline" className="shrink-0">Pipeline</TabsTrigger>
-                  <TabsTrigger value="documentacao" className="shrink-0">Documentação</TabsTrigger>
-                </TabsList>
-                <TabsContent value="simulador"><FinancingSimulatorLazy /></TabsContent>
-                <TabsContent value="pipeline"><FinancingPipelineLazy /></TabsContent>
-                <TabsContent value="documentacao"><FinancingDocsChecklistLazy /></TabsContent>
-              </Tabs>
-            </Suspense>
-          </TabsContent>
+          {canSeeFinanciamentos && (
+            <TabsContent value="financiamentos" className="mt-4 space-y-6">
+              <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+                <Tabs defaultValue="simulador">
+                  <TabsList className="w-full sm:w-auto overflow-x-auto">
+                    <TabsTrigger value="simulador" className="shrink-0">Simulador</TabsTrigger>
+                    <TabsTrigger value="pipeline" className="shrink-0">Pipeline</TabsTrigger>
+                    <TabsTrigger value="documentacao" className="shrink-0">Documentação</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="simulador"><FinancingSimulatorLazy /></TabsContent>
+                  <TabsContent value="pipeline"><FinancingPipelineLazy /></TabsContent>
+                  <TabsContent value="documentacao"><FinancingDocsChecklistLazy /></TabsContent>
+                </Tabs>
+              </Suspense>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
 
