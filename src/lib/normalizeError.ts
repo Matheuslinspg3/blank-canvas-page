@@ -32,6 +32,8 @@ export function isUniqueViolation(err: unknown): boolean {
 
 /** Errors we already handle in UI and don't need to alert in Sentry. */
 export function isExpectedBusinessError(err: unknown): boolean {
+  // Product/plan limits are always expected business outcomes.
+  if (isProductLimitError(err)) return true;
   const code = getCode(err);
   // 23505 = unique_violation, 23503 = fk_violation, 23514 = check_violation
   if (code === '23505') return true;
