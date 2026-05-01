@@ -28,6 +28,7 @@ import { Loader2 } from "lucide-react";
 import { lazyRetry } from "@/utils/lazyRetry";
 
 import { GlobalUpdateNotifier } from "@/components/GlobalUpdateNotifier";
+import { PropertyLandingBoundary } from "@/components/PropertyLandingBoundary";
 
 // Lazy-loaded pages with retry for stale chunk recovery
 const Auth = lazy(() => lazyRetry(() => import("./pages/Auth")));
@@ -142,11 +143,12 @@ const App = () => (
                       <Route path="/dev/storefront-v2" element={<DevStorefrontV2 />} />
                       <Route path="/dev/migrate-site-v2" element={<Suspense fallback={<div className="p-8">Carregando...</div>}><DevMigrateSiteV2 /></Suspense>} />
                       <Route path="/dev/site-builder-rollout" element={<Suspense fallback={<div className="p-8">Carregando...</div>}><DevSiteBuilderRollout /></Suspense>} />
-                      <Route path="/imovel/:id" element={<PropertyLandingPage />} />
+                      <Route path="/imovel/:id" element={<PropertyLandingBoundary><PropertyLandingPage /></PropertyLandingBoundary>} />
                       {/* CRITICAL — landing pública (acesso anônimo). NÃO reordenar nem duplicar.
-                          A resolução em PropertyLandingPage usa RPCs públicas (RLS-safe). */}
-                      <Route path="/i/:orgSlug/:propertyCode" element={<PropertyLandingPage />} />
-                      <Route path="/i/:orgSlug/:propertyCode/:brokerToken" element={<PropertyLandingPage />} />
+                          A resolução em PropertyLandingPage usa RPCs públicas (RLS-safe).
+                          PropertyLandingBoundary protege contra falha do lazy chunk (suspense infinito). */}
+                      <Route path="/i/:orgSlug/:propertyCode" element={<PropertyLandingBoundary><PropertyLandingPage /></PropertyLandingBoundary>} />
+                      <Route path="/i/:orgSlug/:propertyCode/:brokerToken" element={<PropertyLandingBoundary><PropertyLandingPage /></PropertyLandingBoundary>} />
                       <Route path="/instalar" element={<Install />} />
                       <Route path="/site/:orgSlug" element={<Storefront />} />
                       {/* legacy single-segment slug → mantém PublicPropertyBySlug */}
