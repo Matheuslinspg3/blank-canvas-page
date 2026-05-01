@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const minutes = Math.max(5, Math.min(interval_minutes || 15, 60));
+    const minutes = Math.max(1, Math.min(interval_minutes || 15, 60));
     const schedule = `*/${minutes} * * * *`;
 
     await supabase.rpc("manage_cron_job", {
