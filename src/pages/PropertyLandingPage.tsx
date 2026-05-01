@@ -813,44 +813,84 @@ export default function PropertyLandingPage(props: PropertyLandingPageProps = {}
           {/* Contact Form Sidebar */}
           <div className="lg:col-span-1">
             <div className="sticky top-20 space-y-3">
-              {/* Broker contact card (attribution) */}
-              {(contact?.broker_name || contact?.broker_phone || contact?.org_phone) && (
-                <Card className="border border-primary/20">
-                  <CardContent className="pt-5 pb-5">
-                    <div className="flex items-center gap-3">
-                      {contact?.broker_avatar ? (
-                        <img src={contact.broker_avatar} alt={contact.broker_name || "Corretor"}
-                          className="h-12 w-12 rounded-full object-cover border" />
-                      ) : (
-                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Phone className="h-5 w-5 text-primary" />
-                        </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs text-muted-foreground">Seu contato</p>
-                        <p className="font-semibold truncate">{contact?.broker_name || contact?.org_name || "Corretor responsável"}</p>
-                        {contact?.org_name && contact?.broker_name && (
-                          <p className="text-xs text-muted-foreground truncate">{contact.org_name}</p>
+              {/* Broker / Imobiliária contact card (attribution + fallbacks) */}
+              {(() => {
+                const displayPhone =
+                  contact?.broker_phone ||
+                  contact?.org_whatsapp ||
+                  contact?.org_contact_phone ||
+                  contact?.org_phone ||
+                  null;
+                const displayName =
+                  contact?.broker_name ||
+                  contact?.org_name ||
+                  branding.orgName ||
+                  null;
+                const displaySubname =
+                  contact?.broker_name && (contact?.org_name || branding.orgName)
+                    ? contact?.org_name || branding.orgName
+                    : null;
+                const displayAvatar =
+                  contact?.broker_avatar ||
+                  contact?.org_logo ||
+                  branding.logoUrl ||
+                  null;
+
+                if (!displayName && !displayPhone) return null;
+
+                return (
+                  <Card className="border border-primary/20">
+                    <CardContent className="pt-5 pb-5">
+                      <div className="flex items-center gap-3">
+                        {displayAvatar ? (
+                          <img
+                            src={displayAvatar}
+                            alt={displayName || "Contato"}
+                            className="h-12 w-12 rounded-full object-cover border bg-white"
+                          />
+                        ) : (
+                          <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                            <Phone className="h-5 w-5 text-primary" />
+                          </div>
                         )}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs text-muted-foreground">Seu contato</p>
+                          <p className="font-semibold truncate">
+                            {displayName || "Fale com a imobiliária"}
+                          </p>
+                          {displaySubname && (
+                            <p className="text-xs text-muted-foreground truncate">{displaySubname}</p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    {(contact?.broker_phone || contact?.org_phone) && (
-                      <Button
-                        className="w-full mt-4"
-                        size="sm"
-                        onClick={() => {
-                          const phone = (contact?.broker_phone || contact?.org_phone || "").replace(/\D/g, "");
-                          const msg = `Olá${contact?.broker_name ? ` ${contact.broker_name.split(" ")[0]}` : ""}! Tenho interesse no imóvel: ${aiContent?.headline || property.title} - ${window.location.href}`;
-                          window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
-                        }}
-                      >
-                        <MessageCircle className="h-4 w-4 mr-2" />
-                        Falar no WhatsApp
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
+                      {displayPhone ? (
+                        <Button
+                          className="w-full mt-4"
+                          size="sm"
+                          onClick={() => {
+                            const phone = displayPhone.replace(/\D/g, "");
+                            const msg = `Olá${contact?.broker_name ? ` ${contact.broker_name.split(" ")[0]}` : ""}! Tenho interesse no imóvel: ${aiContent?.headline || property.title} - ${window.location.href}`;
+                            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
+                          }}
+                        >
+                          <MessageCircle className="h-4 w-4 mr-2" />
+                          Falar no WhatsApp
+                        </Button>
+                      ) : (
+                        <Button
+                          className="w-full mt-4"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => document.querySelector("form")?.scrollIntoView({ behavior: "smooth" })}
+                        >
+                          <Send className="h-4 w-4 mr-2" />
+                          Enviar mensagem
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })()}
 
               <Card className="border-2 border-primary/20 shadow-lg">
                 <CardHeader className="bg-primary/5 rounded-t-xl">
