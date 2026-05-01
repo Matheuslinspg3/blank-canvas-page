@@ -483,7 +483,14 @@ export function LeadForm({
 }
 
 // ---- Extracted form fields component ----
+//
+// `section` controls which subset of fields is rendered:
+//   - 'basic'    → dados do lead (nome, contato, origem, estágio, observações)
+//   - 'criteria' → critérios do imóvel desejado (interesse, tipos, quartos, bairros…)
+// Mantemos um único componente para reaproveitar lógica de busca de
+// bairros/cidades sem duplicar estado.
 interface LeadFormFieldsProps {
+  section: 'basic' | 'criteria';
   form: any;
   leadStages: LeadStage[];
   brokers: Broker[];
@@ -503,18 +510,36 @@ interface LeadFormFieldsProps {
   setCitySearch: (v: string) => void;
   showCityDropdown: boolean;
   setShowCityDropdown: (v: boolean) => void;
-  showInterest: boolean;
-  setShowInterest: (v: boolean) => void;
 }
 
 function LeadFormFields({
+  section,
   form, leadStages, brokers, properties, propertyTypes,
   hasPhone, hasEmail, showCustomSource, onSourceChange,
   availableNeighborhoods, availableCities,
   neighborhoodSearch, setNeighborhoodSearch, showNeighborhoodDropdown, setShowNeighborhoodDropdown,
   citySearch, setCitySearch, showCityDropdown, setShowCityDropdown,
-  showInterest, setShowInterest,
 }: LeadFormFieldsProps) {
+  if (section === 'criteria') {
+    return (
+      <LeadCriteriaFields
+        form={form}
+        properties={properties}
+        propertyTypes={propertyTypes}
+        availableNeighborhoods={availableNeighborhoods}
+        availableCities={availableCities}
+        neighborhoodSearch={neighborhoodSearch}
+        setNeighborhoodSearch={setNeighborhoodSearch}
+        showNeighborhoodDropdown={showNeighborhoodDropdown}
+        setShowNeighborhoodDropdown={setShowNeighborhoodDropdown}
+        citySearch={citySearch}
+        setCitySearch={setCitySearch}
+        showCityDropdown={showCityDropdown}
+        setShowCityDropdown={setShowCityDropdown}
+      />
+    );
+  }
+
   return (
     <>
       {/* Basic fields */}
