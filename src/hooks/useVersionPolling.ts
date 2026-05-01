@@ -3,10 +3,17 @@ import { useLocation } from "react-router-dom";
 import { APP_VERSION } from "@/config/appVersion";
 
 const POLL_INTERVAL = 30_000; // 30s
-// (cache-busting query string is built per-request inside checkVersion)
+
+const isPreviewHost =
+  typeof window !== "undefined" &&
+  (window.location.hostname.includes("id-preview--") ||
+    window.location.hostname.includes("lovableproject.com"));
 
 /**
  * Polls /version.json periodically and on every navigation.
+ * Disabled entirely on Lovable preview hosts to avoid reload loops
+ * (preview serves a different version.json than the compiled APP_VERSION).
+ *
  * When a newer version is detected:
  *   1. Sets window.__newVersionAvailable = true
  *   2. Dispatches "sw-update-available" for UpdateBanner
