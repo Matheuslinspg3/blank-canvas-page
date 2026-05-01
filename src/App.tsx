@@ -18,6 +18,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/admin/AdminRoute";
 import { ManagerRoute } from "@/components/admin/ManagerRoute";
 import { DeveloperRoute } from "@/components/developer/DeveloperRoute";
+import { DeveloperOnlyRoute } from "@/components/access/DeveloperOnlyRoute";
 import { AppLayout } from "@/components/layouts/AppLayout";
 import { FloatingImportProgress } from "@/components/integrations/FloatingImportProgress";
 import { AppMobileLayout } from "@/components/app/AppMobileLayout";
