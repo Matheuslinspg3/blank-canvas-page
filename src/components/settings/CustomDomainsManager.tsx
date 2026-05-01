@@ -216,8 +216,20 @@ export function CustomDomainsManager() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const currentDomainCount = domains?.length ?? 0;
+  const limitReached = domainLimit !== Infinity && currentDomainCount >= domainLimit;
+  const planAllowsZero = domainLimit === 0;
+
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
+    if (limitReached) {
+      toast.error(
+        planAllowsZero
+          ? "Seu plano não inclui domínios customizados."
+          : `Limite de ${domainLimit} domínio(s) do seu plano atingido.`,
+      );
+      return;
+    }
     const h = newHostname.trim().toLowerCase();
     if (!h || !h.includes(".")) {
       toast.error("Digite um domínio válido (ex: www.meusite.com.br)");
@@ -238,9 +250,34 @@ export function CustomDomainsManager() {
         </CardTitle>
         <CardDescription>
           Conecte seu domínio próprio ao site da imobiliária. O SSL é emitido automaticamente.
+          {domainLimit !== Infinity && (
+            <span className="block mt-1 text-xs">
+              Plano atual: {currentDomainCount}/{domainLimit} domínio(s).
+            </span>
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Plan-limit warning */}
+        {limitReached && (
+          <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+            <Lock className="h-4 w-4 mt-0.5 text-destructive shrink-0" />
+            <div className="flex-1">
+              <p className="font-medium">
+                {planAllowsZero
+                  ? "Seu plano não inclui domínios customizados"
+                  : `Limite de ${domainLimit} domínio(s) atingido`}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Faça upgrade para adicionar {planAllowsZero ? "um domínio próprio" : "mais domínios"}.
+              </p>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => navigate("/planos")}>
+              Ver planos
+            </Button>
+          </div>
+        )}
+
         {/* Add new domain */}
         <form onSubmit={handleCreate} className="flex gap-2">
           <Input
@@ -248,8 +285,9 @@ export function CustomDomainsManager() {
             value={newHostname}
             onChange={(e) => setNewHostname(e.target.value)}
             className="flex-1"
+            disabled={limitReached}
           />
-          <Button type="submit" disabled={createMutation.isPending} className="gap-2">
+          <Button type="submit" disabled={createMutation.isPending || limitReached} className="gap-2">
             {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
             Adicionar
           </Button>
