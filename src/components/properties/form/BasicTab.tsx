@@ -209,6 +209,11 @@ export function BasicTab({ form, publishToMarketplace = false, propertyId }: Bas
               <Select onValueChange={field.onChange} value={field.value || undefined}>
                 <FormControl><SelectTrigger><SelectValue placeholder="Selecione o captador" /></SelectTrigger></FormControl>
                 <SelectContent>
+                  {captadorMatchMissing && (
+                    <SelectItem value={currentCaptadorId!} disabled>
+                      {isLoadingBrokers ? "(carregando captador atual…)" : "(captador atual indisponível)"}
+                    </SelectItem>
+                  )}
                   {brokers.map((broker) => (
                     <SelectItem key={broker.id} value={broker.user_id}>{broker.full_name}</SelectItem>
                   ))}
