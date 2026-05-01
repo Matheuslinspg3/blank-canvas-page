@@ -246,22 +246,24 @@ export default function PropertyDetails() {
 
   const handleCopyLink = async () => {
     if (!id) return;
-    const url = await generateShareLink(id);
-    if (url) {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
+    const result = await generateShareLink(id);
+    if (!result) return; // erro real — toast já mostrado pelo hook
+    await navigator.clipboard.writeText(result.link);
+    setCopied(true);
+    if (!result.usedFallback) {
       toast({
         title: "Link seguro copiado!",
         description: "O link público (sem dados do proprietário) foi copiado.",
       });
-      setTimeout(() => setCopied(false), 2000);
     }
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleShare = async () => {
     if (!id) return;
-    const url = await generateShareLink(id);
-    if (!url) return;
+    const result = await generateShareLink(id);
+    if (!result) return;
+    const url = result.link;
     if (navigator.share) {
       try {
         await navigator.share({
@@ -271,11 +273,11 @@ export default function PropertyDetails() {
         });
       } catch {
         await navigator.clipboard.writeText(url);
-        toast({ title: "Link copiado!" });
+        if (!result.usedFallback) toast({ title: "Link copiado!" });
       }
     } else {
       await navigator.clipboard.writeText(url);
-      toast({ title: "Link copiado!" });
+      if (!result.usedFallback) toast({ title: "Link copiado!" });
     }
   };
 
