@@ -3,10 +3,11 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Home, User, Clock, AlertTriangle, Flame, Snowflake, Sun, Zap, UserX } from 'lucide-react';
+import { Home, User, Clock, AlertTriangle, Flame, Snowflake, Sun, Zap, UserX, ListChecks } from 'lucide-react';
 import { LeadQuickActions } from './LeadQuickActions';
 import { formatDistanceToNow, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { leadHasCriteria } from '@/lib/leadCriteria';
 import type { Lead } from '@/hooks/useLeads';
 
 interface LeadCardProps {
@@ -102,6 +103,7 @@ function LeadCardComponent({ lead, onClick, onChangeTemperature }: LeadCardProps
 
   const tempConfig = TEMPERATURE_CONFIG[lead.temperature || ''] || DEFAULT_TEMP_CONFIG;
   const TempIcon = tempConfig.icon;
+  const hasCriteria = useMemo(() => leadHasCriteria(lead), [lead]);
 
   return (
     <Card
@@ -132,6 +134,16 @@ function LeadCardComponent({ lead, onClick, onChangeTemperature }: LeadCardProps
               <Badge variant="destructive" className="text-[10px] gap-0.5 px-1.5 py-0">
                 <AlertTriangle className="h-2.5 w-2.5" />
                 Parado
+              </Badge>
+            )}
+            {!hasCriteria && (
+              <Badge
+                variant="outline"
+                className="text-[10px] gap-0.5 px-1.5 py-0 border-amber-400 text-amber-600 dark:text-amber-400"
+                title="Lead sem critérios de imóvel desejado"
+              >
+                <ListChecks className="h-2.5 w-2.5" />
+                Sem critérios
               </Badge>
             )}
           </div>
