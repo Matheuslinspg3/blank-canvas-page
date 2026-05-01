@@ -8,6 +8,10 @@
 
 export const DEVELOPER_ONLY_FEATURES = {
   CRM_WHATSAPP_TEMPLATES: "crm.whatsapp_templates",
+  // NOTE: Financeiro > Templates e Financeiro > Financiamentos são ABAS
+  // dentro da rota `/financeiro` (não rotas standalone). O bloqueio acontece
+  // em `src/pages/Financial.tsx` via `canAccessFeature(...)`, não em
+  // `App.tsx`. A própria rota `/financeiro` permanece acessível a todos.
   FINANCEIRO_TEMPLATES: "financeiro.templates",
   FINANCEIRO_FINANCIAMENTOS: "financeiro.financiamentos",
   CORRESPONDENTE: "correspondente",
@@ -36,7 +40,8 @@ export const DEVELOPER_ONLY_FEATURE_SET: ReadonlySet<string> = new Set(
  */
 export const DEVELOPER_ONLY_ROUTES: readonly string[] = [
   "/correspondente",
-  "/financiamentos",
+  // `/financiamentos` NÃO é listado: é aba dentro de `/financeiro`,
+  // gated em Financial.tsx via FINANCEIRO_FINANCIAMENTOS.
   "/automacoes",
   "/whatsapp/meu-canal",
   "/whatsapp/automacoes",
