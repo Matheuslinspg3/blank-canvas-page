@@ -750,14 +750,42 @@ function LeadFormFields({
         )}
       />
 
-      {/* Interest section — collapsible */}
-      <Collapsible open={showInterest} onOpenChange={setShowInterest}>
-        <CollapsibleTrigger asChild>
-          <Button type="button" variant="ghost" size="sm" className="w-full justify-between text-muted-foreground min-h-[40px]">
-            {showInterest ? "Ocultar critérios de imóvel" : "Adicionar critérios de imóvel desejado"}
-            <ChevronDown className={`h-4 w-4 transition-transform ${showInterest ? 'rotate-180' : ''}`} />
-          </Button>
-        </CollapsibleTrigger>
+    </>
+  );
+}
+
+// ---- Critérios de imóvel desejado (aba própria) ----
+//
+// Antes era um `<Collapsible>` dentro de `LeadFormFields`. Agora é uma aba
+// dedicada do modal. Todos os campos continuam opcionais — o lead pode ser
+// salvo sem nenhum critério.
+interface LeadCriteriaFieldsProps {
+  form: any;
+  properties: { id: string; title: string }[];
+  propertyTypes: PropertyType[];
+  availableNeighborhoods: string[];
+  availableCities: string[];
+  neighborhoodSearch: string;
+  setNeighborhoodSearch: (v: string) => void;
+  showNeighborhoodDropdown: boolean;
+  setShowNeighborhoodDropdown: (v: boolean) => void;
+  citySearch: string;
+  setCitySearch: (v: string) => void;
+  showCityDropdown: boolean;
+  setShowCityDropdown: (v: boolean) => void;
+}
+
+function LeadCriteriaFields({
+  form, properties, propertyTypes,
+  availableNeighborhoods, availableCities,
+  neighborhoodSearch, setNeighborhoodSearch, showNeighborhoodDropdown, setShowNeighborhoodDropdown,
+  citySearch, setCitySearch, showCityDropdown, setShowCityDropdown,
+}: LeadCriteriaFieldsProps) {
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-muted-foreground">
+        Todos os campos abaixo são opcionais. Use para registrar o que o lead procura e ajudar a sugerir imóveis.
+      </p>
         <CollapsibleContent className="space-y-4 pt-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField
