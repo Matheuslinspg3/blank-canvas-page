@@ -311,7 +311,7 @@ export function PdfImportDialog({ open, onOpenChange, onDataExtracted, onBatchEx
       setExtractedList(allProperties);
       const autoSelected = new Set<number>();
       allProperties.forEach((p, i) => {
-        if (!p.is_sold && !p.is_reserved) autoSelected.add(i);
+        if (!p.is_sold && !p.is_reserved && !p.is_rented) autoSelected.add(i);
       });
       setSelectedIndices(autoSelected);
       setStage("preview");
