@@ -93,6 +93,8 @@ export interface ExtractedPropertyData {
   owner_email?: string;
   is_sold?: boolean;
   is_reserved?: boolean;
+  is_rented?: boolean;
+  availability?: string;
   photos_url?: string;
 }
 
