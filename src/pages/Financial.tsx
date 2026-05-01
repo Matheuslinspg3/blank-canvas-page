@@ -82,6 +82,19 @@ function FinancialContent() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [finTab, setFinTab] = useTabParam("tab", "transactions");
 
+  const { canAccessFeature } = useFeatureAccess();
+  const canSeeTemplates = canAccessFeature(DEVELOPER_ONLY_FEATURES.FINANCEIRO_TEMPLATES);
+  const canSeeFinanciamentos = canAccessFeature(DEVELOPER_ONLY_FEATURES.FINANCEIRO_FINANCIAMENTOS);
+
+  // Redirect away from restricted tabs when user lacks access
+  useEffect(() => {
+    if (finTab === "templates" && !canSeeTemplates) {
+      setFinTab("transactions");
+    } else if (finTab === "financiamentos" && !canSeeFinanciamentos) {
+      setFinTab("transactions");
+    }
+  }, [finTab, canSeeTemplates, canSeeFinanciamentos, setFinTab]);
+
   // Financial data
   const { transactions, stats, chartData, deleteTransaction, error: txError, refetch: refetchTx } = useTransactions();
   const { invoices, pendingAmount, pendingCount } = useInvoices();
