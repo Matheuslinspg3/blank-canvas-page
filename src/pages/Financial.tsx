@@ -266,14 +266,18 @@ function FinancialContent() {
               <FileText className="h-4 w-4" />
               Contratos
             </TabsTrigger>
-            <TabsTrigger value="templates" className="shrink-0 min-h-[44px] gap-2">
-              <LayoutTemplate className="h-4 w-4" />
-              Templates
-            </TabsTrigger>
-            <TabsTrigger value="financiamentos" className="shrink-0 min-h-[44px] gap-2">
-              <Landmark className="h-4 w-4" />
-              Financiamentos
-            </TabsTrigger>
+            {canSeeTemplates && (
+              <TabsTrigger value="templates" className="shrink-0 min-h-[44px] gap-2">
+                <LayoutTemplate className="h-4 w-4" />
+                Templates
+              </TabsTrigger>
+            )}
+            {canSeeFinanciamentos && (
+              <TabsTrigger value="financiamentos" className="shrink-0 min-h-[44px] gap-2">
+                <Landmark className="h-4 w-4" />
+                Financiamentos
+              </TabsTrigger>
+            )}
           </TabsList>
           <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none sm:hidden" />
           </div>
