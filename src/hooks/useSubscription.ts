@@ -64,14 +64,23 @@ export type PlanLine = "marketplace" | "erp" | "combo" | "main";
 
 const PLAN_ORDER = ['gratuito', 'starter', 'correspondente', 'essencial', 'profissional', 'business'];
 
+// Keys treated as unlimited for enterprise/business-class plans by default.
+// NOTE: max_custom_domains is intentionally NOT included — Imobiliária/business
+// has an explicit cap (1) that must come from the plan's features payload.
+// Same for max_marketplace_properties (must be explicit per plan).
 const ENTERPRISE_UNLIMITED_KEYS = new Set([
   'max_own_properties',
   'max_leads',
   'max_users',
-  'max_marketplace_properties',
-  'max_custom_domains',
   'max_storage_mb',
   'ai_credits_limit',
+]);
+
+// Keys where missing/invalid values must FAIL CLOSED (0) instead of unlimited.
+// These are commercial gates where silently allowing unlimited would be unsafe.
+const FAIL_CLOSED_KEYS = new Set([
+  'max_custom_domains',
+  'max_marketplace_properties',
 ]);
 
 function ensureArray<T>(value: T[] | null | undefined): T[] {
@@ -104,27 +113,42 @@ const FREE_PLAN_LIMITS: Record<string, number> = {
   ai_credits_limit: 0,
 };
 
+/**
+ * Normalize a raw limit value (from features JSONB or column) to a number.
+ * Convention: -1 = unlimited (Infinity); integer >= 0 = real cap.
+ * For FAIL_CLOSED_KEYS, anything else (null/undefined/NaN/string) returns null
+ * so the caller falls back to the safe default (0). For other keys, null/undefined
+ * preserves legacy "unlimited" semantics.
+ */
+function normalizeLimit(raw: unknown, key: string): number | null {
+  if (raw === -1 || raw === true) return Infinity;
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw >= 0) return Math.floor(raw);
+  if (typeof raw === 'string' && /^-?\d+$/.test(raw)) {
+    const n = parseInt(raw, 10);
+    if (n === -1) return Infinity;
+    if (n >= 0) return n;
+  }
+  if (FAIL_CLOSED_KEYS.has(key)) return null; // force fallback to FREE_PLAN_LIMITS (0)
+  if (raw === null || raw === undefined) return Infinity; // legacy: missing = unlimited
+  return null;
+}
+
 export function getFeatureLimit(plan: SubscriptionPlan | null | undefined, key: string): number {
   if (!plan) return FREE_PLAN_LIMITS[key] ?? 0;
 
-  // Enterprise-class plans always get unlimited for core keys
+  // Enterprise-class plans always get unlimited for core keys (excluding fail-closed gates).
   const slug = (plan.slug ?? '').toLowerCase();
   if ((slug.includes('enterprise') || slug.includes('business')) && ENTERPRISE_UNLIMITED_KEYS.has(key)) {
     return Infinity;
   }
 
   const features = (plan.features ?? {}) as Record<string, any>;
-  const val = features[key];
-  if (val === -1 || val === true) return Infinity;
-  if (val === null || val === undefined) {
-    // null in features JSON = unlimited
-  } else if (typeof val === 'number') return val;
+  const fromFeatures = normalizeLimit(features[key], key);
+  if (fromFeatures !== null) return fromFeatures;
 
   const topLevelVal = (plan as Record<string, any>)[key];
-  if (topLevelVal === -1 || topLevelVal === true) return Infinity;
-  // null in top-level columns (e.g. max_own_properties) = unlimited
-  if (topLevelVal === null) return Infinity;
-  if (typeof topLevelVal === 'number') return topLevelVal;
+  const fromColumn = normalizeLimit(topLevelVal, key);
+  if (fromColumn !== null) return fromColumn;
 
   return FREE_PLAN_LIMITS[key] ?? 0;
 }

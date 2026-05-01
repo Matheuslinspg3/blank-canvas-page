@@ -711,38 +711,59 @@ Deno.serve(async (req) => {
       const { data: existing } = await adminClient.from("tenant_domains").select("id").eq("hostname", hostname).maybeSingle();
       if (existing) return errorJson("Domínio já cadastrado", 409);
 
-      // ─── Plan limit gate: max_custom_domains ────────────────────
-      try {
-        const { data: subRow } = await adminClient
-          .from("subscriptions")
-          .select("plan:subscription_plans(features)")
-          .eq("organization_id", orgId)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        const features = ((subRow as any)?.plan?.features ?? {}) as Record<string, any>;
-        const rawLimit = features.max_custom_domains;
-        // -1 / true / null = unlimited; any non-negative number = hard cap
-        const limit =
-          rawLimit === -1 || rawLimit === true || rawLimit === null || rawLimit === undefined
-            ? Infinity
-            : Number(rawLimit);
-        if (Number.isFinite(limit)) {
-          const { count: currentCount } = await adminClient
-            .from("tenant_domains")
-            .select("id", { count: "exact", head: true })
-            .eq("organization_id", orgId);
-          if ((currentCount ?? 0) >= limit) {
-            return errorJson(
-              limit === 0
-                ? "Seu plano não inclui domínios customizados. Faça upgrade para adicionar um domínio."
-                : `Limite de ${limit} domínio(s) customizado(s) atingido no seu plano. Faça upgrade para adicionar mais.`,
-              403,
-            );
-          }
+      // ─── Plan limit gate: max_custom_domains (FAIL-CLOSED) ──────
+      // Convention: -1 = unlimited; integer >= 0 = hard cap.
+      // Anything else (null/undefined/NaN/missing/load error) = block.
+      const { data: subRow, error: subErr } = await adminClient
+        .from("subscriptions")
+        .select("plan:subscription_plans(features)")
+        .eq("organization_id", orgId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (subErr || !subRow || !(subRow as any).plan) {
+        console.error("[manage-custom-domain] failed to load plan for gate:", subErr);
+        return errorJson(
+          "Não foi possível validar seu plano. Tente novamente em instantes.",
+          403,
+        );
+      }
+
+      const features = ((subRow as any).plan.features ?? {}) as Record<string, any>;
+      const rawLimit = features.max_custom_domains;
+      let limit: number;
+      if (rawLimit === -1) {
+        limit = Infinity;
+      } else if (typeof rawLimit === "number" && Number.isFinite(rawLimit) && rawLimit >= 0) {
+        limit = Math.floor(rawLimit);
+      } else if (typeof rawLimit === "string" && /^-?\d+$/.test(rawLimit)) {
+        const parsed = parseInt(rawLimit, 10);
+        limit = parsed === -1 ? Infinity : Math.max(0, parsed);
+      } else {
+        // null / undefined / NaN / invalid → fail closed at 0.
+        limit = 0;
+      }
+
+      if (Number.isFinite(limit)) {
+        const { count: currentCount, error: countErr } = await adminClient
+          .from("tenant_domains")
+          .select("id", { count: "exact", head: true })
+          .eq("organization_id", orgId);
+
+        if (countErr) {
+          console.error("[manage-custom-domain] failed to count domains:", countErr);
+          return errorJson("Não foi possível validar seu limite de domínios.", 403);
         }
-      } catch (gateErr) {
-        console.warn("[manage-custom-domain] plan-limit gate skipped:", gateErr);
+
+        if ((currentCount ?? 0) >= limit) {
+          return errorJson(
+            limit === 0
+              ? "Domínio customizado está disponível no plano Imobiliária."
+              : `Seu plano permite até ${limit} domínio customizado.`,
+            403,
+          );
+        }
       }
 
       const cfRes = await fetch(`${CF_API}/zones/${env.cloudflareZoneId!}/custom_hostnames`, {
