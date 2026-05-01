@@ -791,7 +791,7 @@ function PropertyPreviewRow({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
-  const isSoldOrReserved = item.is_sold || item.is_reserved;
+  const isSoldOrReserved = item.is_sold || item.is_reserved || item.is_rented;
 
   const label = [
     item.unit_identifier,
