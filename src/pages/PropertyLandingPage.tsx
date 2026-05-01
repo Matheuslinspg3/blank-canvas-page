@@ -148,80 +148,93 @@ export default function PropertyLandingPage(props: PropertyLandingPageProps = {}
   const hideAddress = overrides?.hide_exact_address ?? true;
 
   useEffect(() => {
+    let cancelled = false;
     async function fetchProperty() {
       if (!id) return;
       // Defense-in-depth: get_public_property expects a UUID. If a non-UUID slipped through
       // (e.g. property_code), skip the call and let the resolution effect convert it first.
       if (!isUuid(id)) return;
 
-      // Use secure RPC functions that only expose safe columns (no commission, internal metadata, full address)
-      const { data: propertyRows, error } = await (supabase.rpc as any)('get_public_property', { p_id: id });
+      try {
+        // Use secure RPC functions that only expose safe columns (no commission, internal metadata, full address)
+        const { data: propertyRows, error } = await (supabase.rpc as any)('get_public_property', { p_id: id });
 
-      if (error || !propertyRows || propertyRows.length === 0) {
-        console.error("Error fetching property:", error);
+        if (cancelled) return;
+
+        if (error || !propertyRows || propertyRows.length === 0) {
+          console.error("Error fetching property:", error);
+          setProperty(null);
+          setLoading(false);
+          return;
+        }
+
+        const propData = propertyRows[0];
+
+        // Fetch property type name
+        let propertyType = null;
+        if (propData.property_type_id) {
+          const { data: typeName } = await (supabase.rpc as any)('get_property_type_name', { p_type_id: propData.property_type_id });
+          if (typeName) {
+            propertyType = { id: propData.property_type_id, name: typeName };
+          }
+        }
+
+        // Fetch images via secure function
+        const { data: imageRows } = await (supabase.rpc as any)('get_public_property_images', { p_property_id: id });
+
+        let images = (imageRows || []).map((img: any) => ({
+          id: img.id,
+          url: img.url,
+          is_cover: img.is_cover || false,
+          display_order: img.display_order || 0,
+          property_id: id!,
+          created_at: new Date().toISOString(),
+          image_type: img.image_type || 'photo',
+          source: img.source,
+          scraped_from_url: null,
+          r2_key_full: img.r2_key_full || null,
+          r2_key_thumb: img.r2_key_thumb || null,
+          storage_provider: img.storage_provider || null,
+          cached_thumbnail_url: img.cached_thumbnail_url || null,
+        }));
+
+        // Fallback to property_media if no images
+        if (images.length === 0) {
+          const { data: mediaRows } = await (supabase.rpc as any)('get_public_property_media', { p_property_id: id });
+          if (mediaRows && mediaRows.length > 0) {
+            images = mediaRows.map((m: any, idx: number) => ({
+              id: m.id,
+              url: m.stored_url || m.original_url,
+              is_cover: idx === 0,
+              display_order: m.display_order || idx,
+              property_id: id!,
+              created_at: new Date().toISOString(),
+              image_type: 'photo' as const,
+              source: 'media',
+              scraped_from_url: null,
+            }));
+          }
+        }
+
+        if (cancelled) return;
+
+        const propertyData = {
+          ...propData,
+          property_type: propertyType,
+          images,
+        } as PropertyWithDetails;
+
+        setProperty(propertyData);
+        setLoading(false);
+      } catch (err) {
+        if (cancelled) return;
+        console.error("[landing] fetchProperty threw:", err);
         setProperty(null);
         setLoading(false);
-        return;
       }
-
-      const propData = propertyRows[0];
-
-      // Fetch property type name
-      let propertyType = null;
-      if (propData.property_type_id) {
-        const { data: typeName } = await (supabase.rpc as any)('get_property_type_name', { p_type_id: propData.property_type_id });
-        if (typeName) {
-          propertyType = { id: propData.property_type_id, name: typeName };
-        }
-      }
-
-      // Fetch images via secure function
-      const { data: imageRows } = await (supabase.rpc as any)('get_public_property_images', { p_property_id: id });
-
-      let images = (imageRows || []).map((img: any) => ({
-        id: img.id,
-        url: img.url,
-        is_cover: img.is_cover || false,
-        display_order: img.display_order || 0,
-        property_id: id!,
-        created_at: new Date().toISOString(),
-        image_type: img.image_type || 'photo',
-        source: img.source,
-        scraped_from_url: null,
-        r2_key_full: img.r2_key_full || null,
-        r2_key_thumb: img.r2_key_thumb || null,
-        storage_provider: img.storage_provider || null,
-        cached_thumbnail_url: img.cached_thumbnail_url || null,
-      }));
-
-      // Fallback to property_media if no images
-      if (images.length === 0) {
-        const { data: mediaRows } = await (supabase.rpc as any)('get_public_property_media', { p_property_id: id });
-        if (mediaRows && mediaRows.length > 0) {
-          images = mediaRows.map((m: any, idx: number) => ({
-            id: m.id,
-            url: m.stored_url || m.original_url,
-            is_cover: idx === 0,
-            display_order: m.display_order || idx,
-            property_id: id!,
-            created_at: new Date().toISOString(),
-            image_type: 'photo' as const,
-            source: 'media',
-            scraped_from_url: null,
-          }));
-        }
-      }
-
-      const propertyData = {
-        ...propData,
-        property_type: propertyType,
-        images,
-      } as PropertyWithDetails;
-
-      setProperty(propertyData);
-      setLoading(false);
     }
     fetchProperty();
+    return () => { cancelled = true; };
   }, [id]);
 
   /**
@@ -244,99 +257,124 @@ export default function PropertyLandingPage(props: PropertyLandingPageProps = {}
     }
 
     let cancelled = false;
-    (async () => {
-      // Layer A — RPC pública combinada (precisa de orgSlug)
-      if (orgSlug) {
-        try {
-          const { data: combined, error: errA } = await (supabase.rpc as any)(
-            "get_public_property_by_org_code",
-            { p_org_slug: orgSlug, p_code: propertyCode }
-          );
-          if (!cancelled && !errA && combined && (combined.id || combined.property?.id)) {
-            const propId = combined.id ?? combined.property?.id;
-            setResolvedId(propId);
-            return;
-          }
-        } catch (e) {
-          console.warn("[landing] Layer A failed", e);
-        }
-
-        // Layer B — RPC de ID enxuta
-        try {
-          const { data: propId, error: errB } = await (supabase.rpc as any)(
-            "get_property_id_by_org_code",
-            { p_org_slug: orgSlug, p_code: propertyCode }
-          );
-          if (!cancelled && !errB && propId) {
-            setResolvedId(propId as string);
-            return;
-          }
-        } catch (e) {
-          console.warn("[landing] Layer B failed", e);
-        }
-      }
-
-      // Layer B2 — RPC por organization_id (custom domains sem slug conhecido)
-      if (organizationIdOverride) {
-        try {
-          const { data: propId, error: errB2 } = await (supabase.rpc as any)(
-            "get_property_id_by_org_id_code",
-            { p_org_id: organizationIdOverride, p_code: propertyCode }
-          );
-          if (!cancelled && !errB2 && propId) {
-            setResolvedId(propId as string);
-            return;
-          }
-        } catch (e) {
-          console.warn("[landing] Layer B2 failed", e);
-        }
-      }
-
-      // Layer C — fallback autenticado (preview interno)
-      try {
-        const { data: session } = await supabase.auth.getSession();
-        if (session?.session?.user) {
-          let orgId: string | null = organizationIdOverride ?? null;
-          if (!orgId && orgSlug) {
-            const { data: org } = await supabase
-              .from("organizations").select("id").eq("slug", orgSlug).maybeSingle();
-            orgId = org?.id ?? null;
-          }
-          if (orgId) {
-            const { data: prop } = await supabase
-              .from("properties").select("id")
-              .eq("organization_id", orgId)
-              .eq("property_code", propertyCode)
-              .maybeSingle();
-            if (!cancelled && prop?.id) {
-              setResolvedId(prop.id);
-              return;
-            }
-          }
-        }
-      } catch (e) {
-        console.warn("[landing] Layer C failed", e);
-      }
-
+    // Watchdog: if no layer resolves within 12s, abort and surface "not found"
+    // so the page never gets stuck on the skeleton spinner.
+    const watchdog = setTimeout(() => {
       if (cancelled) return;
-
-      console.warn("[landing] not_found", { orgSlug, propertyCode, organizationIdOverride });
-      supabase.functions.invoke("track-landing-visit", {
-        body: {
-          broker_token: brokerToken ?? null,
-          property_id: null,
-          referrer: typeof document !== "undefined" ? document.referrer || null : null,
-          not_found: true,
-          org_slug: orgSlug,
-          property_code: propertyCode,
-        },
-      }).catch(() => {});
-
+      console.warn("[landing] resolution watchdog timed out", {
+        orgSlug, propertyCode, organizationIdOverride,
+      });
+      cancelled = true;
       setResolvedId(null);
       setLoading(false);
+    }, 12_000);
+
+    (async () => {
+      try {
+        // Layer A — RPC pública combinada (precisa de orgSlug)
+        if (orgSlug) {
+          try {
+            const { data: combined, error: errA } = await (supabase.rpc as any)(
+              "get_public_property_by_org_code",
+              { p_org_slug: orgSlug, p_code: propertyCode }
+            );
+            if (!cancelled && !errA && combined && (combined.id || combined.property?.id)) {
+              const propId = combined.id ?? combined.property?.id;
+              clearTimeout(watchdog);
+              setResolvedId(propId);
+              return;
+            }
+          } catch (e) {
+            console.warn("[landing] Layer A failed", e);
+          }
+
+          // Layer B — RPC de ID enxuta
+          try {
+            const { data: propId, error: errB } = await (supabase.rpc as any)(
+              "get_property_id_by_org_code",
+              { p_org_slug: orgSlug, p_code: propertyCode }
+            );
+            if (!cancelled && !errB && propId) {
+              clearTimeout(watchdog);
+              setResolvedId(propId as string);
+              return;
+            }
+          } catch (e) {
+            console.warn("[landing] Layer B failed", e);
+          }
+        }
+
+        // Layer B2 — RPC por organization_id (custom domains sem slug conhecido)
+        if (organizationIdOverride) {
+          try {
+            const { data: propId, error: errB2 } = await (supabase.rpc as any)(
+              "get_property_id_by_org_id_code",
+              { p_org_id: organizationIdOverride, p_code: propertyCode }
+            );
+            if (!cancelled && !errB2 && propId) {
+              clearTimeout(watchdog);
+              setResolvedId(propId as string);
+              return;
+            }
+          } catch (e) {
+            console.warn("[landing] Layer B2 failed", e);
+          }
+        }
+
+        // Layer C — fallback autenticado (preview interno)
+        try {
+          const { data: session } = await supabase.auth.getSession();
+          if (session?.session?.user) {
+            let orgId: string | null = organizationIdOverride ?? null;
+            if (!orgId && orgSlug) {
+              const { data: org } = await supabase
+                .from("organizations").select("id").eq("slug", orgSlug).maybeSingle();
+              orgId = org?.id ?? null;
+            }
+            if (orgId) {
+              const { data: prop } = await supabase
+                .from("properties").select("id")
+                .eq("organization_id", orgId)
+                .eq("property_code", propertyCode)
+                .maybeSingle();
+              if (!cancelled && prop?.id) {
+                clearTimeout(watchdog);
+                setResolvedId(prop.id);
+                return;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("[landing] Layer C failed", e);
+        }
+
+        if (cancelled) return;
+
+        console.warn("[landing] not_found", { orgSlug, propertyCode, organizationIdOverride });
+        supabase.functions.invoke("track-landing-visit", {
+          body: {
+            broker_token: brokerToken ?? null,
+            property_id: null,
+            referrer: typeof document !== "undefined" ? document.referrer || null : null,
+            not_found: true,
+            org_slug: orgSlug,
+            property_code: propertyCode,
+          },
+        }).catch(() => {});
+
+        clearTimeout(watchdog);
+        setResolvedId(null);
+        setLoading(false);
+      } catch (err) {
+        if (cancelled) return;
+        console.error("[landing] resolution effect threw:", err);
+        clearTimeout(watchdog);
+        setResolvedId(null);
+        setLoading(false);
+      }
     })();
 
-    return () => { cancelled = true; };
+    return () => { cancelled = true; clearTimeout(watchdog); };
   }, [paramId, orgSlug, propertyCode, brokerToken, organizationIdOverride]);
 
   // Fetch attribution contact + record visit
