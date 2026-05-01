@@ -7,10 +7,25 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 
-// Public routes that should never be redirected
-const PUBLIC_ROUTES = ["/manutencao", "/privacidade", "/instalar"];
+// Public routes that should never be redirected nor gated by maintenance loading.
+// Includes the marketing landing page ("/") and other anonymous-facing pages
+// (auth, signup, password reset, terms, plans, public storefronts), so a slow
+// `app_runtime_config` query never traps anonymous visitors on a perpetual spinner.
+const PUBLIC_ROUTES = [
+  "/",
+  "/manutencao",
+  "/privacidade",
+  "/termos",
+  "/instalar",
+  "/auth",
+  "/cadastro",
+  "/reset-password",
+  "/planos",
+  "/demo",
+  "/acesso-negado",
+];
 // Routes that start with these prefixes are public app consumer routes
-const PUBLIC_PREFIXES = ["/app/", "/i/", "/imovel/"];
+const PUBLIC_PREFIXES = ["/app/", "/i/", "/imovel/", "/site/", "/cadastro/", "/convite/"];
 
 export function MaintenanceGuard({ children }: { children: ReactNode }) {
   const { isMaintenanceMode, isLoading: maintenanceLoading, forceLogoutAt } = useMaintenanceMode();
