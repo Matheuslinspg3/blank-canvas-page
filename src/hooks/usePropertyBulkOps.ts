@@ -18,23 +18,31 @@ import { getFeatureLimit } from '@/hooks/useSubscription';
  * count against the existing-published total but do not consume new slots.
  */
 async function assertMarketplaceLimit(orgId: string, incomingIds: string[]) {
-  const { data: subData } = await supabase
+  const { data: subData, error: subErr } = await supabase
     .from('subscriptions')
     .select('plan:subscription_plans(*)')
     .eq('organization_id', orgId)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (subErr) {
+    // Fail closed: if we can't load the plan, do not allow new publishes.
+    throw new Error('Não foi possível validar seu plano. Tente novamente em instantes.');
+  }
   const plan = (subData?.plan ?? null) as any;
   const limit = getFeatureLimit(plan, 'max_marketplace_properties');
   if (limit === Infinity) return;
 
-  // Existing published ids for this org
-  const { data: published } = await supabase
+  // Existing published ids for this org (active marketplace_properties only).
+  const { data: published, error: pubErr } = await supabase
     .from('marketplace_properties')
     .select('id')
     .eq('organization_id', orgId);
+  if (pubErr) {
+    throw new Error('Não foi possível validar seu uso atual do Marketplace.');
+  }
   const publishedIds = new Set((published ?? []).map((r: { id: string }) => r.id));
+  // Republish of an already-published id does NOT consume a new slot.
   const incomingNew = incomingIds.filter((id) => !publishedIds.has(id)).length;
   const total = publishedIds.size + incomingNew;
   if (total > limit) {
