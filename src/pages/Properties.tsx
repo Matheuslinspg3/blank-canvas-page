@@ -10,6 +10,7 @@ import { Plus, FileUp } from "lucide-react";
 import { QueryErrorState } from "@/components/QueryErrorState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProperties, PropertyWithDetails, PropertyFormData } from "@/hooks/useProperties";
+import { isProductLimitError } from "@/lib/planLimits";
 import { usePropertiesList } from "@/hooks/usePropertiesList";
 import { SelectablePropertyCard } from "@/components/properties/SelectablePropertyCard";
 import { VirtualizedPropertyGrid } from "@/components/properties/VirtualizedPropertyGrid";
@@ -372,8 +373,13 @@ export default function Properties() {
             label: data.unit_identifier || `Imóvel ${i + 1}`,
           });
         }
-      } catch {
+      } catch (err) {
+        // Plan limit is an expected business outcome — counted as a soft error,
+        // but never escalated to Sentry/unhandledrejection.
         errors++;
+        if (!isProductLimitError(err)) {
+          // Real failure — let onError handle the toast already.
+        }
       }
     }
 
@@ -596,8 +602,15 @@ export default function Properties() {
       await updateProperty(editingProperty.id, data, images, ownerData);
       propertyId = editingProperty.id;
     } else {
-      const result = await createProperty(data, images, ownerData);
-      propertyId = result?.id;
+      try {
+        const result = await createProperty(data, images, ownerData);
+        propertyId = result?.id;
+      } catch (err) {
+        // ProductLimitError already shown to user via the hook's onError.
+        // Swallow it here to avoid an unhandled rejection bubbling to Sentry.
+        if (isProductLimitError(err)) return;
+        throw err;
+      }
     }
     if (!propertyId) return;
 
