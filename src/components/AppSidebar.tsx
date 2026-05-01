@@ -48,17 +48,25 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const mainItems = [
+type MenuItem = {
+  title: string;
+  url: string;
+  icon: React.ElementType;
+  badge?: boolean;
+  developerOnly?: boolean;
+};
+
+const mainItems: MenuItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Métricas", url: "/metricas", icon: BarChart3 },
   { title: "Imóveis", url: "/imoveis", icon: Home },
   { title: "Proprietários", url: "/proprietarios", icon: Building2 },
-  
+
   { title: "CRM", url: "/crm", icon: Users },
   { title: "Agenda", url: "/agenda", icon: Calendar },
   { title: "Marketplace", url: "/marketplace", icon: Store },
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
-  { title: "Correspondente", url: "/correspondente", icon: Landmark },
+  { title: "Correspondente", url: "/correspondente", icon: Landmark, developerOnly: true },
   { title: "Marketing", url: "/marketing", icon: Megaphone, badge: true },
 ];
 
@@ -174,9 +182,13 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainItems.map(renderMenuItem)}
-              {renderMenuItem({ title: "Meu WhatsApp", url: "/whatsapp/meu-canal", icon: Smartphone })}
-              {isAdminOrAbove && renderMenuItem({ title: "Automações", url: "/automacoes", icon: Zap })}
+              {mainItems
+                .filter((item) => isDeveloper || !item.developerOnly)
+                .map(renderMenuItem)}
+              {isDeveloper &&
+                renderMenuItem({ title: "Meu WhatsApp", url: "/whatsapp/meu-canal", icon: Smartphone })}
+              {isDeveloper &&
+                renderMenuItem({ title: "Automações", url: "/automacoes", icon: Zap })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -188,8 +200,10 @@ export function AppSidebar() {
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {renderMenuItem({ title: "Meu Site", url: "/site", icon: Globe })}
-                {renderMenuItem({ title: "Canais da Equipe", url: "/whatsapp/canais-equipe", icon: Smartphone })}
+                {isDeveloper &&
+                  renderMenuItem({ title: "Meu Site", url: "/site", icon: Globe })}
+                {isDeveloper &&
+                  renderMenuItem({ title: "Canais da Equipe", url: "/whatsapp/canais-equipe", icon: Smartphone })}
                 {renderMenuItem({ title: "Administração", url: "/administracao", icon: UserCog })}
                 {renderMenuItem({ title: "Integrações", url: "/integracoes", icon: Plug })}
               </SidebarMenu>

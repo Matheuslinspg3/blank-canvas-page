@@ -1,77 +1,149 @@
-## Problema
+# Enxugamento Operacional — Developer-Only Gating + 3 Planos
 
-Em `https://portocaicaraimoveis.com.br/imovel/1796` a landing page abre, mas:
-1. Mostra logo / favicon / cores do "Porta do Corretor" em vez da Porto Caiçara.
-2. O card "Seu contato" no sidebar fica em branco.
+## Objetivo
 
-## Causa raiz
+Esconder funcionalidades avançadas de usuários comuns sem remover código, banco, rotas ou edge functions. Tudo continua acessível para `developer`. Reduzir vitrine para 3 planos: **Essencial**, **Profissional**, **Imobiliária**.
 
-**1. White-label não roda para visitante anônimo em domínio customizado.**
-`useWhiteLabel()` (usado por `HabitaeLogo` e que injeta `--primary`/`--accent` no `<html>`) depende de `useAuth().profile?.organization_id`. Em domínio público não há sessão → hook retorna `enabled: false`, mantém o tema padrão e o logo padrão `porta-logo.png`. O `SEOHead` da landing também não recebe `favicon` nem `siteName`, então o favicon `/favicon.png` do Porta continua ativo e o `<title>` ganha "— Porta do Corretor".
+---
 
-**2. Contato vem vazio porque o card depende do telefone do corretor/admin.**
-A RPC `get_landing_contact` cobre 4 fontes: `shared_link → captador_id → created_by → admin com telefone`. O sidebar só renderiza o card quando `contact?.broker_name || contact?.broker_phone || contact?.org_phone` é truthy. Quando é acesso direto (sem `brokerToken`) e a org não tem captador/created_by/admin com telefone preenchido, todos os campos voltam `null` e o card simplesmente desaparece — sem fallback nenhum (nem nome da imobiliária, nem WhatsApp do site).
+## 1. Camada centralizada (`src/config/featureAccess.ts`)
 
-Além disso, o `org_phone` retornado vem de `organizations.phone`. O telefone real configurado pela imobiliária mora geralmente em `website_settings.whatsapp_number` / `contact_phone`, que a RPC ignora hoje.
+Fonte única da verdade com:
 
-## O que fazer
+- **Chaves estáveis** em `DEVELOPER_ONLY_FEATURES`: `crm.whatsapp_templates`, `financeiro.templates`, `financeiro.financiamentos`, `correspondente`, `marketing.gerador_ia`, `marketing.artes`, `marketing.video`, `marketing.marca`, `meu_whatsapp`, `automacoes`, `gestao.portais_anuncio`, `gestao.meu_site`, `gestao.canais_equipe`.
+- **Rotas developer-only** (`DEVELOPER_ONLY_ROUTES`): `/correspondente`, `/financiamentos`, `/automacoes`, `/whatsapp/meu-canal`, `/whatsapp/automacoes`, `/whatsapp/canais-equipe`.
+- Helper `isDeveloperOnlyRoute(path)` que cobre subrotas (ex. `/whatsapp/meu-canal/chat`).
+- `isDeveloperOnlyFeature(key)`.
 
-### A) Branding white-label em domínio customizado/público
+## 2. Hook `useFeatureAccess` (`src/hooks/useFeatureAccess.ts`)
 
-1. **Novo hook `usePublicBranding(organizationId)`** em `src/hooks/usePublicBranding.ts`:
-   - Reusa `get_public_org_by_id` + `get_public_brand_settings` (já públicas, GRANT anon).
-   - Aplica as variáveis CSS (`--primary`, `--accent`, `--secondary`, `--ring`, `--sidebar-primary`, `--sidebar-ring`) no `document.documentElement` via `useEffect`, com cleanup, replicando a lógica `hexToHSL` de `useWhiteLabel`.
-   - Retorna `{ orgName, logoUrl, faviconUrl, primaryColor, ... }`.
+Reaproveita `useUserRoles()`. Expõe `canAccessFeature(key)` e `canAccessRoute(path)`. Durante `isLoading`, retorna `false` (esconde) — evita flicker.
 
-2. **Integrar em `TenantRouter`**: ao detectar `isExternalDomain && organizationId`, montar um wrapper `<PublicBrandingProvider organizationId={...}>` em volta de `PropertyLandingPage` e da rota de páginas (`WhiteLabelStorefront` já busca brand por outro caminho — manter, mas o provider cuida do tema global).
+## 3. Componentes (`src/components/access/`)
 
-3. **`PropertyLandingPage`**:
-   - Quando `organizationIdOverride` (ou orgId resolvido a partir do property) existir, usar `usePublicBranding`.
-   - Passar `favicon={brand.logoUrl}` e `siteName={brand.orgName}` para `<SEOHead>` (lógica de title white-label já existe em `SEOHead`).
-   - Passar `forceDefault={!brand.enabled}` ao `<HabitaeLogo>` — quando há branding público, renderizar `<img src={brand.logoUrl}>` diretamente em vez de `HabitaeLogo` (mais simples e evita depender de `useAuth`). Adicionar prop opcional `logoUrl` ao header da landing.
+- **`DeveloperOnly.tsx`** — wrapper declarativo: `<DeveloperOnly featureKey={...}>...</DeveloperOnly>`. Renderiza `null`/fallback enquanto carrega ou se bloqueado.
+- **`DeveloperOnlyRoute.tsx`** — guarda de rota: spinner enquanto carrega; se não-developer → `<Navigate to="/dashboard" replace />` com toast `"Esse recurso está temporariamente restrito."` (toast disparado uma única vez por ref).
 
-### B) Contato sempre presente
+## 4. Sidebar (`src/components/AppSidebar.tsx`)
 
-1. **Estender `get_landing_contact`** (nova migração) para também retornar:
-   - `org_whatsapp` ← `website_settings.whatsapp_number`
-   - `org_contact_phone` ← `website_settings.contact_phone`
-   - `org_contact_email` ← `website_settings.contact_email`
-   
-   Continua `SECURITY DEFINER`, mantém GRANT a `anon`.
+Visível para todos: Dashboard, Métricas, Imóveis, Proprietários, CRM, Agenda, Marketplace, Financeiro, Marketing.
 
-2. **`PropertyLandingPage`**:
-   - Atualizar `LandingContact` interface com os novos campos.
-   - Mudar a condição de render do card de contato para sempre renderizar quando houver pelo menos `org_name` (ou seja, quando a RPC retornou alguma linha) — fazendo fallback em ordem:
-     - **Telefone exibido**: `broker_phone || org_whatsapp || org_contact_phone || org_phone`.
-     - **Nome exibido**: `broker_name || org_name || "Fale com a imobiliária"`.
-     - **Avatar**: `broker_avatar || org_logo` (com placeholder).
-   - O botão de WhatsApp/telefone usa o primeiro telefone disponível.
-   - Garantir que mesmo sem nenhum telefone, o formulário inferior continua funcionando (já é o caso) e adicionar uma linha "Envie sua mensagem usando o formulário abaixo" como CTA secundário.
+Esconder para não-developer:
+- **Correspondente** (remover do array base; render condicional via `isDeveloper`).
+- **Meu WhatsApp**.
+- **Automações** (já era admin; passa a developer).
 
-3. **Form inferior `Contato`** (botão sticky no header já rola para o `<form>`): manter, mas exibir, acima do form, o nome/logo da imobiliária quando `contact.org_name` existir, para que mesmo sem telefone haja branding visível.
+Grupo "Gestão" para não-developer mostra apenas **Administração** e **Integrações**. Esconder:
+- **Meu Site** (`/site`).
+- **Canais da Equipe** (`/whatsapp/canais-equipe`).
 
-## Arquivos a alterar
+Implementação: trocar `mainItems` para incluir um campo `developerOnly?: boolean` (ou render condicional explícito) usando `useUserRoles().isDeveloper`.
 
-- `supabase/migrations/<novo>.sql` — `CREATE OR REPLACE FUNCTION public.get_landing_contact(...)` retornando 3 colunas extras.
-- `src/integrations/supabase/types.ts` — regenerado automaticamente após migração (não editar manualmente).
-- `src/hooks/usePublicBranding.ts` — novo.
-- `src/components/TenantRouter.tsx` — envolver `PropertyLandingPage` com provider/branding.
-- `src/pages/PropertyLandingPage.tsx`:
-  - Importar `usePublicBranding`.
-  - Atualizar `LandingContact`.
-  - Substituir `<HabitaeLogo>` por logo dinâmico no header (ou passar `forceDefault` correto).
-  - Passar `favicon`/`siteName` ao `<SEOHead>`.
-  - Reescrever a condição e o conteúdo do card "Seu contato".
-- (Opcional) `src/components/HabitaeLogo.tsx` — aceitar `logoUrl`/`orgName` via props, sem depender de `useAuth`.
+## 5. Abas internas
 
-## Validação
+**`src/pages/CRM.tsx`** — aba `templates` (WhatsApp Templates):
+- Trigger e content envolvidos por `<DeveloperOnly featureKey={DEVELOPER_ONLY_FEATURES.CRM_WHATSAPP_TEMPLATES}>`.
+- `useEffect`: se `tab === "templates"` e usuário não-developer, `setTab("active")`.
 
-1. `npm test` (sem novos testes obrigatórios; ajustar mocks se algum teste depender de `LandingContact`).
-2. Manual no preview com `?organizationIdOverride=<id porto caiçara>` ou rodando o domínio em `localhost` via override de hostname.
-3. Após deploy: abrir `https://portocaicaraimoveis.com.br/imovel/1796`, conferir favicon, logo no header, cores primárias e card de contato preenchido.
+**`src/pages/Financial.tsx`** — abas `templates` e `financiamentos`:
+- Triggers e contents gated.
+- `useEffect`: se `finTab` em `["templates","financiamentos"]` e não-developer → `setFinTab("transactions")`.
 
-## Notas
+**`src/pages/Anuncios.tsx`** — abas `gerador`, `artes`, `video`, `marca`:
+- Triggers e contents gated.
+- `useEffect`: se `section` em lista restrita e não-developer → `setSection("meta")`.
 
-- Sem mudanças em RLS/policies — apenas estendendo uma RPC já SECURITY DEFINER.
-- Sem impacto em rotas internas (`/imovel/:id` autenticadas) porque a injeção de variáveis CSS só roda quando `organizationId` vem do `TenantRouter` (visitante público).
-- Mantém o watchdog/Error Boundary existente.
+**`src/pages/Integrations.tsx`** — `<PortalFeedsSection />` envolvido em `<DeveloperOnly featureKey={GESTAO_PORTAIS_ANUNCIO}>`. Separator condicional para não deixar separador órfão.
+
+## 6. Rotas em `src/App.tsx`
+
+Envolver com `<DeveloperOnlyRoute>`:
+- `/correspondente`
+- `/automacoes`
+- `/whatsapp/meu-canal`
+- `/whatsapp/meu-canal/chat`
+- `/whatsapp/automacoes`
+- `/whatsapp/canais-equipe`
+
+Obs: `/financiamentos` não é rota top-level — vive como aba dentro de `/financeiro` (já gated). Se um dia virar rota separada, o array `DEVELOPER_ONLY_ROUTES` já cobre.
+
+## 7. Migração de planos
+
+**Arquivo:** `supabase/migrations/<ts>_collapse_plans_to_three.sql`
+
+Estado atual relevante (`subscription_plans`, plan_type='plan' ativos): `gratuito`, `starter`, `correspondente`, `enterprise`, `essencial`, `profissional`, `business`.
+
+Estratégia (sem deletar nada, sem tocar `subscriptions`):
+
+```sql
+-- 1) Desativar todos os planos type='plan', exceto os 3 escolhidos
+UPDATE public.subscription_plans
+SET is_active = false
+WHERE plan_type = 'plan'
+  AND slug NOT IN ('essencial', 'profissional', 'business');
+
+-- 2) Reativar e reordenar os 3
+UPDATE public.subscription_plans
+SET is_active = true, display_order = 1,
+    name = 'Essencial',
+    description = 'Imóveis, leads, portfólio básico e CRM simples.'
+WHERE slug = 'essencial';
+
+UPDATE public.subscription_plans
+SET is_active = true, display_order = 2,
+    name = 'Profissional',
+    description = 'Tudo do Essencial + marketplace, colaboração e integrações básicas.'
+WHERE slug = 'profissional';
+
+-- "business" é exibido como Imobiliária (mantém slug por causa de FKs/lógica enterprise)
+UPDATE public.subscription_plans
+SET is_active = true, display_order = 3,
+    name = 'Imobiliária',
+    description = 'Tudo do Profissional + multiusuários, administração, permissões e operação de equipe.'
+WHERE slug = 'business';
+
+-- 3) Desligar flags developer-only nos 3 planos visíveis
+UPDATE public.subscription_plans
+SET features = COALESCE(features, '{}'::jsonb) || jsonb_build_object(
+  'has_automations',     false,
+  'has_whatsapp',        false,
+  'has_ad_generator',    false,
+  'has_brand_settings',  false,
+  'has_meta_ads',        false,
+  'has_rd_station',      false,
+  'has_contracts',       false,
+  'has_contract_ai',     false,
+  'has_pdf_extract',     false,
+  'financing_simulator', false,
+  'financing_pipeline',  false,
+  'financing_docs_checklist', false,
+  'has_xml_feed',        false  -- portais de anúncio
+)
+WHERE slug IN ('essencial', 'profissional', 'business');
+```
+
+Notas:
+- `business` mantém o slug — `useSubscription` reconhece `business`/`enterprise` como enterprise-class (uncapped). Apenas o **nome exibido** muda para "Imobiliária".
+- Subscriptions ativas em planos antigos continuam intactas (planos só ficam `is_active=false`, registro preservado).
+- Como UI é blindada por `DeveloperOnly`, a UI fica limpa mesmo se o usuário ainda estiver num plano antigo com flags ligadas.
+- Página `/planos` já lista apenas `is_active=true` ordenados por `display_order` → mostra exatamente 3.
+
+## Critérios de aceite
+
+- Developer vê tudo (sidebar, abas, rotas).
+- Não-developer não vê: WhatsApp Templates (CRM); Templates e Financiamentos (Financeiro); Correspondente; Gerador IA/Artes/Vídeo/Marca (Marketing); Meu WhatsApp; Automações; Portais (Integrações); Meu Site e Canais da Equipe (Gestão).
+- Acesso direto às rotas restritas redireciona para `/dashboard` com toast.
+- `/planos` mostra exatamente 3 planos ativos.
+- Build e typecheck passam.
+- Nenhuma tabela, migration, edge function, dado ou subscription é removido.
+
+## Arquivos
+
+**Criar (4):** `src/config/featureAccess.ts`, `src/hooks/useFeatureAccess.ts`, `src/components/access/DeveloperOnly.tsx`, `src/components/access/DeveloperOnlyRoute.tsx`, migration SQL.
+
+**Editar (5):** `src/components/AppSidebar.tsx`, `src/pages/CRM.tsx`, `src/pages/Financial.tsx`, `src/pages/Anuncios.tsx`, `src/pages/Integrations.tsx`, `src/App.tsx`.
+
+## Reversibilidade
+
+- Reativar feature: remover chave de `DEVELOPER_ONLY_FEATURES` ou rota de `DEVELOPER_ONLY_ROUTES`.
+- Reativar plano antigo: `UPDATE subscription_plans SET is_active = true WHERE slug = '...'`.

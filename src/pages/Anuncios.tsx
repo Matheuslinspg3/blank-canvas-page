@@ -1,4 +1,4 @@
-import React, { lazy, Suspense } from "react";
+import React, { lazy, Suspense, useEffect } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTabParam } from "@/hooks/useTabParam";
@@ -7,6 +7,8 @@ import { Loader2, Megaphone, BarChart3, Sparkles, Palette, Video, Stamp, Link2, 
 import { AiCreditsBadge } from "@/components/ai/AiCreditsBadge";
 import { FeatureFlagGate } from "@/components/FeatureGate";
 import { useFeatureFlag } from "@/hooks/useFeatureGate";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { DEVELOPER_ONLY_FEATURES } from "@/config/featureAccess";
 
 import MetaConnectionTab from "@/components/ads/MetaConnectionTab";
 import MetaLeadsInboxContent from "@/components/ads/MetaLeadsInboxContent";
@@ -35,6 +37,20 @@ export default function Anuncios() {
   const [rdTab, setRdTab] = useTabParam("rd_tab", "conexao");
   const { data: totalNew = 0 } = useAdLeadsCount();
 
+  const { canAccessFeature } = useFeatureAccess();
+  const canSeeGerador = canAccessFeature(DEVELOPER_ONLY_FEATURES.MARKETING_GERADOR_IA);
+  const canSeeArtes = canAccessFeature(DEVELOPER_ONLY_FEATURES.MARKETING_ARTES);
+  const canSeeVideo = canAccessFeature(DEVELOPER_ONLY_FEATURES.MARKETING_VIDEO);
+  const canSeeMarca = canAccessFeature(DEVELOPER_ONLY_FEATURES.MARKETING_MARCA);
+
+  // Redirect away from restricted sections when user lacks access
+  useEffect(() => {
+    if (section === "gerador" && !canSeeGerador) setSection("meta");
+    else if (section === "artes" && !canSeeArtes) setSection("meta");
+    else if (section === "video" && !canSeeVideo) setSection("meta");
+    else if (section === "marca" && !canSeeMarca) setSection("meta");
+  }, [section, canSeeGerador, canSeeArtes, canSeeVideo, canSeeMarca, setSection]);
+
   return (
     <div className="flex flex-col min-h-screen page-enter">
       <PageHeader
@@ -59,22 +75,30 @@ export default function Anuncios() {
               <BarChart3 className="h-4 w-4" />
               RD Station
             </TabsTrigger>
-            <TabsTrigger value="gerador" className="gap-1.5 shrink-0 min-h-[44px] px-3">
-              <Sparkles className="h-4 w-4" />
-              Gerador IA
-            </TabsTrigger>
-            <TabsTrigger value="artes" className="gap-1.5 shrink-0 min-h-[44px] px-3">
-              <Palette className="h-4 w-4" />
-              Artes
-            </TabsTrigger>
-            <TabsTrigger value="video" className="gap-1.5 shrink-0 min-h-[44px] px-3">
-              <Video className="h-4 w-4" />
-              Vídeo
-            </TabsTrigger>
-            <TabsTrigger value="marca" className="gap-1.5 shrink-0 min-h-[44px] px-3">
-              <Stamp className="h-4 w-4" />
-              Marca
-            </TabsTrigger>
+            {canSeeGerador && (
+              <TabsTrigger value="gerador" className="gap-1.5 shrink-0 min-h-[44px] px-3">
+                <Sparkles className="h-4 w-4" />
+                Gerador IA
+              </TabsTrigger>
+            )}
+            {canSeeArtes && (
+              <TabsTrigger value="artes" className="gap-1.5 shrink-0 min-h-[44px] px-3">
+                <Palette className="h-4 w-4" />
+                Artes
+              </TabsTrigger>
+            )}
+            {canSeeVideo && (
+              <TabsTrigger value="video" className="gap-1.5 shrink-0 min-h-[44px] px-3">
+                <Video className="h-4 w-4" />
+                Vídeo
+              </TabsTrigger>
+            )}
+            {canSeeMarca && (
+              <TabsTrigger value="marca" className="gap-1.5 shrink-0 min-h-[44px] px-3">
+                <Stamp className="h-4 w-4" />
+                Marca
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* ── Meta Ads ── */}
@@ -145,43 +169,51 @@ export default function Anuncios() {
           </TabsContent>
 
           {/* ── Gerador IA ── */}
-          <TabsContent value="gerador" className="mt-4 space-y-3">
-            <FeatureFlagGate featureKey="has_ad_generator">
-              <AiCreditsBadge />
-              <Suspense fallback={<TabLoader />}>
-                <GeradorAnunciosContent />
-              </Suspense>
-            </FeatureFlagGate>
-          </TabsContent>
+          {canSeeGerador && (
+            <TabsContent value="gerador" className="mt-4 space-y-3">
+              <FeatureFlagGate featureKey="has_ad_generator">
+                <AiCreditsBadge />
+                <Suspense fallback={<TabLoader />}>
+                  <GeradorAnunciosContent />
+                </Suspense>
+              </FeatureFlagGate>
+            </TabsContent>
+          )}
 
           {/* ── Gerador de Artes ── */}
-          <TabsContent value="artes" className="mt-4 space-y-3">
-            <FeatureFlagGate featureKey="has_ad_generator">
-              <AiCreditsBadge />
-              <Suspense fallback={<TabLoader />}>
-                <GeradorArtesContent />
-              </Suspense>
-            </FeatureFlagGate>
-          </TabsContent>
+          {canSeeArtes && (
+            <TabsContent value="artes" className="mt-4 space-y-3">
+              <FeatureFlagGate featureKey="has_ad_generator">
+                <AiCreditsBadge />
+                <Suspense fallback={<TabLoader />}>
+                  <GeradorArtesContent />
+                </Suspense>
+              </FeatureFlagGate>
+            </TabsContent>
+          )}
 
           {/* ── Gerador de Vídeo ── */}
-          <TabsContent value="video" className="mt-4 space-y-3">
-            <FeatureFlagGate featureKey="has_ad_generator">
-              <AiCreditsBadge />
-              <Suspense fallback={<TabLoader />}>
-                <GeradorVideoContent />
-              </Suspense>
-            </FeatureFlagGate>
-          </TabsContent>
+          {canSeeVideo && (
+            <TabsContent value="video" className="mt-4 space-y-3">
+              <FeatureFlagGate featureKey="has_ad_generator">
+                <AiCreditsBadge />
+                <Suspense fallback={<TabLoader />}>
+                  <GeradorVideoContent />
+                </Suspense>
+              </FeatureFlagGate>
+            </TabsContent>
+          )}
 
           {/* ── Marca / Identidade Visual ── */}
-          <TabsContent value="marca" className="mt-4">
-            <FeatureFlagGate featureKey="has_brand_settings">
-              <Suspense fallback={<TabLoader />}>
-                <BrandSettingsContent />
-              </Suspense>
-            </FeatureFlagGate>
-          </TabsContent>
+          {canSeeMarca && (
+            <TabsContent value="marca" className="mt-4">
+              <FeatureFlagGate featureKey="has_brand_settings">
+                <Suspense fallback={<TabLoader />}>
+                  <BrandSettingsContent />
+                </Suspense>
+              </FeatureFlagGate>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </div>

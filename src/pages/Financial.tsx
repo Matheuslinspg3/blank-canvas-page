@@ -1,4 +1,6 @@
-import { useState, useMemo, useCallback, lazy, Suspense } from "react";
+import { useState, useMemo, useCallback, useEffect, lazy, Suspense } from "react";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { DEVELOPER_ONLY_FEATURES } from "@/config/featureAccess";
 import { QueryErrorState } from "@/components/QueryErrorState";
 import { SectionErrorBoundary } from "@/components/SectionErrorBoundary";
 import { PageHeader } from "@/components/PageHeader";
@@ -79,6 +81,19 @@ function FinancialContent() {
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [finTab, setFinTab] = useTabParam("tab", "transactions");
+
+  const { canAccessFeature } = useFeatureAccess();
+  const canSeeTemplates = canAccessFeature(DEVELOPER_ONLY_FEATURES.FINANCEIRO_TEMPLATES);
+  const canSeeFinanciamentos = canAccessFeature(DEVELOPER_ONLY_FEATURES.FINANCEIRO_FINANCIAMENTOS);
+
+  // Redirect away from restricted tabs when user lacks access
+  useEffect(() => {
+    if (finTab === "templates" && !canSeeTemplates) {
+      setFinTab("transactions");
+    } else if (finTab === "financiamentos" && !canSeeFinanciamentos) {
+      setFinTab("transactions");
+    }
+  }, [finTab, canSeeTemplates, canSeeFinanciamentos, setFinTab]);
 
   // Financial data
   const { transactions, stats, chartData, deleteTransaction, error: txError, refetch: refetchTx } = useTransactions();
@@ -251,14 +266,18 @@ function FinancialContent() {
               <FileText className="h-4 w-4" />
               Contratos
             </TabsTrigger>
-            <TabsTrigger value="templates" className="shrink-0 min-h-[44px] gap-2">
-              <LayoutTemplate className="h-4 w-4" />
-              Templates
-            </TabsTrigger>
-            <TabsTrigger value="financiamentos" className="shrink-0 min-h-[44px] gap-2">
-              <Landmark className="h-4 w-4" />
-              Financiamentos
-            </TabsTrigger>
+            {canSeeTemplates && (
+              <TabsTrigger value="templates" className="shrink-0 min-h-[44px] gap-2">
+                <LayoutTemplate className="h-4 w-4" />
+                Templates
+              </TabsTrigger>
+            )}
+            {canSeeFinanciamentos && (
+              <TabsTrigger value="financiamentos" className="shrink-0 min-h-[44px] gap-2">
+                <Landmark className="h-4 w-4" />
+                Financiamentos
+              </TabsTrigger>
+            )}
           </TabsList>
           <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none sm:hidden" />
           </div>
@@ -400,24 +419,28 @@ function FinancialContent() {
             </>)}
           </TabsContent>
 
-          <TabsContent value="templates" className="mt-4">
-            <ContractTemplatesTab />
-          </TabsContent>
+          {canSeeTemplates && (
+            <TabsContent value="templates" className="mt-4">
+              <ContractTemplatesTab />
+            </TabsContent>
+          )}
 
-          <TabsContent value="financiamentos" className="mt-4 space-y-6">
-            <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-              <Tabs defaultValue="simulador">
-                <TabsList className="w-full sm:w-auto overflow-x-auto">
-                  <TabsTrigger value="simulador" className="shrink-0">Simulador</TabsTrigger>
-                  <TabsTrigger value="pipeline" className="shrink-0">Pipeline</TabsTrigger>
-                  <TabsTrigger value="documentacao" className="shrink-0">Documentação</TabsTrigger>
-                </TabsList>
-                <TabsContent value="simulador"><FinancingSimulatorLazy /></TabsContent>
-                <TabsContent value="pipeline"><FinancingPipelineLazy /></TabsContent>
-                <TabsContent value="documentacao"><FinancingDocsChecklistLazy /></TabsContent>
-              </Tabs>
-            </Suspense>
-          </TabsContent>
+          {canSeeFinanciamentos && (
+            <TabsContent value="financiamentos" className="mt-4 space-y-6">
+              <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+                <Tabs defaultValue="simulador">
+                  <TabsList className="w-full sm:w-auto overflow-x-auto">
+                    <TabsTrigger value="simulador" className="shrink-0">Simulador</TabsTrigger>
+                    <TabsTrigger value="pipeline" className="shrink-0">Pipeline</TabsTrigger>
+                    <TabsTrigger value="documentacao" className="shrink-0">Documentação</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="simulador"><FinancingSimulatorLazy /></TabsContent>
+                  <TabsContent value="pipeline"><FinancingPipelineLazy /></TabsContent>
+                  <TabsContent value="documentacao"><FinancingDocsChecklistLazy /></TabsContent>
+                </Tabs>
+              </Suspense>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
 

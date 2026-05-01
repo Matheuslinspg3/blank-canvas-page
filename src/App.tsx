@@ -18,6 +18,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/admin/AdminRoute";
 import { ManagerRoute } from "@/components/admin/ManagerRoute";
 import { DeveloperRoute } from "@/components/developer/DeveloperRoute";
+import { DeveloperOnlyRoute } from "@/components/access/DeveloperOnlyRoute";
 import { AppLayout } from "@/components/layouts/AppLayout";
 import { FloatingImportProgress } from "@/components/integrations/FloatingImportProgress";
 import { AppMobileLayout } from "@/components/app/AppMobileLayout";
@@ -190,17 +191,17 @@ const App = () => (
                         <Route path="/marketplace/:id" element={<MarketplacePropertyDetails />} />
                         <Route path="/crm" element={<CRM />} />
                         <Route path="/inbox" element={<Inbox />} />
-                        <Route path="/whatsapp/meu-canal" element={<MyWhatsAppChannel />} />
-                        <Route path="/whatsapp/meu-canal/chat" element={<BrokerChat />} />
-                        <Route path="/whatsapp/canais-equipe" element={<TeamChannels />} />
-                        <Route path="/whatsapp/automacoes" element={<BrokerAutomationStatus />} />
+                        <Route path="/whatsapp/meu-canal" element={<DeveloperOnlyRoute><MyWhatsAppChannel /></DeveloperOnlyRoute>} />
+                        <Route path="/whatsapp/meu-canal/chat" element={<DeveloperOnlyRoute><BrokerChat /></DeveloperOnlyRoute>} />
+                        <Route path="/whatsapp/canais-equipe" element={<DeveloperOnlyRoute><TeamChannels /></DeveloperOnlyRoute>} />
+                        <Route path="/whatsapp/automacoes" element={<DeveloperOnlyRoute><BrokerAutomationStatus /></DeveloperOnlyRoute>} />
                         <Route path="/contratos" element={<Navigate to="/financeiro?tab=contracts" replace />} />
                         <Route path="/financeiro" element={<Financial />} />
-                        <Route path="/correspondente" element={<CorrespondenteBancario />} />
+                        <Route path="/correspondente" element={<DeveloperOnlyRoute><CorrespondenteBancario /></DeveloperOnlyRoute>} />
                         <Route path="/metricas" element={<MetricsDashboard />} />
                         <Route path="/agenda" element={<Schedule />} />
                         
-                        <Route path="/automacoes" element={<Automations />} />
+                        <Route path="/automacoes" element={<DeveloperOnlyRoute><Automations /></DeveloperOnlyRoute>} />
                         <Route path="/atividades" element={<Navigate to="/administracao?tab=activities" replace />} />
                         <Route path="/administracao" element={<Administration />} />
                         <Route path="/site" element={<SitePage />} />
