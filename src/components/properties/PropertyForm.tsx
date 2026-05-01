@@ -277,7 +277,7 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
     setActiveTab("basic");
     // Reflect actual marketplace state when editing; default OFF for new properties.
     setPublishToMarketplace(property ? isPublished : false);
-  }, [property, prefillData, form, open, isPublished, orgDefaultFetched, orgDefaultSource]);
+  }, [property, prefillData, form, open, isPublished, orgDefaultFetched, orgDefaultSource, lookupsReady]);
 
   // Late-arriving org default for NEW properties: if the hook resolves AFTER
   // the initial reset and the user hasn't touched the field yet, sync silently.
