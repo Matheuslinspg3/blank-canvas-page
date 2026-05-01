@@ -3,10 +3,17 @@ import { useLocation } from "react-router-dom";
 import { APP_VERSION } from "@/config/appVersion";
 
 const POLL_INTERVAL = 30_000; // 30s
-// (cache-busting query string is built per-request inside checkVersion)
+
+const isPreviewHost =
+  typeof window !== "undefined" &&
+  (window.location.hostname.includes("id-preview--") ||
+    window.location.hostname.includes("lovableproject.com"));
 
 /**
  * Polls /version.json periodically and on every navigation.
+ * Disabled entirely on Lovable preview hosts to avoid reload loops
+ * (preview serves a different version.json than the compiled APP_VERSION).
+ *
  * When a newer version is detected:
  *   1. Sets window.__newVersionAvailable = true
  *   2. Dispatches "sw-update-available" for UpdateBanner
@@ -18,8 +25,12 @@ export function useVersionPolling() {
   const staleRef = useRef(false);
   const checkingRef = useRef(false);
 
+  // Skip entirely on preview hosts — version.json won't match APP_VERSION
+  // and would trigger infinite reload loops.
+  const disabled = isPreviewHost;
+
   const checkVersion = useCallback(async () => {
-    if (checkingRef.current) return;
+    if (disabled || checkingRef.current) return;
     checkingRef.current = true;
     try {
       const res = await fetch(`/version.json?_t=${Date.now()}`, {
@@ -38,7 +49,7 @@ export function useVersionPolling() {
     } finally {
       checkingRef.current = false;
     }
-  }, []);
+  }, [disabled]);
 
   // Periodic polling
   useEffect(() => {
@@ -49,9 +60,9 @@ export function useVersionPolling() {
 
   // On navigation: if stale, hard-reload to pick up new assets
   useEffect(() => {
-    if (staleRef.current) {
+    if (!disabled && staleRef.current) {
       // Small delay so the navigation intent is preserved in the URL bar
       window.location.reload();
     }
-  }, [location.pathname]);
+  }, [location.pathname, disabled]);
 }
