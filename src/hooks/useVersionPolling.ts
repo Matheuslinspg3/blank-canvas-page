@@ -49,7 +49,7 @@ export function useVersionPolling() {
     } finally {
       checkingRef.current = false;
     }
-  }, []);
+  }, [disabled]);
 
   // Periodic polling
   useEffect(() => {
