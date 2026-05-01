@@ -69,6 +69,7 @@ const ENTERPRISE_UNLIMITED_KEYS = new Set([
   'max_leads',
   'max_users',
   'max_marketplace_properties',
+  'max_custom_domains',
   'max_storage_mb',
   'ai_credits_limit',
 ]);
@@ -98,6 +99,7 @@ const FREE_PLAN_LIMITS: Record<string, number> = {
   max_leads: 20,
   max_users: 1,
   max_marketplace_properties: 0,
+  max_custom_domains: 0,
   max_storage_mb: 512,
   ai_credits_limit: 0,
 };
