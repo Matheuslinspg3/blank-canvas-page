@@ -92,6 +92,14 @@ function friendlyMessage(code: string | undefined, constraint: string | null, fa
 }
 
 export function normalizeError(raw: unknown): NormalizedError {
+  // ProductLimitError is already a typed business error — keep it as-is.
+  if (isProductLimitError(raw)) {
+    const err = raw as unknown as NormalizedError;
+    err.userMessage = err.userMessage || (raw as Error).message;
+    err.isExpected = true;
+    return err;
+  }
+
   // Already a normalized error → return as-is
   if (raw instanceof Error && (raw as NormalizedError).code !== undefined) {
     return raw as NormalizedError;
