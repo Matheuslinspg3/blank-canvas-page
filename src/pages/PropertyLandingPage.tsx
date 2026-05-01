@@ -257,99 +257,124 @@ export default function PropertyLandingPage(props: PropertyLandingPageProps = {}
     }
 
     let cancelled = false;
-    (async () => {
-      // Layer A — RPC pública combinada (precisa de orgSlug)
-      if (orgSlug) {
-        try {
-          const { data: combined, error: errA } = await (supabase.rpc as any)(
-            "get_public_property_by_org_code",
-            { p_org_slug: orgSlug, p_code: propertyCode }
-          );
-          if (!cancelled && !errA && combined && (combined.id || combined.property?.id)) {
-            const propId = combined.id ?? combined.property?.id;
-            setResolvedId(propId);
-            return;
-          }
-        } catch (e) {
-          console.warn("[landing] Layer A failed", e);
-        }
-
-        // Layer B — RPC de ID enxuta
-        try {
-          const { data: propId, error: errB } = await (supabase.rpc as any)(
-            "get_property_id_by_org_code",
-            { p_org_slug: orgSlug, p_code: propertyCode }
-          );
-          if (!cancelled && !errB && propId) {
-            setResolvedId(propId as string);
-            return;
-          }
-        } catch (e) {
-          console.warn("[landing] Layer B failed", e);
-        }
-      }
-
-      // Layer B2 — RPC por organization_id (custom domains sem slug conhecido)
-      if (organizationIdOverride) {
-        try {
-          const { data: propId, error: errB2 } = await (supabase.rpc as any)(
-            "get_property_id_by_org_id_code",
-            { p_org_id: organizationIdOverride, p_code: propertyCode }
-          );
-          if (!cancelled && !errB2 && propId) {
-            setResolvedId(propId as string);
-            return;
-          }
-        } catch (e) {
-          console.warn("[landing] Layer B2 failed", e);
-        }
-      }
-
-      // Layer C — fallback autenticado (preview interno)
-      try {
-        const { data: session } = await supabase.auth.getSession();
-        if (session?.session?.user) {
-          let orgId: string | null = organizationIdOverride ?? null;
-          if (!orgId && orgSlug) {
-            const { data: org } = await supabase
-              .from("organizations").select("id").eq("slug", orgSlug).maybeSingle();
-            orgId = org?.id ?? null;
-          }
-          if (orgId) {
-            const { data: prop } = await supabase
-              .from("properties").select("id")
-              .eq("organization_id", orgId)
-              .eq("property_code", propertyCode)
-              .maybeSingle();
-            if (!cancelled && prop?.id) {
-              setResolvedId(prop.id);
-              return;
-            }
-          }
-        }
-      } catch (e) {
-        console.warn("[landing] Layer C failed", e);
-      }
-
+    // Watchdog: if no layer resolves within 12s, abort and surface "not found"
+    // so the page never gets stuck on the skeleton spinner.
+    const watchdog = setTimeout(() => {
       if (cancelled) return;
-
-      console.warn("[landing] not_found", { orgSlug, propertyCode, organizationIdOverride });
-      supabase.functions.invoke("track-landing-visit", {
-        body: {
-          broker_token: brokerToken ?? null,
-          property_id: null,
-          referrer: typeof document !== "undefined" ? document.referrer || null : null,
-          not_found: true,
-          org_slug: orgSlug,
-          property_code: propertyCode,
-        },
-      }).catch(() => {});
-
+      console.warn("[landing] resolution watchdog timed out", {
+        orgSlug, propertyCode, organizationIdOverride,
+      });
+      cancelled = true;
       setResolvedId(null);
       setLoading(false);
+    }, 12_000);
+
+    (async () => {
+      try {
+        // Layer A — RPC pública combinada (precisa de orgSlug)
+        if (orgSlug) {
+          try {
+            const { data: combined, error: errA } = await (supabase.rpc as any)(
+              "get_public_property_by_org_code",
+              { p_org_slug: orgSlug, p_code: propertyCode }
+            );
+            if (!cancelled && !errA && combined && (combined.id || combined.property?.id)) {
+              const propId = combined.id ?? combined.property?.id;
+              clearTimeout(watchdog);
+              setResolvedId(propId);
+              return;
+            }
+          } catch (e) {
+            console.warn("[landing] Layer A failed", e);
+          }
+
+          // Layer B — RPC de ID enxuta
+          try {
+            const { data: propId, error: errB } = await (supabase.rpc as any)(
+              "get_property_id_by_org_code",
+              { p_org_slug: orgSlug, p_code: propertyCode }
+            );
+            if (!cancelled && !errB && propId) {
+              clearTimeout(watchdog);
+              setResolvedId(propId as string);
+              return;
+            }
+          } catch (e) {
+            console.warn("[landing] Layer B failed", e);
+          }
+        }
+
+        // Layer B2 — RPC por organization_id (custom domains sem slug conhecido)
+        if (organizationIdOverride) {
+          try {
+            const { data: propId, error: errB2 } = await (supabase.rpc as any)(
+              "get_property_id_by_org_id_code",
+              { p_org_id: organizationIdOverride, p_code: propertyCode }
+            );
+            if (!cancelled && !errB2 && propId) {
+              clearTimeout(watchdog);
+              setResolvedId(propId as string);
+              return;
+            }
+          } catch (e) {
+            console.warn("[landing] Layer B2 failed", e);
+          }
+        }
+
+        // Layer C — fallback autenticado (preview interno)
+        try {
+          const { data: session } = await supabase.auth.getSession();
+          if (session?.session?.user) {
+            let orgId: string | null = organizationIdOverride ?? null;
+            if (!orgId && orgSlug) {
+              const { data: org } = await supabase
+                .from("organizations").select("id").eq("slug", orgSlug).maybeSingle();
+              orgId = org?.id ?? null;
+            }
+            if (orgId) {
+              const { data: prop } = await supabase
+                .from("properties").select("id")
+                .eq("organization_id", orgId)
+                .eq("property_code", propertyCode)
+                .maybeSingle();
+              if (!cancelled && prop?.id) {
+                clearTimeout(watchdog);
+                setResolvedId(prop.id);
+                return;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("[landing] Layer C failed", e);
+        }
+
+        if (cancelled) return;
+
+        console.warn("[landing] not_found", { orgSlug, propertyCode, organizationIdOverride });
+        supabase.functions.invoke("track-landing-visit", {
+          body: {
+            broker_token: brokerToken ?? null,
+            property_id: null,
+            referrer: typeof document !== "undefined" ? document.referrer || null : null,
+            not_found: true,
+            org_slug: orgSlug,
+            property_code: propertyCode,
+          },
+        }).catch(() => {});
+
+        clearTimeout(watchdog);
+        setResolvedId(null);
+        setLoading(false);
+      } catch (err) {
+        if (cancelled) return;
+        console.error("[landing] resolution effect threw:", err);
+        clearTimeout(watchdog);
+        setResolvedId(null);
+        setLoading(false);
+      }
     })();
 
-    return () => { cancelled = true; };
+    return () => { cancelled = true; clearTimeout(watchdog); };
   }, [paramId, orgSlug, propertyCode, brokerToken, organizationIdOverride]);
 
   // Fetch attribution contact + record visit
