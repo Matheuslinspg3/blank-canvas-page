@@ -169,43 +169,51 @@ export default function Anuncios() {
           </TabsContent>
 
           {/* ── Gerador IA ── */}
-          <TabsContent value="gerador" className="mt-4 space-y-3">
-            <FeatureFlagGate featureKey="has_ad_generator">
-              <AiCreditsBadge />
-              <Suspense fallback={<TabLoader />}>
-                <GeradorAnunciosContent />
-              </Suspense>
-            </FeatureFlagGate>
-          </TabsContent>
+          {canSeeGerador && (
+            <TabsContent value="gerador" className="mt-4 space-y-3">
+              <FeatureFlagGate featureKey="has_ad_generator">
+                <AiCreditsBadge />
+                <Suspense fallback={<TabLoader />}>
+                  <GeradorAnunciosContent />
+                </Suspense>
+              </FeatureFlagGate>
+            </TabsContent>
+          )}
 
           {/* ── Gerador de Artes ── */}
-          <TabsContent value="artes" className="mt-4 space-y-3">
-            <FeatureFlagGate featureKey="has_ad_generator">
-              <AiCreditsBadge />
-              <Suspense fallback={<TabLoader />}>
-                <GeradorArtesContent />
-              </Suspense>
-            </FeatureFlagGate>
-          </TabsContent>
+          {canSeeArtes && (
+            <TabsContent value="artes" className="mt-4 space-y-3">
+              <FeatureFlagGate featureKey="has_ad_generator">
+                <AiCreditsBadge />
+                <Suspense fallback={<TabLoader />}>
+                  <GeradorArtesContent />
+                </Suspense>
+              </FeatureFlagGate>
+            </TabsContent>
+          )}
 
           {/* ── Gerador de Vídeo ── */}
-          <TabsContent value="video" className="mt-4 space-y-3">
-            <FeatureFlagGate featureKey="has_ad_generator">
-              <AiCreditsBadge />
-              <Suspense fallback={<TabLoader />}>
-                <GeradorVideoContent />
-              </Suspense>
-            </FeatureFlagGate>
-          </TabsContent>
+          {canSeeVideo && (
+            <TabsContent value="video" className="mt-4 space-y-3">
+              <FeatureFlagGate featureKey="has_ad_generator">
+                <AiCreditsBadge />
+                <Suspense fallback={<TabLoader />}>
+                  <GeradorVideoContent />
+                </Suspense>
+              </FeatureFlagGate>
+            </TabsContent>
+          )}
 
           {/* ── Marca / Identidade Visual ── */}
-          <TabsContent value="marca" className="mt-4">
-            <FeatureFlagGate featureKey="has_brand_settings">
-              <Suspense fallback={<TabLoader />}>
-                <BrandSettingsContent />
-              </Suspense>
-            </FeatureFlagGate>
-          </TabsContent>
+          {canSeeMarca && (
+            <TabsContent value="marca" className="mt-4">
+              <FeatureFlagGate featureKey="has_brand_settings">
+                <Suspense fallback={<TabLoader />}>
+                  <BrandSettingsContent />
+                </Suspense>
+              </FeatureFlagGate>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </div>
