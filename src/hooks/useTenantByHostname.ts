@@ -97,10 +97,16 @@ export function useTenantByHostname() {
   const activeQuery = platformSlug ? slugQuery : domainQuery;
   const isRedirecting = redirectQuery.data?.redirecting === true;
 
+  // React Query v5: `isLoading` is true while `enabled=false` OR while pending+fetching.
+  // For tenant resolution we only care about the *active* fetch. Use `isFetching` so
+  // a disabled sibling query (slugQuery for custom domains, domainQuery for subdomains)
+  // never keeps the router stuck on the spinner.
+  const activeIsResolving = activeQuery.isFetching && !activeQuery.isFetched;
+
   return {
     isExternalDomain,
     organizationId: orgId,
-    isLoading: (isExternalDomain && activeQuery.isLoading) || isRedirecting,
+    isLoading: (isExternalDomain && activeIsResolving) || isRedirecting,
     notFound: isExternalDomain && activeQuery.isFetched && !activeQuery.data && !isRedirecting,
   };
 }
