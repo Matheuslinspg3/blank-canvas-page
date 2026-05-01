@@ -140,3 +140,6 @@ verify_jwt = false
 
 [functions.whatsapp-broker-followup-update]
 verify_jwt = false
+
+[functions.admin-set-org-plan]
+verify_jwt = false
