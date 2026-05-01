@@ -26,9 +26,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Collapsible, CollapsibleContent, CollapsibleTrigger,
-} from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -36,7 +33,7 @@ import { CurrencyInput } from '@/components/ui/currency-input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, X, Flame, Snowflake, Sun, Zap, AlertCircle, ChevronDown } from 'lucide-react';
+import { Loader2, X, Flame, Snowflake, Sun, Zap, AlertCircle, Home } from 'lucide-react';
 import { toast } from 'sonner';
 import { toastError } from "@/lib/toastError";
 import { LeadInteractionTimeline } from './LeadInteractionTimeline';
@@ -58,7 +55,8 @@ const formSchema = z.object({
   temperature: z.string().optional(),
   notes: z.string().optional(),
   
-  // Critérios de interesse do imóvel
+  // Critérios de interesse do imóvel — TODOS opcionais.
+  // Lead pode ser salvo/movido entre estágios sem nenhum critério preenchido.
   interested_property_type_id: z.string().optional(),
   interested_property_type_ids: z.array(z.string()).optional(),
   property_id: z.string().optional(),
@@ -69,7 +67,7 @@ const formSchema = z.object({
   area: z.coerce.number().optional(),
   preferred_neighborhoods: z.array(z.string()).optional(),
   preferred_cities: z.array(z.string()).optional(),
-  transaction_interest: z.enum(['venda', 'aluguel', 'ambos'], { required_error: 'Interesse é obrigatório' }),
+  transaction_interest: z.enum(['venda', 'aluguel', 'ambos']).optional(),
   additional_requirements: z.string().optional(),
 }).refine((data) => {
   // At least phone or email must be provided
