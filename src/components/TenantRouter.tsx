@@ -82,21 +82,13 @@ export function TenantRouter({ children }: Props) {
     // PropertyLandingPage now auto-detects whether `propIdOverride` is a UUID or a
     // property_code and picks the correct RPC, so we just forward the raw segment.
     return (
-      <ChunkLoadErrorBoundary>
-        <Suspense
-          fallback={
-            <div className="flex items-center justify-center min-h-screen">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          }
-        >
-          <PropertyLandingPage
-            propIdOverride={idOrCode}
-            orgSlugOverride={orgSlug ?? undefined}
-            organizationIdOverride={organizationId ?? undefined}
-          />
-        </Suspense>
-      </ChunkLoadErrorBoundary>
+      <PropertyLandingBoundary>
+        <PropertyLandingPage
+          propIdOverride={idOrCode}
+          orgSlugOverride={orgSlug ?? undefined}
+          organizationIdOverride={organizationId ?? undefined}
+        />
+      </PropertyLandingBoundary>
     );
   }
 
