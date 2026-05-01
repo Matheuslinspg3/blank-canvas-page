@@ -46,9 +46,27 @@ export default defineConfig(({ mode }) => ({
         clientsClaim: true,
         cleanupOutdatedCaches: true,
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MB
-        navigateFallbackDenylist: [/^\/~oauth/, /^\/push\//, /^\/OneSignalSDK/],
-      globIgnores: ["**/OneSignalSDKWorker.js", "**/push/**", "**/firebase-messaging-sw.js", "**/version.json"],
+        navigateFallbackDenylist: [
+          /^\/~oauth/,
+          /^\/push\//,
+          /^\/OneSignalSDK/,
+          /[?&]__lovable_token=/,
+          /\/auth-bridge/,
+          /\/auth\/v1\//,
+          /\/index\.html/,
+        ],
+        globIgnores: ["**/OneSignalSDKWorker.js", "**/push/**", "**/firebase-messaging-sw.js", "**/version.json"],
         runtimeCaching: [
+          // HTML navigations — always network-first to avoid serving stale shells
+          {
+            urlPattern: ({ request }) => request.mode === "navigate",
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "html-navigations",
+              networkTimeoutSeconds: 3,
+              cacheableResponse: { statuses: [200] },
+            },
+          },
           {
             urlPattern: /\/version\.json/,
             handler: "NetworkOnly",
