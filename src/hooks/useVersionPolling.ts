@@ -60,9 +60,9 @@ export function useVersionPolling() {
 
   // On navigation: if stale, hard-reload to pick up new assets
   useEffect(() => {
-    if (staleRef.current) {
+    if (!disabled && staleRef.current) {
       // Small delay so the navigation intent is preserved in the URL bar
       window.location.reload();
     }
-  }, [location.pathname]);
+  }, [location.pathname, disabled]);
 }
