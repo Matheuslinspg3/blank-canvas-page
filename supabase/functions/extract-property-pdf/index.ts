@@ -246,6 +246,64 @@ function normalizeExtractedProperties(rawProperties: unknown): Record<string, un
       }
     }
 
+    // Map availability field to is_sold / is_reserved flags for frontend compatibility
+    const availability = typeof property.availability === "string" ? property.availability.toLowerCase().trim() : "";
+    if (availability === "sold" || availability === "vendido") {
+      property.is_sold = true;
+    } else if (availability === "reserved" || availability === "reservado") {
+      property.is_reserved = true;
+    } else if (availability === "rented" || availability === "alugado") {
+      property.is_rented = true;
+    }
+
+    // Map AI field names to frontend ExtractedPropertyData fields
+    if (property.title && !property.development_name) {
+      // Extract development name from title (e.g. "Ed. Monte Carlo - AP 108" → "Ed. Monte Carlo")
+      const titleStr = String(property.title);
+      const dashIdx = titleStr.indexOf(" - ");
+      if (dashIdx > 0) {
+        property.development_name = titleStr.substring(0, dashIdx).trim();
+      } else {
+        property.development_name = titleStr;
+      }
+    }
+    if (property.unit && !property.unit_identifier) {
+      property.unit_identifier = property.unit;
+    }
+    if (property.type && !property.property_type) {
+      property.property_type = property.type;
+    }
+    if (property.purpose && !property.transaction_type) {
+      property.transaction_type = property.purpose === "aluguel" ? "rent" : "sale";
+    }
+    if (property.price_cash && !property.sale_price) {
+      property.sale_price = property.price_cash;
+    }
+    if (property.price && !property.sale_price) {
+      property.sale_price = property.price;
+    }
+    if (property.price_financed && !property.sale_price_financed) {
+      property.sale_price_financed = property.price_financed;
+    }
+    if (property.address && !property.address_street) {
+      property.address_street = property.address;
+    }
+    if (property.neighborhood && !property.address_neighborhood) {
+      property.address_neighborhood = property.neighborhood;
+    }
+    if (property.city && !property.address_city) {
+      property.address_city = property.city;
+    }
+    if (property.state && !property.address_state) {
+      property.address_state = property.state;
+    }
+    if (property.parking_spaces != null && property.parking_spots == null) {
+      property.parking_spots = property.parking_spaces;
+    }
+    if (property.condominium_fee != null && typeof property.condominium_fee === "number") {
+      // Keep as-is, frontend expects this field name
+    }
+
     return property;
   });
 }
