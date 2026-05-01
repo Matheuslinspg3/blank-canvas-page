@@ -27,6 +27,16 @@ export function TenantRouter({ children }: Props) {
   const { isExternalDomain, organizationId, isLoading, notFound } = useTenantByHostname();
   const { pathname } = useLocation();
 
+  // eslint-disable-next-line no-console
+  console.log("[TenantRouter]", {
+    pathname,
+    hostname: typeof window !== "undefined" ? window.location.hostname : null,
+    isExternalDomain,
+    organizationId,
+    isLoading,
+    notFound,
+  });
+
   // Not an external domain — render the normal app
   if (!isExternalDomain) {
     return <>{children}</>;
