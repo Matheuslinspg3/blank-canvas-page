@@ -12,6 +12,8 @@
  * which downstream code (toasts, Sentry filters) can rely on.
  */
 
+import { isProductLimitError } from './planLimits';
+
 export interface NormalizedError extends Error {
   code?: string;
   details?: string | null;
