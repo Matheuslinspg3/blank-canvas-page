@@ -75,22 +75,30 @@ export default function Anuncios() {
               <BarChart3 className="h-4 w-4" />
               RD Station
             </TabsTrigger>
-            <TabsTrigger value="gerador" className="gap-1.5 shrink-0 min-h-[44px] px-3">
-              <Sparkles className="h-4 w-4" />
-              Gerador IA
-            </TabsTrigger>
-            <TabsTrigger value="artes" className="gap-1.5 shrink-0 min-h-[44px] px-3">
-              <Palette className="h-4 w-4" />
-              Artes
-            </TabsTrigger>
-            <TabsTrigger value="video" className="gap-1.5 shrink-0 min-h-[44px] px-3">
-              <Video className="h-4 w-4" />
-              Vídeo
-            </TabsTrigger>
-            <TabsTrigger value="marca" className="gap-1.5 shrink-0 min-h-[44px] px-3">
-              <Stamp className="h-4 w-4" />
-              Marca
-            </TabsTrigger>
+            {canSeeGerador && (
+              <TabsTrigger value="gerador" className="gap-1.5 shrink-0 min-h-[44px] px-3">
+                <Sparkles className="h-4 w-4" />
+                Gerador IA
+              </TabsTrigger>
+            )}
+            {canSeeArtes && (
+              <TabsTrigger value="artes" className="gap-1.5 shrink-0 min-h-[44px] px-3">
+                <Palette className="h-4 w-4" />
+                Artes
+              </TabsTrigger>
+            )}
+            {canSeeVideo && (
+              <TabsTrigger value="video" className="gap-1.5 shrink-0 min-h-[44px] px-3">
+                <Video className="h-4 w-4" />
+                Vídeo
+              </TabsTrigger>
+            )}
+            {canSeeMarca && (
+              <TabsTrigger value="marca" className="gap-1.5 shrink-0 min-h-[44px] px-3">
+                <Stamp className="h-4 w-4" />
+                Marca
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* ── Meta Ads ── */}
