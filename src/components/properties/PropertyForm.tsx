@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePropertyTypes } from "@/hooks/usePropertyTypes";
+import { useBrokers } from "@/hooks/useBrokers";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Store } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -142,7 +143,9 @@ const DEFAULT_VALUES: FormData = {
 };
 
 export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitting, prefillData, isPublished = false }: PropertyFormProps) {
-  const { propertyTypes } = usePropertyTypes();
+  const { propertyTypes, isLoading: isLoadingTypes } = usePropertyTypes();
+  const { isLoading: isLoadingBrokers } = useBrokers();
+  const lookupsReady = !isLoadingTypes && !isLoadingBrokers;
   const { toast } = useToast();
   const { defaultSource: orgDefaultSource, isFetched: orgDefaultFetched } = useOrgMarketplaceDefaults();
   const [images, setImages] = useState<PropertyImage[]>([]);
