@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
+import { isInternalPlan, isOrgOnInternalUnlimited } from "@/lib/planLimits";
 
 export interface SubscriptionPlan {
   id: string;
@@ -134,6 +135,8 @@ function normalizeLimit(raw: unknown, key: string): number | null {
 }
 
 export function getFeatureLimit(plan: SubscriptionPlan | null | undefined, key: string): number {
+  // Internal unlimited plan bypasses every cap (including FAIL_CLOSED gates).
+  if (isOrgOnInternalUnlimited(plan)) return Infinity;
   if (!plan) return FREE_PLAN_LIMITS[key] ?? 0;
 
   // Enterprise-class plans always get unlimited for core keys (excluding fail-closed gates).
@@ -167,7 +170,9 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
         .eq("is_active", true)
         .order("display_order");
       if (error) throw error;
-      return ensureArray(data as SubscriptionPlan[] | null | undefined);
+      const safe = ensureArray(data as SubscriptionPlan[] | null | undefined);
+      // Hide internal/non-public plans from any UI listing.
+      return safe.filter((p) => !isInternalPlan(p));
     },
   });
 

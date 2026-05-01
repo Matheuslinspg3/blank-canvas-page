@@ -12,6 +12,8 @@
  * which downstream code (toasts, Sentry filters) can rely on.
  */
 
+import { isProductLimitError } from './planLimits';
+
 export interface NormalizedError extends Error {
   code?: string;
   details?: string | null;
@@ -32,6 +34,8 @@ export function isUniqueViolation(err: unknown): boolean {
 
 /** Errors we already handle in UI and don't need to alert in Sentry. */
 export function isExpectedBusinessError(err: unknown): boolean {
+  // Product/plan limits are always expected business outcomes.
+  if (isProductLimitError(err)) return true;
   const code = getCode(err);
   // 23505 = unique_violation, 23503 = fk_violation, 23514 = check_violation
   if (code === '23505') return true;
@@ -88,6 +92,14 @@ function friendlyMessage(code: string | undefined, constraint: string | null, fa
 }
 
 export function normalizeError(raw: unknown): NormalizedError {
+  // ProductLimitError is already a typed business error — keep it as-is.
+  if (isProductLimitError(raw)) {
+    const err = raw as unknown as NormalizedError;
+    err.userMessage = err.userMessage || (raw as Error).message;
+    err.isExpected = true;
+    return err;
+  }
+
   // Already a normalized error → return as-is
   if (raw instanceof Error && (raw as NormalizedError).code !== undefined) {
     return raw as NormalizedError;

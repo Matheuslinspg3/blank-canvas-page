@@ -174,6 +174,19 @@ serve(async (req) => {
         .from("subscription_plans").select("*").eq("id", planId).single();
       if (!plan) throw new Error("Plan not found");
 
+      // Hard block: internal/non-purchasable plans must never be assigned via checkout.
+      const planFeatures = (plan.features ?? {}) as Record<string, unknown>;
+      const isInternal =
+        plan.slug === "internal_unlimited" ||
+        planFeatures.is_internal === true ||
+        planFeatures.is_purchasable === false;
+      if (isInternal) {
+        return new Response(
+          JSON.stringify({ error: "This plan cannot be purchased." }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
       const priceCents = billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly;
       const priceReais = Number(priceCents) / 100; // Asaas expects value in BRL (reais)
       const now = new Date();

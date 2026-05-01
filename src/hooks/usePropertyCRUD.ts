@@ -4,6 +4,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { normalizeError } from '@/lib/normalizeError';
+import {
+  ProductLimitError,
+  isProductLimitError,
+  isOrgOnInternalUnlimited,
+  hasReachedLimit,
+} from '@/lib/planLimits';
 import type { Database, Json, Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 
 export type Property = Tables<'properties'>;
@@ -140,8 +146,18 @@ export function usePropertyCRUD(options?: { enabled?: boolean }) {
       const rawLimit = getLimit(plan, 'max_own_properties');
       const safeMinimumLimit = getLimit(undefined, 'max_own_properties');
       const limit = rawLimit === Infinity ? Infinity : Math.max(rawLimit, safeMinimumLimit);
-      if (limit !== Infinity && (currentCount ?? 0) >= limit) {
-        throw new Error(`Limite de ${limit} imóveis atingido no seu plano. Faça upgrade para adicionar mais.`);
+
+      // internal_unlimited bypasses every cap.
+      const bypassLimit = isOrgOnInternalUnlimited(plan as any);
+
+      if (!bypassLimit && limit !== Infinity && hasReachedLimit(currentCount ?? 0, limit)) {
+        throw new ProductLimitError({
+          code: 'PROPERTY_LIMIT_REACHED',
+          resource: 'properties',
+          limit,
+          current: currentCount ?? 0,
+          message: `Seu plano permite até ${limit} imóveis. Faça upgrade para adicionar mais.`,
+        });
       }
 
       // Aplica default da organização para `marketplace_contact_phone_source`
@@ -214,6 +230,15 @@ export function usePropertyCRUD(options?: { enabled?: boolean }) {
       toast({ title: 'Imóvel cadastrado', description: 'O imóvel foi cadastrado com sucesso.' });
     },
     onError: (error) => {
+      // Expected business error: plan limit reached. Controlled UX, NOT critical.
+      if (isProductLimitError(error)) {
+        toast({
+          title: 'Limite do plano atingido',
+          description: error.message,
+          variant: 'destructive',
+        });
+        return;
+      }
       const norm = normalizeError(error);
       if (norm.code === '23505' && norm.constraint === 'properties_org_property_code_key') {
         toast({
