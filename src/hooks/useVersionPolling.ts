@@ -30,7 +30,7 @@ export function useVersionPolling() {
   const disabled = isPreviewHost;
 
   const checkVersion = useCallback(async () => {
-    if (checkingRef.current) return;
+    if (disabled || checkingRef.current) return;
     checkingRef.current = true;
     try {
       const res = await fetch(`/version.json?_t=${Date.now()}`, {
