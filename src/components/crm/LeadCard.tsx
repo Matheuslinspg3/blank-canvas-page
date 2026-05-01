@@ -1,6 +1,4 @@
-import { memo, useMemo } from 'react';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { forwardRef, memo, useMemo, type CSSProperties, type HTMLAttributes } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Home, User, Clock, AlertTriangle, Flame, Snowflake, Sun, Zap, UserX, ListChecks } from 'lucide-react';
@@ -10,10 +8,13 @@ import { ptBR } from 'date-fns/locale';
 import { leadHasCriteria } from '@/lib/leadCriteria';
 import type { Lead } from '@/hooks/useLeads';
 
-interface LeadCardProps {
+interface LeadCardProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onClick'> {
   lead: Lead;
   onClick?: () => void;
   onChangeTemperature?: (leadId: string, temp: string) => void;
+  isDragging?: boolean;
+  dragHandleProps?: HTMLAttributes<HTMLDivElement>;
+  style?: CSSProperties;
 }
 
 const TEMPERATURE_CONFIG: Record<string, {
@@ -65,26 +66,16 @@ function formatCurrency(value: number | null | undefined) {
   }).format(value);
 }
 
-function LeadCardComponent({ lead, onClick, onChangeTemperature }: LeadCardProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: lead.id,
-    data: { lead },
-  });
-
-  const style = useMemo(() => ({
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1,
-    zIndex: isDragging ? 50 : undefined,
-  }), [transform, transition, isDragging]);
-
+/**
+ * Pure visual lead card. Drag-and-drop wiring (sortable / virtualizer) is
+ * handled by the parent wrapper to keep a single transform owner per element.
+ * `dragHandleProps` carry the `useSortable` listeners + attributes so that
+ * inner action icons can stop propagation without wrestling with refs.
+ */
+const LeadCardComponent = forwardRef<HTMLDivElement, LeadCardProps>(function LeadCardComponent(
+  { lead, onClick, onChangeTemperature, isDragging, dragHandleProps, style, className, ...rest },
+  ref,
+) {
   const formattedValue = formatCurrency(lead.estimated_value);
   const timeAgo = useMemo(() => formatDistanceToNow(new Date(lead.created_at), {
     addSuffix: true,
@@ -94,7 +85,6 @@ function LeadCardComponent({ lead, onClick, onChangeTemperature }: LeadCardProps
   const daysSinceUpdate = useMemo(() => differenceInDays(new Date(), new Date(lead.updated_at)), [lead.updated_at]);
   const isStale = daysSinceUpdate >= 7;
 
-  // Staleness color: green < 7 days, yellow 7-13 days, red >= 14 days
   const stalenessClass = useMemo(() => {
     if (daysSinceUpdate >= 14) return 'bg-red-50 dark:bg-red-950/30';
     if (daysSinceUpdate >= 7) return 'bg-amber-50 dark:bg-amber-950/30';
@@ -107,11 +97,11 @@ function LeadCardComponent({ lead, onClick, onChangeTemperature }: LeadCardProps
 
   return (
     <Card
-      ref={setNodeRef}
+      ref={ref}
       style={style}
-      {...attributes}
-      {...listeners}
-      className={`cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow ${stalenessClass} ${tempConfig.borderClass} ${isDragging ? 'shadow-lg' : ''}`}
+      {...dragHandleProps}
+      {...rest}
+      className={`cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow ${stalenessClass} ${tempConfig.borderClass} ${isDragging ? 'shadow-lg' : ''} ${className ?? ''}`}
       onClick={onClick}
     >
       <CardContent className="p-3 space-y-2">
@@ -162,9 +152,9 @@ function LeadCardComponent({ lead, onClick, onChangeTemperature }: LeadCardProps
           <span className={`inline-block text-[10px] px-1.5 py-0.5 rounded font-medium ${
             lead.source === 'anuncio'
               ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
-              : lead.source === 'RD Station' 
-                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300' 
-                : lead.source === 'RD Station (Webhook)' 
+              : lead.source === 'RD Station'
+                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300'
+                : lead.source === 'RD Station (Webhook)'
                   ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300'
                   : 'text-muted-foreground bg-muted/60'
           }`}>
@@ -185,7 +175,14 @@ function LeadCardComponent({ lead, onClick, onChangeTemperature }: LeadCardProps
           </div>
         )}
 
-        <div className="flex items-center justify-between">
+        <div
+          className="flex items-center justify-between"
+          // Inner interactive zone: clicks here must NOT start a drag and must
+          // NOT bubble to the card's onClick (which opens the lead modal).
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
           <span className="text-xs text-muted-foreground truncate max-w-[120px]">
             {lead.phone || lead.email || ''}
           </span>
@@ -222,6 +219,6 @@ function LeadCardComponent({ lead, onClick, onChangeTemperature }: LeadCardProps
       </CardContent>
     </Card>
   );
-}
+});
 
 export const LeadCard = memo(LeadCardComponent);

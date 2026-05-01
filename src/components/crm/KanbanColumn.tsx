@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo, useRef } from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Users } from 'lucide-react';
@@ -11,6 +12,75 @@ import type { LeadStage } from '@/hooks/useLeadStages';
 
 const ESTIMATED_CARD_HEIGHT = 120;
 const OVERSCAN = 5;
+
+/**
+ * Single sortable+virtualized row wrapper. Key insight: only ONE element owns
+ * a transform per item. We compose the virtualizer's translateY with the
+ * sortable's transform on the same node so the card cannot drift diagonally.
+ *
+ * - Wrapper: position absolute, top/left/width fixed by virtualizer math.
+ * - Transform: translate3d(sortableX, virtualizerStart + sortableY, 0).
+ * - useSortable's setNodeRef + listeners + attributes also live on this wrapper.
+ * - The inner LeadCard is a pure visual; original card just dims via opacity.
+ */
+function SortableVirtualRow({
+  lead,
+  virtualStart,
+  measureRef,
+  onClick,
+}: {
+  lead: Lead;
+  virtualStart: number;
+  measureRef: (el: HTMLElement | null) => void;
+  onClick: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: lead.id, data: { lead } });
+
+  // Combine virtualizer offset with sortable offset on the SAME element.
+  const x = transform?.x ?? 0;
+  const y = (transform?.y ?? 0) + virtualStart;
+
+  const setRefs = useCallback(
+    (node: HTMLDivElement | null) => {
+      setNodeRef(node);
+      measureRef(node);
+    },
+    [setNodeRef, measureRef],
+  );
+
+  return (
+    <div
+      ref={setRefs}
+      data-lead-id={lead.id}
+      {...attributes}
+      {...listeners}
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        transform: CSS.Translate.toString({ x, y, scaleX: 1, scaleY: 1 }),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        zIndex: isDragging ? 50 : undefined,
+        // Reserve bottom/right gutter without adding a wrapping element.
+        paddingBottom: 8,
+        paddingRight: 8,
+        // Avoid the browser converting touch into native scroll mid-drag.
+        touchAction: 'none',
+      }}
+    >
+      <LeadCard lead={lead} onClick={onClick} isDragging={isDragging} />
+    </div>
+  );
+}
 
 function KanbanColumnContent({ leads, onLeadClick }: { leads: Lead[]; onLeadClick: (lead: Lead) => void }) {
   const parentRef = useRef<HTMLDivElement>(null);
@@ -46,17 +116,13 @@ function KanbanColumnContent({ leads, onLeadClick }: { leads: Lead[]; onLeadClic
           {virtualizer.getVirtualItems().map((virtualItem) => {
             const lead = leads[virtualItem.index];
             return (
-              <div
+              <SortableVirtualRow
                 key={lead.id}
-                data-index={virtualItem.index}
-                ref={virtualizer.measureElement}
-                className="absolute top-0 left-0 w-full pb-2 pr-2"
-                style={{
-                  transform: `translateY(${virtualItem.start}px)`,
-                }}
-              >
-                <LeadCard lead={lead} onClick={() => onLeadClick(lead)} />
-              </div>
+                lead={lead}
+                virtualStart={virtualItem.start}
+                measureRef={virtualizer.measureElement}
+                onClick={() => onLeadClick(lead)}
+              />
             );
           })}
         </div>
