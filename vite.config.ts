@@ -21,6 +21,11 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
     VitePWA({
+      // Disable PWA in dev/preview builds to prevent stale chunk caching
+      // and Service Worker registration in Lovable preview iframes.
+      // Plugin stays in the array so the `virtual:pwa-register/react` module
+      // remains resolvable for `build:dev`.
+      disable: mode !== "production",
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "pwa-192x192.png", "pwa-512x512.png", "apple-touch-icon.png"],
       manifest: {
