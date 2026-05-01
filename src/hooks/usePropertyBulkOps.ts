@@ -4,6 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Database, Json } from '@/integrations/supabase/types';
 import { getFeatureLimit } from '@/hooks/useSubscription';
+import { ProductLimitError, isOrgOnInternalUnlimited, hasReachedLimit } from '@/lib/planLimits';
 
 /**
  * Bulk operations and marketplace publishing for properties.
@@ -30,6 +31,9 @@ async function assertMarketplaceLimit(orgId: string, incomingIds: string[]) {
     throw new Error('Não foi possível validar seu plano. Tente novamente em instantes.');
   }
   const plan = (subData?.plan ?? null) as any;
+  // Internal unlimited plan bypasses every cap.
+  if (isOrgOnInternalUnlimited(plan)) return;
+
   const limit = getFeatureLimit(plan, 'max_marketplace_properties');
   if (limit === Infinity) return;
 
@@ -45,12 +49,17 @@ async function assertMarketplaceLimit(orgId: string, incomingIds: string[]) {
   // Republish of an already-published id does NOT consume a new slot.
   const incomingNew = incomingIds.filter((id) => !publishedIds.has(id)).length;
   const total = publishedIds.size + incomingNew;
-  if (total > limit) {
+  if (hasReachedLimit(total - 1, limit) && total > limit) {
     const remaining = Math.max(0, limit - publishedIds.size);
-    throw new Error(
-      `Limite de ${limit} imóveis publicados no Marketplace atingido no seu plano. ` +
-        `Você pode publicar mais ${remaining}. Faça upgrade para publicar mais.`,
-    );
+    throw new ProductLimitError({
+      code: 'MARKETPLACE_LIMIT_REACHED',
+      resource: 'marketplace_properties',
+      limit,
+      current: publishedIds.size,
+      message:
+        `Seu plano permite até ${limit} imóveis publicados no Marketplace. ` +
+        `Você ainda pode publicar ${remaining}. Faça upgrade para publicar mais.`,
+    });
   }
 }
 
