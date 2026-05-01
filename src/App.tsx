@@ -28,6 +28,7 @@ import { Loader2 } from "lucide-react";
 import { lazyRetry } from "@/utils/lazyRetry";
 
 import { GlobalUpdateNotifier } from "@/components/GlobalUpdateNotifier";
+import { PropertyLandingBoundary } from "@/components/PropertyLandingBoundary";
 
 // Lazy-loaded pages with retry for stale chunk recovery
 const Auth = lazy(() => lazyRetry(() => import("./pages/Auth")));
