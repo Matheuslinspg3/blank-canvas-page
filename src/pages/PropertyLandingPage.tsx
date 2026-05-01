@@ -16,7 +16,7 @@ import { proxyDriveImageUrl } from "@/lib/utils";
 import { getImageUrl, type ImageRecord } from "@/lib/imageUrl";
 import { useLandingContent } from "@/hooks/useLandingContent";
 import { useLandingOverrides } from "@/hooks/useLandingOverrides";
-import { HabitaeLogo } from "@/components/HabitaeLogo";
+// HabitaeLogo intentionally not imported here — header logo comes from `usePublicBranding`.
 import { usePublicBranding } from "@/hooks/usePublicBranding";
 import { Hash } from "lucide-react";
 import * as LucideIcons from "lucide-react";
