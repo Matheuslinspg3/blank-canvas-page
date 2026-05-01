@@ -1,4 +1,6 @@
-import { useState, useMemo, useCallback, lazy, Suspense } from "react";
+import { useState, useMemo, useCallback, useEffect, lazy, Suspense } from "react";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { DEVELOPER_ONLY_FEATURES } from "@/config/featureAccess";
 import { QueryErrorState } from "@/components/QueryErrorState";
 import { SectionErrorBoundary } from "@/components/SectionErrorBoundary";
 import { PageHeader } from "@/components/PageHeader";
