@@ -123,7 +123,7 @@ export function LeadForm({
   const isEditing = !!lead;
   const [showCustomSource, setShowCustomSource] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
-  const [showInterest, setShowInterest] = useState(false);
+  // (state `showInterest` foi removido — critérios agora são uma aba dedicada.)
   const formRef = useRef<HTMLFormElement>(null);
 
   const form = useForm<FormData>({
@@ -792,7 +792,7 @@ function LeadCriteriaFields({
               name="transaction_interest"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Interesse *</FormLabel>
+                  <FormLabel>Interesse</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger className="min-h-[44px]">
