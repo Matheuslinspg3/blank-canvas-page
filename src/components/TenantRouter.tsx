@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useTenantByHostname } from "@/hooks/useTenantByHostname";
 import { WhiteLabelStorefront } from "@/components/WhiteLabelStorefront";
@@ -27,12 +27,25 @@ export function TenantRouter({ children }: Props) {
   const { isExternalDomain, organizationId, isLoading, notFound } = useTenantByHostname();
   const { pathname } = useLocation();
 
+  // Watchdog: if tenant resolution stays in `isLoading` for too long
+  // (e.g. RPC stalls, query stuck), force a graceful exit so the user
+  // never sees a perpetual spinner on /imovel/:code etc.
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
+  useEffect(() => {
+    if (!isLoading) { setLoadingTimedOut(false); return; }
+    const t = setTimeout(() => {
+      console.warn("[TenantRouter] tenant resolution watchdog timed out");
+      setLoadingTimedOut(true);
+    }, 10_000);
+    return () => clearTimeout(t);
+  }, [isLoading]);
+
   // Not an external domain — render the normal app
   if (!isExternalDomain) {
     return <>{children}</>;
   }
 
-  if (isLoading) {
+  if (isLoading && !loadingTimedOut) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -46,6 +59,12 @@ export function TenantRouter({ children }: Props) {
         <div className="text-center">
           <h1 className="text-2xl font-bold text-foreground mb-2">Site não encontrado</h1>
           <p className="text-muted-foreground">Verifique o endereço e tente novamente.</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 text-sm underline text-primary"
+          >
+            Tentar novamente
+          </button>
         </div>
       </div>
     );
