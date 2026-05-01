@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePropertyTypes } from "@/hooks/usePropertyTypes";
+import { useBrokers } from "@/hooks/useBrokers";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Store } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -142,7 +143,9 @@ const DEFAULT_VALUES: FormData = {
 };
 
 export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitting, prefillData, isPublished = false }: PropertyFormProps) {
-  const { propertyTypes } = usePropertyTypes();
+  const { propertyTypes, isLoading: isLoadingTypes } = usePropertyTypes();
+  const { isLoading: isLoadingBrokers } = useBrokers();
+  const lookupsReady = !isLoadingTypes && !isLoadingBrokers;
   const { toast } = useToast();
   const { defaultSource: orgDefaultSource, isFetched: orgDefaultFetched } = useOrgMarketplaceDefaults();
   const [images, setImages] = useState<PropertyImage[]>([]);
@@ -170,9 +173,10 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
     }
   }, [propertyCondition, form]);
 
-  // Reset form when property changes
+  // Reset form when property changes — wait for lookups (types/brokers) to be loaded
+  // so the Select triggers can render their labels immediately on first paint.
   useEffect(() => {
-    if (property) {
+    if (property && lookupsReady) {
       const loadPropertyData = async () => {
         let ownerName = "";
         let ownerPhone = "";
@@ -273,7 +277,7 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
     setActiveTab("basic");
     // Reflect actual marketplace state when editing; default OFF for new properties.
     setPublishToMarketplace(property ? isPublished : false);
-  }, [property, prefillData, form, open, isPublished, orgDefaultFetched, orgDefaultSource]);
+  }, [property, prefillData, form, open, isPublished, orgDefaultFetched, orgDefaultSource, lookupsReady]);
 
   // Late-arriving org default for NEW properties: if the hook resolves AFTER
   // the initial reset and the user hasn't touched the field yet, sync silently.
@@ -337,6 +341,9 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
       sale_price_financed: sale_price_financed as any,
       marketplace_contact_phone: normalizedMpPhone as any,
       marketplace_contact_phone_source: finalSource as any,
+      // Defesa: se em modo edição o form devolveu null por algum race no reset, preserva o valor original.
+      property_type_id: restData.property_type_id || (property as any)?.property_type_id || restData.property_type_id,
+      captador_id: (restData as any).captador_id || (property as any)?.captador_id || (restData as any).captador_id,
     };
     const ownerData: OwnerData | undefined = owner_name ? {
       name: owner_name, phone: owner_phone || undefined, email: owner_email || undefined,
