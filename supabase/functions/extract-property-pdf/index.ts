@@ -184,6 +184,9 @@ REGRAS CRÍTICAS:
 5. **CAMPOS AUSENTES**: Se algum campo não estiver disponível, omita-o. Mas NUNCA omita a description.
 
 6. **FOTOS**: Se houver link de fotos/pasta do imóvel, inclua em "photos_url". Se houver um link geral compartilhado, repita para cada imóvel.
+   **REGRA CRÍTICA DE FOTOS**: Cada link de fotos pertence EXCLUSIVAMENTE ao empreendimento/unidade onde ele aparece no documento. NUNCA copie links de fotos de um empreendimento para outro. Se um imóvel diz "fotos em breve", "sem fotos", "fotos a definir" ou similar, o campo "photos_url" deve ser OMITIDO (não preenchido). Não "empreste" links de fotos de outros imóveis próximos no documento.
+
+7. **ASSOCIAÇÃO CORRETA DE DADOS**: Cada seção/página do PDF descreve um empreendimento específico. Todos os dados (endereço, valores, fotos, descrição) pertencem APENAS àquele empreendimento. Nunca misture dados entre empreendimentos diferentes, mesmo que estejam em páginas consecutivas ou no mesmo chunk de processamento.
 
 Extraia ABSOLUTAMENTE TODOS os imóveis/unidades do documento, incluindo os reservados, vendidos e alugados. Não pule nenhum.`;
 
