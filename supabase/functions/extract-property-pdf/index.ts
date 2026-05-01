@@ -240,50 +240,138 @@ function normalizeExtractedProperties(rawProperties: unknown): Record<string, un
   });
 }
 
+const PAGES_PER_CHUNK = 5;
+
+function toBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+async function extractChunk(
+  chunkBytes: Uint8Array,
+  chunkLabel: string,
+  enrichedPrompt: string,
+  authHeader: string,
+  supabaseUrl: string,
+  jobId: string,
+): Promise<Record<string, unknown>[]> {
+  const chunkBase64 = toBase64(chunkBytes.buffer as ArrayBuffer);
+  console.log(`[extract-pdf] Job ${jobId}: Sending chunk "${chunkLabel}" (${(chunkBytes.length / 1024).toFixed(1)} KB)`);
+
+  const routerResp = await fetch(`${supabaseUrl}/functions/v1/ai-router`, {
+    method: "POST",
+    headers: {
+      Authorization: authHeader,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      task_type: "pdf_extract",
+      prompt: enrichedPrompt,
+      image_base64: chunkBase64,
+      file_mime_type: "application/pdf",
+    }),
+  });
+
+  const routerResult = await routerResp.json();
+  console.log(`[extract-pdf] Job ${jobId}: chunk "${chunkLabel}" → success=${routerResult?.success} provider=${routerResult?.provider}`);
+
+  if (!routerResult?.success) {
+    throw new Error(`AI falhou no chunk "${chunkLabel}": ${routerResult?.error || "unknown"}`);
+  }
+
+  const text = routerResult.text || "";
+  console.log(`[extract-pdf] Job ${jobId}: chunk "${chunkLabel}" text length=${text.length}`);
+
+  return parseAiJsonResponse(text, jobId, chunkLabel);
+}
+
+function parseAiJsonResponse(text: string, jobId: string, label: string): Record<string, unknown>[] {
+  let cleaned = text
+    .replace(/```json\s*/gi, "")
+    .replace(/```\s*/g, "")
+    .trim();
+
+  const jsonStart = cleaned.indexOf("{");
+  const jsonEnd = cleaned.lastIndexOf("}");
+
+  if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
+    console.warn(`[extract-pdf] Job ${jobId}: No JSON in chunk "${label}"`);
+    return [];
+  }
+
+  cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    cleaned = cleaned
+      .replace(/,\s*}/g, "}")
+      .replace(/,\s*]/g, "]")
+      .replace(/[\x00-\x1F\x7F]/g, (c) => c === "\n" || c === "\t" ? c : "");
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      // Attempt to repair truncated JSON
+      let braces = 0, brackets = 0;
+      for (const ch of cleaned) {
+        if (ch === "{") braces++;
+        else if (ch === "}") braces--;
+        else if (ch === "[") brackets++;
+        else if (ch === "]") brackets--;
+      }
+      let repaired = cleaned.replace(/,\s*"[^"]*"?\s*:?\s*[^,}\]]*$/, "");
+      repaired = repaired.replace(/,\s*$/, "");
+      while (brackets > 0) { repaired += "]"; brackets--; }
+      while (braces > 0) { repaired += "}"; braces--; }
+      console.warn(`[extract-pdf] Job ${jobId}: repaired truncated JSON in chunk "${label}"`);
+      try {
+        parsed = JSON.parse(repaired);
+      } catch (e) {
+        console.error(`[extract-pdf] Job ${jobId}: JSON parse failed for chunk "${label}"`);
+        return [];
+      }
+    }
+  }
+
+  const props = parsed?.properties || parsed?.imoveis || [];
+  return Array.isArray(props) ? props : [];
+}
+
 async function processInBackground(jobId: string, signedUrl: string, fileName: string, authHeader: string, sb: any, supabaseUrl: string) {
   try {
-    // Baixa o PDF
+    // Download PDF
     const pdfResp = await fetch(signedUrl);
     if (!pdfResp.ok) throw new Error(`Falha ao baixar PDF: ${pdfResp.status}`);
     const pdfBuffer = await pdfResp.arrayBuffer();
 
-    // Extract hyperlinks from PDF annotations BEFORE converting to base64
+    // Load PDF document
+    const sourcePdf = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+    const totalPages = sourcePdf.getPageCount();
+
+    // Extract hyperlinks from annotations
     let extractedLinks: { page: number; url: string }[] = [];
     try {
-      const pdfDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
-      const allLinks = extractHyperlinksFromPdf(pdfDoc);
+      const allLinks = extractHyperlinksFromPdf(sourcePdf);
       extractedLinks = filterPhotoLinks(allLinks);
-      console.log(`[extract-pdf] Job ${jobId}: Found ${allLinks.length} total hyperlinks, ${extractedLinks.length} photo-related links`);
-      if (extractedLinks.length > 0) {
-        console.log(`[extract-pdf] Job ${jobId}: Photo links: ${extractedLinks.map(l => `p${l.page}: ${l.url.substring(0, 60)}`).join(", ")}`);
-      }
+      console.log(`[extract-pdf] Job ${jobId}: ${totalPages} pages, ${allLinks.length} hyperlinks, ${extractedLinks.length} photo links`);
     } catch (linkErr) {
       console.warn(`[extract-pdf] Job ${jobId}: Could not extract hyperlinks:`, linkErr);
     }
 
-    // Converte para base64 em chunks (evita stack overflow)
-    const bytes = new Uint8Array(pdfBuffer);
-    let binary = "";
-    const chunkSize = 8192;
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-    }
-    const pdfBase64 = btoa(binary);
-
-    console.log(`[extract-pdf] Job ${jobId}: PDF baixado (${(pdfBuffer.byteLength / 1024).toFixed(1)} KB), chamando ai-router...`);
-
-    // Build prompt with extracted links appended
+    // Build enriched prompt with photo links
     let enrichedPrompt = EXTRACT_PROMPT;
     if (extractedLinks.length > 0) {
-      // Deduplicate links
       const uniqueUrls = [...new Set(extractedLinks.map(l => l.url))];
-      
       if (uniqueUrls.length === 1) {
-        // Single shared link for all properties
         enrichedPrompt += `\n\nIMPORTANTE: O PDF contém o seguinte link de fotos compartilhado para os imóveis: ${uniqueUrls[0]}
 Use este link como "photos_url" para TODOS os imóveis extraídos.`;
       } else {
-        // Multiple links - include page context for matching
         const linksList = extractedLinks.map(l => `- Página ${l.page}: ${l.url}`).join("\n");
         enrichedPrompt += `\n\nIMPORTANTE: O PDF contém os seguintes links de fotos/pastas (extraídos dos hyperlinks do documento):
 ${linksList}
@@ -291,129 +379,102 @@ Associe cada link ao imóvel correspondente da mesma página/contexto no campo "
       }
     }
 
-    // Chama ai-router com task_type pdf_extract
-    const routerResp = await fetch(`${supabaseUrl}/functions/v1/ai-router`, {
-      method: "POST",
-      headers: {
-        Authorization: authHeader,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        task_type: "pdf_extract",
-        prompt: enrichedPrompt,
-        image_base64: pdfBase64,
-        file_mime_type: "application/pdf",
-      }),
-    });
+    // Determine if we need to split
+    const allProperties: Record<string, unknown>[] = [];
 
-    const routerResult = await routerResp.json();
-    console.log(`[extract-pdf] Job ${jobId}: ai-router respondeu success=${routerResult?.success} provider=${routerResult?.provider}`);
+    if (totalPages <= PAGES_PER_CHUNK) {
+      // Small PDF — process as a single chunk
+      console.log(`[extract-pdf] Job ${jobId}: Small PDF (${totalPages} pages), processing as single chunk`);
+      const pdfBytes = await sourcePdf.save({ useObjectStreams: true, addDefaultPage: false });
+      const props = await extractChunk(pdfBytes, `all (1-${totalPages})`, enrichedPrompt, authHeader, supabaseUrl, jobId);
+      allProperties.push(...props);
+    } else {
+      // Large PDF — split into chunks
+      const numChunks = Math.ceil(totalPages / PAGES_PER_CHUNK);
+      console.log(`[extract-pdf] Job ${jobId}: Large PDF (${totalPages} pages), splitting into ${numChunks} chunks of ${PAGES_PER_CHUNK} pages`);
 
-    if (!routerResult?.success) {
-      throw new Error(routerResult?.error || "AI Router falhou");
-    }
+      // Update job progress
+      await sb.from("pdf_extract_jobs").update({
+        result: { progress: { total_chunks: numChunks, completed: 0, total_pages: totalPages } },
+        updated_at: new Date().toISOString(),
+      }).eq("id", jobId);
 
-    const text = routerResult.text || "";
-    console.log(`[extract-pdf] Job ${jobId}: raw text length=${text.length}, preview=${text.substring(0, 200)}`);
-    let parsed: any;
-    try {
-      // Strip markdown code blocks
-      let cleaned = text
-        .replace(/```json\s*/gi, "")
-        .replace(/```\s*/g, "")
-        .trim();
-
-      // Find JSON boundaries
-      const jsonStart = cleaned.indexOf("{");
-      const jsonEnd = cleaned.lastIndexOf("}");
-
-      if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
-        console.error(`[extract-pdf] Job ${jobId}: No JSON found in response`);
-        parsed = { properties: [] };
-      } else {
-        cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+      for (let chunkIdx = 0; chunkIdx < numChunks; chunkIdx++) {
+        const startPage = chunkIdx * PAGES_PER_CHUNK;
+        const endPage = Math.min(startPage + PAGES_PER_CHUNK, totalPages);
+        const chunkLabel = `pages ${startPage + 1}-${endPage}`;
 
         try {
-          parsed = JSON.parse(cleaned);
-        } catch {
-          // Fix common issues: trailing commas, control characters
-          cleaned = cleaned
-            .replace(/,\s*}/g, "}")
-            .replace(/,\s*]/g, "]")
-            .replace(/[\x00-\x1F\x7F]/g, (c) => c === "\n" || c === "\t" ? c : "");
-          try {
-            parsed = JSON.parse(cleaned);
-          } catch {
-            // Attempt to repair truncated JSON by closing open braces/brackets
-            let braces = 0, brackets = 0;
-            for (const ch of cleaned) {
-              if (ch === "{") braces++;
-              else if (ch === "}") braces--;
-              else if (ch === "[") brackets++;
-              else if (ch === "]") brackets--;
-            }
-            // Remove trailing partial property (after last comma)
-            let repaired = cleaned.replace(/,\s*"[^"]*"?\s*:?\s*[^,}\]]*$/, "");
-            // Also remove trailing comma before we close
-            repaired = repaired.replace(/,\s*$/, "");
-            while (brackets > 0) { repaired += "]"; brackets--; }
-            while (braces > 0) { repaired += "}"; braces--; }
-            console.warn(`[extract-pdf] Job ${jobId}: repaired truncated JSON`);
-            parsed = JSON.parse(repaired);
+          // Create a new PDF with just these pages
+          const chunkPdf = await PDFDocument.create();
+          const pageIndices = Array.from({ length: endPage - startPage }, (_, i) => startPage + i);
+          const copiedPages = await chunkPdf.copyPages(sourcePdf, pageIndices);
+          copiedPages.forEach(page => chunkPdf.addPage(page));
+          const chunkBytes = await chunkPdf.save({ useObjectStreams: true, addDefaultPage: false });
+
+          // Filter links relevant to this chunk's pages
+          let chunkPrompt = enrichedPrompt;
+          const chunkLinks = extractedLinks.filter(l => l.page >= startPage + 1 && l.page <= endPage);
+          if (chunkLinks.length > 0 && extractedLinks.length > 1) {
+            const linksList = chunkLinks.map(l => `- Página ${l.page}: ${l.url}`).join("\n");
+            chunkPrompt = EXTRACT_PROMPT + `\n\nIMPORTANTE: Links de fotos relevantes para estas páginas:\n${linksList}\nAssocie cada link ao imóvel correspondente no campo "photos_url".`;
           }
+
+          const props = await extractChunk(chunkBytes, chunkLabel, chunkPrompt, authHeader, supabaseUrl, jobId);
+          allProperties.push(...props);
+
+          console.log(`[extract-pdf] Job ${jobId}: chunk ${chunkIdx + 1}/${numChunks} → ${props.length} properties`);
+
+          // Update progress
+          await sb.from("pdf_extract_jobs").update({
+            result: { progress: { total_chunks: numChunks, completed: chunkIdx + 1, total_pages: totalPages, properties_so_far: allProperties.length } },
+            updated_at: new Date().toISOString(),
+          }).eq("id", jobId);
+        } catch (chunkErr) {
+          console.error(`[extract-pdf] Job ${jobId}: chunk "${chunkLabel}" failed:`, chunkErr);
+          // Continue with other chunks — partial results are better than nothing
         }
       }
-    } catch (e) {
-      console.error(`[extract-pdf] Job ${jobId}: JSON parse failed, text preview: ${text.substring(0, 500)}`);
-      throw new Error("Resposta da IA não é JSON válido");
     }
 
-    parsed.properties = normalizeExtractedProperties(parsed.properties);
+    // Normalize and deduplicate
+    const normalized = normalizeExtractedProperties(allProperties);
 
-    // Fallback: if AI didn't set photos_url but we extracted links, apply them
-    if (extractedLinks.length > 0 && Array.isArray(parsed.properties)) {
+    // Deduplicate by unit+title (same property may appear across chunk boundaries)
+    const seen = new Set<string>();
+    const deduped = normalized.filter((p: any) => {
+      const key = `${(p.title || "").toLowerCase().trim()}|${(p.unit || "").toLowerCase().trim()}|${p.price || 0}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    const parsed = { properties: deduped };
+
+    // Fallback: apply photo links to properties without photos_url
+    if (extractedLinks.length > 0) {
       const propertiesWithoutPhotos = parsed.properties.filter((p: any) => !p.photos_url);
       if (propertiesWithoutPhotos.length > 0) {
         const uniqueUrls = [...new Set(extractedLinks.map(l => l.url))];
-        
         if (uniqueUrls.length === 1) {
-          // Single shared link → apply to all properties missing photos_url
-          console.log(`[extract-pdf] Job ${jobId}: Applying single shared photo link to ${propertiesWithoutPhotos.length} properties`);
           for (const prop of parsed.properties) {
-            if (!prop.photos_url) {
-              prop.photos_url = uniqueUrls[0];
+            if (!prop.photos_url) prop.photos_url = uniqueUrls[0];
+          }
+        } else if (uniqueUrls.length >= parsed.properties.length * 0.5) {
+          let linkIdx = 0;
+          for (const prop of parsed.properties) {
+            if (!prop.photos_url && linkIdx < uniqueUrls.length) {
+              prop.photos_url = uniqueUrls[linkIdx];
+              linkIdx++;
             }
           }
         } else {
-          // Multiple links → try to match by page proximity
-          // Group links by page
-          const linksByPage = new Map<number, string>();
-          for (const l of extractedLinks) {
-            if (!linksByPage.has(l.page)) linksByPage.set(l.page, l.url);
-          }
-          
-          // If we have roughly one link per property, assign sequentially
-          if (uniqueUrls.length >= parsed.properties.length * 0.5) {
-            console.log(`[extract-pdf] Job ${jobId}: Assigning ${uniqueUrls.length} links to ${parsed.properties.length} properties by order`);
-            let linkIdx = 0;
+          const urlCounts = new Map<string, number>();
+          for (const l of extractedLinks) urlCounts.set(l.url, (urlCounts.get(l.url) || 0) + 1);
+          const mostCommon = [...urlCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+          if (mostCommon) {
             for (const prop of parsed.properties) {
-              if (!prop.photos_url && linkIdx < uniqueUrls.length) {
-                prop.photos_url = uniqueUrls[linkIdx];
-                linkIdx++;
-              }
-            }
-          } else {
-            // Few links, many properties → shared link, use the most common one
-            console.log(`[extract-pdf] Job ${jobId}: Using most common link for all properties`);
-            const urlCounts = new Map<string, number>();
-            for (const l of extractedLinks) {
-              urlCounts.set(l.url, (urlCounts.get(l.url) || 0) + 1);
-            }
-            const mostCommon = [...urlCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-            if (mostCommon) {
-              for (const prop of parsed.properties) {
-                if (!prop.photos_url) prop.photos_url = mostCommon;
-              }
+              if (!prop.photos_url) prop.photos_url = mostCommon;
             }
           }
         }
@@ -426,7 +487,7 @@ Associe cada link ao imóvel correspondente da mesma página/contexto no campo "
       updated_at: new Date().toISOString(),
     }).eq("id", jobId);
 
-    console.log(`[extract-pdf] Job ${jobId}: completo, ${parsed.properties.length} imóveis extraídos via ${routerResult.provider}`);
+    console.log(`[extract-pdf] Job ${jobId}: completo, ${parsed.properties.length} imóveis extraídos (${totalPages} pages, deduped from ${allProperties.length})`);
   } catch (err) {
     console.error(`[extract-pdf] Job ${jobId} falhou:`, err);
     await sb.from("pdf_extract_jobs").update({
