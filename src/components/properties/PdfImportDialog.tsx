@@ -93,6 +93,8 @@ export interface ExtractedPropertyData {
   owner_email?: string;
   is_sold?: boolean;
   is_reserved?: boolean;
+  is_rented?: boolean;
+  availability?: string;
   photos_url?: string;
 }
 
@@ -309,7 +311,7 @@ export function PdfImportDialog({ open, onOpenChange, onDataExtracted, onBatchEx
       setExtractedList(allProperties);
       const autoSelected = new Set<number>();
       allProperties.forEach((p, i) => {
-        if (!p.is_sold && !p.is_reserved) autoSelected.add(i);
+        if (!p.is_sold && !p.is_reserved && !p.is_rented) autoSelected.add(i);
       });
       setSelectedIndices(autoSelected);
       setStage("preview");
@@ -789,7 +791,7 @@ function PropertyPreviewRow({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
-  const isSoldOrReserved = item.is_sold || item.is_reserved;
+  const isSoldOrReserved = item.is_sold || item.is_reserved || item.is_rented;
 
   const label = [
     item.unit_identifier,
@@ -882,7 +884,10 @@ function PropertyPreviewRow({
                   </Badge>
                 )}
                 {item.is_reserved && (
-                  <Badge variant="secondary" className="text-xs">Reservado</Badge>
+                  <Badge variant="secondary" className="text-xs">🟡 Reservado</Badge>
+                )}
+                {item.is_rented && (
+                  <Badge variant="secondary" className="text-xs">🔵 Alugado</Badge>
                 )}
               </div>
               <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">

@@ -130,6 +130,7 @@ const EXTRACT_PROMPT = `Você é um extrator especializado em dados de imóveis.
       "title": "string (nome do empreendimento + unidade, ex: 'Res. Frédéric François Chopin - Unidade 63B')",
       "type": "Apartamento|Casa|Terreno|Comercial|Rural|Cobertura|Sobrado",
       "purpose": "venda|aluguel",
+      "availability": "available|reserved|sold|rented",
       "price": number (menor valor entre à vista e financiamento),
       "price_cash": number (valor à vista, se disponível),
       "price_financed": number (valor financiamento, se disponível),
@@ -144,6 +145,8 @@ const EXTRACT_PROMPT = `Você é um extrator especializado em dados de imóveis.
       "area_built": number,
       "unit": "string (número/código da unidade)",
       "code": "string (código do imóvel se houver)",
+      "condominium_fee": number (valor do condomínio mensal, se disponível),
+      "iptu": number (valor do IPTU, se disponível),
       "description": "string (descrição comercial COMPLETA - veja instruções abaixo)",
       "photos_url": "string (link da pasta de fotos, Google Drive, Dropbox, etc.)"
     }
@@ -154,7 +157,14 @@ REGRAS CRÍTICAS:
 
 1. **CADA UNIDADE É UM IMÓVEL SEPARADO**: Se um edifício tem unidades 63B, 64A e 64B, são 3 imóveis distintos no array. Se há unidades 71, 111, 131, 151 do mesmo prédio, são 4 imóveis. NUNCA agrupe unidades diferentes em um só registro.
 
-2. **DESCRIÇÃO RICA E COMPLETA**: O campo "description" deve ser um texto comercial detalhado incluindo TUDO que estiver disponível:
+2. **EXTRAIR TODOS OS IMÓVEIS INCLUINDO RESERVADOS/VENDIDOS/ALUGADOS**: Mesmo que um imóvel esteja marcado como "RESERVADO", "VENDIDO", "ALUGADO" ou "INDISPONÍVEL" (seja em texto, carimbo, marca d'água ou imagem sobreposta), você DEVE extraí-lo normalmente com todos os dados. Use o campo "availability" para indicar o status:
+   - "available" = disponível (padrão quando não há indicação de status)
+   - "reserved" = reservado (texto "RESERVADO" ou similar)
+   - "sold" = vendido (texto "VENDIDO" ou similar)
+   - "rented" = alugado (texto "ALUGADO" ou similar)
+   NUNCA pule um imóvel por estar reservado, vendido ou alugado.
+
+3. **DESCRIÇÃO RICA E COMPLETA**: O campo "description" deve ser um texto comercial detalhado incluindo TUDO que estiver disponível:
    - Nome completo do empreendimento
    - Número da unidade
    - Área útil/total em m²
@@ -165,17 +175,17 @@ REGRAS CRÍTICAS:
    - Condições de pagamento (valor à vista, financiamento, parcelamento, entrada, saldo)
    - Status das chaves/obra (pronto, em obra, na portaria, etc.)
    - Endereço completo
-   - IPTU se disponível
+   - IPTU e condomínio se disponíveis
    - Qualquer diferencial mencionado
    Exemplo: "Apartamento no Res. Frédéric François Chopin, Unidade 63B. Área útil de 60m², com 2 dormitórios sendo 1 suíte, sacada e 1 vaga de garagem. Valor: R$ 450.000 à vista ou R$ 480.000 via financiamento. Lazer completo: piscina climatizada adulto e infantil, raia semiolímpica 25m, espaço fitness, spa com sauna, playground, pet place, salão de festas, salão de jogos com boliche, salão gourmet. Chaves na imobiliária. Rua Cornélio Procópio, 202 - Boqueirão, Praia Grande/SP."
 
-3. **VALORES**: Números puros em BRL (sem R$, sem pontos de milhar). Ex: 450000, não "R$ 450.000,00".
+4. **VALORES**: Números puros em BRL (sem R$, sem pontos de milhar). Ex: 450000, não "R$ 450.000,00".
 
-4. **CAMPOS AUSENTES**: Se algum campo não estiver disponível, omita-o. Mas NUNCA omita a description.
+5. **CAMPOS AUSENTES**: Se algum campo não estiver disponível, omita-o. Mas NUNCA omita a description.
 
-5. **FOTOS**: Se houver link de fotos/pasta do imóvel, inclua em "photos_url". Se houver um link geral compartilhado, repita para cada imóvel.
+6. **FOTOS**: Se houver link de fotos/pasta do imóvel, inclua em "photos_url". Se houver um link geral compartilhado, repita para cada imóvel.
 
-Extraia ABSOLUTAMENTE TODOS os imóveis/unidades do documento. Não pule nenhum.`;
+Extraia ABSOLUTAMENTE TODOS os imóveis/unidades do documento, incluindo os reservados, vendidos e alugados. Não pule nenhum.`;
 
 function normalizeExtractedProperties(rawProperties: unknown): Record<string, unknown>[] {
   if (!Array.isArray(rawProperties)) return [];
@@ -236,11 +246,69 @@ function normalizeExtractedProperties(rawProperties: unknown): Record<string, un
       }
     }
 
+    // Map availability field to is_sold / is_reserved flags for frontend compatibility
+    const availability = typeof property.availability === "string" ? property.availability.toLowerCase().trim() : "";
+    if (availability === "sold" || availability === "vendido") {
+      property.is_sold = true;
+    } else if (availability === "reserved" || availability === "reservado") {
+      property.is_reserved = true;
+    } else if (availability === "rented" || availability === "alugado") {
+      property.is_rented = true;
+    }
+
+    // Map AI field names to frontend ExtractedPropertyData fields
+    if (property.title && !property.development_name) {
+      // Extract development name from title (e.g. "Ed. Monte Carlo - AP 108" → "Ed. Monte Carlo")
+      const titleStr = String(property.title);
+      const dashIdx = titleStr.indexOf(" - ");
+      if (dashIdx > 0) {
+        property.development_name = titleStr.substring(0, dashIdx).trim();
+      } else {
+        property.development_name = titleStr;
+      }
+    }
+    if (property.unit && !property.unit_identifier) {
+      property.unit_identifier = property.unit;
+    }
+    if (property.type && !property.property_type) {
+      property.property_type = property.type;
+    }
+    if (property.purpose && !property.transaction_type) {
+      property.transaction_type = property.purpose === "aluguel" ? "rent" : "sale";
+    }
+    if (property.price_cash && !property.sale_price) {
+      property.sale_price = property.price_cash;
+    }
+    if (property.price && !property.sale_price) {
+      property.sale_price = property.price;
+    }
+    if (property.price_financed && !property.sale_price_financed) {
+      property.sale_price_financed = property.price_financed;
+    }
+    if (property.address && !property.address_street) {
+      property.address_street = property.address;
+    }
+    if (property.neighborhood && !property.address_neighborhood) {
+      property.address_neighborhood = property.neighborhood;
+    }
+    if (property.city && !property.address_city) {
+      property.address_city = property.city;
+    }
+    if (property.state && !property.address_state) {
+      property.address_state = property.state;
+    }
+    if (property.parking_spaces != null && property.parking_spots == null) {
+      property.parking_spots = property.parking_spaces;
+    }
+    if (property.condominium_fee != null && typeof property.condominium_fee === "number") {
+      // Keep as-is, frontend expects this field name
+    }
+
     return property;
   });
 }
 
-const PAGES_PER_CHUNK = 5;
+const PAGES_PER_CHUNK = 2;
 
 function toBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
