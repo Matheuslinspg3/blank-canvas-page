@@ -337,6 +337,9 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
       sale_price_financed: sale_price_financed as any,
       marketplace_contact_phone: normalizedMpPhone as any,
       marketplace_contact_phone_source: finalSource as any,
+      // Defesa: se em modo edição o form devolveu null por algum race no reset, preserva o valor original.
+      property_type_id: restData.property_type_id || (property as any)?.property_type_id || restData.property_type_id,
+      captador_id: (restData as any).captador_id || (property as any)?.captador_id || (restData as any).captador_id,
     };
     const ownerData: OwnerData | undefined = owner_name ? {
       name: owner_name, phone: owner_phone || undefined, email: owner_email || undefined,
