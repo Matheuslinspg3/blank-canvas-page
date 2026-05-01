@@ -228,7 +228,7 @@ export function LeadForm({
     const basicHasError = BASIC_FIELDS.some((f) => f in errs);
     const interestHasError = INTEREST_FIELDS.some((f) => f in errs);
 
-    const targetTab = basicHasError ? 'basic' : interestHasError ? 'interest' : activeTab;
+    const targetTab = basicHasError ? 'basic' : interestHasError ? 'criteria' : activeTab;
 
     if (targetTab !== activeTab) {
       setActiveTab(targetTab);
