@@ -124,10 +124,48 @@ Sentry.init({
   },
 });
 
+import {
+  isPwaRuntimeEnabled,
+  isPreviewHost,
+  isInIframe,
+  isProductionBuild,
+  getServiceWorkerControllerState,
+} from "./utils/runtimeEnvironment";
+
+// Extract a chunk URL from a vite:preloadError payload, when present.
+function extractChunkUrl(payload: unknown): string | null {
+  try {
+    const msg =
+      typeof payload === "string"
+        ? payload
+        : (payload as any)?.message ?? (payload as any)?.payload?.message ?? "";
+    const m = String(msg).match(/\/assets\/[^\s"']+\.(?:js|css|mjs)/);
+    return m ? m[0] : null;
+  } catch {
+    return null;
+  }
+}
+
 // Global handlers — catch chunk errors that escape React boundaries.
-const handleGlobalChunkError = (err: unknown, source: string) => {
+const handleGlobalChunkError = (err: unknown, source: string, chunkUrl?: string | null) => {
   if (!isImportChunkError(err)) return;
   console.warn(`[chunk-error:${source}]`, err);
+  Sentry.captureException(err, {
+    tags: {
+      chunk_error: "true",
+      source,
+      hostname: window.location.hostname,
+      is_preview_host: String(isPreviewHost),
+      is_iframe: String(isInIframe),
+      pwa_runtime_enabled: String(isPwaRuntimeEnabled),
+      sw_controller: getServiceWorkerControllerState(),
+      route: window.location.pathname,
+      release: APP_VERSION,
+    },
+    extra: {
+      chunk_url: chunkUrl ?? extractChunkUrl(err),
+    },
+  });
   safeReloadOnce(`global:${source}`);
 };
 
@@ -139,7 +177,8 @@ window.addEventListener("unhandledrejection", (e) => {
 });
 // Vite 5 emits this when a preloaded chunk fails — perfect for early detection.
 window.addEventListener("vite:preloadError", (e: Event) => {
-  handleGlobalChunkError((e as any).payload ?? e, "vite:preloadError");
+  const payload = (e as any).payload ?? e;
+  handleGlobalChunkError(payload, "vite:preloadError", extractChunkUrl(payload));
   e.preventDefault();
 });
 
@@ -147,18 +186,18 @@ window.addEventListener("vite:preloadError", (e: Event) => {
 import { initPostHog } from "./lib/posthog";
 initPostHog();
 
-// Guard: never register SW in iframe or Lovable preview
-const isInIframe = (() => {
-  try { return window.self !== window.top; } catch { return true; }
-})();
-const isPreviewHost =
-  window.location.hostname.includes("id-preview--") ||
-  window.location.hostname.includes("lovableproject.com");
-
-if (isPreviewHost || isInIframe) {
+// PWA / Service Worker lifecycle:
+//  - Disabled in preview, iframe and dev → unregister any leftover SWs and
+//    clear caches so stale chunks don't haunt the next reload.
+//  - Enabled only in real production deployments.
+if (!isPwaRuntimeEnabled) {
   navigator.serviceWorker?.getRegistrations().then((regs) =>
-    regs.forEach((r) => r.unregister())
+    regs.forEach((r) => r.unregister()),
   );
+  // Aggressive cache cleanup ONLY off-prod — never wipe caches in production.
+  if (!isProductionBuild && typeof caches !== "undefined") {
+    caches.keys().then((keys) => keys.forEach((k) => caches.delete(k))).catch(() => {});
+  }
 } else {
   setupServiceWorkerUpdateRoutine();
 }

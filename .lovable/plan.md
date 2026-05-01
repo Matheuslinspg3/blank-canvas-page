@@ -1,149 +1,119 @@
-# Enxugamento Operacional — Developer-Only Gating + 3 Planos
-
 ## Objetivo
 
-Esconder funcionalidades avançadas de usuários comuns sem remover código, banco, rotas ou edge functions. Tudo continua acessível para `developer`. Reduzir vitrine para 3 planos: **Essencial**, **Profissional**, **Imobiliária**.
+Corrigir o erro `TypeError: Cannot read properties of undefined (reading 'default')` na rota `/dashboard` do preview Lovable, causado por falha no `vite:preloadError` ao buscar `/assets/Dashboard-*.js`. A causa raiz é o ambiente de preview tentando registrar Service Worker e usar PWA, gerando cache agressivo e conflitos de versão. Vamos blindar PWA para rodar somente em produção real, sem quebrar `build:dev`, e melhorar a observabilidade no Sentry.
 
----
+## Decisão sobre o conflito do `virtual:pwa-register/react`
 
-## 1. Camada centralizada (`src/config/featureAccess.ts`)
+Hoje `src/components/UpdateBanner.tsx` importa estaticamente `virtual:pwa-register/react` no topo. Se removêssemos o plugin `VitePWA` do array de plugins fora de produção, o módulo virtual deixaria de existir e o `build:dev` quebraria.
 
-Fonte única da verdade com:
+Vamos combinar **as duas defesas**:
 
-- **Chaves estáveis** em `DEVELOPER_ONLY_FEATURES`: `crm.whatsapp_templates`, `financeiro.templates`, `financeiro.financiamentos`, `correspondente`, `marketing.gerador_ia`, `marketing.artes`, `marketing.video`, `marketing.marca`, `meu_whatsapp`, `automacoes`, `gestao.portais_anuncio`, `gestao.meu_site`, `gestao.canais_equipe`.
-- **Rotas developer-only** (`DEVELOPER_ONLY_ROUTES`): `/correspondente`, `/financiamentos`, `/automacoes`, `/whatsapp/meu-canal`, `/whatsapp/automacoes`, `/whatsapp/canais-equipe`.
-- Helper `isDeveloperOnlyRoute(path)` que cobre subrotas (ex. `/whatsapp/meu-canal/chat`).
-- `isDeveloperOnlyFeature(key)`.
+1. **Opção preferida (Vite)**: manter o plugin no array, usando `VitePWA({ disable: mode !== "production", ... })`. Com `disable: true`, o plugin ainda registra o módulo virtual `virtual:pwa-register/react` (com hook no-op), mas não gera `sw.js`, manifest, nem injeta o registro de SW. `build:dev` continua passando.
+2. **Defesa em profundidade (UI)**: isolar o uso do hook num subcomponente PWA-only montado somente quando `isPwaRuntimeEnabled === true`. Mesmo se o módulo virtual mudar de comportamento, o hook nunca executa em preview/iframe/dev.
 
-## 2. Hook `useFeatureAccess` (`src/hooks/useFeatureAccess.ts`)
+## Alterações
 
-Reaproveita `useUserRoles()`. Expõe `canAccessFeature(key)` e `canAccessRoute(path)`. Durante `isLoading`, retorna `false` (esconde) — evita flicker.
+### 1. Novo util `src/utils/runtimeEnvironment.ts`
 
-## 3. Componentes (`src/components/access/`)
+Centraliza a detecção de ambiente. Exporta:
 
-- **`DeveloperOnly.tsx`** — wrapper declarativo: `<DeveloperOnly featureKey={...}>...</DeveloperOnly>`. Renderiza `null`/fallback enquanto carrega ou se bloqueado.
-- **`DeveloperOnlyRoute.tsx`** — guarda de rota: spinner enquanto carrega; se não-developer → `<Navigate to="/dashboard" replace />` com toast `"Esse recurso está temporariamente restrito."` (toast disparado uma única vez por ref).
+- `isPreviewHost` — hostname contém `id-preview--` ou `lovableproject.com`
+- `isInIframe` — `window.self !== window.top` (try/catch para cross-origin)
+- `isProductionBuild` — `import.meta.env.MODE === "production"`
+- `isPwaRuntimeEnabled` — `isProductionBuild && !isInIframe && !isPreviewHost`
+- `getServiceWorkerControllerState()` — retorna `controller?.state ?? "none"`
 
-## 4. Sidebar (`src/components/AppSidebar.tsx`)
+SSR-safe: cada leitura de `window` está guardada por `typeof window !== "undefined"`.
 
-Visível para todos: Dashboard, Métricas, Imóveis, Proprietários, CRM, Agenda, Marketplace, Financeiro, Marketing.
+### 2. `vite.config.ts` — VitePWA com `disable` condicional
 
-Esconder para não-developer:
-- **Correspondente** (remover do array base; render condicional via `isDeveloper`).
-- **Meu WhatsApp**.
-- **Automações** (já era admin; passa a developer).
-
-Grupo "Gestão" para não-developer mostra apenas **Administração** e **Integrações**. Esconder:
-- **Meu Site** (`/site`).
-- **Canais da Equipe** (`/whatsapp/canais-equipe`).
-
-Implementação: trocar `mainItems` para incluir um campo `developerOnly?: boolean` (ou render condicional explícito) usando `useUserRoles().isDeveloper`.
-
-## 5. Abas internas
-
-**`src/pages/CRM.tsx`** — aba `templates` (WhatsApp Templates):
-- Trigger e content envolvidos por `<DeveloperOnly featureKey={DEVELOPER_ONLY_FEATURES.CRM_WHATSAPP_TEMPLATES}>`.
-- `useEffect`: se `tab === "templates"` e usuário não-developer, `setTab("active")`.
-
-**`src/pages/Financial.tsx`** — abas `templates` e `financiamentos`:
-- Triggers e contents gated.
-- `useEffect`: se `finTab` em `["templates","financiamentos"]` e não-developer → `setFinTab("transactions")`.
-
-**`src/pages/Anuncios.tsx`** — abas `gerador`, `artes`, `video`, `marca`:
-- Triggers e contents gated.
-- `useEffect`: se `section` em lista restrita e não-developer → `setSection("meta")`.
-
-**`src/pages/Integrations.tsx`** — `<PortalFeedsSection />` envolvido em `<DeveloperOnly featureKey={GESTAO_PORTAIS_ANUNCIO}>`. Separator condicional para não deixar separador órfão.
-
-## 6. Rotas em `src/App.tsx`
-
-Envolver com `<DeveloperOnlyRoute>`:
-- `/correspondente`
-- `/automacoes`
-- `/whatsapp/meu-canal`
-- `/whatsapp/meu-canal/chat`
-- `/whatsapp/automacoes`
-- `/whatsapp/canais-equipe`
-
-Obs: `/financiamentos` não é rota top-level — vive como aba dentro de `/financeiro` (já gated). Se um dia virar rota separada, o array `DEVELOPER_ONLY_ROUTES` já cobre.
-
-## 7. Migração de planos
-
-**Arquivo:** `supabase/migrations/<ts>_collapse_plans_to_three.sql`
-
-Estado atual relevante (`subscription_plans`, plan_type='plan' ativos): `gratuito`, `starter`, `correspondente`, `enterprise`, `essencial`, `profissional`, `business`.
-
-Estratégia (sem deletar nada, sem tocar `subscriptions`):
-
-```sql
--- 1) Desativar todos os planos type='plan', exceto os 3 escolhidos
-UPDATE public.subscription_plans
-SET is_active = false
-WHERE plan_type = 'plan'
-  AND slug NOT IN ('essencial', 'profissional', 'business');
-
--- 2) Reativar e reordenar os 3
-UPDATE public.subscription_plans
-SET is_active = true, display_order = 1,
-    name = 'Essencial',
-    description = 'Imóveis, leads, portfólio básico e CRM simples.'
-WHERE slug = 'essencial';
-
-UPDATE public.subscription_plans
-SET is_active = true, display_order = 2,
-    name = 'Profissional',
-    description = 'Tudo do Essencial + marketplace, colaboração e integrações básicas.'
-WHERE slug = 'profissional';
-
--- "business" é exibido como Imobiliária (mantém slug por causa de FKs/lógica enterprise)
-UPDATE public.subscription_plans
-SET is_active = true, display_order = 3,
-    name = 'Imobiliária',
-    description = 'Tudo do Profissional + multiusuários, administração, permissões e operação de equipe.'
-WHERE slug = 'business';
-
--- 3) Desligar flags developer-only nos 3 planos visíveis
-UPDATE public.subscription_plans
-SET features = COALESCE(features, '{}'::jsonb) || jsonb_build_object(
-  'has_automations',     false,
-  'has_whatsapp',        false,
-  'has_ad_generator',    false,
-  'has_brand_settings',  false,
-  'has_meta_ads',        false,
-  'has_rd_station',      false,
-  'has_contracts',       false,
-  'has_contract_ai',     false,
-  'has_pdf_extract',     false,
-  'financing_simulator', false,
-  'financing_pipeline',  false,
-  'financing_docs_checklist', false,
-  'has_xml_feed',        false  -- portais de anúncio
-)
-WHERE slug IN ('essencial', 'profissional', 'business');
+```ts
+VitePWA({
+  disable: mode !== "production",
+  registerType: "autoUpdate",
+  // ...resto inalterado
+})
 ```
 
-Notas:
-- `business` mantém o slug — `useSubscription` reconhece `business`/`enterprise` como enterprise-class (uncapped). Apenas o **nome exibido** muda para "Imobiliária".
-- Subscriptions ativas em planos antigos continuam intactas (planos só ficam `is_active=false`, registro preservado).
-- Como UI é blindada por `DeveloperOnly`, a UI fica limpa mesmo se o usuário ainda estiver num plano antigo com flags ligadas.
-- Página `/planos` já lista apenas `is_active=true` ordenados por `display_order` → mostra exatamente 3.
+- O plugin permanece no array → módulo virtual `virtual:pwa-register/react` continua resolvido.
+- Em `build:dev` / dev server: nada é gerado (sem `sw.js`, sem precache, sem injeção).
+- Em produção: comportamento atual preservado.
+- Manter `.filter(Boolean)`.
 
-## Critérios de aceite
+### 3. `src/components/UpdateBanner.tsx` — isolamento do hook
 
-- Developer vê tudo (sidebar, abas, rotas).
-- Não-developer não vê: WhatsApp Templates (CRM); Templates e Financiamentos (Financeiro); Correspondente; Gerador IA/Artes/Vídeo/Marca (Marketing); Meu WhatsApp; Automações; Portais (Integrações); Meu Site e Canais da Equipe (Gestão).
-- Acesso direto às rotas restritas redireciona para `/dashboard` com toast.
-- `/planos` mostra exatamente 3 planos ativos.
-- Build e typecheck passam.
-- Nenhuma tabela, migration, edge function, dado ou subscription é removido.
+Refatorar em dois componentes no mesmo arquivo:
 
-## Arquivos
+- `UpdateBanner` (default/named export atual): early-return `null` se `!isPwaRuntimeEnabled`. Quando habilitado, renderiza `<UpdateBannerInner />`.
+- `UpdateBannerInner` (interno): contém todo o uso de `useRegisterSW` e `setInterval(registration.update, 30s)`.
 
-**Criar (4):** `src/config/featureAccess.ts`, `src/hooks/useFeatureAccess.ts`, `src/components/access/DeveloperOnly.tsx`, `src/components/access/DeveloperOnlyRoute.tsx`, migration SQL.
+Como o subcomponente só é montado quando `isPwaRuntimeEnabled` é `true`, o hook nunca é chamado em preview. O import no topo permanece (necessário porque o JSX referencia o hook), mas com `disable: true` no plugin, é um no-op.
 
-**Editar (5):** `src/components/AppSidebar.tsx`, `src/pages/CRM.tsx`, `src/pages/Financial.tsx`, `src/pages/Anuncios.tsx`, `src/pages/Integrations.tsx`, `src/App.tsx`.
+### 4. `src/main.tsx` — usar o util e limpeza segura
 
-## Reversibilidade
+- Substituir as checagens inline por imports do util.
+- Quando `!isPwaRuntimeEnabled`:
+  - `navigator.serviceWorker?.getRegistrations().then(r => r.forEach(reg => reg.unregister()))` (já existe).
+  - **Adicionar** limpeza de caches: `caches?.keys().then(keys => keys.forEach(k => caches.delete(k)))`. Apenas neste branch — nunca em produção.
+- Quando `isPwaRuntimeEnabled`: chamar `setupServiceWorkerUpdateRoutine()` como hoje.
+- Enriquecer o handler global `vite:preloadError`: extrair `chunk_url` do payload (`(e as any).payload?.message` regex `/\/assets\/[^\s"']+\.js/`) e passar para `Sentry.captureException` via `extra`.
 
-- Reativar feature: remover chave de `DEVELOPER_ONLY_FEATURES` ou rota de `DEVELOPER_ONLY_ROUTES`.
-- Reativar plano antigo: `UPDATE subscription_plans SET is_active = true WHERE slug = '...'`.
+### 5. `src/utils/lazyWithRetry.ts` — telemetria + validação
+
+- Aceitar `moduleName` (já aceita) e manter compat.
+- Após resolver o módulo, validar:
+  ```ts
+  if (!result || typeof result !== "object" || !("default" in result) || !result.default) {
+    throw new Error(`Module "${moduleName ?? "unknown"}" resolved without default export`);
+  }
+  ```
+- Enriquecer `Sentry.captureException` com tags adicionais via util:
+  - `hostname`, `is_preview_host`, `is_iframe`, `pwa_runtime_enabled`, `sw_controller`, `chunk_error`, `module_name`, `route`, `release` (`APP_VERSION`).
+  - `extra`: `retry_attempt`, `chunk_url` (quando inferível da mensagem).
+
+### 6. `src/utils/lazyRetry.ts` — shim com overload opcional
+
+- Manter assinatura atual `lazyRetry(fn, retries?)` — não quebra as ~60 chamadas em `App.tsx`.
+- Adicionar overload aceitando `lazyRetry(fn, { moduleName, retries? })` que delega ao `lazyWithRetry`.
+
+### 7. `src/App.tsx` — `moduleName` em rotas críticas
+
+Apenas 5 linhas alteradas:
+
+- `Dashboard` → `lazyRetry(() => import("./pages/Dashboard"), { moduleName: "Dashboard" })`
+- `CRM` → `{ moduleName: "CRM" }`
+- `Properties` → `{ moduleName: "Properties" }`
+- `Marketplace` → `{ moduleName: "Marketplace" }`
+- `Financial` → `{ moduleName: "Financial" }`
+
+### 8. Preservar comportamento atual
+
+- `safeReloadOnce`, `hasReloadedThisSession`, `useVersionPolling`, `ChunkLoadErrorBoundary`: inalterados.
+- `Dashboard.tsx`: nenhuma mudança (export default já correto).
+- Banco, edge functions, planos, preços, UI funcional: nenhuma mudança.
+
+## Resultado esperado
+
+- Preview Lovable não tenta registrar SW → `[SW] Registration error: SecurityError` desaparece.
+- Sem PWA em dev/preview, cache agressivo deixa de servir chunks `Dashboard-*.js` desatualizados → `Failed to fetch dynamically imported module` cai drasticamente.
+- Quando ainda ocorrer (rede instável), `lazyWithRetry` faz 2 retentativas, `safeReloadOnce` recarrega 1x, e Sentry recebe contexto detalhado.
+- `npm run build:dev` continua passando (módulo virtual resolvido pelo plugin com `disable: true`).
+- Produção (`portadocorretor.com.br`, `portocaicaraimoveis.lovable.app`) continua com PWA ativo e banner de update funcionando.
+
+## Arquivos alterados
+
+- **novo**: `src/utils/runtimeEnvironment.ts`
+- `vite.config.ts`
+- `src/components/UpdateBanner.tsx`
+- `src/main.tsx`
+- `src/utils/lazyWithRetry.ts`
+- `src/utils/lazyRetry.ts`
+- `src/App.tsx` (5 linhas)
+
+## Validação
+
+- `tsc --noEmit` (build automático).
+- Confirmar que `vite build --mode development` completa sem erros e sem gerar `dist/sw.js`.
+- Console do preview: ausência de `[SW] Registration error`.
+- `navigator.serviceWorker.getRegistrations()` retorna `[]` no preview após reload.
+- Em produção publicada, validar que `UpdateBanner` ainda registra SW e exibe quando há nova versão.

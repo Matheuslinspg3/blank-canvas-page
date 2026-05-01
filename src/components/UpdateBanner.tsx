@@ -2,10 +2,21 @@ import { useState, useEffect } from "react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRegisterSW } from "virtual:pwa-register/react";
+import { isPwaRuntimeEnabled } from "@/utils/runtimeEnvironment";
 
 const SUPPRESS_KEY = "sw-update-suppressed";
 
+/**
+ * Public banner — guards against preview/dev/iframe BEFORE mounting the
+ * inner component that calls `useRegisterSW`. This way the hook never
+ * executes in environments where the PWA plugin is disabled.
+ */
 export function UpdateBanner() {
+  if (!isPwaRuntimeEnabled) return null;
+  return <UpdateBannerInner />;
+}
+
+function UpdateBannerInner() {
   const [show, setShow] = useState(false);
 
   const {
@@ -13,7 +24,6 @@ export function UpdateBanner() {
     updateServiceWorker,
   } = useRegisterSW({
     onRegisteredSW(_swUrl, registration) {
-      // Check for SW updates every 30s
       if (registration) {
         setInterval(() => registration.update(), 30_000);
       }
@@ -44,12 +54,10 @@ export function UpdateBanner() {
   const handleUpdate = async () => {
     sessionStorage.setItem(SUPPRESS_KEY, "1");
     try {
-      await updateServiceWorker(true); // skipWaiting + reload
+      await updateServiceWorker(true);
     } catch (err) {
       console.warn("[SW] updateServiceWorker failed, forcing reload", err);
     }
-    // Fallback: if updateServiceWorker didn't trigger a reload (e.g., no waiting SW),
-    // force reload after a short delay to ensure the page refreshes.
     setTimeout(() => {
       window.location.reload();
     }, 1500);
