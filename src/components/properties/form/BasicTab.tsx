@@ -119,6 +119,11 @@ export function BasicTab({ form, publishToMarketplace = false, propertyId }: Bas
                     <SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
                   </FormControl>
                   <SelectContent>
+                    {typeMatchMissing && (
+                      <SelectItem value={currentTypeId!} disabled>
+                        {isLoadingTypes ? "(carregando tipo atual…)" : "(tipo atual indisponível)"}
+                      </SelectItem>
+                    )}
                     {propertyTypes.map((type) => (
                       <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
                     ))}
