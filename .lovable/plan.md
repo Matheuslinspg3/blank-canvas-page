@@ -1,69 +1,90 @@
 
-# Fix Production Console Issues
+# Plano: Extração de Hyperlinks Embutidos em PDFs no N8N
 
-## Diagnostic Summary
+## Problema
 
-### 1. Auth Refresh Token (400 / Invalid Refresh Token)
-**Root cause**: When the stored refresh token is invalid (e.g. revoked, expired, or used from another tab), Supabase SDK fires `SIGNED_OUT`. Current handling is mostly correct, but:
-- `getSession().catch()` doesn't clean up local storage — can leave corrupt session data that causes retry loops.
-- No explicit invalidation of React Query cache on sign-out, so stale queries may fire briefly with dead tokens.
+O workflow N8N (`isnDEmqhzJVkI5PX`) usa o nó `Extract from File` que extrai apenas **texto visível** do PDF. URLs como `https://drive.google.com/...` escritas no texto são capturadas via regex, mas **hyperlinks embutidos** (ex: texto "CLIQUE AQUI E VEJA FOTOS" com link escondido) são perdidos.
 
-**Fix** (in `src/contexts/AuthContext.tsx`):
-- In the `.catch()` of `getSession()`: call `supabase.auth.signOut({ scope: 'local' })` to clear storage, reset all state.
-- In the `SIGNED_OUT` handler: call `queryClient.clear()` to stop all in-flight queries with stale tokens.
-- Export or access `queryClient` from `App.tsx` for this — or pass it via a module-level reference.
+A Edge Function `extract-property-pdf` já resolve isso com `pdf-lib` (funções `extractHyperlinksFromPdf` e `filterPhotoLinks`), mas o N8N opera em um fluxo separado e não tem acesso a essa lógica.
 
-### 2. OneSignal Duplicate Initialization
-**Root cause**: `usePushNotifications` hook mounts in 3+ places (PushPermissionBanner in AppLayout, Settings page, PushTestCard). Each mount calls `initOneSignal()` + `loginOneSignal()` again. While `initOneSignal` has a singleton guard, `loginOneSignal` doesn't — it calls `OneSignal.login(userId)` every time. The debug logs (`[Push] Inicializando...`, `[Push] SDK pronto...`) fire on every mount.
+## Solução
 
-**Fix** (in `src/hooks/usePushNotifications.ts`):
-- Add a module-level `setupDoneForUser` variable tracking the user ID that was last set up.
-- Skip the full setup flow if `setupDoneForUser === user.id`.
-- Reset on user change/logout.
+Criar uma **Edge Function leve** (`extract-pdf-links`) que recebe o PDF via URL, extrai hyperlinks das annotations usando `pdf-lib`, e retorna os links. O workflow N8N chama essa função entre o download e a pré-formatação.
 
-### 3. Service Worker Message Handler Warning
-**Root cause**: The `sw.ts:21` warning indicates a `message` event handler registered inside an async callback or `importScripts`. The OneSignal worker at `public/push/onesignal/OneSignalSDKWorker.js` only has `importScripts(...)` — no custom `message` handler. The warning likely comes from the OneSignal SDK itself registering the handler lazily.
+### Etapa 1: Nova Edge Function `extract-pdf-links`
 
-**Verdict**: This is internal to the OneSignal SDK. No fix needed from our side. The warning is benign and can be documented as known.
+- Recebe `{ signed_url: string }` via POST
+- Baixa o PDF, carrega com `pdf-lib`
+- Reutiliza a lógica de `extractHyperlinksFromPdf` e `filterPhotoLinks` já existente em `extract-property-pdf`
+- Retorna `{ all_links: [{page, url}], photo_links: [{page, url}], text_urls_only: boolean }`
+- Autenticação via `X-Webhook-Secret` (mesmo padrão N8N)
 
-### 4. Minor Warnings
+### Etapa 2: Atualizar Workflow N8N
 
-#### 4a. Password autocomplete attributes
-**File**: `src/pages/Auth.tsx`
-- Login password input (line ~595): add `autoComplete="current-password"`
-- Signup password input (line ~803): add `autoComplete="new-password"`
+Adicionar dois elementos ao fluxo ativo (PDF Webhook → Download PDF → ...):
 
-#### 4b. `mobile-web-app-capable` meta tag
-**File**: `index.html`
-- Already has `apple-mobile-web-app-capable`. Add `<meta name="mobile-web-app-capable" content="yes" />` right after it.
+1. **Novo nó HTTP Request** ("Extrair Hyperlinks") entre "Download PDF" e "Extrair Texto do PDF":
+   - POST para `{supabase_url}/functions/v1/extract-pdf-links`
+   - Envia `signed_url` do PDF
+   - Headers: `X-Webhook-Secret`
 
-#### 4c. DialogContent without DialogDescription
-**File**: `src/components/ui/dialog.tsx`
-- Add a visually-hidden default `DialogDescription` inside `DialogContent` so all 295 usages get aria-describedby automatically without touching each file.
-- Use `<DialogPrimitive.Description className="sr-only">Dialog content</DialogPrimitive.Description>` as first child, which consumers can override by providing their own.
+2. **Atualizar nó "Pré-Formatação Inteligente"** para:
+   - Receber os hyperlinks extraídos da Edge Function
+   - Comparar URLs do texto visível vs hyperlinks embutidos
+   - Consolidar em uma seção única `=== URLs CONSOLIDADAS ===` no prompt
+   - Adicionar aviso quando hyperlinks existem mas URLs visíveis no texto não
+   - Reportar estatísticas: `X URLs no texto, Y hyperlinks embutidos, Z únicos após consolidação`
 
-### 5. External Scripts Resilience (Clarity, Sentry, Google Ads)
-**Findings**:
-- **Clarity**: Loaded only after LGPD consent via `loadClarityScript()`. Safe — uses `window.clarity?.()` guards.
-- **Sentry**: Loaded via `@sentry/react` import. Standard usage, resilient to network blocks.
-- **Google Ads**: Not present in the codebase at all — the blocked `pagead2.googlesyndication.com` is likely from a browser extension or ad injection. No fix needed.
-- All external script failures are handled gracefully with optional chaining / try-catch. No functional breakage.
+### Etapa 3: Diagnóstico no resultado
 
-**Verdict**: No changes needed for external scripts.
+O nó de pré-formatação incluirá no output:
+- `links_report.text_urls`: quantidade de URLs encontradas no texto
+- `links_report.embedded_links`: quantidade de hyperlinks embutidos
+- `links_report.consolidated`: lista final de URLs únicas
+- `links_report.warning`: mensagem quando não há URLs clicáveis extraíveis
 
-## Files to Change
+## Fluxo atualizado
 
-1. **`src/contexts/AuthContext.tsx`** — Improve `getSession().catch()` cleanup; invalidate React Query on sign-out
-2. **`src/hooks/usePushNotifications.ts`** — Add singleton guard for setup per user ID
-3. **`src/pages/Auth.tsx`** — Add `autoComplete` to password inputs
-4. **`index.html`** — Add `mobile-web-app-capable` meta tag
-5. **`src/components/ui/dialog.tsx`** — Add default hidden DialogDescription
+```text
+PDF Webhook
+  → Download PDF
+  → [Extrair Hyperlinks (novo HTTP Request)]
+  → Extrair Texto do PDF
+  → Pré-Formatação Inteligente (atualizado - merge dos dois)
+  → Chamar IA (Gemini)
+  → Parsear Resposta
+  → Callback
+```
 
-## Testing
+## Detalhes Técnicos
 
-1. **Login normal**: should work without extra console logs
-2. **Session expired**: manually clear refresh token from localStorage, reload — should redirect to `/auth` with toast, no loop
-3. **Navigation between routes**: OneSignal logs should appear only once per session, not on every route change
-4. **Dialog warnings**: open any dialog — no more "missing Description" console warning
-5. **Password fields**: browser password manager should recognize fields correctly
-6. **Blocked external scripts**: app should load normally with ad blockers active
+### Edge Function `extract-pdf-links`
+
+```
+POST /functions/v1/extract-pdf-links
+Headers: X-Webhook-Secret: {secret}
+Body: { "signed_url": "https://..." }
+Response: {
+  "all_links": [{ "page": 1, "url": "https://drive.google.com/..." }],
+  "photo_links": [{ "page": 1, "url": "https://drive.google.com/..." }],
+  "has_embedded_links": true,
+  "total_embedded": 5,
+  "total_photo": 3
+}
+```
+
+### Conexão N8N
+
+O nó "Download PDF" já salva o binário em `pdf_data`. Porém, como o N8N v2.15 não permite usar `pdf-lib` no Code Node (sandbox), precisamos delegar para a Edge Function. O nó "Extrair Hyperlinks" usará a `signed_url` original do webhook body (já disponível em `$('PDF Webhook').first().json.body.signed_url`).
+
+### Arquivos alterados
+
+1. `supabase/functions/extract-pdf-links/index.ts` (novo)
+2. Workflow N8N `isnDEmqhzJVkI5PX` (atualizado via MCP)
+3. Deploy da nova Edge Function
+
+### Testes
+
+- PDF com hyperlinks embutidos (ex: LEC com "CLIQUE AQUI"): deve extrair links do Drive
+- PDF sem hyperlinks (ex: MARANATA): deve reportar `has_embedded_links: false`
+- PDF com URLs visíveis no texto: deve consolidar ambas as fontes sem duplicatas
