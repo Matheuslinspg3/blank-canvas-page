@@ -25,6 +25,10 @@ export function useVersionPolling() {
   const staleRef = useRef(false);
   const checkingRef = useRef(false);
 
+  // Skip entirely on preview hosts — version.json won't match APP_VERSION
+  // and would trigger infinite reload loops.
+  const disabled = isPreviewHost;
+
   const checkVersion = useCallback(async () => {
     if (checkingRef.current) return;
     checkingRef.current = true;
