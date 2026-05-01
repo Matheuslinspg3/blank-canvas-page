@@ -5,6 +5,7 @@ import "./index.css";
 import { APP_VERSION } from "./config/appVersion";
 import { isImportChunkError, isMimeMismatchError } from "./utils/chunkErrorDetection";
 import { safeReloadOnce } from "./utils/safeReload";
+import { isProductLimitError } from "./lib/planLimits";
 // Capture beforeinstallprompt globally so it's available even if Install page mounts later
 declare global {
   interface WindowEventMap {
@@ -91,9 +92,13 @@ Sentry.init({
     "Failed to fetch",
     "NetworkError",
     "Load failed",
+    // Expected product/plan limit errors — handled by controlled toasts.
+    "ProductLimitError",
   ],
   beforeSend(event, hint) {
     const err = hint?.originalException;
+    // Drop expected business errors (plan limit reached, etc.) — never critical.
+    if (isProductLimitError(err)) return null;
     if (isImportChunkError(err)) {
       event.tags = {
         ...event.tags,
