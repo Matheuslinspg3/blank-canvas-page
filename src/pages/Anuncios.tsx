@@ -1,4 +1,4 @@
-import React, { lazy, Suspense } from "react";
+import React, { lazy, Suspense, useEffect } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTabParam } from "@/hooks/useTabParam";
@@ -7,6 +7,8 @@ import { Loader2, Megaphone, BarChart3, Sparkles, Palette, Video, Stamp, Link2, 
 import { AiCreditsBadge } from "@/components/ai/AiCreditsBadge";
 import { FeatureFlagGate } from "@/components/FeatureGate";
 import { useFeatureFlag } from "@/hooks/useFeatureGate";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { DEVELOPER_ONLY_FEATURES } from "@/config/featureAccess";
 
 import MetaConnectionTab from "@/components/ads/MetaConnectionTab";
 import MetaLeadsInboxContent from "@/components/ads/MetaLeadsInboxContent";
