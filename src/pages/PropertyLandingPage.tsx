@@ -17,6 +17,7 @@ import { getImageUrl, type ImageRecord } from "@/lib/imageUrl";
 import { useLandingContent } from "@/hooks/useLandingContent";
 import { useLandingOverrides } from "@/hooks/useLandingOverrides";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
+import { usePublicBranding } from "@/hooks/usePublicBranding";
 import { Hash } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import {
@@ -94,6 +95,9 @@ interface LandingContact {
   org_logo: string | null;
   org_phone: string | null;
   attribution_source: string | null;
+  org_whatsapp: string | null;
+  org_contact_phone: string | null;
+  org_contact_email: string | null;
 }
 
 interface PropertyLandingPageProps {
