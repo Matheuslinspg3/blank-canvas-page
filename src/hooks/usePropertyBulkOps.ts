@@ -203,6 +203,9 @@ export function usePropertyBulkOps() {
       if (!profile?.organization_id) throw new Error('Usuário não está vinculado a uma organização');
       if (!ids?.length) throw new Error('Selecione ao menos 1 imóvel para continuar.');
 
+      // Feature gate: enforce max_marketplace_properties from active plan.
+      await assertMarketplaceLimit(profile.organization_id, ids);
+
       toast({ title: '📤 Publicando no Marketplace...', description: `Publicando ${ids.length} imóvel(is) em segundo plano.` });
 
       const CHUNK = 50;
