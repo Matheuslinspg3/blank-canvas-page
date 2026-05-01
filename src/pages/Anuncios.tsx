@@ -37,6 +37,20 @@ export default function Anuncios() {
   const [rdTab, setRdTab] = useTabParam("rd_tab", "conexao");
   const { data: totalNew = 0 } = useAdLeadsCount();
 
+  const { canAccessFeature } = useFeatureAccess();
+  const canSeeGerador = canAccessFeature(DEVELOPER_ONLY_FEATURES.MARKETING_GERADOR_IA);
+  const canSeeArtes = canAccessFeature(DEVELOPER_ONLY_FEATURES.MARKETING_ARTES);
+  const canSeeVideo = canAccessFeature(DEVELOPER_ONLY_FEATURES.MARKETING_VIDEO);
+  const canSeeMarca = canAccessFeature(DEVELOPER_ONLY_FEATURES.MARKETING_MARCA);
+
+  // Redirect away from restricted sections when user lacks access
+  useEffect(() => {
+    if (section === "gerador" && !canSeeGerador) setSection("meta");
+    else if (section === "artes" && !canSeeArtes) setSection("meta");
+    else if (section === "video" && !canSeeVideo) setSection("meta");
+    else if (section === "marca" && !canSeeMarca) setSection("meta");
+  }, [section, canSeeGerador, canSeeArtes, canSeeVideo, canSeeMarca, setSection]);
+
   return (
     <div className="flex flex-col min-h-screen page-enter">
       <PageHeader
