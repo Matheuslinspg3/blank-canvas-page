@@ -27,8 +27,16 @@ interface BasicTabProps {
 type Source = "organization" | "owner" | "custom";
 
 export function BasicTab({ form, publishToMarketplace = false, propertyId }: BasicTabProps) {
-  const { propertyTypes, createPropertyType, isCreating: isCreatingType } = usePropertyTypes();
-  const { brokers } = useBrokers();
+  const { propertyTypes, createPropertyType, isCreating: isCreatingType, isLoading: isLoadingTypes } = usePropertyTypes();
+  const { brokers, isLoading: isLoadingBrokers } = useBrokers();
+
+  // Defensive: if the saved value isn't yet in the loaded list (race or removed item),
+  // we still want the Select trigger to display *something* meaningful instead of the
+  // misleading "Selecione..." placeholder. We render a ghost <SelectItem> for that value.
+  const currentTypeId = form.watch("property_type_id") as string | null | undefined;
+  const currentCaptadorId = form.watch("captador_id") as string | null | undefined;
+  const typeMatchMissing = !!currentTypeId && !propertyTypes.some(t => t.id === currentTypeId);
+  const captadorMatchMissing = !!currentCaptadorId && !brokers.some(b => b.user_id === currentCaptadorId);
   const { profile } = useAuth();
   const [showNewTypeInput, setShowNewTypeInput] = useState(false);
   const [newTypeName, setNewTypeName] = useState("");

@@ -1,153 +1,66 @@
-## Objetivo
+## Diagnóstico
 
-Eliminar o `unhandledrejection` no Sentry causado pelo limite de imóveis na rota `/imoveis`, criar plano interno sem limites para organizações específicas (atribuível só por `developer`), e centralizar a lógica de limites em helpers reutilizáveis.
+Investiguei o banco de dados e o código do formulário de imóveis. **Os dados ESTÃO sendo gravados corretamente** no Supabase:
 
-## Diagnóstico (já investigado)
+- Coluna `properties.property_type_id` (uuid) ✅ existe e tem valores nos registros recentes.
+- Coluna `properties.captador_id` (uuid) ✅ existe e tem valores nos registros recentes (ex.: `b93b4b0e-...`).
+- O insert em `usePropertyCRUD.ts` faz `...propertyData` (spread), então qualquer campo do form vai pro DB.
 
-- Mensagem origem: `src/hooks/usePropertyCRUD.ts` linha 144 — `throw new Error("Limite de ${limit} imóveis atingido…")` dentro da `mutationFn` de `createProperty`.
-- `src/pages/Properties.tsx` chama `createProperty` via `mutateAsync` (linhas 366 e 599) sem `try/catch` que diferencie erro de produto, e o erro genérico vira `unhandledrejection` quando o componente desmonta antes do `onError`.
-- Já existe `isExpectedBusinessError` em `src/lib/normalizeError.ts` que reconhece a string da mensagem (linha 41), mas não é checado no Sentry `beforeSend`.
-- Tabela `subscription_plans` tem 25 planos, nenhum com `slug='internal_unlimited'`. Enum `app_role` já contém `developer`. Função `has_role(uuid, app_role)` existe.
-- Convenção atual de limite (`useSubscription.normalizeLimit`): `-1` = Infinity, `null/undefined` = legacy unlimited, finito ≥ 0 = cap real.
+O problema percebido pelo usuário (no print "Editar Imóvel" os campos aparecem como "Selecione o tipo" e "Selecione o captador" mesmo o imóvel já tendo esses dados) é uma **falha de re-hidratação do `<Select>` no modo edição**, não de gravação.
 
-## 1. Migration de banco (`supabase/migrations/20260501180000_internal_unlimited_plan.sql`)
+### Causas técnicas
 
-Idempotente:
+1. **Race condition entre `form.reset(...)` e o carregamento das listas (`usePropertyTypes` / `useBrokers`).**
+   - Quando o dialog abre, `form.reset({ property_type_id, captador_id, ... })` é chamado imediatamente.
+   - Os `<SelectItem>` dependem de `propertyTypes` e `brokers`, que são `useQuery` assíncronos.
+   - Se a lista vier vazia/loading no momento em que o `<Select value={field.value}>` monta, o Radix Select renderiza o placeholder. Em alguns navegadores (especialmente Chrome Mobile WebView Android, conforme stack do Sentry) o `<SelectValue>` não atualiza o label visível depois que a lista chega — embora o `value` interno esteja correto. Isso faz o usuário pensar que perdeu o dado.
 
-- `INSERT … ON CONFLICT (slug) DO UPDATE` cria o plano:
-  - `slug='internal_unlimited'`, `name='Plano Interno Unlimited'`, `plan_type='plan'`, `is_active=true`, `display_order=9999`, `price_monthly=0`, `price_yearly=0`.
-  - Limites: `max_own_properties=-1`, `max_shared_properties=-1`, `max_users=-1`, `max_leads=-1`.
-  - `features` JSONB: `{ is_internal: true, is_public: false, is_purchasable: false, max_custom_domains: -1, max_marketplace_properties: -1, max_storage_mb: -1, ai_credits_limit: -1 }`.
-- Função `is_org_on_internal_unlimited(_org_id uuid) RETURNS boolean` SECURITY DEFINER, STABLE — checa subscriptions com `status IN ('active','trial')`. Grant `EXECUTE` para `authenticated, anon`.
-- Trigger `guard_internal_unlimited_assignment` (BEFORE INSERT/UPDATE em `subscriptions`):
-  - Se `plan_id` apontar para slug `internal_unlimited` e `auth.uid()` não for `developer`, levanta `ERRCODE 42501` ("Only developers can assign the internal_unlimited plan").
-  - Permite sem checagem quando `auth.uid() IS NULL` (service role / migrations).
-  - Em UPDATE, se o plano antigo já era `internal_unlimited`, libera (não bloqueia updates não relacionados).
+2. **Risco real de regressão em "Salvar" sem reabrir os selects.**
+   - Se o usuário, vendo o campo "vazio", abre o select e escolhe outro item, OK.
+   - Mas se ele apenas edita outro campo (ex.: preço) e salva, o `field.value` interno foi preservado pelo `reset`, então grava certo. Confirmamos isso pelos registros recentes onde os valores se mantêm.
+   - O bug é portanto **visual/UX**, mas crítico porque o usuário não confia no sistema.
 
-Sem alterar plano de organizações existentes. Sem mexer em RLS já existente.
+3. **`captador_id` no select usa `broker.user_id`** como `value` (em vez de `broker.id`). O dado salvo no DB de fato é `user_id` — confirmado no banco. Está consistente, mas vamos garantir.
 
-## 2. Novo helper `src/lib/planLimits.ts`
+## Correção proposta
 
-- `isUnlimitedLimit(limit)` — `null | undefined | -1 | !Number.isFinite` → true.
-- `hasReachedLimit(current, limit)` — false se ilimitado, senão `current >= limit`.
-- `isOrgOnInternalUnlimited(plan)` — true se `plan.slug === 'internal_unlimited'`.
-- `isInternalPlan(plan)` — true se slug interno OU `features.is_internal === true`.
-- Classe `ProductLimitError extends Error` com:
-  - `name = 'ProductLimitError'`, `code` (ex: `PROPERTY_LIMIT_REACHED`), `resource` (`'properties' | 'marketplace_properties' | 'leads' | 'users' | 'custom_domains' | …`), `limit`, `current?`.
-  - Marcadores `isProductLimit = true` e `isExpected = true` para Sentry/normalize filtrar.
-  - `Object.setPrototypeOf` para preservar `instanceof` após transpile.
-- `isProductLimitError(err)` type guard (cobre cross-realm via duck typing).
+### 1. Garantir que o `form.reset(...)` no modo edição só ocorra DEPOIS que `propertyTypes` e `brokers` estejam carregados (`PropertyForm.tsx`)
 
-## 3. Refatorar `src/hooks/usePropertyCRUD.ts`
+- Adicionar dependência de `usePropertyTypes().isLoading` e `useBrokers().isLoading` (ou seu `isFetched`) no `useEffect` que chama `form.reset` em modo edição.
+- Enquanto as listas não chegarem, mostrar um estado de loading no corpo do dialog (skeleton ou spinner) para evitar render do form com Selects vazios.
 
-No `createProperty.mutationFn`:
+### 2. Tornar o `<Select>` resiliente quando o valor existe mas o item ainda não está na lista (`BasicTab.tsx`)
 
-- Importar `isOrgOnInternalUnlimited`, `hasReachedLimit`, `ProductLimitError` de `@/lib/planLimits`.
-- Substituir o `throw new Error(...)` por:
-  ```ts
-  if (isOrgOnInternalUnlimited(plan)) {
-    // bypass — sem checagem
-  } else if (hasReachedLimit(currentCount ?? 0, limit === Infinity ? -1 : limit)) {
-    throw new ProductLimitError({
-      code: 'PROPERTY_LIMIT_REACHED',
-      resource: 'properties',
-      limit,
-      current: currentCount ?? 0,
-      message: `Seu plano permite até ${limit} imóveis. Faça upgrade para adicionar mais.`,
-    });
-  }
-  ```
+- No `<Select>` de "Tipo de Imóvel": se `field.value` existir mas não houver match em `propertyTypes`, renderizar um `<SelectItem value={field.value}>` "fantasma" com label "(carregando…)" para que o Radix consiga exibir um label e não caia no placeholder.
+- Mesma coisa para o `<Select>` de "Corretor Captador": se `field.value` existir e não houver match em `brokers`, renderizar um item placeholder com o id, evitando o "Selecione o captador" enganoso.
+- Esse padrão é defensivo: cobre lista atrasada, broker removido, ou tipo deletado.
 
-No `onError`:
+### 3. Logging/telemetria leve para confirmar em produção
 
-- Detectar `isProductLimitError(error)` ANTES de `normalizeError`.
-- Mostrar toast controlado: `title: "Limite do plano atingido"`, `description: error.message`, `action`/`actionAltText`: "Ver upgrade" navegando para `/planos` (usar callback simples — `window.location.href` ou `useNavigate` se disponível no hook; aqui mantemos `toast` com action handler).
-- NÃO relançar — React Query já não captura como crítico após `onError`.
+- Em `useEffect` de reset, logar (apenas em dev/preview, gated por `isProductionBuild === false`) quando `property.property_type_id` ou `property.captador_id` chegar mas a lista correspondente estiver vazia. Não enviar pro Sentry — só `console.debug`.
 
-## 4. Refatorar `src/hooks/usePropertyBulkOps.ts`
+### 4. (Opcional, defensivo) Garantir que o submit nunca grave `null` se o usuário não tocou no campo
 
-`assertMarketplaceLimit` lança `Error` genérico hoje. Trocar por `ProductLimitError({ code: 'MARKETPLACE_LIMIT_REACHED', resource: 'marketplace_properties', limit, current })`. Adicionar bypass via `isOrgOnInternalUnlimited` (precisa carregar slug do plano — já carrega `plan` na consulta atual).
+- No `handleSubmit` em `PropertyForm.tsx`, se `restData.property_type_id` vier `null` mas `property?.property_type_id` (no modo edição) tinha valor, **manter** o valor antigo. Mesmo padrão para `captador_id`.
+- Isso é cinto-e-suspensório: protege contra qualquer cenário em que o `form.reset` não tenha aplicado o valor antes do submit.
 
-## 5. Refatorar `src/pages/Properties.tsx`
+## Escopo de arquivos
 
-- Linha 599 (`executePropertySubmit`): envolver `await createProperty(...)` em `try/catch`. Se `isProductLimitError(err)` → return silencioso (toast já foi exibido pelo `onError` do hook). Senão, re-throw para preservar comportamento atual.
-- Linha 366 (`executeBatchImport`): já tem `catch{}` — ajustar para incrementar `errors` apenas se `!isProductLimitError(err)` (mantém o comportamento atual de contar como erro mas não polui Sentry).
+- `src/components/properties/PropertyForm.tsx`
+  - Aguardar `propertyTypes` + `brokers` carregarem antes de `form.reset` no modo edição.
+  - Estado de loading no dialog enquanto isso.
+  - Guard no `handleSubmit` (ponto 4).
+- `src/components/properties/form/BasicTab.tsx`
+  - Renderizar `<SelectItem>` "fantasma" quando `field.value` não tem match na lista.
 
-## 6. Atualizar `src/lib/normalizeError.ts`
+## O que NÃO vai mudar
 
-- `isExpectedBusinessError`: adicionar checagem `isProductLimitError(err)` no topo (retorna true).
-- `normalizeError`: se entrada já é `ProductLimitError`, retornar como-is com `isExpected = true`.
+- Schema do banco — colunas estão corretas.
+- Lógica de insert/update no `usePropertyCRUD.ts` — está correta.
+- `useBrokers` / `usePropertyTypes` — estão corretos.
 
-## 7. Atualizar `src/main.tsx` Sentry `beforeSend`
+## Validação
 
-- Antes do bloco de `isImportChunkError`, adicionar:
-  ```ts
-  if (isProductLimitError(err)) return null;  // não enviar
-  ```
-- Importar `isProductLimitError` de `@/lib/planLimits`.
-- Adicional: incluir `"ProductLimitError"` em `ignoreErrors` para reforçar.
-
-## 8. Atualizar `src/hooks/useSubscription.ts`
-
-- Query `subscription-plans` (linha 161): filtrar planos internos da listagem pública. Adicionar `.not('features->>is_internal', 'eq', 'true')` ou filtrar no client (`safePlans = data.filter(p => !isInternalPlan(p))`). Usar filtro no client (mais robusto contra plano sem `features`).
-- `mainPlans` / `addonPlans` / `marketplacePlans` etc derivam de `safePlans` — automaticamente excluem o interno.
-- `getFeatureLimit(plan, key)`: adicionar early-return `if (isOrgOnInternalUnlimited(plan)) return Infinity;` no topo. Cobre todas as keys, inclusive `FAIL_CLOSED_KEYS` (para `internal_unlimited` o bypass é total e intencional).
-
-## 9. Nova Edge Function `supabase/functions/admin-set-org-plan/index.ts`
-
-- POST com body `{ organization_id: uuid, plan_slug: string }`.
-- Validação:
-  - JWT obrigatório (`auth.getUser()`); 401 se ausente/inválido.
-  - `has_role(user_id, 'developer')` via RPC; 403 se falso.
-  - Body validado com Zod.
-- Ação: usa `SUPABASE_SERVICE_ROLE_KEY` para:
-  - Buscar `plan_id` por slug.
-  - `UPSERT` em `subscriptions` para `organization_id` (status='active', billing_cycle='monthly', provider='internal', period_start=now, period_end=now+100 anos para ilimitado).
-- CORS conforme padrão do projeto.
-- Resposta: `{ ok: true, plan: { slug, name } }`.
-- Auditoria: insert em `audit_log` (se a tabela existir) — opcional, melhor-effort.
-
-`config.toml`: adicionar `[functions.admin-set-org-plan] verify_jwt = false` (validação manual em código, padrão do projeto).
-
-Frontend: NÃO criar UI de atribuição agora — só a função existe. Developers chamam via `supabase.functions.invoke('admin-set-org-plan', { body: {...} })` no DevTools ou via tela developer existente em iteração futura.
-
-## 10. Excluir plano interno do checkout
-
-- `src/pages/Plans.tsx` e qualquer tela pública que liste planos: como `useSubscription` já filtra `isInternalPlan`, o plano não aparece.
-- Edge function `billing` (`create-subscription`): adicionar checagem — se `plan_slug === 'internal_unlimited'`, retornar 403. Implementar dentro do mesmo arquivo `index.ts`.
-
-## 11. Testes
-
-- `src/test/planLimits.test.ts` (já existe — estender):
-  - `isUnlimitedLimit` casos: null, undefined, -1, 0, 5, Infinity.
-  - `hasReachedLimit` casos: ilimitado nunca true; finito true em ≥.
-  - `ProductLimitError` é `instanceof Error` e `isProductLimitError` retorna true.
-  - `isOrgOnInternalUnlimited` reconhece slug.
-  - `isInternalPlan` reconhece via slug e via features.
-
-## Arquivos alterados
-
-**Novo:**
-- `supabase/migrations/20260501180000_internal_unlimited_plan.sql`
-- `src/lib/planLimits.ts`
-- `supabase/functions/admin-set-org-plan/index.ts`
-
-**Editados:**
-- `src/hooks/usePropertyCRUD.ts`
-- `src/hooks/usePropertyBulkOps.ts`
-- `src/pages/Properties.tsx`
-- `src/lib/normalizeError.ts`
-- `src/main.tsx`
-- `src/hooks/useSubscription.ts`
-- `supabase/functions/billing/index.ts` (bloqueio de checkout)
-- `supabase/config.toml` (entry para `admin-set-org-plan`)
-- `src/test/planLimits.test.ts`
-
-## Critérios de aceite cobertos
-
-1. Org comum no limite → toast controlado, sem `unhandledrejection`, sem Sentry crítico.
-2. Org `internal_unlimited` → bypass total em `getFeatureLimit` + `isOrgOnInternalUnlimited` na mutation.
-3. Não-developer tentando atribuir → 403 da edge function + bloqueio adicional via trigger DB.
-4. Developer atribuindo → upsert em subscriptions, organização passa a usar plano interno.
-5. Plano interno escondido: filtrado em `useSubscription`, bloqueado no checkout, não comprável.
-6. Build/typecheck/test passam (executados pelo build automático).
+- Build + typecheck.
+- Teste manual no preview: abrir um imóvel existente para editar → ambos os campos devem aparecer já preenchidos imediatamente, mesmo em conexão lenta.
+- Verificação no banco: criar novo imóvel pelo form → confirmar `property_type_id` e `captador_id` populados (já estavam funcionando, mas re-validar).
