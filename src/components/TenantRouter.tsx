@@ -1,10 +1,10 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useTenantByHostname } from "@/hooks/useTenantByHostname";
 import { WhiteLabelStorefront } from "@/components/WhiteLabelStorefront";
 import { Loader2 } from "lucide-react";
 import { lazyWithRetry } from "@/utils/lazyWithRetry";
-import { ChunkLoadErrorBoundary } from "@/components/ChunkLoadErrorBoundary";
+import { PropertyLandingBoundary } from "@/components/PropertyLandingBoundary";
 import { extractPlatformSlug } from "@/config/platform";
 
 const PropertyLandingPage = lazy(() =>
