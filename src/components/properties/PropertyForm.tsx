@@ -173,9 +173,10 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
     }
   }, [propertyCondition, form]);
 
-  // Reset form when property changes
+  // Reset form when property changes — wait for lookups (types/brokers) to be loaded
+  // so the Select triggers can render their labels immediately on first paint.
   useEffect(() => {
-    if (property) {
+    if (property && lookupsReady) {
       const loadPropertyData = async () => {
         let ownerName = "";
         let ownerPhone = "";
