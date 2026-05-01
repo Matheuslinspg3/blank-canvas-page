@@ -48,17 +48,25 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const mainItems = [
+type MenuItem = {
+  title: string;
+  url: string;
+  icon: React.ElementType;
+  badge?: boolean;
+  developerOnly?: boolean;
+};
+
+const mainItems: MenuItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Métricas", url: "/metricas", icon: BarChart3 },
   { title: "Imóveis", url: "/imoveis", icon: Home },
   { title: "Proprietários", url: "/proprietarios", icon: Building2 },
-  
+
   { title: "CRM", url: "/crm", icon: Users },
   { title: "Agenda", url: "/agenda", icon: Calendar },
   { title: "Marketplace", url: "/marketplace", icon: Store },
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
-  { title: "Correspondente", url: "/correspondente", icon: Landmark },
+  { title: "Correspondente", url: "/correspondente", icon: Landmark, developerOnly: true },
   { title: "Marketing", url: "/marketing", icon: Megaphone, badge: true },
 ];
 
