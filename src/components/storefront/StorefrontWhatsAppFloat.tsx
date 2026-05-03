@@ -3,8 +3,19 @@ interface Props {
   message: string;
 }
 
+function normalizeWhatsApp(raw: string): string {
+  const digits = (raw || "").replace(/\D/g, "");
+  if (!digits) return "";
+  // Já tem código de país (Brasil 55 + DDD + número = 12 ou 13 dígitos)
+  if (digits.startsWith("55") && (digits.length === 12 || digits.length === 13)) return digits;
+  // 10 (fixo) ou 11 (celular) dígitos: assumir Brasil e prefixar 55
+  if (digits.length === 10 || digits.length === 11) return `55${digits}`;
+  return digits;
+}
+
 export function StorefrontWhatsAppFloat({ number, message }: Props) {
-  const clean = number.replace(/\D/g, "");
+  const clean = normalizeWhatsApp(number);
+  if (!clean) return null;
   const url = `https://wa.me/${clean}?text=${encodeURIComponent(message)}`;
 
   return (
