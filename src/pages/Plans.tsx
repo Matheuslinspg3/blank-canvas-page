@@ -183,7 +183,9 @@ export default function Plans() {
         .eq("is_active", true)
         .order("display_order");
       if (error) throw error;
-      return data as SubscriptionPlan[];
+      // Filter out internal/non-public plans (e.g. internal_unlimited) so they
+      // never appear in public plan listings or upgrade UIs.
+      return (data as SubscriptionPlan[]).filter((p) => !isInternalPlan(p));
     },
   });
 
