@@ -584,7 +584,7 @@ export default function Plans() {
               Sem cartão · Sem compromisso · Cancele quando quiser
             </p>
             <a
-              href="https://wa.me/5511999999999?text=Ol%C3%A1%2C%20tenho%20d%C3%BAvidas%20sobre%20os%20planos"
+              href="https://wa.me/5562984459171?text=Ol%C3%A1%2C%20tenho%20d%C3%BAvidas%20sobre%20os%20planos"
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-primary hover:underline mt-3 inline-block"
