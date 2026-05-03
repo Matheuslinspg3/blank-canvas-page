@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription, SubscriptionPlan } from "@/hooks/useSubscription";
+import { isInternalPlan } from "@/lib/planLimits";
 import { useFreeTrialExpired } from "@/hooks/useFreeTrialExpired";
 import { CheckoutDialog } from "@/components/billing/CheckoutDialog";
 import { CustomPlanBuilder } from "@/components/billing/CustomPlanBuilder";
