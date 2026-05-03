@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription, SubscriptionPlan } from "@/hooks/useSubscription";
+import { isInternalPlan } from "@/lib/planLimits";
 import { useFreeTrialExpired } from "@/hooks/useFreeTrialExpired";
 import { CheckoutDialog } from "@/components/billing/CheckoutDialog";
 import { CustomPlanBuilder } from "@/components/billing/CustomPlanBuilder";
@@ -182,7 +183,9 @@ export default function Plans() {
         .eq("is_active", true)
         .order("display_order");
       if (error) throw error;
-      return data as SubscriptionPlan[];
+      // Filter out internal/non-public plans (e.g. internal_unlimited) so they
+      // never appear in public plan listings or upgrade UIs.
+      return (data as SubscriptionPlan[]).filter((p) => !isInternalPlan(p));
     },
   });
 
@@ -581,7 +584,7 @@ export default function Plans() {
               Sem cartão · Sem compromisso · Cancele quando quiser
             </p>
             <a
-              href="https://wa.me/5511999999999?text=Ol%C3%A1%2C%20tenho%20d%C3%BAvidas%20sobre%20os%20planos"
+              href="https://wa.me/5562984459171?text=Ol%C3%A1%2C%20tenho%20d%C3%BAvidas%20sobre%20os%20planos"
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-primary hover:underline mt-3 inline-block"

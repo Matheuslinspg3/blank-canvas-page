@@ -422,7 +422,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-6">
             <Link to="/planos" className="hover:text-foreground transition-colors">Planos</Link>
             <Link to="/privacidade" className="hover:text-foreground transition-colors">Privacidade</Link>
-            <a href="https://wa.me/5511999999999" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">Suporte</a>
+            <a href="https://wa.me/5562984459171" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">Suporte</a>
           </div>
           <span>© {new Date().getFullYear()} Porta do Corretor</span>
         </div>
