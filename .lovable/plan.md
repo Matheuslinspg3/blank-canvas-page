@@ -1,66 +1,58 @@
 ## Diagnóstico
 
-Investiguei o banco de dados e o código do formulário de imóveis. **Os dados ESTÃO sendo gravados corretamente** no Supabase:
+`portocaicaraimoveis.com.br` (apex, sem www) trava no spinner do `TenantRouter`. O domínio resolve corretamente no banco, mas:
 
-- Coluna `properties.property_type_id` (uuid) ✅ existe e tem valores nos registros recentes.
-- Coluna `properties.captador_id` (uuid) ✅ existe e tem valores nos registros recentes (ex.: `b93b4b0e-...`).
-- O insert em `usePropertyCRUD.ts` faz `...propertyData` (spread), então qualquer campo do form vai pro DB.
+1. **Chain sequencial pesada**: `useTenantByHostname` → `useStorefrontByOrgId` (org → brand → website → properties) → `useSiteDocumentPublic` são 6 RPCs em cascata, gated por `org?.id`. Em rede lenta passa de 10s.
+2. **Watchdog mal calibrado**: `TenantRouter` aborta em 10s e renderiza "Site não encontrado" mesmo quando a query JÁ resolveu — porque `notFound` é avaliado contra `organizationId` que pode ainda estar sendo refetchado.
+3. **Refetch duplicado**: A query `get_public_tenant_by_domain` dispara 2x (StrictMode/refetchOnMount). Não causa erro, mas atrasa.
+4. **Sem cache de hostname**: Toda visita refaz tudo do zero — não há `sessionStorage` para o mapeamento hostname → orgId.
+5. **Properties bloqueando indiretamente**: 1000 imóveis carregam em paralelo (1.7s+) e chegam ao mesmo tempo dos blocos visuais, atrasando o paint do hero.
+6. **Fluxo apex → www não-redireciona**: `get_public_tenant_redirect` está ligado a `platformSlug` apenas; domínios custom apex nunca redirecionam para www mesmo com `redirect_to_custom_domain=true` configurado.
 
-O problema percebido pelo usuário (no print "Editar Imóvel" os campos aparecem como "Selecione o tipo" e "Selecione o captador" mesmo o imóvel já tendo esses dados) é uma **falha de re-hidratação do `<Select>` no modo edição**, não de gravação.
+## Correções
 
-### Causas técnicas
+### 1. `src/hooks/useTenantByHostname.ts`
+- Adicionar cache em `sessionStorage` (`tenant-cache:{hostname}` com TTL 30 min) — primeira render usa valor cacheado, evita spinner.
+- Setar `refetchOnMount: false`, `refetchOnWindowFocus: false`, `refetchOnReconnect: false` em todas as queries para eliminar o duplicado.
+- Estender lógica de redirect para domínios custom também (apex → www) quando `redirect_to_custom_domain=true` e `custom_hostname` diferente do hostname atual.
+- Garantir `notFound` só seja `true` quando `isFetched && !data && !isFetching`.
 
-1. **Race condition entre `form.reset(...)` e o carregamento das listas (`usePropertyTypes` / `useBrokers`).**
-   - Quando o dialog abre, `form.reset({ property_type_id, captador_id, ... })` é chamado imediatamente.
-   - Os `<SelectItem>` dependem de `propertyTypes` e `brokers`, que são `useQuery` assíncronos.
-   - Se a lista vier vazia/loading no momento em que o `<Select value={field.value}>` monta, o Radix Select renderiza o placeholder. Em alguns navegadores (especialmente Chrome Mobile WebView Android, conforme stack do Sentry) o `<SelectValue>` não atualiza o label visível depois que a lista chega — embora o `value` interno esteja correto. Isso faz o usuário pensar que perdeu o dado.
+### 2. `src/components/TenantRouter.tsx`
+- Aumentar watchdog para 20s.
+- Quando o watchdog dispara, **não** mostrar "Site não encontrado" se a query ainda está em andamento — manter spinner com mensagem "Carregando site..." e botão "Tentar novamente".
+- Só mostrar erro quando `notFound === true` (i.e. resposta veio sem dados) ou quando query realmente falhou.
+- Hidratar org id do cache de sessionStorage para evitar flash de spinner em navegação interna.
 
-2. **Risco real de regressão em "Salvar" sem reabrir os selects.**
-   - Se o usuário, vendo o campo "vazio", abre o select e escolhe outro item, OK.
-   - Mas se ele apenas edita outro campo (ex.: preço) e salva, o `field.value` interno foi preservado pelo `reset`, então grava certo. Confirmamos isso pelos registros recentes onde os valores se mantêm.
-   - O bug é portanto **visual/UX**, mas crítico porque o usuário não confia no sistema.
+### 3. `src/hooks/useStorefrontByOrgId.ts`
+- Eliminar a chamada extra `get_public_org_by_id`: usar `organizationId` recebido como `org.id` e buscar `name`/`slug` em paralelo (não bloqueante para o render). Reduz 1 round-trip do critical path.
+- Marcar `properties` query com `placeholderData: []` e remover do `isLoading` (já está, mas garantir que `WhiteLabelStorefront` não a aguarde — seções com lista de imóveis renderizam skeletons enquanto carrega).
+- Aplicar `refetchOnWindowFocus: false` em todas.
 
-3. **`captador_id` no select usa `broker.user_id`** como `value` (em vez de `broker.id`). O dado salvo no DB de fato é `user_id` — confirmado no banco. Está consistente, mas vamos garantir.
+### 4. `src/components/WhiteLabelStorefront.tsx`
+- Trocar gating de `isLoading` para mostrar skeleton parcial ao invés de spinner full-screen depois que tenant já resolveu.
+- Error boundary local (`StorefrontErrorBoundary`) com fallback que mostra nome da org + WhatsApp + mensagem amigável caso o renderer V2 quebre por layout corrompido.
 
-## Correção proposta
+### 5. `src/main.tsx` (queryClient)
+- Definir defaults globais: `refetchOnWindowFocus: false`, `staleTime: 60_000` para evitar refetches espúrios em todo o app público (verificar se já não é o caso).
 
-### 1. Garantir que o `form.reset(...)` no modo edição só ocorra DEPOIS que `propertyTypes` e `brokers` estejam carregados (`PropertyForm.tsx`)
+### 6. Guardrails contra falhas futuras
+- **Timeout por query**: helper `withTimeout(promise, 8000)` em volta dos RPCs públicos críticos (`get_public_tenant_by_domain`, `get_public_org_by_slug`, `get_public_site_document_full`) — se demorar mais que 8s, falha rápido com erro tratável em vez de pendurar o spinner.
+- **Health-check do layout V2**: validar `siteDoc.layout` contra um schema mínimo (`pages` array, `meta` object); se inválido, cair para o renderer legado (`StorefrontTemplateRenderer`) em vez de quebrar.
+- **Telemetria**: log estruturado em Sentry quando watchdog dispara, incluindo hostname, query atual e tempo decorrido — para detectar regressões cedo.
+- **SEO mínimo no HTML inicial**: injetar `<title>` e `<meta description>` genéricos em `index.html` para o caso do JS não carregar (não é a causa atual, mas evita "Lovable" como título no apex).
 
-- Adicionar dependência de `usePropertyTypes().isLoading` e `useBrokers().isLoading` (ou seu `isFetched`) no `useEffect` que chama `form.reset` em modo edição.
-- Enquanto as listas não chegarem, mostrar um estado de loading no corpo do dialog (skeleton ou spinner) para evitar render do form com Selects vazios.
+## Arquivos editados
 
-### 2. Tornar o `<Select>` resiliente quando o valor existe mas o item ainda não está na lista (`BasicTab.tsx`)
-
-- No `<Select>` de "Tipo de Imóvel": se `field.value` existir mas não houver match em `propertyTypes`, renderizar um `<SelectItem value={field.value}>` "fantasma" com label "(carregando…)" para que o Radix consiga exibir um label e não caia no placeholder.
-- Mesma coisa para o `<Select>` de "Corretor Captador": se `field.value` existir e não houver match em `brokers`, renderizar um item placeholder com o id, evitando o "Selecione o captador" enganoso.
-- Esse padrão é defensivo: cobre lista atrasada, broker removido, ou tipo deletado.
-
-### 3. Logging/telemetria leve para confirmar em produção
-
-- Em `useEffect` de reset, logar (apenas em dev/preview, gated por `isProductionBuild === false`) quando `property.property_type_id` ou `property.captador_id` chegar mas a lista correspondente estiver vazia. Não enviar pro Sentry — só `console.debug`.
-
-### 4. (Opcional, defensivo) Garantir que o submit nunca grave `null` se o usuário não tocou no campo
-
-- No `handleSubmit` em `PropertyForm.tsx`, se `restData.property_type_id` vier `null` mas `property?.property_type_id` (no modo edição) tinha valor, **manter** o valor antigo. Mesmo padrão para `captador_id`.
-- Isso é cinto-e-suspensório: protege contra qualquer cenário em que o `form.reset` não tenha aplicado o valor antes do submit.
-
-## Escopo de arquivos
-
-- `src/components/properties/PropertyForm.tsx`
-  - Aguardar `propertyTypes` + `brokers` carregarem antes de `form.reset` no modo edição.
-  - Estado de loading no dialog enquanto isso.
-  - Guard no `handleSubmit` (ponto 4).
-- `src/components/properties/form/BasicTab.tsx`
-  - Renderizar `<SelectItem>` "fantasma" quando `field.value` não tem match na lista.
-
-## O que NÃO vai mudar
-
-- Schema do banco — colunas estão corretas.
-- Lógica de insert/update no `usePropertyCRUD.ts` — está correta.
-- `useBrokers` / `usePropertyTypes` — estão corretos.
+- `src/hooks/useTenantByHostname.ts`
+- `src/hooks/useStorefrontByOrgId.ts`
+- `src/components/TenantRouter.tsx`
+- `src/components/WhiteLabelStorefront.tsx` (+ novo `StorefrontErrorBoundary.tsx`)
+- `src/lib/queryClient.ts` (defaults)
+- `src/lib/withTimeout.ts` (novo helper)
 
 ## Validação
 
-- Build + typecheck.
-- Teste manual no preview: abrir um imóvel existente para editar → ambos os campos devem aparecer já preenchidos imediatamente, mesmo em conexão lenta.
-- Verificação no banco: criar novo imóvel pelo form → confirmar `property_type_id` e `captador_id` populados (já estavam funcionando, mas re-validar).
+- Recarregar `https://portocaicaraimoveis.com.br/` — deve renderizar o site em <3s mesmo em mobile.
+- Testar apex sem www — deve redirecionar para `www.portocaicaraimoveis.com.br` se configurado.
+- Forçar layout corrompido (banco) — deve cair no fallback legado, não em tela branca.
+- Simular timeout de RPC — deve mostrar erro amigável com retry, não spinner eterno.
