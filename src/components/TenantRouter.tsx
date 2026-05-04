@@ -2,6 +2,7 @@ import { lazy, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useTenantByHostname } from "@/hooks/useTenantByHostname";
 import { WhiteLabelStorefront } from "@/components/WhiteLabelStorefront";
+import { StorefrontErrorBoundary } from "@/components/storefront/StorefrontErrorBoundary";
 import { Loader2 } from "lucide-react";
 import { lazyWithRetry } from "@/utils/lazyWithRetry";
 import { PropertyLandingBoundary } from "@/components/PropertyLandingBoundary";
@@ -24,19 +25,19 @@ interface Props {
  * Otherwise render the normal app routes.
  */
 export function TenantRouter({ children }: Props) {
-  const { isExternalDomain, organizationId, isLoading, notFound } = useTenantByHostname();
+  const { isExternalDomain, organizationId, isLoading, notFound, error } = useTenantByHostname();
   const { pathname } = useLocation();
 
-  // Watchdog: if tenant resolution stays in `isLoading` for too long
-  // (e.g. RPC stalls, query stuck), force a graceful exit so the user
-  // never sees a perpetual spinner on /imovel/:code etc.
+  // Watchdog: if tenant resolution stays in `isLoading` for too long, allow
+  // user to manually retry. We DO NOT auto-render "site not found" because
+  // the query may still be in-flight — only `notFound` (or a hard error) does that.
   const [loadingTimedOut, setLoadingTimedOut] = useState(false);
   useEffect(() => {
     if (!isLoading) { setLoadingTimedOut(false); return; }
     const t = setTimeout(() => {
       console.warn("[TenantRouter] tenant resolution watchdog timed out");
       setLoadingTimedOut(true);
-    }, 10_000);
+    }, 20_000);
     return () => clearTimeout(t);
   }, [isLoading]);
 
@@ -45,15 +46,26 @@ export function TenantRouter({ children }: Props) {
     return <>{children}</>;
   }
 
-  if (isLoading && !loadingTimedOut) {
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen flex-col gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        {loadingTimedOut && (
+          <div className="text-center px-4">
+            <p className="text-sm text-muted-foreground mb-3">Carregando o site...</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="text-sm underline text-primary"
+            >
+              Está demorando — tentar novamente
+            </button>
+          </div>
+        )}
       </div>
     );
   }
 
-  if (notFound || !organizationId) {
+  if (notFound || error || !organizationId) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
@@ -97,5 +109,9 @@ export function TenantRouter({ children }: Props) {
   const pageMatch = pathname.match(/^\/([a-z0-9-]+)\/?$/);
   const pageSlug = pageMatch ? pageMatch[1] : undefined;
 
-  return <WhiteLabelStorefront organizationId={organizationId} pageSlug={pageSlug} />;
+  return (
+    <StorefrontErrorBoundary>
+      <WhiteLabelStorefront organizationId={organizationId} pageSlug={pageSlug} />
+    </StorefrontErrorBoundary>
+  );
 }
