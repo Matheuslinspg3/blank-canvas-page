@@ -71,7 +71,7 @@ export function WhiteLabelStorefront({ organizationId, pageSlug }: Props) {
   } as React.CSSProperties;
 
   // V2 advanced renderer with multi-page support
-  if (siteDoc?.editor_mode === 'advanced' && siteDoc.layout) {
+  if (siteDoc?.editor_mode === 'advanced' && isValidV2Layout(siteDoc.layout)) {
     const v2Layout = siteDoc.layout as SiteLayoutV2;
     const navigation = v2Layout.navigation || [];
     const pages = v2Layout.pages || [];
