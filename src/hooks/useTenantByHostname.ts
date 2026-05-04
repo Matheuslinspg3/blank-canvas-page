@@ -79,7 +79,7 @@ export function useTenantByHostname() {
     refetchOnReconnect: false,
     initialData: platformSlug && cached?.organizationId ? cached.organizationId : undefined,
     queryFn: async () => {
-      const { data, error } = await withTimeout(
+      const { data, error } = await withTimeout<any>(
         (supabase.rpc as any)("get_public_org_by_slug", { p_slug: platformSlug! }),
         RPC_TIMEOUT_MS,
         "get_public_org_by_slug",
@@ -103,7 +103,7 @@ export function useTenantByHostname() {
     refetchOnReconnect: false,
     initialData: isCustomDomain && cached?.organizationId ? cached.organizationId : undefined,
     queryFn: async () => {
-      const { data, error } = await withTimeout(
+      const { data, error } = await withTimeout<any>(
         (supabase.rpc as any)("get_public_tenant_by_domain", { p_hostname: hostname }),
         RPC_TIMEOUT_MS,
         "get_public_tenant_by_domain",
@@ -129,7 +129,7 @@ export function useTenantByHostname() {
     refetchOnMount: false,
     refetchOnReconnect: false,
     queryFn: async () => {
-      const { data, error } = await withTimeout(
+      const { data, error } = await withTimeout<any>(
         (supabase.rpc as any)("get_public_tenant_redirect", { p_org_id: orgId! }),
         RPC_TIMEOUT_MS,
         "get_public_tenant_redirect",
