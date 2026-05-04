@@ -69,11 +69,13 @@ export function useStorefrontByOrgId(organizationId: string | null) {
     retry: 1,
     queryFn: async () => {
       const { data } = await withTimeout<any>(
-        supabase
-          .from("website_settings")
-          .select("hero_title, hero_subtitle, whatsapp_number, whatsapp_message, show_whatsapp_float, contact_email, contact_phone, about_text, meta_title, meta_description, site_template")
-          .eq("organization_id", orgId!)
-          .single(),
+        Promise.resolve(
+          supabase
+            .from("website_settings")
+            .select("hero_title, hero_subtitle, whatsapp_number, whatsapp_message, show_whatsapp_float, contact_email, contact_phone, about_text, meta_title, meta_description, site_template")
+            .eq("organization_id", orgId!)
+            .single()
+        ),
         RPC_TIMEOUT_MS,
         "website_settings",
       );
