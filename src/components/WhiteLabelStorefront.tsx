@@ -6,9 +6,24 @@ import { StorefrontTemplateRenderer, type SiteTemplate } from "@/components/stor
 import { SiteDocumentRendererV2 } from "@/components/storefront/v3/SiteDocumentRendererV2";
 import { StorefrontNavBar } from "@/components/storefront/StorefrontNavBar";
 import { StorefrontPropertiesPage } from "@/components/storefront/StorefrontPropertiesPage";
+import { StorefrontErrorBoundary } from "@/components/storefront/StorefrontErrorBoundary";
 import { Loader2 } from "lucide-react";
 import type { SiteLayout } from "@/types/siteBuilder";
 import type { SiteLayoutV2, SitePage, NavItem } from "@/types/siteBuilderV2";
+
+/**
+ * Sanity-check that a V2 layout is renderable. If something is structurally
+ * wrong (corrupt JSON, missing arrays), we bail to the legacy template
+ * instead of crashing the renderer.
+ */
+function isValidV2Layout(layout: any): layout is SiteLayoutV2 {
+  if (!layout || typeof layout !== "object") return false;
+  // Must have at least one of: sections (single-page) or pages (multi-page)
+  const hasSections = Array.isArray(layout.sections);
+  const hasPages = Array.isArray(layout.pages);
+  return hasSections || hasPages;
+}
+
 
 interface Props {
   organizationId: string;
