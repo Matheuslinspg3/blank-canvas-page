@@ -2,6 +2,7 @@ import { lazy, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useTenantByHostname } from "@/hooks/useTenantByHostname";
 import { WhiteLabelStorefront } from "@/components/WhiteLabelStorefront";
+import { StorefrontErrorBoundary } from "@/components/storefront/StorefrontErrorBoundary";
 import { Loader2 } from "lucide-react";
 import { lazyWithRetry } from "@/utils/lazyWithRetry";
 import { PropertyLandingBoundary } from "@/components/PropertyLandingBoundary";
@@ -108,5 +109,9 @@ export function TenantRouter({ children }: Props) {
   const pageMatch = pathname.match(/^\/([a-z0-9-]+)\/?$/);
   const pageSlug = pageMatch ? pageMatch[1] : undefined;
 
-  return <WhiteLabelStorefront organizationId={organizationId} pageSlug={pageSlug} />;
+  return (
+    <StorefrontErrorBoundary>
+      <WhiteLabelStorefront organizationId={organizationId} pageSlug={pageSlug} />
+    </StorefrontErrorBoundary>
+  );
 }
