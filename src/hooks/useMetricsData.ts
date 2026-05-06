@@ -503,41 +503,51 @@ export function useBrokerRankingMetrics(dateRange: MetricsDateRange, filters?: M
         brokerStats[brokerId].leads++;
         if (l.is_active) brokerStats[brokerId].active++;
         else brokerStats[brokerId].inactive++;
-        
+
+        const phone = normalizePhone(l.phone || "");
+        if (phone) {
+          if (brokerStats[brokerId].phones.has(phone)) {
+            brokerStats[brokerId].duplicates++;
+          } else {
+            brokerStats[brokerId].phones.add(phone);
+          }
+        }
+
         const stageName = stageMap.get(l.lead_stage_id) || "Sem etapa";
         brokerStats[brokerId].byStage[stageName] = (brokerStats[brokerId].byStage[stageName] || 0) + 1;
-        
-        const p = normalizePhone(l.phone || "");
-        if (p) {
-          if (brokerStats[brokerId].phones.has(p)) brokerStats[brokerId].duplicates++;
-          brokerStats[brokerId].phones.add(p);
+      });
+
+      (allProps || []).forEach((p) => {
+        const creatorId = p.created_by || "none";
+        initializeBroker(creatorId);
+        brokerStats[creatorId].propertiesCreated++;
+        if (p.status === "inativo") {
+          brokerStats[creatorId].propertiesInactive++;
         }
       });
 
-      (allProps || []).forEach(p => {
-        if (p.created_by) {
-          initializeBroker(p.created_by);
-          brokerStats[p.created_by].propertiesCreated++;
-          if (p.status === "inativo") brokerStats[p.created_by].propertiesInactive++;
-        }
-      });
-
-      const brokerIds = Object.keys(brokerStats).filter(id => id !== "none");
       const { data: profiles } = await supabase
         .from("profiles")
         .select("user_id, full_name, avatar_url")
-        .in("user_id", brokerIds.slice(0, 100));
+        .eq("organization_id", orgId);
 
       const profileMap = new Map(profiles?.map(p => [p.user_id, p]));
+      const totalLeads = processedLeads.length;
 
       return Object.entries(brokerStats).map(([id, stats]) => {
-        const prof = profileMap.get(id);
+        const profile = profileMap.get(id);
         return {
           brokerId: id,
-          name: id === "none" ? "Leads sem corretor" : (prof?.full_name || "Corretor"),
-          avatar: prof?.avatar_url,
-          ...stats,
-          participation: processedLeads.length > 0 ? (stats.leads / processedLeads.length) * 100 : 0
+          name: id === "none" ? "Sem corretor" : (profile?.full_name || "Desconhecido"),
+          avatar: profile?.avatar_url,
+          leads: stats.leads,
+          active: stats.active,
+          inactive: stats.inactive,
+          duplicates: stats.duplicates,
+          byStage: stats.byStage,
+          propertiesCreated: stats.propertiesCreated,
+          propertiesInactive: stats.propertiesInactive,
+          participation: totalLeads > 0 ? (stats.leads / totalLeads) * 100 : 0
         };
       }).sort((a, b) => b.leads - a.leads);
     },
