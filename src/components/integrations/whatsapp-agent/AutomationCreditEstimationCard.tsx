@@ -3,12 +3,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Clock, AlertTriangle, TrendingUp, Gauge } from "lucide-react";
+import { MessageSquare, Clock, AlertTriangle, TrendingUp, Gauge, Infinity as InfinityIcon } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useSubscription } from "@/hooks/useSubscription";
+import { isOrgOnInternalUnlimited } from "@/lib/planLimits";
 
 export function AutomationCreditEstimationCard() {
   const { profile } = useAuth();
+  const { currentPlan } = useSubscription();
   const orgId = profile?.organization_id;
+  const isUnlimited = isOrgOnInternalUnlimited(currentPlan);
 
   const { data: wallet } = useQuery({
     queryKey: ["automation-credit-wallet", orgId],
@@ -70,7 +74,7 @@ export function AutomationCreditEstimationCard() {
   const last7Days = recentUsage.filter((tx: any) => new Date(tx.created_at) >= sevenDaysAgo);
   const weeklyRate = last7Days.length / 7;
 
-  const isCritical = balance <= 0.01;
+  const isCritical = !isUnlimited && balance <= 0.01;
 
   return (
     <Card>
@@ -87,13 +91,15 @@ export function AutomationCreditEstimationCard() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="p-3 bg-muted/50 rounded-lg text-center">
             <MessageSquare className="h-4 w-4 mx-auto mb-1 text-primary" />
-            <p className="text-lg font-bold">{estimatedMessagesRemaining.toLocaleString()}</p>
+            <p className="text-lg font-bold">
+              {isUnlimited ? <InfinityIcon className="h-5 w-5 mx-auto text-primary" /> : estimatedMessagesRemaining.toLocaleString()}
+            </p>
             <p className="text-[10px] text-muted-foreground">Mensagens Restantes</p>
           </div>
           <div className="p-3 bg-muted/50 rounded-lg text-center">
             <Clock className="h-4 w-4 mx-auto mb-1 text-blue-500" />
             <p className="text-lg font-bold">
-              {estimatedDaysRemaining !== null ? `${estimatedDaysRemaining}d` : "—"}
+              {isUnlimited ? <InfinityIcon className="h-5 w-5 mx-auto text-blue-500" /> : (estimatedDaysRemaining !== null ? `${estimatedDaysRemaining}d` : "—")}
             </p>
             <p className="text-[10px] text-muted-foreground">Dias Restantes</p>
           </div>
@@ -109,7 +115,16 @@ export function AutomationCreditEstimationCard() {
           </div>
         </div>
 
-        {estimatedDaysRemaining !== null && estimatedDaysRemaining <= 7 && estimatedDaysRemaining > 0 && (
+        {isUnlimited && (
+          <Alert variant="default" className="border-primary bg-primary/5">
+            <InfinityIcon className="h-4 w-4 text-primary" />
+            <AlertDescription className="text-xs">
+              Sua organização possui o <strong>Plano Unlimited</strong>. O uso de automações e agente WhatsApp é ilimitado e não consome créditos.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {!isUnlimited && estimatedDaysRemaining !== null && estimatedDaysRemaining <= 7 && estimatedDaysRemaining > 0 && (
           <Alert variant="default" className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20">
             <AlertTriangle className="h-4 w-4 text-yellow-600" />
             <AlertDescription className="text-xs text-yellow-700 dark:text-yellow-400">
