@@ -9,8 +9,9 @@ interface Props {
 }
 
 export function MetricsDetailedPropertiesTable({ properties }: Props) {
-  const { members } = useTeamMembers();
+  const { data: members } = useTeamMembers();
   const memberMap = new Map(members?.map(m => [m.user_id, m.full_name]));
+
 
   return (
     <div className="rounded-md border border-border overflow-hidden">
