@@ -122,7 +122,7 @@ export function useStorefront(orgSlug: string | undefined) {
       const slug = ((data.plan as any)?.slug ?? "").toLowerCase();
       const features = ((data.plan as any)?.features ?? {}) as Record<string, any>;
       // Site completo: only business/enterprise plans or plans with has_website feature
-      const allowed = slug.includes("business") || slug.includes("enterprise") || features.has_website === true;
+      const allowed = slug === 'internal_unlimited' || slug.includes("business") || slug.includes("enterprise") || features.has_website === true;
       return { allowed };
     },
   });
