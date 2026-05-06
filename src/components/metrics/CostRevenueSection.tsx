@@ -46,7 +46,7 @@ export function CostRevenueSection({ dateRange }: Props) {
   const roi = opCost > 0 ? ((totalRevenue - opCost) / opCost) * 100 : 0;
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-4" id="section-costs">
       <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
         <Wallet className="h-5 w-5 text-accent" />
         Estimativa de Custos & Receita
@@ -94,3 +94,4 @@ export function CostRevenueSection({ dateRange }: Props) {
     </section>
   );
 }
+
