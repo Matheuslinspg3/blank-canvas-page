@@ -42,7 +42,7 @@ export function MetricsPeriodFilter({ periodKey, onPeriodChange, customRange, on
             key={p.key}
             value={p.key}
             size="sm"
-            className="text-xs px-3 h-8 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground"
+            className="text-xs px-3 h-8 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground border border-input bg-background"
           >
             {p.label}
           </ToggleGroupItem>
