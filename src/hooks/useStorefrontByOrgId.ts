@@ -83,10 +83,34 @@ export function useStorefrontByOrgId(organizationId: string | null) {
     },
   });
 
-  // Properties: non-blocking. Sections show skeletons until ready.
+  // 4. Check if org has an active subscription that includes the website feature
+  const subscriptionQuery = useQuery({
+    queryKey: ["storefront-subscription", orgId],
+    enabled: !!orgId,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("subscriptions")
+        .select("status, plan:subscription_plans(slug, features)")
+        .eq("organization_id", orgId!)
+        .in("status", ["active", "trial"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!data) return { allowed: false };
+      const slug = ((data.plan as any)?.slug ?? "").toLowerCase();
+      const features = ((data.plan as any)?.features ?? {}) as Record<string, any>;
+      const allowed = slug === 'internal_unlimited' || slug.includes("business") || slug.includes("enterprise") || features.has_website === true;
+      return { allowed };
+    },
+  });
+
+  const websiteAllowed = subscriptionQuery.data?.allowed ?? false;
+
+  // 5. Properties: non-blocking. Sections show skeletons until ready.
   const propertiesQuery = useQuery({
     queryKey: ["storefront-properties", orgId],
-    enabled: !!orgId,
+    enabled: !!orgId && websiteAllowed,
     staleTime: 3 * 60_000,
     refetchOnMount: false,
     refetchOnReconnect: false,
@@ -111,7 +135,7 @@ export function useStorefrontByOrgId(organizationId: string | null) {
     website: websiteQuery.data ?? null,
     properties: propertiesQuery.data ?? [],
     // Only block on org resolution — brand/website/properties hydrate progressively.
-    isLoading: orgQuery.isLoading,
-    notFound: orgQuery.isError || (orgQuery.isFetched && !orgQuery.data),
+    isLoading: orgQuery.isLoading || subscriptionQuery.isLoading,
+    notFound: orgQuery.isError || (orgQuery.isFetched && !orgQuery.data) || (subscriptionQuery.isFetched && !websiteAllowed),
   };
 }
