@@ -312,6 +312,9 @@ export function CostMonitorTab() {
                           </p>
                         </TableCell>
                         <TableCell className="text-center">
+                          {org.risk === "unlimited" && (
+                            <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px]">Unlimited</Badge>
+                          )}
                           {org.risk === "danger" && (
                             <Badge variant="destructive" className="text-[10px]">Prejuízo</Badge>
                           )}
