@@ -366,6 +366,54 @@ export type Database = {
           },
         ]
       }
+      ad_webhook_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          external_lead_id: string | null
+          id: string
+          organization_id: string
+          payload: Json
+          provider: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          external_lead_id?: string | null
+          id?: string
+          organization_id: string
+          payload: Json
+          provider: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          external_lead_id?: string | null
+          id?: string
+          organization_id?: string
+          payload?: Json
+          provider?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_webhook_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_webhook_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+        ]
+      }
       admin_allowlist: {
         Row: {
           created_at: string | null
