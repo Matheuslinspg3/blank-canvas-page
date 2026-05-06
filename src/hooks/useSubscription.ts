@@ -95,7 +95,8 @@ export function getPlanLine(plan: SubscriptionPlan | null | undefined): PlanLine
 
 export function hasFeature(plan: SubscriptionPlan | null | undefined, key: string): boolean {
   if (!plan) return false;
-  // Enterprise/Business plans have access to all features
+  // Internal unlimited and Enterprise/Business plans have access to all features
+  if (isOrgOnInternalUnlimited(plan)) return true;
   const slug = (plan.slug || '').toLowerCase();
   if (slug.includes('enterprise') || slug.includes('business')) return true;
   if (!plan.features) return false;
@@ -302,7 +303,7 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
 
   const isActive = useMemo(() => {
     if (!subscription) return false;
-    if (subscription.status === "active") return true;
+    if (subscription.status === "active" || isOrgOnInternalUnlimited(subscription.plan)) return true;
     if (subscription.status !== "trial") return false;
 
     const now = new Date();
