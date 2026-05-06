@@ -42,8 +42,8 @@ const CATEGORIES = [
 
 export function AmenitiesPickerDialog({ selected, onChange }: AmenitiesPickerDialogProps) {
   const { profile } = useAuth();
-  const { isAdmin, isSubAdmin } = useUserRoles();
-  const isAdminLike = isAdmin || isSubAdmin;
+  const { isAdminOrAbove } = useUserRoles();
+  const isAdminLike = isAdminOrAbove;
 
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
