@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Helmet } from "react-helmet-async";
-import { BarChart3, LayoutDashboard, FileSpreadsheet, Loader2, Lock } from "react-id-icons";
+import { BarChart3, LayoutDashboard, FileSpreadsheet, Loader2, Lock } from "lucide-react";
 import { startOfMonth } from "date-fns";
 import { MetricsPeriodFilter } from "@/components/metrics/MetricsPeriodFilter";
 import { LeadMetricsSection } from "@/components/metrics/LeadMetricsSection";
