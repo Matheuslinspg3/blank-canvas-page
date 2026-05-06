@@ -155,7 +155,7 @@ export default function MetaConnectionTab() {
         isSaving={isSavingSettings}
       />
 
-      {isConnected && <MetaAutoSyncCard />}
+      {isConnected && <MetaInstantSyncCard />}
 
       {isConnected && <MetaSyncSection />}
     </div>
