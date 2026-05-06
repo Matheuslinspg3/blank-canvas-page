@@ -80,7 +80,18 @@ Deno.serve(async (req) => {
 // ─── Leadgen Processing ───
 
 async function processLeadgenPayload(payload: any) {
-  const entries: any[] = payload?.entry || [];
+  let entries: any[] = payload?.entry || [];
+  
+  // If no entries but it looks like a single change value (reprocess case)
+  if (!entries.length && payload?.leadgen_id) {
+    entries = [{
+      changes: [{
+        field: "leadgen",
+        value: payload
+      }]
+    }];
+  }
+
   if (!entries.length) return;
 
   const admin = createClient(
