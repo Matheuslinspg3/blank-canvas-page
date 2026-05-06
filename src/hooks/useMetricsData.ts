@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { startOfMonth, subMonths, subDays, endOfMonth, startOfWeek, eachWeekOfInterval, format } from "date-fns";
+import { startOfMonth, subMonths, subDays, endOfMonth, eachWeekOfInterval, format } from "date-fns";
 
 export type MetricsPeriodKey = "today" | "last_7_days" | "current_month" | "last_month" | "custom";
 
@@ -56,7 +56,7 @@ export function useLeadsMetrics(dateRange: MetricsDateRange, filters?: MetricsFi
     queryFn: async () => {
       if (!orgId) return null;
 
-      let query = supabase
+      const { data: leadsData, error: leadsError } = await supabase
         .from("leads")
         .select(`
           id, 
@@ -67,37 +67,36 @@ export function useLeadsMetrics(dateRange: MetricsDateRange, filters?: MetricsFi
           created_at, 
           broker_id, 
           lead_stage_id,
-          lead_stages(name)
+          lead_stages(name, is_win, is_loss)
         `)
         .eq("organization_id", orgId)
         .gte("created_at", dateRange.from.toISOString())
         .lte("created_at", dateRange.to.toISOString());
 
+      if (leadsError) throw leadsError;
+      if (!leadsData) return null;
+
+      let filteredLeads = leadsData;
       if (filters?.brokerId) {
         if (filters.brokerId === "none") {
-          query = query.is("broker_id", null);
+          filteredLeads = filteredLeads.filter(l => !l.broker_id);
         } else if (filters.brokerId !== "all") {
-          query = query.eq("broker_id", filters.brokerId);
+          filteredLeads = filteredLeads.filter(l => l.broker_id === filters.brokerId);
         }
       }
 
       if (filters?.leadStatus === "active") {
-        query = query.eq("is_active", true);
+        filteredLeads = filteredLeads.filter(l => l.is_active);
       } else if (filters?.leadStatus === "inactive") {
-        query = query.eq("is_active", false);
+        filteredLeads = filteredLeads.filter(l => !l.is_active);
       }
-
-      const { data: leads, error } = await query;
-
-      if (error) throw error;
-      if (!leads) return null;
 
       const normalizePhone = (p: string) => p?.replace(/\D/g, "") || "";
       
-      let processedLeads = leads;
+      let processedLeads = filteredLeads;
       if (filters?.deduplicate) {
         const seen = new Set<string>();
-        processedLeads = leads.filter(l => {
+        processedLeads = filteredLeads.filter(l => {
           const p = normalizePhone(l.phone || "");
           if (!p) return true;
           if (seen.has(p)) return false;
@@ -106,8 +105,8 @@ export function useLeadsMetrics(dateRange: MetricsDateRange, filters?: MetricsFi
         });
       }
 
-      const phones = leads.map(l => normalizePhone(l.phone || "")).filter(Boolean);
-      const duplicateCount = leads.length - new Set(phones).size;
+      const phones = leadsData.map(l => normalizePhone(l.phone || "")).filter(Boolean);
+      const duplicateCount = leadsData.length - new Set(phones).size;
 
       const total = processedLeads.length;
       const activeCount = processedLeads.filter(l => l.is_active).length;
@@ -118,15 +117,30 @@ export function useLeadsMetrics(dateRange: MetricsDateRange, filters?: MetricsFi
       const bySource: Record<string, number> = {};
       const byStage: Record<string, number> = {};
       
+      let wonCount = 0;
+      let lostCount = 0;
+      let lostValue = 0;
+
       processedLeads.forEach((l) => {
         const sourceName = l.source || "Desconhecido";
-        const stageName = (l.lead_stages as any)?.name || "Sem etapa";
+        const stage = l.lead_stages as any;
+        const stageName = stage?.name || "Sem etapa";
         
         bySource[sourceName] = (bySource[sourceName] || 0) + 1;
         byStage[stageName] = (byStage[stageName] || 0) + 1;
+
+        if (stage?.is_win) wonCount++;
+        if (stage?.is_loss) {
+          lostCount++;
+          lostValue += Number(l.estimated_value || 0);
+        }
       });
 
-      // Weekly evolution (using original leads to show inflow)
+      const closedTotal = wonCount + lostCount;
+      const conversionRate = closedTotal > 0 ? (wonCount / closedTotal) * 100 : 0;
+      const lossRate = closedTotal > 0 ? (lostCount / closedTotal) * 100 : 0;
+
+      // Weekly evolution
       const weeks = eachWeekOfInterval({ start: dateRange.from, end: dateRange.to }, { weekStartsOn: 1 });
       const weeklyData = weeks.map((weekStart) => {
         const weekEnd = new Date(weekStart);
@@ -146,6 +160,11 @@ export function useLeadsMetrics(dateRange: MetricsDateRange, filters?: MetricsFi
         duplicateCount,
         withBroker,
         withoutBroker,
+        wonCount,
+        lostCount,
+        lostValue,
+        conversionRate,
+        lossRate,
         bySource: Object.entries(bySource).map(([name, value]) => ({ name, value })),
         byStage: Object.entries(byStage).map(([name, value]) => ({ name, value })),
         weeklyData,
@@ -264,27 +283,37 @@ export function useFunnelMetrics(dateRange: MetricsDateRange) {
       const { data: stages } = await supabase
         .from("lead_stages")
         .select("id, name, color, position, is_win, is_loss")
-        .or(`organization_id.eq.${orgId},is_default.eq.true`)
+        .eq("organization_id", orgId)
         .order("position");
 
-      if (!stages) return [];
+      if (!stages || stages.length === 0) {
+          const { data: defaultStages } = await supabase
+            .from("lead_stages")
+            .select("id, name, color, position, is_win, is_loss")
+            .eq("is_default", true)
+            .order("position");
+          if (!defaultStages) return [];
+          return defaultStages.map(s => ({ ...s, count: 0 }));
+      }
 
       const { data: leads } = await supabase
         .from("leads")
-        .select("id, stage")
+        .select("id, lead_stage_id")
         .eq("organization_id", orgId)
         .gte("created_at", dateRange.from.toISOString())
         .lte("created_at", dateRange.to.toISOString());
 
       const stageCounts: Record<string, number> = {};
       (leads || []).forEach((l) => {
-        stageCounts[l.stage] = (stageCounts[l.stage] || 0) + 1;
+        if (l.lead_stage_id) {
+            stageCounts[l.lead_stage_id] = (stageCounts[l.lead_stage_id] || 0) + 1;
+        }
       });
 
       return stages.map((s) => ({
         name: s.name,
         color: s.color,
-        count: stageCounts[s.name] || 0,
+        count: stageCounts[s.id] || 0,
         position: s.position,
       }));
     },
@@ -508,7 +537,7 @@ export function useBrokerRankingMetrics(dateRange: MetricsDateRange, filters?: M
           name: id === "none" ? "Leads sem corretor" : (prof?.full_name || "Corretor"),
           avatar: prof?.avatar_url,
           ...stats,
-          participation: (stats.leads / processedLeads.length) * 100
+          participation: processedLeads.length > 0 ? (stats.leads / processedLeads.length) * 100 : 0
         };
       }).sort((a, b) => b.leads - a.leads);
     },
@@ -516,4 +545,3 @@ export function useBrokerRankingMetrics(dateRange: MetricsDateRange, filters?: M
     staleTime: 60_000,
   });
 }
-
