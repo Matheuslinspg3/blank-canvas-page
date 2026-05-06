@@ -14,6 +14,7 @@ import MetaConnectionTab from "@/components/ads/MetaConnectionTab";
 import MetaLeadsInboxContent from "@/components/ads/MetaLeadsInboxContent";
 import MetaStatsContent from "@/components/ads/MetaStatsContent";
 import MetaAdsListContent from "@/components/ads/MetaAdsListContent";
+import MetaWebhookLogsTab from "@/components/ads/MetaWebhookLogsTab";
 
 import RDConnectionTab from "@/components/ads/rdstation/RDConnectionTab";
 import RDLeadsTab from "@/components/ads/rdstation/RDLeadsTab";
@@ -127,12 +128,17 @@ export default function Anuncios() {
                     <LayoutList className="h-3.5 w-3.5" />
                     Anúncios
                   </TabsTrigger>
+                  <TabsTrigger value="webhook_logs" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5">
+                    <ScrollText className="h-3.5 w-3.5" />
+                    Logs de Sincronização
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="conexao" className="mt-4"><MetaConnectionTab /></TabsContent>
                 <TabsContent value="leads" className="mt-4"><MetaLeadsInboxContent /></TabsContent>
                 <TabsContent value="estatisticas" className="mt-4"><MetaStatsContent /></TabsContent>
                 <TabsContent value="anuncios" className="mt-4"><MetaAdsListContent /></TabsContent>
+                <TabsContent value="webhook_logs" className="mt-4"><MetaWebhookLogsTab /></TabsContent>
               </Tabs>
             </FeatureFlagGate>
           </TabsContent>
