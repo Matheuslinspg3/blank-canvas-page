@@ -14,6 +14,7 @@ interface OrgCostData {
   organization_id: string;
   org_name: string;
   plan_name: string;
+  plan_slug: string;
   plan_price_monthly: number;
   automation_allowance_brl: number;
   automation_balance_brl: number;
@@ -24,7 +25,7 @@ interface OrgCostData {
   ai_allowance_usd: number;
   margin_brl: number;
   margin_pct: number;
-  risk: "safe" | "warning" | "danger";
+  risk: "safe" | "warning" | "danger" | "unlimited";
 }
 
 function useOrgCostMonitor() {
