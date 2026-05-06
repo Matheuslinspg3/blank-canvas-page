@@ -303,7 +303,7 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
 
   const isActive = useMemo(() => {
     if (!subscription) return false;
-    if (subscription.status === "active") return true;
+    if (subscription.status === "active" || isOrgOnInternalUnlimited(subscription.plan)) return true;
     if (subscription.status !== "trial") return false;
 
     const now = new Date();
