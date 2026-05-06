@@ -5,10 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ColorProgress } from "@/components/ui/color-progress";
-import { Wallet, TrendingDown, TrendingUp, Activity, Zap, ShoppingCart } from "lucide-react";
+import { Wallet, TrendingDown, TrendingUp, Activity, Zap, ShoppingCart, Infinity as InfinityIcon } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
+import { useSubscription } from "@/hooks/useSubscription";
+import { isOrgOnInternalUnlimited } from "@/lib/planLimits";
 
 export function AutomationCreditWalletCard() {
   const { toast } = useToast();
