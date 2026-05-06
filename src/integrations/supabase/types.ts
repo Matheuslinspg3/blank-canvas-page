@@ -10441,9 +10441,9 @@ export type Database = {
           p_model: string
           p_organization_id: string
           p_provider: string
-          p_raw_cost_usd?: number
-          p_tokens_input?: number
-          p_tokens_output?: number
+          p_raw_cost_usd: number
+          p_tokens_input: number
+          p_tokens_output: number
           p_usd_to_brl_rate?: number
         }
         Returns: Json
