@@ -15,7 +15,9 @@ import { isOrgOnInternalUnlimited } from "@/lib/planLimits";
 export function AutomationCreditWalletCard() {
   const { toast } = useToast();
   const { profile } = useAuth();
+  const { currentPlan } = useSubscription();
   const orgId = profile?.organization_id;
+  const isUnlimited = isOrgOnInternalUnlimited(currentPlan);
 
   const { data: wallet, isLoading } = useQuery({
     queryKey: ["automation-credit-wallet", orgId],
@@ -61,9 +63,9 @@ export function AutomationCreditWalletCard() {
   const balancePercent = totalAvailable > 0 ? (balance / totalAvailable) * 100 : 0;
 
   // Status badge logic
-  const isCritical = balance <= 0.01;
-  const isLow = !isCritical && totalAvailable > 0 && balancePercent < 20;
-  const isWarning = !isCritical && !isLow && totalAvailable > 0 && balancePercent < 50;
+  const isCritical = !isUnlimited && balance <= 0.01;
+  const isLow = !isUnlimited && !isCritical && totalAvailable > 0 && balancePercent < 20;
+  const isWarning = !isUnlimited && !isLow && totalAvailable > 0 && balancePercent < 50;
 
   // Progress bar color
   const progressColor = isCritical
@@ -81,10 +83,16 @@ export function AutomationCreditWalletCard() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Zap className="h-4 w-4" /> Créditos de Automação
-          {wallet && isCritical && <Badge variant="destructive" className="text-[10px]">Esgotado</Badge>}
-          {wallet && isLow && <Badge variant="outline" className="text-[10px] border-yellow-500 text-yellow-600">Saldo Baixo</Badge>}
-          {wallet && !isCritical && !isLow && <Badge variant="outline" className="text-[10px] border-green-500 text-green-600">Ativo</Badge>}
-          {!wallet && <Badge variant="outline" className="text-[10px]">Pendente</Badge>}
+          {isUnlimited ? (
+            <Badge variant="outline" className="text-[10px] border-primary text-primary flex items-center gap-1">
+              <InfinityIcon className="h-3 w-3" /> Ilimitado
+            </Badge>
+          ) : (<>
+            {wallet && isCritical && <Badge variant="destructive" className="text-[10px]">Esgotado</Badge>}
+            {wallet && isLow && <Badge variant="outline" className="text-[10px] border-yellow-500 text-yellow-600">Saldo Baixo</Badge>}
+            {wallet && !isCritical && !isLow && <Badge variant="outline" className="text-[10px] border-green-500 text-green-600">Ativo</Badge>}
+            {!wallet && <Badge variant="outline" className="text-[10px]">Pendente</Badge>}
+          </>)}
         </CardTitle>
         <CardDescription>
           Saldo do seu agente IA para automações e WhatsApp
@@ -99,7 +107,7 @@ export function AutomationCreditWalletCard() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="p-3 bg-muted/50 rounded-lg text-center">
             <Wallet className="h-4 w-4 mx-auto mb-1 text-green-500" />
-            <p className="text-lg font-bold text-green-600">{fmt(balance)}</p>
+            <p className="text-lg font-bold text-green-600">{isUnlimited ? "∞" : fmt(balance)}</p>
             <p className="text-[10px] text-muted-foreground">Saldo Atual</p>
           </div>
           <div className="p-3 bg-muted/50 rounded-lg text-center">
@@ -114,12 +122,12 @@ export function AutomationCreditWalletCard() {
           </div>
           <div className="p-3 bg-muted/50 rounded-lg text-center">
             <Activity className="h-4 w-4 mx-auto mb-1 text-primary" />
-            <p className="text-lg font-bold">{fmt(allowance)}</p>
+            <p className="text-lg font-bold">{isUnlimited ? "Ilimitado" : fmt(allowance)}</p>
             <p className="text-[10px] text-muted-foreground">Incluso no Plano</p>
           </div>
         </div>
 
-        {totalAvailable > 0 && (
+        {!isUnlimited && totalAvailable > 0 && (
           <div className="space-y-1">
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>Uso do período</span>
@@ -160,20 +168,22 @@ export function AutomationCreditWalletCard() {
         </>)}
       </CardContent>
       <CardFooter className="justify-center">
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2"
-          onClick={() => {
-            toast({
-              title: "Em breve!",
-              description: "A compra de créditos extras estará disponível em breve. Entre em contato com o suporte para adquirir agora.",
-            });
-          }}
-        >
-          <ShoppingCart className="h-4 w-4" />
-          Comprar Créditos Extras
-        </Button>
+        {!isUnlimited && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => {
+              toast({
+                title: "Em breve!",
+                description: "A compra de créditos extras estará disponível em breve. Entre em contato com o suporte para adquirir agora.",
+              });
+            }}
+          >
+            <ShoppingCart className="h-4 w-4" />
+            Comprar Créditos Extras
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );
