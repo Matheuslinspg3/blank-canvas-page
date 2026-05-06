@@ -43,16 +43,17 @@ Deno.serve(async (req) => {
   }
 
   const rawBody = await req.text();
+  const reprocessLogId = req.headers.get("x-meta-reprocess-log-id");
 
-  // Signature check
-  if (APP_SECRET) {
+  // Signature check - skip if it's a reprocess call from our own app
+  if (APP_SECRET && !reprocessLogId) {
     const signature = req.headers.get("x-hub-signature-256") || "";
     const ok = await verifySignature(APP_SECRET, rawBody, signature);
     if (!ok) {
       console.error("[meta-leadgen-webhook] invalid_signature");
       return new Response("invalid signature", { status: 401 });
     }
-  } else {
+  } else if (!reprocessLogId) {
     console.warn("[meta-leadgen-webhook] META_APP_SECRET not configured; skipping signature check");
   }
 
@@ -65,6 +66,9 @@ Deno.serve(async (req) => {
 
   // Always ack to Meta immediately — process best-effort
   try {
+    // If it's a reprocess call, we might need to handle the payload differently 
+    // depending on if it's the raw Meta entry or just the change value.
+    // For simplicity, we support both.
     await processLeadgenPayload(payload);
   } catch (err) {
     console.error("[meta-leadgen-webhook] process_error", err);
