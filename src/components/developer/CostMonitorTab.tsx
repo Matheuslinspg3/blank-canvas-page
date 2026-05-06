@@ -14,6 +14,7 @@ interface OrgCostData {
   organization_id: string;
   org_name: string;
   plan_name: string;
+  plan_slug: string;
   plan_price_monthly: number;
   automation_allowance_brl: number;
   automation_balance_brl: number;
@@ -24,7 +25,7 @@ interface OrgCostData {
   ai_allowance_usd: number;
   margin_brl: number;
   margin_pct: number;
-  risk: "safe" | "warning" | "danger";
+  risk: "safe" | "warning" | "danger" | "unlimited";
 }
 
 function useOrgCostMonitor() {
@@ -82,13 +83,15 @@ function useOrgCostMonitor() {
         const marginPct = planPrice > 0 ? (margin / planPrice) * 100 : 0;
 
         let risk: OrgCostData["risk"] = "safe";
-        if (marginPct < 0) risk = "danger";
+        if (plan.slug === 'internal_unlimited') risk = "unlimited";
+        else if (marginPct < 0) risk = "danger";
         else if (marginPct < 20) risk = "warning";
 
         return {
           organization_id: orgId,
           org_name: orgMap.get(orgId) ?? orgId.slice(0, 8),
           plan_name: plan.name,
+          plan_slug: plan.slug,
           plan_price_monthly: planPrice,
           automation_allowance_brl: autoAllowance,
           automation_balance_brl: autoBalance,
@@ -309,6 +312,9 @@ export function CostMonitorTab() {
                           </p>
                         </TableCell>
                         <TableCell className="text-center">
+                          {org.risk === "unlimited" && (
+                            <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px]">Unlimited</Badge>
+                          )}
                           {org.risk === "danger" && (
                             <Badge variant="destructive" className="text-[10px]">Prejuízo</Badge>
                           )}
