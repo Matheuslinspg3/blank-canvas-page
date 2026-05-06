@@ -32,12 +32,12 @@ export default function MetricsDashboard() {
   });
 
   const dateRange = useMemo(() => computeMetricsRange(periodKey, customRange), [periodKey, customRange]);
-  const { isAdmin, isSubAdmin, isLoading: rolesLoading } = useUserRoles();
+  const { isAdminOrAbove, isLoading: rolesLoading } = useUserRoles();
   
   const { data: leads, isLoading: leadsLoading } = useLeadsMetrics(dateRange, filters);
   const { data: properties, isLoading: propsLoading } = usePropertyMetrics(dateRange);
 
-  const canAccess = isAdmin || isSubAdmin;
+  const canAccess = isAdminOrAbove;
 
   if (rolesLoading) {
     return (
