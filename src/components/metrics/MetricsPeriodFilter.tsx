@@ -18,13 +18,13 @@ interface Props {
 }
 
 const periods: { key: MetricsPeriodKey; label: string }[] = [
+  { key: "today", label: "Hoje" },
+  { key: "last_7_days", label: "Últimos 7 dias" },
   { key: "current_month", label: "Mês atual" },
-  { key: "last_month", label: "Mês anterior" },
-  { key: "3months", label: "3 meses" },
-  { key: "6months", label: "6 meses" },
-  { key: "1year", label: "1 ano" },
-  { key: "custom", label: "Customizado" },
+  { key: "last_month", label: "Mês passado" },
+  { key: "custom", label: "Período personalizado" },
 ];
+
 
 export function MetricsPeriodFilter({ periodKey, onPeriodChange, customRange, onCustomRangeChange, dateRange }: Props) {
   const [calOpen, setCalOpen] = useState(false);
