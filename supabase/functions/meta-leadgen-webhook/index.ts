@@ -119,6 +119,8 @@ async function processLeadgenPayload(payload: any) {
 
       // Try each account to find the page owner and fetch lead data
       let processed = false;
+      let targetOrgId: string | null = null;
+
       for (const acc of account) {
         const accessToken = acc.auth_payload?.access_token;
         if (!accessToken) continue;
@@ -134,7 +136,17 @@ async function processLeadgenPayload(payload: any) {
           const page = (pagesData.data || []).find((p: any) => p.id === pageId);
           if (!page) continue;
 
+          targetOrgId = acc.organization_id;
           const pageToken = page.access_token || accessToken;
+
+          // Create initial log
+          await admin.from("ad_webhook_logs").insert({
+            organization_id: targetOrgId,
+            provider: "meta",
+            external_lead_id: leadgenId,
+            payload: change.value,
+            status: "received",
+          });
 
           // Fetch the actual lead data from Graph API
           const leadRes = await fetch(
@@ -185,8 +197,17 @@ async function processLeadgenPayload(payload: any) {
 
           if (upsertError) {
             console.error(`[meta-leadgen-webhook] Upsert error for lead ${leadgenId}:`, upsertError);
+            await admin.from("ad_webhook_logs").update({
+              status: "error",
+              error_message: `Upsert error: ${upsertError.message}`,
+            }).eq("external_lead_id", leadgenId).eq("organization_id", orgId);
             continue;
           }
+
+          // Update log to processed
+          await admin.from("ad_webhook_logs").update({
+            status: "processed",
+          }).eq("external_lead_id", leadgenId).eq("organization_id", orgId);
 
           console.log(`[meta-leadgen-webhook] Lead ${leadgenId} upserted for org ${orgId}, status: ${upserted?.status}`);
 
