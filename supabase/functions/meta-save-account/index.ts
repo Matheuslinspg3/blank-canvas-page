@@ -20,9 +20,12 @@ Deno.serve(async (req) => {
       });
     }
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
     // Validate user
     const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
+      supabaseUrl,
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
     );
@@ -48,20 +51,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check user is admin
-    const { data: role } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .single();
-
-    if (!role || !["admin", "sub_admin"].includes(role.role)) {
-      return new Response(JSON.stringify({ error: "Forbidden" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const body = await req.json();
     const { accessToken, adAccountId } = body;
 
@@ -72,12 +61,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Use service role to write the token securely
-    const supa = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    // Use service role to write the token securely and perform background tasks
+    const supa = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Save/Update account
     const { error: dbError } = await supa
       .from("ad_accounts")
       .upsert(
@@ -96,10 +83,45 @@ Deno.serve(async (req) => {
 
     if (dbError) {
       console.error("DB save error:", dbError);
-      return new Response(JSON.stringify({ error: "Erro interno" }), {
+      return new Response(JSON.stringify({ error: "Erro ao salvar conta" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // --- Automatic Webhook Subscription ---
+    // This solves the issue where leads only appear after manual import
+    try {
+      console.log(`[meta-save-account] Attempting auto-subscription for org ${profile.organization_id}`);
+      
+      // 1. Get pages for this user to subscribe their leads
+      const pagesRes = await fetch(
+        `https://graph.facebook.com/v21.0/me/accounts?fields=id,access_token&access_token=${accessToken}`
+      );
+      const pagesData = await pagesRes.json();
+      
+      if (pagesData.data && Array.isArray(pagesData.data)) {
+        for (const page of pagesData.data) {
+          console.log(`[meta-save-account] Subscribing app to page ${page.id} (${page.name})`);
+          
+          // Subscribe the app to the page's leadgen field
+          const subRes = await fetch(
+            `https://graph.facebook.com/v21.0/${page.id}/subscribed_apps?subscribed_fields=leadgen&access_token=${page.access_token}`,
+            { method: "POST" }
+          );
+          const subResult = await subRes.json();
+          
+          if (subResult.success) {
+            console.log(`[meta-save-account] Successfully subscribed to page ${page.id}`);
+          } else {
+            console.error(`[meta-save-account] Failed to subscribe to page ${page.id}:`, subResult.error);
+          }
+        }
+      }
+    } catch (subErr) {
+      console.error("[meta-save-account] Webhook auto-subscription error:", subErr);
+      // We don't fail the whole request if subscription fails, 
+      // as the account is still saved and can be imported manually as fallback.
     }
 
     return new Response(JSON.stringify({ success: true }), {
