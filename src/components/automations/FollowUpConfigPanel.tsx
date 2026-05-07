@@ -390,11 +390,16 @@ export function FollowUpConfigPanel() {
     const confirmed = window.confirm("Tem certeza que quer parar o follow-up para este contato?");
     if (!confirmed) return;
 
-    const { error } = await supabase.functions.invoke("whatsapp-followup-update", {
-      body: { id: contact.followup_id, action: "opted_out" },
-    });
+    const { error } = await supabase
+      .from("follow_up_queue" as any)
+      .update({ status: "opted_out", opted_out: true } as any)
+      .eq("id", contact.followup_id);
     if (error) toast.error("Erro: " + error.message);
-    else toast.success("Follow-up interrompido.");
+    else {
+      toast.success("Follow-up interrompido.");
+      loadQueue();
+      loadContacts();
+    }
   };
 
   // ── Reactivate ──
