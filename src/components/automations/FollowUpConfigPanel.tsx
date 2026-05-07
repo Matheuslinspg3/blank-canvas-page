@@ -317,11 +317,15 @@ export function FollowUpConfigPanel() {
 
   // ── Manual follow-up ──
   const openManualModal = (contact: ContactRow) => {
-    const name = contact.display_name !== contact.remote_jid ? contact.display_name : formatJid(contact.remote_jid);
+    // Prefer display_name if it exists and isn't just the phone number/JID
+    const name = contact.display_name && contact.display_name !== contact.remote_jid 
+      ? contact.display_name 
+      : "lá"; // Fallback simple greeting if no name
+
     const firstTemplate = templates[0]?.message ?? "";
     const msg = firstTemplate
-      .replace("{nome}", name)
-      .replace("{imovel}", contact.property_interest ?? "imóvel");
+      .replace(/{nome}/g, name)
+      .replace(/{imovel}/g, contact.property_interest ?? "imóvel");
     setManualMessage(msg);
     setManualContact(contact);
   };
@@ -504,9 +508,11 @@ export function FollowUpConfigPanel() {
                             <TableRow key={c.remote_jid}>
                               <TableCell>
                                 <div className="font-medium text-xs">
-                                  {c.display_name !== c.remote_jid ? c.display_name : formatJid(c.remote_jid)}
+                                  {c.display_name && c.display_name !== c.remote_jid ? c.display_name : formatJid(c.remote_jid)}
                                 </div>
-                                <div className="text-[10px] text-muted-foreground">{formatJid(c.remote_jid)}</div>
+                                <div className="text-[10px] text-muted-foreground">
+                                  {c.display_name && c.display_name !== c.remote_jid ? formatJid(c.remote_jid) : ""}
+                                </div>
                               </TableCell>
                               <TableCell className="hidden sm:table-cell text-xs text-muted-foreground max-w-[150px] truncate">
                                 {c.last_message_text?.substring(0, 50) || "—"}
