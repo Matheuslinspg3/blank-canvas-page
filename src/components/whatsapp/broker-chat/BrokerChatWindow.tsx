@@ -62,9 +62,9 @@ export function BrokerChatWindow({ remoteJid, contactName }: Props) {
     );
   }
 
-  const phone = jidToPhone(remoteJid);
-  const displayName = contactName?.trim() || formatPhone(phone);
-  const initials = phone.slice(-2);
+  const cleanPhone = phone || "";
+  const displayName = contactName?.trim() || formatPhone(cleanPhone);
+  const initials = cleanPhone.slice(-2);
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col bg-background">
