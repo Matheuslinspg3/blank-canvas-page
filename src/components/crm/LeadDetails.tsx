@@ -37,6 +37,7 @@ import {
   CalendarPlus,
   Megaphone,
   Globe,
+  RefreshCw,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -61,6 +62,9 @@ import { LeadDocumentsTab } from './LeadDocumentsTab';
 import { useActivityLogger } from '@/hooks/useActivityLogger';
 import { ScheduleVisitDialog } from '@/components/visits/ScheduleVisitDialog';
 import { LeadVisitsSection } from '@/components/visits/LeadVisitsSection';
+import { useLeadFollowUpStatus } from '@/hooks/whatsapp/useLeadFollowUpStatus';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface LeadDetailsProps {
   open: boolean;
@@ -104,6 +108,7 @@ export function LeadDetails({
   const { logActivity } = useActivityLogger();
   const [activeTab, setActiveTab] = useState('info');
   const [visitDialogOpen, setVisitDialogOpen] = useState(false);
+  const { followUp, toggle, isPending } = useLeadFollowUpStatus(lead.id, lead.phone || undefined);
 
   useEffect(() => {
     if (open && lead) {
@@ -153,13 +158,35 @@ export function LeadDetails({
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-1 mt-1.5 text-xs text-muted-foreground">
-                <Clock className="h-3 w-3" />
-                <span>Atualizado {daysSinceUpdate}</span>
+                <div className="flex items-center gap-1 mt-1.5 text-xs text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  <span>Atualizado {daysSinceUpdate}</span>
+                </div>
               </div>
+              
+              {lead.phone && (
+                <div className="flex items-center gap-2 bg-accent/50 px-3 py-2 rounded-lg border">
+                  <div className="space-y-0.5 flex-1">
+                    <Label className="text-xs font-semibold flex items-center gap-1.5">
+                      <RefreshCw className={`h-3 w-3 text-primary ${followUp?.status === 'pending' ? 'animate-spin-slow' : ''}`} />
+                      Automação Follow-up
+                    </Label>
+                    <p className="text-[10px] text-muted-foreground">
+                      {followUp?.status === 'pending' ? 'Ativo (WhatsApp)' : 'Desativado'}
+                    </p>
+                  </div>
+                  <Switch 
+                    checked={followUp?.status === 'pending' && !followUp?.opted_out}
+                    onCheckedChange={(checked) => toggle({ 
+                      action: checked ? 'start' : 'stop',
+                      leadName: lead.name
+                    })}
+                    disabled={isPending}
+                  />
+                </div>
+              )}
             </div>
-          </div>
-        </SheetHeader>
+          </SheetHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
           <TabsList className="w-full">
