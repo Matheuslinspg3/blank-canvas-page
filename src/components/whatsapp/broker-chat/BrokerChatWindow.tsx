@@ -171,7 +171,7 @@ export function BrokerChatWindow({ remoteJid, contactName }: Props) {
       </div>
 
       {/* Composer */}
-      <BrokerChatComposer phone={phone} />
+      <BrokerChatComposer phone={cleanPhone} />
     </div>
   );
 }
