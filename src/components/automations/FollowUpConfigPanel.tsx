@@ -345,7 +345,8 @@ export function FollowUpConfigPanel() {
         attempt_count: 0,
         next_followup_at: new Date().toISOString(),
         opted_out: false,
-      } as any, { onConflict: "org_id,lead_phone" } as any)
+        channel_type: 'whatsapp'
+      } as any, { onConflict: "org_id,lead_phone,channel_type" } as any)
       .select("id")
       .single();
 
