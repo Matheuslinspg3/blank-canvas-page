@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Loader2, RotateCcw, Ban, Play, Clock, CheckCircle2, XCircle, MessageSquare, History, BarChart3, Zap, Timer, CalendarClock } from "lucide-react";
 import { useBrokerFollowUpQueue } from "@/hooks/whatsapp/useBrokerFollowUpQueue";
 import { useBrokerAutomation } from "@/hooks/whatsapp/useBrokerAutomation";
+import { FollowUpConfigPanel } from "@/components/automations/FollowUpConfigPanel";
 import { useMemo } from "react";
 
 // Calcula o próximo disparo do cron (a cada 15 min)
@@ -162,11 +163,19 @@ export default function BrokerAutomationStatus() {
               <RotateCcw className="h-3.5 w-3.5" />
               Fila de Follow-up
             </TabsTrigger>
+            <TabsTrigger value="contacts" className="gap-1.5">
+              <MessageSquare className="h-3.5 w-3.5" />
+              Gerenciar Contatos
+            </TabsTrigger>
             <TabsTrigger value="history" className="gap-1.5">
               <History className="h-3.5 w-3.5" />
               Histórico de Envios
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="contacts" className="mt-4">
+            <FollowUpConfigPanel />
+          </TabsContent>
 
           <TabsContent value="queue" className="mt-4">
             <Card>
