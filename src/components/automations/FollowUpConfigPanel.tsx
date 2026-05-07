@@ -317,11 +317,15 @@ export function FollowUpConfigPanel() {
 
   // ── Manual follow-up ──
   const openManualModal = (contact: ContactRow) => {
-    const name = contact.display_name !== contact.remote_jid ? contact.display_name : formatJid(contact.remote_jid);
+    // Prefer display_name if it exists and isn't just the phone number/JID
+    const name = contact.display_name && contact.display_name !== contact.remote_jid 
+      ? contact.display_name 
+      : "lá"; // Fallback simple greeting if no name
+
     const firstTemplate = templates[0]?.message ?? "";
     const msg = firstTemplate
-      .replace("{nome}", name)
-      .replace("{imovel}", contact.property_interest ?? "imóvel");
+      .replace(/{nome}/g, name)
+      .replace(/{imovel}/g, contact.property_interest ?? "imóvel");
     setManualMessage(msg);
     setManualContact(contact);
   };
