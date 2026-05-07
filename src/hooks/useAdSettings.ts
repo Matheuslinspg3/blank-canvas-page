@@ -63,15 +63,22 @@ export function useAdAccount() {
   const disconnectAccount = useMutation({
     mutationFn: async () => {
       if (!account?.id) throw new Error('Conta não encontrada');
-      const { error } = await supabase
-        .from('ad_accounts')
-        .update({ status: 'disconnected', is_active: false, auth_payload: null, updated_at: new Date().toISOString() })
-        .eq('id', account.id);
+      
+      // We use the meta-save-account function for disconnection as well
+      // because it has the necessary permissions (service role) to update the record
+      const { data, error } = await supabase.functions.invoke('meta-save-account', {
+        body: { disconnect: true },
+      });
+      
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ad-account'] });
       toast({ title: 'Desconectado', description: 'Conta Meta Ads desconectada.' });
+    },
+    onError: (error) => {
+      toast({ title: 'Erro ao desconectar', description: error.message, variant: 'destructive' });
     },
   });
 
