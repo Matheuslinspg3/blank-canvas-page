@@ -229,7 +229,8 @@ serve(async (req) => {
               }
             }
 
-            // ── Enqueue in follow_up_queue on first contact ──
+            // ── Auto-enqueue disabled (User prefers manual selection) ──
+            /* 
             if (isFirstContact && chFull?.followup_enabled) {
               const phone = remoteJid.replace(/@s\.whatsapp\.net$/, "");
               const intervals = (chFull.followup_intervals as number[]) ?? [24, 48, 72];
@@ -255,6 +256,7 @@ serve(async (req) => {
                 console.log(`[broker-webhook] Enqueued follow-up for ${phone} on broker channel`);
               }
             }
+            */
           } catch (greetErr) {
             console.warn("[broker-webhook] Greeting error:", greetErr);
           }

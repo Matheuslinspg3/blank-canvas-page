@@ -58,10 +58,12 @@ Deno.serve(async (req) => {
     // Using raw SQL via rpc would be ideal, but let's use client queries
     
     // Get all recent messages for this org, grouped by remote_jid
+    // IMPORTANT: Filter by channel_type = 'org' to avoid picking up broker/individual channel conversations
     const { data: messages } = await sb
       .from("whatsapp_messages")
       .select("remote_jid, from_me, sender_type, timestamp")
       .eq("organization_id", orgId)
+      .eq("channel_type", "org")
       .order("timestamp", { ascending: false })
       .limit(2000);
 
