@@ -1,14 +1,19 @@
 import { useEffect, useRef } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, MessageSquare } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, MessageSquare, UserPlus, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
   formatPhone,
   jidToPhone,
   useBrokerMessages,
+  useBrokerContactLead,
 } from "@/hooks/whatsapp/useBrokerChat";
+import { useLeadCRUD } from "@/hooks/useLeadCRUD";
+import { useLeadStages } from "@/hooks/useLeadStages";
+import { useAuth } from "@/contexts/AuthContext";
 import { BrokerChatComposer } from "./BrokerChatComposer";
 
 interface Props {
@@ -18,7 +23,27 @@ interface Props {
 
 export function BrokerChatWindow({ remoteJid, contactName }: Props) {
   const { data: messages, isLoading } = useBrokerMessages(remoteJid);
+  const phone = remoteJid ? jidToPhone(remoteJid) : null;
+  const { data: existingLead, isLoading: isLoadingLead } = useBrokerContactLead(phone);
+  const { user } = useAuth();
+  const { leadStages } = useLeadStages();
+  const { createLead } = useLeadCRUD({
+    leadStages,
+    isBrokerOnly: false,
+  });
+  
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const handleCreateLead = () => {
+    if (!phone || !user) return;
+    createLead.mutate({
+      name: contactName?.trim() || `WhatsApp ${formatPhone(phone)}`,
+      phone: phone.replace(/\D/g, ""),
+      source: "WhatsApp Broker",
+      broker_id: user.id,
+      notes: `Lead criado via Chat do Corretor (WhatsApp).`,
+    });
+  };
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -44,17 +69,45 @@ export function BrokerChatWindow({ remoteJid, contactName }: Props) {
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col bg-background">
       {/* Header */}
-      <div className="flex shrink-0 items-center gap-3 border-b border-border bg-card px-4 py-3">
-        <Avatar className="h-9 w-9">
-          <AvatarFallback className="bg-primary/10 text-primary text-xs">
-            {initials}
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium">{displayName}</p>
-          <p className="truncate text-xs text-muted-foreground">
-            {contactName?.trim() ? formatPhone(phone) : "Canal pessoal"}
-          </p>
+      <div className="flex shrink-0 items-center justify-between border-b border-border bg-card px-4 py-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <Avatar className="h-9 w-9">
+            <AvatarFallback className="bg-primary/10 text-primary text-xs">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">{displayName}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {contactName?.trim() ? formatPhone(phone || "") : "Canal pessoal"}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {!isLoadingLead && (
+            existingLead ? (
+              <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-green-600 hover:text-green-700 hover:bg-green-50" disabled>
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                No CRM
+              </Button>
+            ) : (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="h-8 gap-1.5 text-xs"
+                onClick={handleCreateLead}
+                disabled={createLead.isPending}
+              >
+                {createLead.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <UserPlus className="h-3.5 w-3.5" />
+                )}
+                Enviar ao CRM
+              </Button>
+            )
+          )}
         </div>
       </div>
 

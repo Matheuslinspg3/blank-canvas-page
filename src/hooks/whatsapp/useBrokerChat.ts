@@ -170,6 +170,30 @@ export function useBrokerConversations() {
 }
 
 /**
+ * Check if a lead exists for a given phone.
+ */
+export function useBrokerContactLead(phone: string | null) {
+  const { profile } = useAuth();
+  return useQuery({
+    queryKey: ["broker-contact-lead", profile?.organization_id, phone],
+    queryFn: async () => {
+      if (!profile?.organization_id || !phone) return null;
+      const cleanPhone = phone.replace(/\D/g, "");
+      const { data, error } = await supabase
+        .from("leads")
+        .select("id, name, broker_id")
+        .eq("organization_id", profile.organization_id)
+        .eq("phone", cleanPhone)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!profile?.organization_id && !!phone,
+  });
+}
+
+/**
  * Messages for a single conversation (remote_jid).
  */
 export function useBrokerMessages(remoteJid: string | null) {
