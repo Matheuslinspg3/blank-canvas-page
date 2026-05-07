@@ -636,11 +636,12 @@ export function FollowUpConfigPanel() {
                                   onClick={async () => {
                                     const confirmed = window.confirm("Parar follow-up para este lead?");
                                     if (!confirmed) return;
-                                    const { error } = await supabase.functions.invoke("whatsapp-followup-update", {
-                                      body: { id: item.id, action: "opted_out" },
-                                    });
+                                    const { error } = await supabase
+                                      .from("follow_up_queue" as any)
+                                      .update({ status: "opted_out", opted_out: true } as any)
+                                      .eq("id", item.id);
                                     if (error) toast.error("Erro: " + error.message);
-                                    else { toast.success("Follow-up parado."); loadQueue(); }
+                                    else { toast.success("Follow-up parado."); loadQueue(); loadContacts(); }
                                   }}
                                 >
                                   <StopCircle className="h-3.5 w-3.5" />
