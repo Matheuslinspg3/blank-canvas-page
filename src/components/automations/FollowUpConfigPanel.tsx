@@ -508,9 +508,11 @@ export function FollowUpConfigPanel() {
                             <TableRow key={c.remote_jid}>
                               <TableCell>
                                 <div className="font-medium text-xs">
-                                  {c.display_name !== c.remote_jid ? c.display_name : formatJid(c.remote_jid)}
+                                  {c.display_name && c.display_name !== c.remote_jid ? c.display_name : formatJid(c.remote_jid)}
                                 </div>
-                                <div className="text-[10px] text-muted-foreground">{formatJid(c.remote_jid)}</div>
+                                <div className="text-[10px] text-muted-foreground">
+                                  {c.display_name && c.display_name !== c.remote_jid ? formatJid(c.remote_jid) : ""}
+                                </div>
                               </TableCell>
                               <TableCell className="hidden sm:table-cell text-xs text-muted-foreground max-w-[150px] truncate">
                                 {c.last_message_text?.substring(0, 50) || "—"}
