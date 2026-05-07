@@ -108,7 +108,7 @@ export function LeadDetails({
   const { logActivity } = useActivityLogger();
   const [activeTab, setActiveTab] = useState('info');
   const [visitDialogOpen, setVisitDialogOpen] = useState(false);
-  const { followUp, toggle, isPending } = useLeadFollowUpStatus(lead.id, lead.phone || undefined);
+  const { followUp, toggle, isPending } = useLeadFollowUpStatus(lead?.id, lead?.phone || undefined);
 
   useEffect(() => {
     if (open && lead) {
