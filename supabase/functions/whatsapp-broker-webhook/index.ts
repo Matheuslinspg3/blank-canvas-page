@@ -261,7 +261,12 @@ serve(async (req) => {
         }
       }
 
-      // NO AI pipeline call — this is the key difference from org webhook
+      // ── AUTO-CREATION (optional check) ──
+      // Note: The user explicitly asked for an OPTION to send to CRM, 
+      // which we implemented in the UI. 
+      // If auto-create-leads was already on, we might want to skip it if it's annoying,
+      // but the broker channel config doesn't have an 'auto_create_leads' column yet.
+      // We will leave it manual as requested.
 
       return new Response(JSON.stringify({ ok: true, processed: msgArray.length }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
