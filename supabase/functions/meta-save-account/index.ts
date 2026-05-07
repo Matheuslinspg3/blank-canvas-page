@@ -52,7 +52,35 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { accessToken, adAccountId } = body;
+    const { accessToken, adAccountId, disconnect } = body;
+
+    // Use service role to write the token securely and perform background tasks
+    const supa = createClient(supabaseUrl, supabaseServiceKey);
+
+    if (disconnect) {
+      const { error: discError } = await supa
+        .from("ad_accounts")
+        .update({ 
+          status: "disconnected", 
+          is_active: false, 
+          auth_payload: null, 
+          updated_at: new Date().toISOString() 
+        })
+        .eq("organization_id", profile.organization_id)
+        .eq("provider", "meta");
+
+      if (discError) {
+        console.error("Disconnect error:", discError);
+        return new Response(JSON.stringify({ error: "Erro ao desconectar" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (!accessToken || !adAccountId) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
@@ -60,9 +88,6 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    // Use service role to write the token securely and perform background tasks
-    const supa = createClient(supabaseUrl, supabaseServiceKey);
 
     // Save/Update account
     const { error: dbError } = await supa
