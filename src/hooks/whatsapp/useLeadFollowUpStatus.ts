@@ -39,7 +39,7 @@ export function useLeadFollowUpStatus(leadId?: string, leadPhone?: string) {
         .maybeSingle();
 
       if (error) throw error;
-      return data as BrokerFollowUp | null;
+      return (data as any) as BrokerFollowUp | null;
     },
     enabled: !!user?.id && !!leadPhone,
   });
