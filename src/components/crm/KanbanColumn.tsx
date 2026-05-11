@@ -10,7 +10,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import type { Lead } from '@/hooks/useLeads';
 import type { LeadStage } from '@/hooks/useLeadStages';
 
-const ESTIMATED_CARD_HEIGHT = 120;
+const ESTIMATED_CARD_HEIGHT = 160;
 const OVERSCAN = 5;
 
 /**
@@ -26,11 +26,13 @@ const OVERSCAN = 5;
 function SortableVirtualRow({
   lead,
   virtualStart,
+  virtualIndex,
   measureRef,
   onClick,
 }: {
   lead: Lead;
   virtualStart: number;
+  virtualIndex: number;
   measureRef: (el: HTMLElement | null) => void;
   onClick: () => void;
 }) {
@@ -58,6 +60,7 @@ function SortableVirtualRow({
   return (
     <div
       ref={setRefs}
+      data-index={virtualIndex}
       data-lead-id={lead.id}
       {...attributes}
       {...listeners}
@@ -120,6 +123,7 @@ function KanbanColumnContent({ leads, onLeadClick }: { leads: Lead[]; onLeadClic
                 key={lead.id}
                 lead={lead}
                 virtualStart={virtualItem.start}
+                virtualIndex={virtualItem.index}
                 measureRef={virtualizer.measureElement}
                 onClick={() => onLeadClick(lead)}
               />
