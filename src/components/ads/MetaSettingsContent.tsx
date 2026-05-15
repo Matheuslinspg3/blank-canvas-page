@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Loader2, LogIn, RefreshCw, WifiOff, XCircle, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import MetaRealtimeActivationAlert from "./MetaRealtimeActivationAlert";
 
 export default function MetaSettingsContent() {
   const { account, isConnected, disconnectAccount } = useAdAccount();
@@ -34,6 +35,8 @@ export default function MetaSettingsContent() {
       setStageId(settings.crm_stage_id || "");
     }
   }, [settings]);
+
+  const metaRealtime = searchParams.get("meta_realtime");
 
   useEffect(() => {
     const metaSuccess = searchParams.get("meta_success");
@@ -59,6 +62,7 @@ export default function MetaSettingsContent() {
     const handleOAuthResult = async () => {
       if (metaSuccess) {
         nextParams.delete("meta_success");
+        nextParams.delete("meta_realtime");
         setSearchParams(nextParams, { replace: true });
         setIsInitialSyncing(true);
 
@@ -80,10 +84,18 @@ export default function MetaSettingsContent() {
           const insights = entitiesResult.data?.insights ?? 0;
           const leads = leadsResult.error ? 0 : (leadsResult.data?.synced ?? 0);
 
-          toast({
-            title: "Conectado!",
-            description: `Conta conectada e sincronizada: ${ads} anúncios, ${insights} métricas e ${leads} leads.`,
-          });
+          if (metaRealtime === "attention") {
+            toast({
+              title: "Conectado!",
+              description: "Atenção: A sincronização em tempo real precisa ser ativada manualmente.",
+            });
+          } else {
+            toast({
+              title: "Conectado!",
+              description: `Conta conectada e sincronizada: ${ads} anúncios, ${insights} métricas e ${leads} leads.`,
+            });
+          }
+          return;
         } catch {
           await invalidateMetaQueries();
           toast({
@@ -91,6 +103,7 @@ export default function MetaSettingsContent() {
             description: "A conexão foi concluída, mas a sincronização inicial não terminou. Use os botões abaixo para sincronizar.",
             variant: "destructive",
           });
+          return;
         } finally {
           setIsInitialSyncing(false);
         }
@@ -121,7 +134,7 @@ export default function MetaSettingsContent() {
     };
 
     void handleOAuthResult();
-  }, [queryClient, searchParams, setSearchParams, toast]);
+  }, [queryClient, searchParams, setSearchParams, toast, metaRealtime]);
 
   const handleConnectMeta = async () => {
     if (!profile?.organization_id || !profile?.user_id) return;
@@ -152,7 +165,7 @@ export default function MetaSettingsContent() {
       oauthUrl.searchParams.set("client_id", data.app_id);
       oauthUrl.searchParams.set("redirect_uri", redirectUri);
       oauthUrl.searchParams.set("state", state);
-      oauthUrl.searchParams.set("scope", "ads_read,ads_management,business_management,pages_show_list,pages_read_engagement,pages_manage_ads,leads_retrieval");
+      oauthUrl.searchParams.set("scope", "ads_read,ads_management,business_management,pages_show_list,pages_read_engagement,pages_manage_ads,leads_retrieval,pages_manage_metadata");
       oauthUrl.searchParams.set("auth_type", "rerequest");
       oauthUrl.searchParams.set("response_type", "code");
 
@@ -169,6 +182,8 @@ export default function MetaSettingsContent() {
 
   return (
     <div className="space-y-6">
+      {isConnected && <MetaRealtimeActivationAlert />}
+      
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Conectar Meta Ads</CardTitle>

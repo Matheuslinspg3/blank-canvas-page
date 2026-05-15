@@ -207,7 +207,7 @@ async function processLeadgenPayload(payload: any) {
               },
               { onConflict: "organization_id,external_lead_id" },
             )
-            .select("id, name, email, phone, status, external_ad_id")
+            .select("id, name, email, phone, status, external_ad_id, external_lead_id, crm_record_id")
             .single();
 
           if (upsertError) {

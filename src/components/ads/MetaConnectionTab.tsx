@@ -10,10 +10,11 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, RefreshCw, WifiOff, Megaphone, Timer, Clock, Zap } from "lucide-react";
+import { Loader2, RefreshCw, WifiOff, Megaphone, Timer, Clock, Zap, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import IntegrationConnectionCard from "./IntegrationConnectionCard";
 import CrmAutomationCard from "./CrmAutomationCard";
+import MetaRealtimeActivationAlert from "./MetaRealtimeActivationAlert";
 
 export default function MetaConnectionTab() {
   const { account, isConnected, disconnectAccount } = useAdAccount();
@@ -36,6 +37,8 @@ export default function MetaConnectionTab() {
   }, [settings]);
 
   // Handle OAuth callback
+  const metaRealtime = searchParams.get("meta_realtime");
+
   useEffect(() => {
     const metaSuccess = searchParams.get("meta_success");
     const metaError = searchParams.get("meta_error");
@@ -57,6 +60,7 @@ export default function MetaConnectionTab() {
     const handleOAuthResult = async () => {
       if (metaSuccess) {
         nextParams.delete("meta_success");
+        nextParams.delete("meta_realtime");
         setSearchParams(nextParams, { replace: true });
         setIsInitialSyncing(true);
         try {
@@ -69,14 +73,26 @@ export default function MetaConnectionTab() {
           const ads = entitiesResult.data?.ads ?? 0;
           const insights = entitiesResult.data?.insights ?? 0;
           const leads = leadsResult.error ? 0 : (leadsResult.data?.synced ?? 0);
-          toast({ title: "Conectado!", description: `Sincronizado: ${ads} anúncios, ${insights} métricas e ${leads} leads.` });
-        } catch {
+          
+          if (metaRealtime === "attention") {
+            toast({ 
+              title: "Conectado!", 
+              description: `Atenção: A sincronização em tempo real precisa ser ativada manualmente.`,
+            });
+          } else {
+            toast({ title: "Conectado!", description: `Sincronizado: ${ads} anúncios, ${insights} métricas e ${leads} leads.` });
+          }
+          return;
+        } catch (err) {
+          console.error("Meta sync error:", err);
           await invalidateMetaQueries();
           toast({ title: "Conta conectada", description: "Sincronização inicial incompleta. Use os botões abaixo.", variant: "destructive" });
+          return;
         } finally {
           setIsInitialSyncing(false);
         }
       }
+
       if (metaError) {
         const errorMessages: Record<string, string> = {
           missing_params: "Parâmetros ausentes no callback.",
@@ -95,7 +111,7 @@ export default function MetaConnectionTab() {
       }
     };
     void handleOAuthResult();
-  }, [queryClient, searchParams, setSearchParams, toast]);
+  }, [queryClient, searchParams, setSearchParams, toast, metaRealtime]);
 
   const handleConnectMeta = async () => {
     if (!profile?.organization_id || !profile?.user_id) return;
@@ -118,7 +134,7 @@ export default function MetaConnectionTab() {
       oauthUrl.searchParams.set("client_id", data.app_id);
       oauthUrl.searchParams.set("redirect_uri", redirectUri);
       oauthUrl.searchParams.set("state", state);
-      oauthUrl.searchParams.set("scope", "ads_read,ads_management,business_management,pages_show_list,pages_read_engagement,pages_manage_ads,leads_retrieval");
+      oauthUrl.searchParams.set("scope", "ads_read,ads_management,business_management,pages_show_list,pages_read_engagement,pages_manage_ads,leads_retrieval,pages_manage_metadata");
       oauthUrl.searchParams.set("auth_type", "rerequest");
       oauthUrl.searchParams.set("response_type", "code");
       window.location.href = oauthUrl.toString();
@@ -130,6 +146,8 @@ export default function MetaConnectionTab() {
 
   return (
     <div className="space-y-6">
+      {isConnected && <MetaRealtimeActivationAlert />}
+      
       <IntegrationConnectionCard
         platform="Meta Ads"
         platformIcon={<Megaphone className="h-4 w-4" />}
