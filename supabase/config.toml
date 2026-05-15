@@ -143,3 +143,9 @@ verify_jwt = false
 
 [functions.admin-set-org-plan]
 verify_jwt = false
+
+[functions.meta-leadgen-webhook]
+verify_jwt = false
+
+[functions.meta-resubscribe-leadgen]
+verify_jwt = false
