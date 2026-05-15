@@ -411,7 +411,7 @@ async function syncOrgLeads(
               raw_payload: lead,
               updated_at: new Date().toISOString(),
             }, { onConflict: "organization_id,external_lead_id" })
-            .select("id, name, email, phone, created_time, status, external_form_id, external_ad_id")
+            .select("id, name, email, phone, created_time, status, external_form_id, external_ad_id, external_lead_id, crm_record_id")
             .single();
 
           if (upsertError) {
