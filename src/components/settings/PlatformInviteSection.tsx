@@ -140,7 +140,7 @@ export function PlatformInviteSection() {
             Convidar Novo Cliente
           </CardTitle>
           <CardDescription>
-            Gere um link para um novo cliente (imobiliária ou corretor) se cadastrar na plataforma com 7 dias gratuitos.
+            Gere um link para um novo cliente (imobiliária ou corretor) se cadastrar na plataforma com 15 dias gratuitos.
             Após o período de teste, a conta será bloqueada até a assinatura.
           </CardDescription>
         </CardHeader>

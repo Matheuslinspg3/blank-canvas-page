@@ -114,7 +114,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
     phone: "",
     document: "",
     account_type: "imobiliaria" as "imobiliaria" | "corretor_individual",
-    selected_plan: "starter",
+    selected_plan: "essencial",
   });
 
   // Fetch available plans for signup
@@ -816,7 +816,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
               <Button type="submit" size="lg" variant="gold" className="w-full h-14 text-base group glow-primary-hover" disabled={isLoading || isMaintenanceMode}>
                 {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : (
                   <>
-                    {signupForm.selected_plan === 'gratuito' ? 'Criar Conta Gratuita' : `Começar com ${signupPlans.find(p => p.slug === signupForm.selected_plan)?.name || 'Starter'}`}
+                    {signupForm.selected_plan === 'gratuito' ? 'Criar Conta Gratuita' : `Começar com ${signupPlans.find(p => p.slug === signupForm.selected_plan)?.name || 'Plano inicial'}`}
                     <ArrowRight className="h-5 w-5 ml-2 transition-transform group-hover:translate-x-1.5" />
                   </>
                 )}

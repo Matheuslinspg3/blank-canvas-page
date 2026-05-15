@@ -95,9 +95,14 @@ export function UnifiedPlanSection() {
   const isExpired = trialInfo?.is_trial_expired || false;
   const daysRemaining = endsAt ? Math.max(0, differenceInDays(endsAt, now)) : 0;
   const hoursRemaining = endsAt ? Math.max(0, differenceInHours(endsAt, now) % 24) : 0;
-  const totalTrialDays = startedAt && endsAt ? differenceInDays(endsAt, startedAt) : 7;
+  const totalTrialDays = startedAt && endsAt ? differenceInDays(endsAt, startedAt) : 15;
   const daysElapsed = startedAt ? differenceInDays(now, startedAt) : totalTrialDays - daysRemaining;
   const progressPercent = Math.min(100, Math.max(0, (daysElapsed / totalTrialDays) * 100));
+
+  const initialPlan = plans.find(p => p.slug === "essencial") ?? plans.find(p => (p as any).plan_type === "plan" && p.price_monthly > 0);
+  const initialPlanName = initialPlan?.name || "Plano inicial";
+  const initialPlanPriceMonthly = initialPlan?.price_monthly ?? 0;
+  const initialPlanPriceLabel = (initialPlanPriceMonthly / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const handleSubscribe = async () => {
     if (!fullName.trim()) {
@@ -110,9 +115,8 @@ export function UnifiedPlanSection() {
     }
 
     try {
-      // Find the Professional plan UUID from the plans list
-      const proPlan = plans.find(p => p.slug === "pro");
-      const planId = subscription?.plan_id || proPlan?.id;
+      // Prefer the current subscription plan, otherwise use the commercial initial plan from subscription_plans.
+      const planId = subscription?.plan_id || initialPlan?.id;
       if (!planId) {
         toastError("Plano não encontrado. Tente novamente.", undefined, { module: "UnifiedPlanSection" });
         return;
@@ -175,7 +179,7 @@ export function UnifiedPlanSection() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">Plano atual</p>
-                <p className="font-semibold text-lg">{subscription.plan?.name || "Professional"}</p>
+                <p className="font-semibold text-lg">{subscription.plan?.name || initialPlanName}</p>
                 <p className="text-xs text-muted-foreground">{subscription.plan?.description}</p>
               </div>
               <div className="space-y-3">
@@ -263,7 +267,7 @@ export function UnifiedPlanSection() {
             </>
           )}
 
-          {/* If no subscription, show Professional plan card */}
+          {/* If no subscription, show initial commercial plan card */}
           {!subscription && (
             <>
               <Separator />
@@ -274,13 +278,13 @@ export function UnifiedPlanSection() {
                       <Crown className="h-6 w-6 text-primary" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold">Professional</h3>
-                      <p className="text-sm text-muted-foreground">Acesso completo a todas as funcionalidades</p>
+                      <h3 className="text-lg font-bold">{initialPlanName}</h3>
+                      <p className="text-sm text-muted-foreground">Acesso comercial ao marketplace e funcionalidades do plano inicial</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold">
-                      R$ {((plans.find(p => p.slug === "pro")?.price_monthly ?? 500) / 100).toFixed(0)}
+                      R$ {initialPlanPriceLabel}
                       <span className="text-sm text-muted-foreground font-normal">/mês</span>
                     </p>
                   </div>
@@ -288,8 +292,8 @@ export function UnifiedPlanSection() {
 
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    "Imóveis ilimitados",
-                    "Leads ilimitados",
+                    "Imóveis próprios",
+                    "Leads",
                     "Marketplace",
                     "Parcerias",
                     "Suporte prioritário",
@@ -306,7 +310,7 @@ export function UnifiedPlanSection() {
 
                 <Button className="w-full" size="lg" onClick={() => setShowCheckout(true)}>
                   <Crown className="h-4 w-4 mr-2" />
-                  Assinar Professional — R$ {((plans.find(p => p.slug === "pro")?.price_monthly ?? 500) / 100).toFixed(0)}/mês
+                  Assinar {initialPlanName} — R$ {initialPlanPriceLabel}/mês
                 </Button>
               </div>
             </>
@@ -345,7 +349,7 @@ export function UnifiedPlanSection() {
                   <AlertDialogHeader>
                     <AlertDialogTitle>Cancelar assinatura</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Tem certeza que deseja cancelar sua assinatura do plano <strong>Professional</strong>?
+                      Tem certeza que deseja cancelar sua assinatura do plano <strong>{subscription.plan?.name || initialPlanName}</strong>?
                       Você perderá acesso às funcionalidades premium ao final do período atual.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
@@ -373,7 +377,7 @@ export function UnifiedPlanSection() {
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-primary" />
-              Finalizar Assinatura — Professional R$ {((plans.find(p => p.slug === "pro")?.price_monthly ?? 500) / 100).toFixed(2)}/mês
+              Finalizar Assinatura — {initialPlanName} R$ {initialPlanPriceLabel}/mês
             </CardTitle>
             <CardDescription>Preencha seus dados e escolha a forma de pagamento</CardDescription>
           </CardHeader>
@@ -426,9 +430,9 @@ export function UnifiedPlanSection() {
                 </label>
                 <label className={cn(
                   "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
-                  paymentMethod === "credit" ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+                  paymentMethod === "credit_card" ? "border-primary bg-primary/5" : "hover:bg-muted/50"
                 )}>
-                  <RadioGroupItem value="credit" />
+                  <RadioGroupItem value="credit_card" />
                   <CreditCard className="h-5 w-5" />
                   <div className="flex-1">
                     <p className="text-sm font-medium">Cartão de Crédito</p>
@@ -457,7 +461,7 @@ export function UnifiedPlanSection() {
                 <p className="text-sm font-semibold">Total</p>
                 <p className="text-xs text-muted-foreground">Cobrança mensal</p>
               </div>
-              <p className="text-xl font-bold">R$ {((plans.find(p => p.slug === "pro")?.price_monthly ?? 500) / 100).toFixed(2)}</p>
+              <p className="text-xl font-bold">R$ {initialPlanPriceLabel}</p>
             </div>
 
             <div className="flex gap-2">

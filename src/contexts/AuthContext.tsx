@@ -313,7 +313,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           document: document || '',
           account_type: accountType,
           company_name: companyName,
-          selected_plan: selectedPlan || 'gratuito',
+          selected_plan: selectedPlan || 'essencial',
         }
       }
     });

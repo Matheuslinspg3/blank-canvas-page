@@ -37,6 +37,7 @@ function isValidDocument(doc: string): boolean {
 
 // A14: CORS allowlist — fail-closed when not configured
 const ALLOWED_ORIGINS = (Deno.env.get("APP_ALLOWED_ORIGINS") || "").split(",").map(s => s.trim()).filter(Boolean);
+const DEFAULT_TRIAL_DAYS = 15;
 
 function getCorsHeaders(req: Request) {
   const origin = req.headers.get("Origin") || "";
@@ -423,8 +424,8 @@ serve(async (req) => {
 
       const priceInReais = totalPrice / 100;
       const now = new Date();
-      // Custom plans get 7-day free trial (not 15 days like standard plans)
-      const trialEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      // Custom plans use the same commercial free-trial window as standard plans.
+      const trialEnd = new Date(now.getTime() + DEFAULT_TRIAL_DAYS * 24 * 60 * 60 * 1000);
       const periodEnd = billingCycle === "yearly"
         ? new Date(trialEnd.getTime() + 365 * 24 * 60 * 60 * 1000)
         : new Date(trialEnd.getTime() + 30 * 24 * 60 * 60 * 1000);
@@ -440,7 +441,7 @@ serve(async (req) => {
 
       // Create Asaas payment (PIX or subscription)
       if (paymentMethod === "pix") {
-        // Due date = after 7-day trial
+        // Due date = after the free-trial period
         const dueDate = trialEnd.toISOString().split("T")[0];
         const payment = await asaasFetch("/payments", {
           method: "POST",
@@ -492,7 +493,7 @@ serve(async (req) => {
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      // Credit card — schedule first charge after 7-day trial
+      // Credit card — schedule first charge after the free-trial period
       const cycle = billingCycle === "yearly" ? "YEARLY" : "MONTHLY";
       const nextDueDate = trialEnd.toISOString().split("T")[0];
       const asaasSub = await asaasFetch("/subscriptions", {

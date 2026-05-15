@@ -27,11 +27,9 @@ export function useFreeTrialExpired() {
     return false;
   }, [loadingSub, currentPlan, trialInfo]);
 
-  // User qualifies for 25% discount if they're on free plan
-  const qualifiesForDiscount = useMemo(() => {
-    const slug = currentPlan?.slug ?? "gratuito";
-    return slug === "gratuito";
-  }, [currentPlan]);
+  // Keep the legacy return field for callers, but do not promise a visual discount.
+  // Checkout charges the exact subscription_plans price unless backend discount support is added.
+  const qualifiesForDiscount = false;
 
   return { isExpired, qualifiesForDiscount, loading: loadingSub };
 }

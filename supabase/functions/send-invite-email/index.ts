@@ -27,7 +27,7 @@ function platformEmailHtml(inviteLink: string) {
       Você foi selecionado para se cadastrar na <strong>Porta do Corretor</strong>, a plataforma completa para gestão imobiliária.
     </p>
     <p style="color:#4b5563;line-height:1.6;margin:0 0 24px;">
-      🎁 Você terá <strong>7 dias gratuitos</strong> para testar todas as funcionalidades!
+      🎁 Você terá <strong>15 dias gratuitos</strong> para testar todas as funcionalidades!
     </p>
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr><td align="center">

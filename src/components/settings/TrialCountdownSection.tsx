@@ -46,7 +46,7 @@ export function TrialCountdownSection() {
 
   const daysRemaining = Math.max(0, differenceInDays(endsAt, now));
   const hoursRemaining = Math.max(0, differenceInHours(endsAt, now) % 24);
-  const totalTrialDays = startedAt ? differenceInDays(endsAt, startedAt) : 7;
+  const totalTrialDays = startedAt ? differenceInDays(endsAt, startedAt) : 15;
   const daysElapsed = startedAt ? differenceInDays(now, startedAt) : totalTrialDays - daysRemaining;
   const progressPercent = Math.min(100, Math.max(0, (daysElapsed / totalTrialDays) * 100));
 
