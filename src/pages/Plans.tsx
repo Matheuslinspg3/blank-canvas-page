@@ -1,11 +1,10 @@
-import { useState, useMemo, useCallback } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription, SubscriptionPlan } from "@/hooks/useSubscription";
 import { isInternalPlan } from "@/lib/planLimits";
-import { useFreeTrialExpired } from "@/hooks/useFreeTrialExpired";
 import { CheckoutDialog } from "@/components/billing/CheckoutDialog";
 import { CustomPlanBuilder } from "@/components/billing/CustomPlanBuilder";
 import { Badge } from "@/components/ui/badge";
@@ -164,15 +163,11 @@ export default function Plans() {
   const [showComparison, setShowComparison] = useState(false);
   const [checkoutPlan, setCheckoutPlan] = useState<SubscriptionPlan | null>(null);
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const { session } = useAuth();
   const { subscription, currentPlan, isTrialActive, getTrialDaysRemaining, getCurrentPlanSlug, canUpgradeTo } = useSubscription({ enabled: !!session });
-  const { qualifiesForDiscount } = useFreeTrialExpired();
   const isLoggedIn = !!session;
 
-  // 25% discount: from URL param (free expired redirect) or from being on free plan
-  const hasDiscount = searchParams.get("discount") === "free25" || (isLoggedIn && qualifiesForDiscount);
-  const DISCOUNT_PCT = 25;
+  // Prices shown here must match the backend checkout amount from subscription_plans.
 
   const { data: allPlans = [], isLoading } = useQuery({
     queryKey: ["public-plans"],
@@ -196,18 +191,12 @@ export default function Plans() {
   const trialActive = isLoggedIn ? isTrialActive() : false;
   const trialDays = isLoggedIn ? getTrialDaysRemaining() : 0;
 
-  const applyDiscount = (cents: number) => {
-    if (!hasDiscount) return cents;
-    return Math.round(cents * (1 - DISCOUNT_PCT / 100));
-  };
-
   // Check if user needs to pay (trial, trial expired, free plan, or subscription not truly active)
   const isOnTrial = subscription?.status === "trial";
   const isSubPaidActive = subscription?.status === "active";
   const needsToPay = isLoggedIn && (
     !isSubPaidActive ||
     currentSlug === "gratuito" ||
-    qualifiesForDiscount ||
     isOnTrial ||
     subscription?.status === "expired" ||
     subscription?.status === "cancelled"
@@ -282,16 +271,6 @@ export default function Plans() {
         </div>
       )}
 
-      {/* ─── Discount banner ─── */}
-      {hasDiscount && (
-        <div className="bg-primary/10 border-b border-primary/20">
-          <div className="max-w-7xl mx-auto px-4 py-3 text-center">
-            <span className="text-sm font-medium text-primary">
-              🎉 Desconto exclusivo de {DISCOUNT_PCT}% aplicado em todos os planos!
-            </span>
-          </div>
-        </div>
-      )}
 
       {/* ─── HEADER ─── */}
       <section className="py-16 sm:py-20 text-center px-4">
@@ -333,9 +312,7 @@ export default function Plans() {
             const aiCreditsLimit = getNumericFeature(plan, "ai_credits_limit");
             const maxMarketplaceProperties = getNumericFeature(plan, "max_marketplace_properties");
             const extraUserPrice = getNumericFeature(plan, "extra_user_price");
-            const originalPrice = annual ? Math.round(plan.price_yearly / 12) : plan.price_monthly;
-            const monthlyPrice = plan.slug !== 'gratuito' ? applyDiscount(originalPrice) : originalPrice;
-            const showStrikethrough = hasDiscount && plan.slug !== 'gratuito' && monthlyPrice !== originalPrice;
+            const monthlyPrice = annual ? Math.round(plan.price_yearly / 12) : plan.price_monthly;
             const trialDaysPlan = (plan as any).trial_days || 0;
 
             return (
@@ -366,14 +343,8 @@ export default function Plans() {
                   </div>
                   <h3 className="text-xl font-bold">{plan.name}</h3>
                   <div className="mt-2">
-                    {showStrikethrough && (
-                      <span className="text-lg text-muted-foreground line-through mr-2">R${fmt(originalPrice)}</span>
-                    )}
                     <span className="text-3xl font-bold">R${fmt(monthlyPrice)}</span>
                     <span className="text-muted-foreground text-sm">/mês</span>
-                    {showStrikethrough && (
-                      <Badge className="ml-2 bg-green-500/15 text-green-600 border-green-500/20 text-xs">-{DISCOUNT_PCT}%</Badge>
-                    )}
                   </div>
                   {annual && plan.price_yearly > 0 && (
                     <p className="text-xs text-muted-foreground mt-1">

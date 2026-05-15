@@ -154,7 +154,7 @@ export function CustomPlanBuilder() {
         </p>
         <Badge variant="outline" className="text-xs gap-1 mx-auto">
           <Sparkles className="h-3 w-3" />
-          7 dias grátis para testar
+          15 dias grátis para testar
         </Badge>
       </div>
 
@@ -286,7 +286,7 @@ export function CustomPlanBuilder() {
               onClick={() => setCheckoutOpen(true)}
             >
               <ShoppingCart className="h-4 w-4" />
-              Testar 7 dias grátis
+              Testar 15 dias grátis
             </Button>
           </div>
         </>

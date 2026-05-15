@@ -42,7 +42,7 @@ export default function OnboardingWizard() {
   const [accountType, setAccountType] = useState<AccountType | null>(null);
   const [companyName, setCompanyName] = useState("");
   const [phone, setPhone] = useState("");
-  const [planSlug, setPlanSlug] = useState<string>("gratuito");
+  const [planSlug, setPlanSlug] = useState<string>("essencial");
   const [plans, setPlans] = useState<PlanRow[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
   const [planOnlyMode, setPlanOnlyMode] = useState<boolean | null>(null);
@@ -129,7 +129,9 @@ export default function OnboardingWizard() {
       if (error) {
         console.error("[Onboarding] plans fetch error:", error);
       } else {
-        setPlans((data ?? []) as PlanRow[]);
+        const rows = (data ?? []) as PlanRow[];
+        setPlans(rows);
+        setPlanSlug((current) => rows.some((plan) => plan.slug === current) ? current : (rows[0]?.slug ?? current));
       }
       setPlansLoading(false);
     })();
@@ -289,7 +291,7 @@ export default function OnboardingWizard() {
     // 3 — Plan
     {
       title: "Escolha um plano",
-      subtitle: "Você pode mudar quando quiser. O Gratuito tem 15 dias completos.",
+      subtitle: "Você pode mudar quando quiser. O plano inicial tem 15 dias completos.",
       content: plansLoading ? (
         <div className="flex justify-center py-8">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

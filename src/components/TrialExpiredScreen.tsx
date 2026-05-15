@@ -17,7 +17,7 @@ export function TrialExpiredScreen() {
           <Clock className="h-14 w-14 text-muted-foreground mx-auto" />
           <h2 className="text-xl font-bold">Período de teste encerrado</h2>
           <p className="text-sm text-muted-foreground">
-            Seu período gratuito de 7 dias expirou. Assine um plano para continuar utilizando a plataforma.
+            Seu período gratuito de 15 dias expirou. Assine um plano para continuar utilizando a plataforma.
           </p>
 
           <div className="flex flex-col gap-3 pt-2">

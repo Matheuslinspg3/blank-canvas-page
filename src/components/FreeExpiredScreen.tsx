@@ -3,8 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
 import { useAuth } from "@/contexts/AuthContext";
-import { Clock, LogOut, ArrowRight, Percent } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Clock, LogOut, ArrowRight } from "lucide-react";
 
 export function FreeExpiredScreen() {
   const { signOut } = useAuth();
@@ -21,24 +20,13 @@ export function FreeExpiredScreen() {
             Os 15 dias do plano Gratuito expiraram. Assine um plano para continuar usando a plataforma.
           </p>
 
-          <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 space-y-2">
-            <div className="flex items-center justify-center gap-2">
-              <Percent className="h-5 w-5 text-primary" />
-              <span className="font-semibold text-primary">Desconto exclusivo!</span>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Por ter usado o período gratuito, você ganha{" "}
-              <Badge variant="secondary" className="text-primary font-bold">25% OFF</Badge>{" "}
-              em qualquer plano.
-            </p>
-          </div>
 
           <div className="flex flex-col gap-3 pt-2">
             <Button 
               className="gap-2 w-full" 
-              onClick={() => navigate("/planos?discount=free25")}
+              onClick={() => navigate("/planos")}
             >
-              Ver planos com desconto
+              Ver planos disponíveis
               <ArrowRight className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="sm" onClick={() => signOut()} className="gap-2 text-muted-foreground">

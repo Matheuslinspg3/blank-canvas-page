@@ -136,7 +136,7 @@ export default function PlatformSignup() {
             <CheckCircle2 className="h-16 w-16 text-primary mx-auto" />
             <p className="text-xl font-bold">Cadastro realizado!</p>
             <p className="text-muted-foreground">
-              Sua imobiliária foi criada com sucesso. Você tem <strong>7 dias gratuitos</strong> para explorar todas as funcionalidades.
+              Sua imobiliária foi criada com sucesso. Você tem <strong>15 dias gratuitos</strong> para explorar todas as funcionalidades.
             </p>
             <Button variant="gold" size="lg" className="w-full" onClick={() => navigate("/auth")}>
               Fazer Login
@@ -157,7 +157,7 @@ export default function PlatformSignup() {
       <div className="relative w-full max-w-md z-10">
         <div className="flex justify-center mb-6">
           <PillBadge icon={<Sparkles className="h-4 w-4" />} className="animate-float">
-            7 dias gratuitos para testar
+            15 dias gratuitos para testar
           </PillBadge>
         </div>
 

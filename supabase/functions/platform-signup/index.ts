@@ -21,6 +21,7 @@ const corsHeaders = {
 };
 
 const INVITE_SIGNING_KEY = Deno.env.get("INVITE_SIGNING_KEY") || Deno.env.get("WEBHOOK_SIGNING_KEY") || "";
+const DEFAULT_TRIAL_DAYS = 15;
 
 async function hmacSha256(key: string, data: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -200,7 +201,7 @@ serve(async (req) => {
 
     const userId = authData.user.id;
     const now = new Date();
-    const trialEnds = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const trialEnds = new Date(now.getTime() + DEFAULT_TRIAL_DAYS * 24 * 60 * 60 * 1000);
 
     // Create organization
     const { data: org, error: orgError } = await adminClient
@@ -245,6 +246,39 @@ serve(async (req) => {
     // Assign admin role
     await adminClient.from("user_roles").delete().eq("user_id", userId);
     await adminClient.from("user_roles").insert({ user_id: userId, role: "admin" });
+
+    // Create the initial commercial trial subscription for the invited organization.
+    // The auth trigger may have provisioned a temporary org before this function
+    // creates the invite-bound org, so we explicitly attach the subscription here.
+    const { data: initialPlan, error: planError } = await adminClient
+      .from("subscription_plans")
+      .select("id")
+      .eq("slug", "essencial")
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (planError || !initialPlan) {
+      await adminClient.auth.admin.deleteUser(userId);
+      return new Response(JSON.stringify({ error: "Plano inicial não encontrado" }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { error: subError } = await adminClient.from("subscriptions").insert({
+      organization_id: org.id,
+      plan_id: initialPlan.id,
+      status: "trial",
+      trial_end: trialEnds.toISOString(),
+      current_period_start: now.toISOString(),
+      current_period_end: trialEnds.toISOString(),
+    });
+
+    if (subError) {
+      await adminClient.auth.admin.deleteUser(userId);
+      return new Response(JSON.stringify({ error: "Erro ao criar assinatura de teste" }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Mark invite as used
     const { error: markError } = await adminClient
