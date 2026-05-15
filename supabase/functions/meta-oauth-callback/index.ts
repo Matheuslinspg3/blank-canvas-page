@@ -151,6 +151,11 @@ Deno.serve(async (req) => {
             expires_in: longLivedData.expires_in,
             obtained_at: new Date().toISOString(),
             ad_accounts: adAccounts.map((a: any) => ({ id: a.id, name: a.name, status: a.account_status })),
+            // New: persist realtime status
+            meta_realtime: {
+              status: "enabled", // Will be updated below if needed
+              checked_at: new Date().toISOString()
+            }
           },
           status: "connected",
           updated_at: new Date().toISOString(),
