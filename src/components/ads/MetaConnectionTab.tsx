@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, RefreshCw, WifiOff, Megaphone, Timer, Clock, Zap, AlertCircle } from "lucide-react";
+import { Loader2, RefreshCw, WifiOff, Megaphone, Timer, Clock, Zap, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import IntegrationConnectionCard from "./IntegrationConnectionCard";
 import CrmAutomationCard from "./CrmAutomationCard";
@@ -77,7 +77,7 @@ export default function MetaConnectionTab() {
           if (metaRealtime === "attention") {
             toast({ 
               title: "Conectado!", 
-              description: `Atenção: A sincronização em tempo real precisa ser ativada manualmente.`,
+              description: `A sincronização automática de leads está sendo verificada.`,
             });
           } else {
             toast({ title: "Conectado!", description: `Sincronizado: ${ads} anúncios, ${insights} métricas e ${leads} leads.` });
@@ -190,20 +190,20 @@ const INTERVAL_OPTIONS = [
 
 function MetaInstantSyncCard() {
   return (
-    <Card className="border-primary/20 bg-primary/5">
+    <Card className="border-primary/10 bg-muted/30">
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
-          <Zap className="h-4 w-4 text-primary" /> Sincronização Instantânea
+          <Zap className="h-4 w-4 text-primary" /> Leads automáticos do Meta Ads
         </CardTitle>
         <CardDescription>
-          A sincronização com o Meta Ads agora é via Webhook em tempo real.
+          Novos leads do Facebook e Instagram são enviados automaticamente para o CRM.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-muted-foreground">
-          Novos leads capturados no Facebook ou Instagram são enviados ao CRM imediatamente. 
-          Não é mais necessário configurar intervalos de sincronização.
-        </p>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+          Inscrição via Webhook em tempo real ativa.
+        </div>
       </CardContent>
     </Card>
   );
@@ -268,9 +268,11 @@ function MetaSyncSection() {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
-          <RefreshCw className="h-4 w-4" /> Sincronização Manual
+          <RefreshCw className="h-4 w-4" /> Histórico e Manutenção
         </CardTitle>
-        <CardDescription>Sincronize dados manualmente com o Meta Ads.</CardDescription>
+        <CardDescription>
+          Use estas opções apenas para buscar leads antigos ou corrigir uma sincronização anterior. Novos leads são recebidos automaticamente.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex flex-wrap gap-2">
@@ -284,11 +286,11 @@ function MetaSyncSection() {
           </Button>
           <Button variant="outline" size="sm" onClick={() => handleSyncLeads(7)} disabled={syncingLeads}>
             {syncingLeads ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-            Leads (7d)
+            Buscar leads antigos (7d)
           </Button>
           <Button variant="outline" size="sm" onClick={() => handleSyncLeads(30)} disabled={syncingLeads}>
             {syncingLeads ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-            Leads (30d)
+            Buscar leads antigos (30d)
           </Button>
         </div>
       </CardContent>

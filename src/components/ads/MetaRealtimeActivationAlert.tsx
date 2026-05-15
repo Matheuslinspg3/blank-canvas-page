@@ -1,78 +1,104 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Zap, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Zap, Loader2, AlertCircle, RefreshCw, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAdAccount } from "@/hooks/useAdSettings";
 
 export default function MetaRealtimeActivationAlert() {
-  const [isActivating, setIsActivating] = useState(false);
-  const [isDone, setIsDone] = useState(false);
+  const { account } = useAdAccount();
+  const [isChecking, setIsChecking] = useState(false);
+  const [status, setStatus] = useState<"unknown" | "checking" | "enabled" | "attention" | "needs_reconnect">("unknown");
   const { toast } = useToast();
 
-  const handleActivate = async () => {
-    setIsActivating(true);
+  const realtimeStatus = (account as any)?.auth_payload?.meta_realtime?.status;
+
+  useEffect(() => {
+    if (realtimeStatus) {
+      setStatus(realtimeStatus);
+    } else if (account) {
+      // If no status but connected, attempt silent check once
+      handleCheckSilently();
+    }
+  }, [realtimeStatus, account]);
+
+  const handleCheckSilently = async () => {
+    if (isChecking) return;
+    setIsChecking(true);
+    setStatus("checking");
+    
     try {
       const { data, error } = await supabase.functions.invoke("meta-resubscribe-leadgen", {
         body: {},
       });
 
       if (error) throw error;
-
-      if (data?.needs_reconnect) {
-        toast({
-          title: "Ação necessária",
-          description: "É necessário reconectar sua conta Meta para conceder permissões de gerenciamento de páginas.",
-          variant: "destructive",
-        });
-        return;
+      
+      if (data?.realtime_status) {
+        setStatus(data.realtime_status);
       }
-
-      if (data?.success) {
-        toast({
-          title: "Sucesso!",
-          description: `Sincronização ativada para ${data.subscribed} páginas.`,
-        });
-        setIsDone(true);
-      } else {
-        toast({
-          title: "Aviso",
-          description: "Não foi possível ativar em todas as páginas. Tente reconectar a conta.",
-          variant: "destructive",
-        });
-      }
-    } catch (err: any) {
-      console.error("Error activating real-time:", err);
-      toast({
-        title: "Erro",
-        description: "Falha ao ativar sincronização em tempo real.",
-        variant: "destructive",
-      });
+    } catch (err) {
+      console.error("Silent realtime check failed:", err);
+      setStatus("attention");
     } finally {
-      setIsActivating(false);
+      setIsChecking(false);
     }
   };
 
-  if (isDone) return null;
+  const handleReconnect = async () => {
+    // This is handled by the parent component or by re-triggering OAuth
+    // We emit a click to the connect button if we had a ref, but here we just show the message
+    toast({
+      title: "Reconexão necessária",
+      description: "Por favor, clique em 'Conectar com Meta' novamente para atualizar suas permissões.",
+    });
+  };
 
-  return (
-    <Alert className="border-primary/50 bg-primary/5">
-      <Zap className="h-4 w-4 text-primary" />
-      <AlertTitle>Ativar Sincronização em Tempo Real</AlertTitle>
-      <AlertDescription className="space-y-3">
-        <p className="text-sm text-muted-foreground">
-          Para garantir que os leads do Meta Ads cheguem instantaneamente, suas páginas precisam estar inscritas em nosso sistema de notificações.
-        </p>
-        <Button 
-          size="sm" 
-          onClick={handleActivate} 
-          disabled={isActivating}
-          className="gap-2"
-        >
-          {isActivating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
-          Ativar tempo real
-        </Button>
-      </AlertDescription>
-    </Alert>
-  );
+  if (status === "enabled" || status === "unknown") {
+    if (status === "enabled") {
+      return (
+        <div className="flex items-center gap-2 text-xs text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100 w-fit">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          Leads automáticos ativos
+        </div>
+      );
+    }
+    return null;
+  }
+
+  if (status === "checking") {
+    return (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse">
+        <RefreshCw className="h-3 w-3 animate-spin" />
+        Verificando sincronização automática...
+      </div>
+    );
+  }
+
+  if (status === "needs_reconnect" || status === "attention") {
+    return (
+      <Alert variant="destructive" className="bg-destructive/5 border-destructive/20">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Reconexão necessária</AlertTitle>
+        <AlertDescription className="space-y-3">
+          <p className="text-sm">
+            Não conseguimos confirmar a inscrição das suas páginas no webhook do Meta. 
+            Reconecte sua conta Meta para liberar a sincronização automática de leads.
+          </p>
+          <Button 
+            variant="outline"
+            size="sm" 
+            onClick={() => window.location.reload()} // Reload to trigger OAuth if they click connect again
+            className="mt-2"
+          >
+            <RefreshCw className="mr-2 h-3 w-3" />
+            Recarregar para reconectar
+          </Button>
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  return null;
 }

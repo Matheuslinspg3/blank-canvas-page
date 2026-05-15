@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     // Get Meta account
     const { data: account } = await supabase
       .from("ad_accounts")
-      .select("auth_payload")
+      .select("*")
       .eq("organization_id", orgId)
       .eq("provider", "meta")
       .eq("is_active", true)
@@ -79,7 +79,27 @@ Deno.serve(async (req) => {
     // Call Facebook API to subscribe pages
     const result = await subscribeLeadgenWebhooks(accessToken, orgId);
 
-    return new Response(JSON.stringify(result), { 
+    // Update auth_payload with realtime status
+    const realtimeStatus = result.needs_reconnect ? "needs_reconnect" : (result.subscribed > 0 ? "enabled" : "attention");
+    
+    await supabase
+      .from("ad_accounts")
+      .update({
+        auth_payload: {
+          ...account.auth_payload,
+          meta_realtime: {
+            status: realtimeStatus,
+            pages_checked: result.pages_checked,
+            subscribed: result.subscribed,
+            failed: result.failed,
+            checked_at: new Date().toISOString()
+          }
+        }
+      })
+      .eq("organization_id", orgId)
+      .eq("provider", "meta");
+
+    return new Response(JSON.stringify({ ...result, realtime_status: realtimeStatus }), { 
       headers: { ...corsHeaders, "Content-Type": "application/json" } 
     });
   } catch (err: any) {
@@ -107,7 +127,10 @@ async function subscribeLeadgenWebhooks(accessToken: string, orgId: string) {
       return { 
         success: false, 
         needs_reconnect: isPermissionError, 
-        error: sanitizeMetaError(pagesData.error) 
+        error: sanitizeMetaError(pagesData.error),
+        pages_checked: 0,
+        subscribed: 0,
+        failed: 0
       };
     }
 
@@ -156,7 +179,7 @@ async function subscribeLeadgenWebhooks(accessToken: string, orgId: string) {
     };
   } catch (err: any) {
     console.error("[meta-resubscribe] Unexpected error:", err);
-    return { success: false, error: err.message, needs_reconnect: false };
+    return { success: false, error: err.message, needs_reconnect: false, pages_checked: 0, subscribed: 0, failed: 0 };
   }
 }
 

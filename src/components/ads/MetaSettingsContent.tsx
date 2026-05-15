@@ -87,7 +87,7 @@ export default function MetaSettingsContent() {
           if (metaRealtime === "attention") {
             toast({
               title: "Conectado!",
-              description: "Atenção: A sincronização em tempo real precisa ser ativada manualmente.",
+              description: "A sincronização automática de leads está sendo verificada.",
             });
           } else {
             toast({
@@ -354,8 +354,10 @@ function SyncSection() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2"><RefreshCw className="h-4 w-4" /> Sincronização</CardTitle>
-        <CardDescription>Sincronize dados manualmente com o Meta Ads.</CardDescription>
+        <CardTitle className="text-base flex items-center gap-2"><RefreshCw className="h-4 w-4" /> Histórico e Manutenção</CardTitle>
+        <CardDescription>
+          Use estas opções apenas para buscar leads antigos ou corrigir uma sincronização anterior. Novos leads são recebidos automaticamente.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-3">
@@ -369,11 +371,11 @@ function SyncSection() {
           </Button>
           <Button variant="outline" size="sm" onClick={() => handleSyncLeads(7)} disabled={syncingLeads}>
             {syncingLeads ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-            Backfill Leads (7d)
+            Buscar leads antigos (7d)
           </Button>
           <Button variant="outline" size="sm" onClick={() => handleSyncLeads(30)} disabled={syncingLeads}>
             {syncingLeads ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-            Backfill Leads (30d)
+            Buscar leads antigos (30d)
           </Button>
         </div>
 

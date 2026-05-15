@@ -151,6 +151,11 @@ Deno.serve(async (req) => {
             expires_in: longLivedData.expires_in,
             obtained_at: new Date().toISOString(),
             ad_accounts: adAccounts.map((a: any) => ({ id: a.id, name: a.name, status: a.account_status })),
+            // New: persist initial realtime status
+            meta_realtime: {
+              status: "enabled", 
+              checked_at: new Date().toISOString()
+            }
           },
           status: "connected",
           updated_at: new Date().toISOString(),
@@ -167,8 +172,31 @@ Deno.serve(async (req) => {
     console.log("Subscribing pages to leadgen webhooks...");
     const subscriptionResult = await subscribeLeadgenWebhooks(finalToken, stateData.org_id);
     
-    const realtimeParam = subscriptionResult.subscribed > 0 ? "enabled" : "attention";
-    return redirectToApp(`?meta_success=true&meta_realtime=${realtimeParam}`, stateData.origin);
+    const realtimeStatus = subscriptionResult.subscribed > 0 ? "enabled" : "attention";
+    
+    // Update auth_payload with final realtime status
+    await supabase
+      .from("ad_accounts")
+      .update({
+        auth_payload: {
+          access_token: finalToken,
+          token_type: longLivedData.token_type || "bearer",
+          expires_in: longLivedData.expires_in,
+          obtained_at: new Date().toISOString(),
+          ad_accounts: adAccounts.map((a: any) => ({ id: a.id, name: a.name, status: a.account_status })),
+          meta_realtime: {
+            status: realtimeStatus,
+            pages_checked: subscriptionResult.pagesChecked,
+            subscribed: subscriptionResult.subscribed,
+            failed: subscriptionResult.failed,
+            checked_at: new Date().toISOString()
+          }
+        }
+      })
+      .eq("organization_id", stateData.org_id)
+      .eq("provider", "meta");
+
+    return redirectToApp(`?meta_success=true&meta_realtime=${realtimeStatus}`, stateData.origin);
   } catch (err) {
     console.error("Unexpected error:", err);
     return redirectToApp("?meta_error=unexpected");
@@ -184,7 +212,7 @@ async function subscribeLeadgenWebhooks(accessToken: string, orgId: string) {
 
     if (pagesData.error) {
       console.error("[meta-subscribe] Error fetching pages:", JSON.stringify(pagesData.error));
-      return { subscribed: 0, failed: 1 };
+      return { subscribed: 0, failed: 1, pagesChecked: 0 };
     }
 
     const pages = pagesData.data || [];
@@ -223,7 +251,7 @@ async function subscribeLeadgenWebhooks(accessToken: string, orgId: string) {
     return { subscribed, failed, pagesChecked: pages.length };
   } catch (err) {
     console.error("[meta-subscribe] Unexpected error:", err);
-    return { subscribed: 0, failed: 1 };
+    return { subscribed: 0, failed: 1, pagesChecked: 0 };
   }
 }
 
