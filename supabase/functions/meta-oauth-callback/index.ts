@@ -163,12 +163,69 @@ Deno.serve(async (req) => {
       return redirectToApp("?meta_error=db_save", stateData.origin);
     }
 
-    return redirectToApp("?meta_success=true", stateData.origin);
+    // New: Subscribe pages to leadgen webhook
+    console.log("Subscribing pages to leadgen webhooks...");
+    const subscriptionResult = await subscribeLeadgenWebhooks(finalToken, stateData.org_id);
+    
+    const realtimeParam = subscriptionResult.subscribed > 0 ? "enabled" : "attention";
+    return redirectToApp(`?meta_success=true&meta_realtime=${realtimeParam}`, stateData.origin);
   } catch (err) {
     console.error("Unexpected error:", err);
     return redirectToApp("?meta_error=unexpected");
   }
 });
+
+async function subscribeLeadgenWebhooks(accessToken: string, orgId: string) {
+  try {
+    const pagesRes = await fetch(
+      `https://graph.facebook.com/v21.0/me/accounts?fields=id,access_token&limit=100&access_token=${accessToken}`
+    );
+    const pagesData = await pagesRes.json();
+
+    if (pagesData.error) {
+      console.error("[meta-subscribe] Error fetching pages:", JSON.stringify(pagesData.error));
+      return { subscribed: 0, failed: 1 };
+    }
+
+    const pages = pagesData.data || [];
+    let subscribed = 0;
+    let failed = 0;
+
+    for (const page of pages) {
+      const pageId = page.id;
+      const pageAccessToken = page.access_token;
+
+      if (!pageAccessToken) {
+        failed++;
+        continue;
+      }
+
+      try {
+        const subRes = await fetch(
+          `https://graph.facebook.com/v21.0/${pageId}/subscribed_apps?subscribed_fields=leadgen&access_token=${pageAccessToken}`,
+          { method: "POST" }
+        );
+        const subData = await subRes.json();
+
+        if (subData.success) {
+          subscribed++;
+          console.log(`[meta-subscribe] Subscribed page ${pageId}`);
+        } else {
+          failed++;
+          console.error(`[meta-subscribe] Failed to subscribe page ${pageId}:`, JSON.stringify(subData.error));
+        }
+      } catch (err) {
+        failed++;
+        console.error(`[meta-subscribe] Error subscribing page ${pageId}:`, err);
+      }
+    }
+
+    return { subscribed, failed, pagesChecked: pages.length };
+  } catch (err) {
+    console.error("[meta-subscribe] Unexpected error:", err);
+    return { subscribed: 0, failed: 1 };
+  }
+}
 
 function normalizeName(value?: string | null) {
   return (value || "")
