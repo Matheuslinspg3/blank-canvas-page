@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Loader2, LogIn, RefreshCw, WifiOff, XCircle, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import MetaRealtimeActivationAlert from "./MetaRealtimeActivationAlert";
 
 export default function MetaSettingsContent() {
   const { account, isConnected, disconnectAccount } = useAdAccount();
