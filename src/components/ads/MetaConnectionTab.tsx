@@ -59,6 +59,7 @@ export default function MetaConnectionTab() {
     const handleOAuthResult = async () => {
       if (metaSuccess) {
         nextParams.delete("meta_success");
+        nextParams.delete("meta_realtime");
         setSearchParams(nextParams, { replace: true });
         setIsInitialSyncing(true);
         try {
@@ -71,14 +72,26 @@ export default function MetaConnectionTab() {
           const ads = entitiesResult.data?.ads ?? 0;
           const insights = entitiesResult.data?.insights ?? 0;
           const leads = leadsResult.error ? 0 : (leadsResult.data?.synced ?? 0);
-          toast({ title: "Conectado!", description: `Sincronizado: ${ads} anúncios, ${insights} métricas e ${leads} leads.` });
-        } catch {
+          
+          if (metaRealtime === "attention") {
+            toast({ 
+              title: "Conectado!", 
+              description: `Atenção: A sincronização em tempo real precisa ser ativada manualmente.`,
+            });
+          } else {
+            toast({ title: "Conectado!", description: `Sincronizado: ${ads} anúncios, ${insights} métricas e ${leads} leads.` });
+          }
+          return;
+        } catch (err) {
+          console.error("Meta sync error:", err);
           await invalidateMetaQueries();
           toast({ title: "Conta conectada", description: "Sincronização inicial incompleta. Use os botões abaixo.", variant: "destructive" });
+          return;
         } finally {
           setIsInitialSyncing(false);
         }
       }
+
       if (metaError) {
         const errorMessages: Record<string, string> = {
           missing_params: "Parâmetros ausentes no callback.",
@@ -97,7 +110,7 @@ export default function MetaConnectionTab() {
       }
     };
     void handleOAuthResult();
-  }, [queryClient, searchParams, setSearchParams, toast]);
+  }, [queryClient, searchParams, setSearchParams, toast, metaRealtime]);
 
   const handleConnectMeta = async () => {
     if (!profile?.organization_id || !profile?.user_id) return;
