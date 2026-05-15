@@ -12,7 +12,7 @@ export default function MetaRealtimeActivationAlert() {
   const [status, setStatus] = useState<"unknown" | "checking" | "enabled" | "attention" | "needs_reconnect">("unknown");
   const { toast } = useToast();
 
-  const realtimeStatus = account?.auth_payload?.meta_realtime?.status;
+  const realtimeStatus = (account as any)?.auth_payload?.meta_realtime?.status;
 
   useEffect(() => {
     if (realtimeStatus) {
