@@ -87,9 +87,15 @@ describe('hasReachedLimit', () => {
 });
 
 describe('isOrgOnInternalUnlimited / isInternalPlan', () => {
-  it('detects internal_unlimited slug (case insensitive)', () => {
+  it('detects internal_unlimited slug and variations (case/accent insensitive)', () => {
     expect(isOrgOnInternalUnlimited({ slug: 'internal_unlimited' })).toBe(true);
     expect(isOrgOnInternalUnlimited({ slug: 'INTERNAL_UNLIMITED' })).toBe(true);
+    expect(isOrgOnInternalUnlimited({ slug: 'internal-unlimited' })).toBe(true);
+    expect(isOrgOnInternalUnlimited({ slug: 'plano-interno-unlimited' })).toBe(true);
+    expect(isOrgOnInternalUnlimited({ slug: 'interno_unlimited' })).toBe(true);
+    expect(isOrgOnInternalUnlimited({ slug: 'Plano Interno Unlimited' })).toBe(true);
+    expect(isOrgOnInternalUnlimited({ name: 'Plano Interno Unlimited', slug: 'something_else' })).toBe(true);
+    expect(isOrgOnInternalUnlimited({ features: { is_internal_unlimited: true } })).toBe(true);
     expect(isOrgOnInternalUnlimited({ slug: 'business' })).toBe(false);
     expect(isOrgOnInternalUnlimited(null)).toBe(false);
   });

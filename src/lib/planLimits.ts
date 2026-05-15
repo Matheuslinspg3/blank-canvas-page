@@ -77,8 +77,54 @@ export function hasReachedLimit(current: number, limit: number | null | undefine
  * The internal_unlimited plan ALWAYS bypasses every product limit,
  * regardless of column values, role, or feature flags.
  */
-export function isOrgOnInternalUnlimited(plan: { slug?: string | null } | null | undefined): boolean {
-  return (plan?.slug ?? '').toLowerCase() === 'internal_unlimited';
+/**
+ * Normalize an identifier (slug or name) for robust comparison.
+ * Removes accents, converts to lowercase, replaces spaces/dashes with underscores,
+ * and removes all non-alphanumeric characters.
+ */
+function normalizeIdentifier(val: string | null | undefined): string {
+  if (!val) return '';
+  return val
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // remove accents
+    .replace(/[-\s]/g, '_') // dash/space to underscore
+    .replace(/[^a-z0-9_]/g, ''); // remove special chars
+}
+
+/**
+ * The internal_unlimited plan ALWAYS bypasses every product limit,
+ * regardless of column values, role, or feature flags.
+ */
+export function isOrgOnInternalUnlimited(
+  plan: { slug?: string | null; name?: string | null; features?: any } | null | undefined,
+): boolean {
+  if (!plan) return false;
+
+  // 1. Explicit marker in features JSONB
+  if (plan.features?.is_internal_unlimited === true) return true;
+
+  // 2. Normalized slug check
+  const nSlug = normalizeIdentifier(plan.slug);
+  if (
+    nSlug === 'internal_unlimited' ||
+    nSlug === 'interno_unlimited' ||
+    nSlug === 'plano_interno_unlimited'
+  ) {
+    return true;
+  }
+
+  // 3. Normalized name check
+  const nName = normalizeIdentifier(plan.name);
+  if (
+    nName === 'internal_unlimited' ||
+    nName === 'interno_unlimited' ||
+    nName === 'plano_interno_unlimited'
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 /** True if this plan should be hidden from public upgrade UIs and checkout. */

@@ -14,7 +14,9 @@ interface FeatureGateProps {
 }
 
 export function FeatureGate({ featureKey, currentCount = 0, children, fallback }: FeatureGateProps) {
-  const { allowed, limit } = useFeatureGate(featureKey, currentCount);
+  const { allowed, limit, loading } = useFeatureGate(featureKey, currentCount);
+
+  if (loading) return null;
 
   if (allowed) return <>{children}</>;
 
@@ -31,7 +33,9 @@ interface FeatureFlagGateProps {
 }
 
 export function FeatureFlagGate({ featureKey, children, fallback }: FeatureFlagGateProps) {
-  const { allowed } = useFeatureFlag(featureKey);
+  const { allowed, loading } = useFeatureFlag(featureKey);
+
+  if (loading) return null;
 
   if (allowed) return <>{children}</>;
 
