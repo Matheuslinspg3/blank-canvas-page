@@ -146,6 +146,8 @@ export default function MetaConnectionTab() {
 
   return (
     <div className="space-y-6">
+      {isConnected && <MetaRealtimeActivationAlert />}
+      
       <IntegrationConnectionCard
         platform="Meta Ads"
         platformIcon={<Megaphone className="h-4 w-4" />}
