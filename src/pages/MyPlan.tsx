@@ -117,8 +117,11 @@ export default function MyPlan() {
   if (loadingSub || loadingPlans || rolesLoading) {
     return (
       <div className="space-y-6 p-6">
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-48 w-full rounded-xl" />
+        <PageHeader title="Meu Plano" description="Carregando informações da sua assinatura..." />
+        <div className="grid gap-6 md:grid-cols-2">
+          <Skeleton className="h-48 w-full rounded-xl" />
+          <Skeleton className="h-48 w-full rounded-xl" />
+        </div>
         <Skeleton className="h-64 w-full rounded-xl" />
       </div>
     );

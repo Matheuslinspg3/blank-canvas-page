@@ -8,6 +8,7 @@ export interface FeatureGateResult {
   current: number;
   /** Call to show upgrade toast & return false, or return true if allowed */
   guard: () => boolean;
+  loading: boolean;
 }
 
 /**
@@ -15,9 +16,9 @@ export interface FeatureGateResult {
  * Pass `currentCount` (how many the org already has) and it compares against the plan limit.
  */
 export function useFeatureGate(featureKey: string, currentCount: number = 0): FeatureGateResult {
-  const { currentPlan, isActive } = useSubscription();
+  const { currentPlan, isActive, loadingSub } = useSubscription();
   const limit = getFeatureLimit(currentPlan, featureKey);
-  const allowed = isActive !== false && (limit === Infinity || currentCount < limit);
+  const allowed = loadingSub || (isActive !== false && (limit === Infinity || currentCount < limit));
 
   const guard = useCallback(() => {
     if (!allowed) {
@@ -29,15 +30,21 @@ export function useFeatureGate(featureKey: string, currentCount: number = 0): Fe
     return true;
   }, [allowed, limit, featureKey]);
 
-  return { allowed, limit, current: currentCount, guard };
+  return { allowed, limit, current: currentCount, guard, loading: loadingSub };
+}
+
+export interface FeatureFlagResult {
+  allowed: boolean;
+  loading: boolean;
+  guard: () => boolean;
 }
 
 /**
  * Hook that checks a boolean feature flag from the plan.
  */
-export function useFeatureFlag(featureKey: string): { allowed: boolean; guard: () => boolean } {
-  const { currentPlan, isActive } = useSubscription();
-  const allowed = isActive !== false && hasFeature(currentPlan, featureKey);
+export function useFeatureFlag(featureKey: string): FeatureFlagResult {
+  const { currentPlan, isActive, loadingSub } = useSubscription();
+  const allowed = loadingSub || (isActive !== false && hasFeature(currentPlan, featureKey));
 
   const guard = useCallback(() => {
     if (!allowed) {
@@ -49,5 +56,5 @@ export function useFeatureFlag(featureKey: string): { allowed: boolean; guard: (
     return true;
   }, [allowed]);
 
-  return { allowed, guard };
+  return { allowed, guard, loading: loadingSub };
 }

@@ -177,7 +177,7 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
     },
   });
 
-  const { data: subscription, isLoading: loadingSub } = useQuery({
+  const { data: subscription, isLoading: loadingSubRaw } = useQuery({
     queryKey: ["subscription", orgId],
     queryFn: async () => {
       if (!orgId) return null;
@@ -193,6 +193,10 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
     },
     enabled: !!orgId,
   });
+
+  // Ensure we don't return "blocked" state while auth or profile is still loading
+  const { loading: loadingAuth } = useAuth();
+  const loadingSub = loadingAuth || (!!session && !profile) || loadingSubRaw;
 
   const { data: payments = [], isLoading: loadingPayments } = useQuery({
     queryKey: ["billing-payments", orgId],
