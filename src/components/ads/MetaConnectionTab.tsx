@@ -37,9 +37,10 @@ export default function MetaConnectionTab() {
   }, [settings]);
 
   // Handle OAuth callback
+  const metaRealtime = searchParams.get("meta_realtime");
+
   useEffect(() => {
     const metaSuccess = searchParams.get("meta_success");
-    const metaRealtime = searchParams.get("meta_realtime");
     const metaError = searchParams.get("meta_error");
     if (!metaSuccess && !metaError) return;
 
