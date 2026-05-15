@@ -36,6 +36,8 @@ export default function MetaSettingsContent() {
     }
   }, [settings]);
 
+  const metaRealtime = searchParams.get("meta_realtime");
+
   useEffect(() => {
     const metaSuccess = searchParams.get("meta_success");
     const metaError = searchParams.get("meta_error");
@@ -60,6 +62,7 @@ export default function MetaSettingsContent() {
     const handleOAuthResult = async () => {
       if (metaSuccess) {
         nextParams.delete("meta_success");
+        nextParams.delete("meta_realtime");
         setSearchParams(nextParams, { replace: true });
         setIsInitialSyncing(true);
 
@@ -81,10 +84,18 @@ export default function MetaSettingsContent() {
           const insights = entitiesResult.data?.insights ?? 0;
           const leads = leadsResult.error ? 0 : (leadsResult.data?.synced ?? 0);
 
-          toast({
-            title: "Conectado!",
-            description: `Conta conectada e sincronizada: ${ads} anúncios, ${insights} métricas e ${leads} leads.`,
-          });
+          if (metaRealtime === "attention") {
+            toast({
+              title: "Conectado!",
+              description: "Atenção: A sincronização em tempo real precisa ser ativada manualmente.",
+            });
+          } else {
+            toast({
+              title: "Conectado!",
+              description: `Conta conectada e sincronizada: ${ads} anúncios, ${insights} métricas e ${leads} leads.`,
+            });
+          }
+          return;
         } catch {
           await invalidateMetaQueries();
           toast({
@@ -92,6 +103,7 @@ export default function MetaSettingsContent() {
             description: "A conexão foi concluída, mas a sincronização inicial não terminou. Use os botões abaixo para sincronizar.",
             variant: "destructive",
           });
+          return;
         } finally {
           setIsInitialSyncing(false);
         }
@@ -122,7 +134,7 @@ export default function MetaSettingsContent() {
     };
 
     void handleOAuthResult();
-  }, [queryClient, searchParams, setSearchParams, toast]);
+  }, [queryClient, searchParams, setSearchParams, toast, metaRealtime]);
 
   const handleConnectMeta = async () => {
     if (!profile?.organization_id || !profile?.user_id) return;
