@@ -182,6 +182,8 @@ export default function MetaSettingsContent() {
 
   return (
     <div className="space-y-6">
+      {isConnected && <MetaRealtimeActivationAlert />}
+      
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Conectar Meta Ads</CardTitle>
