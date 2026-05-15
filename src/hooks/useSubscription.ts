@@ -195,7 +195,7 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
   });
 
   // Ensure we don't return "blocked" state while auth or profile is still loading
-  const { isLoading: loadingAuth } = useAuth();
+  const { loading: loadingAuth } = useAuth();
   const loadingSub = loadingAuth || (!!session && !profile) || loadingSubRaw;
 
   const { data: payments = [], isLoading: loadingPayments } = useQuery({

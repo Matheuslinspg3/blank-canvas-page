@@ -8,6 +8,7 @@ export interface FeatureGateResult {
   current: number;
   /** Call to show upgrade toast & return false, or return true if allowed */
   guard: () => boolean;
+  loading: boolean;
 }
 
 /**
