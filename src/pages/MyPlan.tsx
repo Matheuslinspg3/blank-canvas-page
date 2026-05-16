@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { useSubscription, SubscriptionPlan } from "@/hooks/useSubscription";
+import { isPublicCommercialPlan } from "@/lib/planLimits";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRoles } from "@/hooks/useUserRole";
 import { useQuery } from "@tanstack/react-query";
@@ -18,7 +19,6 @@ import {
   AlertTriangle,
   Building2,
   UserCheck,
-  Sparkles,
   Check,
   Crown,
   CreditCard,
@@ -26,7 +26,6 @@ import {
   ExternalLink,
   XCircle,
   Clock,
-  
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -64,7 +63,7 @@ export default function MyPlan() {
   const {
     plans, mainPlans, subscription, payments, currentPlan,
     loadingSub, loadingPlans, loadingPayments,
-    isActive, isPending, isOverdue, isCancelled,
+    isActive, isOverdue, isCancelled,
     isTrialActive, getTrialDaysRemaining, getCurrentPlanSlug,
     getFeatureLimit, cancel,
   } = useSubscription({ enabled: true });
@@ -94,7 +93,6 @@ export default function MyPlan() {
   const limits = {
     properties: getFeatureLimit("max_own_properties"),
     leads: getFeatureLimit("max_leads"),
-    ai: getFeatureLimit("ai_credits_limit"),
   };
 
   const pct = (used: number, limit: number) => {
@@ -110,9 +108,7 @@ export default function MyPlan() {
   const isExpiringSoon = daysUntilExpiry <= 7 && daysUntilExpiry > 0;
 
   // Available plans for display (exclude addons)
-  const displayPlans = (mainPlans.length > 0 ? mainPlans : plans).filter(
-    (p) => (p as any).plan_type !== "addon"
-  );
+  const displayPlans = (mainPlans.length > 0 ? mainPlans : plans).filter(isPublicCommercialPlan);
 
   if (loadingSub || loadingPlans || rolesLoading) {
     return (
@@ -247,9 +243,8 @@ export default function MyPlan() {
               <CardDescription>Consumo dos recursos do seu plano</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <UsageRow icon={Building2} label="Imóveis" used={usageData.properties} limit={limits.properties} pct={pct} fmtLimit={fmtLimit} />
-              <UsageRow icon={UserCheck} label="Leads" used={usageData.leads} limit={limits.leads} pct={pct} fmtLimit={fmtLimit} />
-              <UsageRow icon={Sparkles} label="Créditos de IA" used={0} limit={limits.ai} pct={pct} fmtLimit={fmtLimit} />
+              <UsageRow icon={Building2} label="Imóveis cadastrados" used={usageData.properties} limit={limits.properties} pct={pct} fmtLimit={fmtLimit} />
+              <UsageRow icon={UserCheck} label="Leads no CRM" used={usageData.leads} limit={limits.leads} pct={pct} fmtLimit={fmtLimit} />
             </CardContent>
           </Card>
         </div>
@@ -315,11 +310,13 @@ export default function MyPlan() {
                   <CardContent className="flex-1 space-y-2 text-xs">
                     <PlanFeature label={`${plan.max_own_properties === null || plan.max_own_properties === -1 ? "Ilimitado" : fmtLimit(plan.max_own_properties ?? 0)} imóveis`} />
                     <PlanFeature label={`${plan.max_leads === null || plan.max_leads === -1 ? "Ilimitado" : fmtLimit(plan.max_leads ?? 0)} leads`} />
-                    {plan.marketplace_access && <PlanFeature label="Marketplace" />}
-                    {plan.priority_support && <PlanFeature label="Suporte prioritário" />}
-                    {plan.features && (plan.features as any).has_contracts && <PlanFeature label="Contratos" />}
+                    {plan.features && (plan.features as any).max_marketplace_properties !== 0 && <PlanFeature label="Marketplace de imóveis" />}
+                    {plan.features && (plan.features as any).has_schedule && <PlanFeature label="Agenda" />}
                     {plan.features && (plan.features as any).has_financial && <PlanFeature label="Financeiro" />}
-                    {plan.features && (plan.features as any).has_whatsapp && <PlanFeature label="WhatsApp" />}
+                    {plan.features && (plan.features as any).has_crm && <PlanFeature label="CRM" />}
+                    {plan.features && (plan.features as any).has_import && <PlanFeature label="CRM com integração" />}
+                    {plan.features && (plan.features as any).has_team_management && <PlanFeature label="Gerenciamento de equipe" />}
+                    {plan.features && (plan.features as any).has_reports && <PlanFeature label="Relatórios" />}
                   </CardContent>
                   <div className="p-4 pt-0">
                     <Button
@@ -355,6 +352,7 @@ export default function MyPlan() {
                   <thead>
                     <tr className="border-b text-left text-muted-foreground">
                       <th className="py-2 pr-4 font-medium">Data</th>
+                      <th className="py-2 pr-4 font-medium">Descrição</th>
                       <th className="py-2 pr-4 font-medium">Valor</th>
                       <th className="py-2 pr-4 font-medium">Método</th>
                       <th className="py-2 pr-4 font-medium">Status</th>
@@ -367,8 +365,13 @@ export default function MyPlan() {
                         <td className="py-2.5 pr-4">
                           {format(new Date(p.created_at), "dd/MM/yyyy", { locale: ptBR })}
                         </td>
+                        <td className="py-2.5 pr-4 text-muted-foreground">
+                          {p.description || "Mensalidade"}
+                        </td>
                         <td className="py-2.5 pr-4 font-medium">
-                          R$ {(p.amount_cents / 100).toFixed(2)}
+                          {p.provider_payment_id?.endsWith(":initial_property_access_fee")
+                            ? "Incluída na cobrança PIX"
+                            : `R$ ${(p.amount_cents / 100).toFixed(2)}`}
                         </td>
                         <td className="py-2.5 pr-4 capitalize text-muted-foreground">
                           {p.method === "pix" ? "PIX" : p.method === "credit_card" ? "Cartão" : p.method || "—"}

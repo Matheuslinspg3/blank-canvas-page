@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
 import { cn } from "@/lib/utils";
+import { isPublicCommercialPlan } from "@/lib/planLimits";
 import { toast } from "sonner";
 import {
   Building2, User, ArrowRight, ArrowLeft,
@@ -119,17 +120,14 @@ export default function OnboardingWizard() {
     (async () => {
       const { data, error } = await supabase
         .from("subscription_plans")
-        .select("id, slug, name, price_monthly, trial_days, description, display_order")
+        .select("id, slug, name, price_monthly, trial_days, description, display_order, features, plan_type")
         .eq("is_active", true)
-        .not("slug", "like", "addon-%")
-        .neq("slug", "personalizado")
-        .neq("slug", "enterprise")
         .order("display_order", { ascending: true });
       if (cancelled) return;
       if (error) {
         console.error("[Onboarding] plans fetch error:", error);
       } else {
-        const rows = (data ?? []) as PlanRow[];
+        const rows = ((data ?? []) as PlanRow[]).filter(isPublicCommercialPlan);
         setPlans(rows);
         setPlanSlug((current) => rows.some((plan) => plan.slug === current) ? current : (rows[0]?.slug ?? current));
       }
@@ -299,7 +297,6 @@ export default function OnboardingWizard() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[55vh] overflow-y-auto pr-1">
           {plans.map((plan) => {
-            const isFree = plan.slug === "gratuito";
             const selected = planSlug === plan.slug;
             return (
               <button
@@ -315,16 +312,16 @@ export default function OnboardingWizard() {
               >
                 <div className="flex items-center justify-between w-full">
                   <span className="text-sm font-semibold text-foreground">{plan.name}</span>
-                  {isFree && (
+                  {plan.slug === "profissional" && (
                     <span className="text-[10px] uppercase tracking-wide bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded-full font-semibold">
                       Recomendado
                     </span>
                   )}
                 </div>
                 <span className="text-lg font-bold text-foreground">
-                  {isFree ? "Grátis" : `${formatBRL(plan.price_monthly)}/mês`}
+                  {`${formatBRL(plan.price_monthly)}/mês`}
                 </span>
-                {plan.trial_days && plan.trial_days > 0 && !isFree && (
+                {plan.trial_days && plan.trial_days > 0 && (
                   <span className="text-xs text-muted-foreground">
                     {plan.trial_days} dias grátis para testar
                   </span>

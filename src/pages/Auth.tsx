@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowRight, ArrowLeft, Construction, Building2, User, Eye, EyeOff, Check, Gift, Crown, Zap, Star, Mail, Landmark } from "lucide-react";
+import { Loader2, ArrowRight, ArrowLeft, Construction, Building2, User, Eye, EyeOff, Check, Gift, Crown, Star, Mail, Briefcase } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { PasswordStrengthIndicator, isPasswordStrong } from "@/components/PasswordStrengthIndicator";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
+import { isPublicCommercialPlan } from "@/lib/planLimits";
 import { PasskeyLoginButton } from "@/components/auth/PasskeyLoginButton";
 
 interface SignupPlan {
@@ -32,11 +33,9 @@ interface SignupPlan {
 }
 
 const PLAN_ICONS: Record<string, React.ElementType> = {
-  gratuito: Gift,
-  starter: Zap,
-  correspondente: Landmark,
-  essencial: Star,
+  essencial: Briefcase,
   profissional: Crown,
+  business: Building2,
 };
 
 const loginSchema = z.object({
@@ -123,15 +122,13 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
     queryFn: async () => {
       const { data, error } = await supabase
         .from("subscription_plans")
-        .select("id, name, slug, price_monthly, trial_days, features, description")
+        .select("id, name, slug, price_monthly, trial_days, features, description, plan_type")
         .eq("is_active", true)
-        .neq("plan_type", "addon")
-        .order("display_order")
-        .limit(6);
+        .order("display_order");
       if (error) throw error;
 
       const rows = Array.isArray(data) ? (data as SignupPlan[]) : [];
-      return rows.filter((p) => ['gratuito', 'starter', 'correspondente', 'essencial', 'profissional'].includes(p.slug));
+      return rows.filter(isPublicCommercialPlan);
     },
   });
 
@@ -643,7 +640,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
               {/* Plan selection */}
               <div className="space-y-2">
                 <Label className="editorial-label-muted">Escolha seu plano</Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {signupPlans.map((plan) => {
                     const PlanIcon = PLAN_ICONS[plan.slug] || Star;
                     const isSelected = signupForm.selected_plan === plan.slug;
@@ -696,10 +693,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                           {trialDays} dias de teste grátis incluídos
                         </p>
                       )}
-                      {sel.slug === 'gratuito' && (
-                        <p>Acesso limitado por 15 dias. Upgrade a qualquer momento.</p>
-                      )}
-                      {sel.slug !== 'gratuito' && sel.price_monthly > 0 && (
+                      {sel.price_monthly > 0 && (
                         <p>Cobrança de R$ {(sel.price_monthly / 100).toFixed(2)}/mês após o período gratuito.</p>
                       )}
                     </div>
@@ -816,7 +810,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
               <Button type="submit" size="lg" variant="gold" className="w-full h-14 text-base group glow-primary-hover" disabled={isLoading || isMaintenanceMode}>
                 {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : (
                   <>
-                    {signupForm.selected_plan === 'gratuito' ? 'Criar Conta Gratuita' : `Começar com ${signupPlans.find(p => p.slug === signupForm.selected_plan)?.name || 'Plano inicial'}`}
+                    {`Começar com ${signupPlans.find(p => p.slug === signupForm.selected_plan)?.name || 'Plano Essencial'}`}
                     <ArrowRight className="h-5 w-5 ml-2 transition-transform group-hover:translate-x-1.5" />
                   </>
                 )}

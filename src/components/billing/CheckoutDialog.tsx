@@ -28,7 +28,7 @@ export interface CheckoutDialogProps {
 }
 
 export function CheckoutDialog({ open, onOpenChange, plan, customModules }: CheckoutDialogProps) {
-  const { subscribe } = useSubscription({ enabled: true });
+  const { subscribe, payments } = useSubscription({ enabled: true });
   const { profile } = useAuth();
 
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
@@ -37,12 +37,35 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
   const [customerCpf, setCustomerCpf] = useState("");
   const [pixData, setPixData] = useState<{ qrCode: string; copyPaste: string } | null>(null);
   const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null);
+  const [initialFeeInvoiceUrl, setInitialFeeInvoiceUrl] = useState<string | null>(null);
+  const [chargedInitialFeeCents, setChargedInitialFeeCents] = useState(0);
   const [copied, setCopied] = useState(false);
   const [cpfError, setCpfError] = useState<string | null>(null);
 
   if (!plan) return null;
 
   const price = billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly;
+  const features = (plan.features ?? {}) as Record<string, unknown>;
+  const configuredInitialFeeCents = typeof features.initial_property_access_fee_cents === "number"
+    ? features.initial_property_access_fee_cents
+    : 0;
+  const initialFeeAttempts = payments.filter(
+    (payment) => payment.description === "Taxa inicial de acesso aos imóveis"
+  );
+  const hasInitialFeeAttempt = initialFeeAttempts.length > 0;
+  const hasConfirmedInitialFee = initialFeeAttempts.some((payment) => payment.status === "confirmed");
+  const hasPendingOrConfirmedInitialFee = initialFeeAttempts.some(
+    (payment) => payment.status === "pending" || payment.status === "confirmed"
+  );
+  const hasAnyConfirmedPaidSubscription = payments.some(
+    (payment) => payment.status === "confirmed" && payment.description !== "Taxa inicial de acesso aos imóveis"
+  );
+  const initialFeeCents = !customModules &&
+    !hasPendingOrConfirmedInitialFee &&
+    (!hasAnyConfirmedPaidSubscription || hasInitialFeeAttempt)
+    ? configuredInitialFeeCents
+    : 0;
+  const firstChargeTotalCents = price + initialFeeCents;
   const yearlyMonthlyEquivalent = Math.round(plan.price_yearly / 12);
   const yearlySavings = plan.price_monthly * 12 - plan.price_yearly;
 
@@ -100,12 +123,15 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
       {
         onSuccess: (data: any) => {
           if (data?.pixData) {
+            setChargedInitialFeeCents(data.initialFeeChargedCents || 0);
             setPixData({
               qrCode: data.pixData.qrCode,
               copyPaste: data.pixData.copyPaste,
             });
           } else if (data?.invoiceUrl) {
             setInvoiceUrl(data.invoiceUrl);
+            setInitialFeeInvoiceUrl(data.initialFeeInvoiceUrl || null);
+            setChargedInitialFeeCents(data.initialFeeChargedCents || 0);
           } else {
             onOpenChange(false);
           }
@@ -126,6 +152,8 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
   const handleClose = () => {
     setPixData(null);
     setInvoiceUrl(null);
+    setInitialFeeInvoiceUrl(null);
+    setChargedInitialFeeCents(0);
     setCopied(false);
     onOpenChange(false);
   };
@@ -151,10 +179,15 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
               <p className="text-sm text-muted-foreground">
                 Você será redirecionado para um ambiente seguro de pagamento onde poderá inserir os dados do seu cartão de crédito ou débito.
               </p>
-              <p className="text-sm font-medium">R$ {(Number(price) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+              <p className="text-sm font-medium">R$ {((Number(price) + chargedInitialFeeCents) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
               <p className="text-xs text-muted-foreground">
                 Plano {plan.name} — {billingCycle === "yearly" ? "Anual" : "Mensal"}
               </p>
+              {chargedInitialFeeCents > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Inclui taxa inicial única de R$ {(chargedInitialFeeCents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}.
+                </p>
+              )}
             </div>
 
             <Button
@@ -163,8 +196,20 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
               onClick={() => window.open(invoiceUrl, "_blank")}
             >
               <ExternalLink className="h-4 w-4 mr-2" />
-              Abrir página de pagamento
+              Abrir mensalidade do plano
             </Button>
+
+            {initialFeeInvoiceUrl && (
+              <Button
+                className="w-full"
+                variant="outline"
+                size="lg"
+                onClick={() => window.open(initialFeeInvoiceUrl, "_blank")}
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Abrir taxa inicial única
+              </Button>
+            )}
 
             <p className="text-xs text-muted-foreground text-center">
               ⏱️ Após o pagamento, sua assinatura será ativada automaticamente
@@ -223,10 +268,15 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
             </div>
 
             <div className="text-center space-y-1">
-              <p className="text-sm font-medium">R$ {(Number(price) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+              <p className="text-sm font-medium">R$ {((Number(price) + chargedInitialFeeCents) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
               <p className="text-xs text-muted-foreground">
                 Plano {plan.name} — {billingCycle === "yearly" ? "Anual" : "Mensal"}
               </p>
+              {chargedInitialFeeCents > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Inclui taxa inicial única de acesso aos imóveis.
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">
                 ⏱️ Após o pagamento, sua assinatura será ativada automaticamente.
                 Seu plano atual permanece ativo até a confirmação.
@@ -246,7 +296,7 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Assinar Plano {plan.name}</DialogTitle>
+          <DialogTitle>Assinar {plan.name}</DialogTitle>
           <DialogDescription>
             Preencha seus dados para finalizar a assinatura
           </DialogDescription>
@@ -369,14 +419,33 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
           {/* Summary */}
           <div className="p-3 rounded-lg bg-muted/50 space-y-1">
             <div className="flex justify-between text-sm">
-              <span>Plano {plan.name}</span>
+              <span>Mensalidade {plan.name}</span>
               <span className="font-medium">R$ {(Number(price) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+            </div>
+            {configuredInitialFeeCents > 0 && (
+              <div className="flex justify-between text-sm">
+                <span>Taxa inicial de acesso aos imóveis</span>
+                <span className="font-medium">
+                  {initialFeeCents > 0
+                    ? `R$ ${(initialFeeCents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+                    : hasConfirmedInitialFee ? "Já quitada" : hasPendingOrConfirmedInitialFee ? "Cobrança pendente" : "Dispensada"}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between text-sm border-t pt-2 mt-2">
+              <span>Total da primeira cobrança</span>
+              <span className="font-semibold">R$ {(firstChargeTotalCents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
             </div>
             <p className="text-xs text-muted-foreground">
               {billingCycle === "yearly"
-                ? `Cobrado anualmente via ${paymentMethod === "pix" ? "PIX" : "Cartão"}`
-                : `Cobrado mensalmente via ${paymentMethod === "pix" ? "PIX" : "Cartão"}`}
+                ? `Plano cobrado anualmente via ${paymentMethod === "pix" ? "PIX" : "Cartão"}`
+                : `Plano cobrado mensalmente via ${paymentMethod === "pix" ? "PIX" : "Cartão"}`}
             </p>
+            {initialFeeCents > 0 && (
+              <p className="text-xs text-muted-foreground">
+                A taxa inicial é cobrada apenas uma vez na primeira assinatura paga da organização e não altera a recorrência do plano.
+              </p>
+            )}
             {billingCycle === "yearly" && (
               <p className="text-xs text-muted-foreground">
                 Equivalente a R$ {(yearlyMonthlyEquivalent / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/mês
@@ -396,7 +465,7 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
                 Processando...
               </>
             ) : (
-              `Assinar por R$ ${(Number(price) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+              `Assinar por R$ ${(firstChargeTotalCents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
             )}
           </Button>
         </div>

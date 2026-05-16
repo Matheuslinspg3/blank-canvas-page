@@ -38,6 +38,8 @@ function isValidDocument(doc: string): boolean {
 // A14: CORS allowlist — fail-closed when not configured
 const ALLOWED_ORIGINS = (Deno.env.get("APP_ALLOWED_ORIGINS") || "").split(",").map(s => s.trim()).filter(Boolean);
 const DEFAULT_TRIAL_DAYS = 15;
+const PUBLIC_COMMERCIAL_PLAN_SLUGS = new Set(["essencial", "profissional", "business"]);
+const INITIAL_PROPERTY_ACCESS_FEE_DESCRIPTION = "Taxa inicial de acesso aos imóveis";
 
 function getCorsHeaders(req: Request) {
   const origin = req.headers.get("Origin") || "";
@@ -175,21 +177,59 @@ serve(async (req) => {
         .from("subscription_plans").select("*").eq("id", planId).single();
       if (!plan) throw new Error("Plan not found");
 
-      // Hard block: internal/non-purchasable plans must never be assigned via checkout.
+      // Hard block: checkout must only sell the current public commercial plans.
+      // Do not trust planId alone: manual requests could otherwise buy inactive,
+      // legacy, internal, or explicitly non-purchasable plans.
       const planFeatures = (plan.features ?? {}) as Record<string, unknown>;
       const isInternal =
         plan.slug === "internal_unlimited" ||
         planFeatures.is_internal === true ||
-        planFeatures.is_purchasable === false;
-      if (isInternal) {
+        planFeatures.is_internal_unlimited === true;
+      const isNonPurchasable = planFeatures.is_purchasable === false;
+      const isAllowedPublicPlan =
+        plan.is_active === true &&
+        PUBLIC_COMMERCIAL_PLAN_SLUGS.has(plan.slug) &&
+        !isInternal &&
+        !isNonPurchasable;
+
+      if (!isAllowedPublicPlan) {
         return new Response(
-          JSON.stringify({ error: "This plan cannot be purchased." }),
+          JSON.stringify({ error: "Plano indisponível para checkout público." }),
           { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
 
       const priceCents = billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly;
-      const priceReais = Number(priceCents) / 100; // Asaas expects value in BRL (reais)
+      const configuredInitialFeeCents = typeof planFeatures.initial_property_access_fee_cents === "number"
+        ? Number(planFeatures.initial_property_access_fee_cents)
+        : 0;
+
+      const { data: confirmedPayments } = await supabase
+        .from("billing_payments")
+        .select("id, description")
+        .eq("organization_id", orgId)
+        .eq("status", "confirmed");
+
+      const hasHistoricalConfirmedPaidSubscription = (confirmedPayments ?? []).some(
+        (payment: any) => payment.description !== INITIAL_PROPERTY_ACCESS_FEE_DESCRIPTION
+      );
+
+      const { data: initialFeeAttempts } = await supabase
+        .from("billing_payments")
+        .select("id, status")
+        .eq("organization_id", orgId)
+        .eq("description", INITIAL_PROPERTY_ACCESS_FEE_DESCRIPTION);
+
+      const hasInitialFeeAttempt = (initialFeeAttempts ?? []).length > 0;
+      const hasPendingOrConfirmedInitialFee = (initialFeeAttempts ?? []).some(
+        (payment: any) => payment.status === "pending" || payment.status === "confirmed"
+      );
+
+      const initialFeeCents = !hasPendingOrConfirmedInitialFee &&
+        (!hasHistoricalConfirmedPaidSubscription || hasInitialFeeAttempt)
+        ? configuredInitialFeeCents
+        : 0;
+      const recurringPriceReais = Number(priceCents) / 100; // Asaas expects value in BRL (reais)
       const now = new Date();
       const periodEnd = billingCycle === "yearly"
         ? new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000)
@@ -205,9 +245,9 @@ serve(async (req) => {
           body: JSON.stringify({
             customer: customerId,
             billingType: "PIX",
-            value: priceReais,
+            value: (Number(priceCents) + initialFeeCents) / 100,
             dueDate,
-            description: `Habitae ${plan.name} - ${billingCycle === "yearly" ? "Anual" : "Mensal"}`,
+            description: `Habitae ${plan.name} - ${billingCycle === "yearly" ? "Anual" : "Mensal"}${initialFeeCents > 0 ? " + taxa inicial de acesso aos imóveis" : ""}`,
             externalReference: orgId,
           }),
         });
@@ -241,12 +281,28 @@ serve(async (req) => {
           subscription_id: newSub.id,
           provider: "asaas",
           provider_payment_id: payment.id,
-          amount_cents: Number(priceCents),
+          amount_cents: Number(priceCents) + initialFeeCents,
           method: "pix",
           status: "pending",
           pix_qr_code: pixInfo.encodedImage,
           pix_copy_paste: pixInfo.payload,
+          description: initialFeeCents > 0
+            ? `Mensalidade ${plan.name} com taxa inicial de acesso aos imóveis`
+            : `Mensalidade ${plan.name}`,
         });
+
+        if (initialFeeCents > 0) {
+          await supabase.from("billing_payments").insert({
+            organization_id: orgId,
+            subscription_id: newSub.id,
+            provider: "asaas",
+            provider_payment_id: `${payment.id}:initial_property_access_fee`,
+            amount_cents: initialFeeCents,
+            method: "pix",
+            status: "pending",
+            description: INITIAL_PROPERTY_ACCESS_FEE_DESCRIPTION,
+          });
+        }
 
         return new Response(JSON.stringify({
           subscription: newSub,
@@ -255,6 +311,7 @@ serve(async (req) => {
             qrCode: pixInfo.encodedImage,
             copyPaste: pixInfo.payload,
           },
+          initialFeeChargedCents: initialFeeCents,
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -269,7 +326,7 @@ serve(async (req) => {
           body: JSON.stringify({
             customer: customerId,
             billingType: "CREDIT_CARD",
-            value: priceReais,
+            value: recurringPriceReais,
             cycle,
             description: `Habitae ${plan.name} - ${billingCycle === "yearly" ? "Anual" : "Mensal"}`,
             externalReference: orgId,
@@ -312,76 +369,59 @@ serve(async (req) => {
             method: "credit_card",
             status: "pending",
             invoice_url: invoiceUrl,
+            description: `Mensalidade ${plan.name}`,
+          });
+        }
+
+        let initialFeeInvoiceUrl: string | null = null;
+        if (initialFeeCents > 0) {
+          const dueDate = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000)
+            .toISOString().split("T")[0];
+          const initialFeePaymentAsaas = await asaasFetch("/payments", {
+            method: "POST",
+            body: JSON.stringify({
+              customer: customerId,
+              billingType: "CREDIT_CARD",
+              value: initialFeeCents / 100,
+              dueDate,
+              description: "Habitae - taxa inicial de acesso aos imóveis",
+              externalReference: orgId,
+            }),
+          });
+          initialFeeInvoiceUrl = initialFeePaymentAsaas.invoiceUrl || null;
+
+          await supabase.from("billing_payments").insert({
+            organization_id: orgId,
+            subscription_id: newSub.id,
+            provider: "asaas",
+            provider_payment_id: initialFeePaymentAsaas.id,
+            amount_cents: initialFeeCents,
+            method: "credit_card",
+            status: "pending",
+            invoice_url: initialFeeInvoiceUrl,
+            description: INITIAL_PROPERTY_ACCESS_FEE_DESCRIPTION,
           });
         }
 
         return new Response(JSON.stringify({
           subscription: newSub,
           invoiceUrl,
+          initialFeeInvoiceUrl,
+          initialFeeChargedCents: initialFeeCents,
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // Boleto fallback
-      const billingTypeMap: Record<string, string> = {
-        boleto: "BOLETO",
-      };
-      const cycle = billingCycle === "yearly" ? "YEARLY" : "MONTHLY";
-
-      const asaasSub = await asaasFetch("/subscriptions", {
-        method: "POST",
-        body: JSON.stringify({
-          customer: customerId,
-          billingType: billingTypeMap[paymentMethod] || "BOLETO",
-          value: priceReais,
-          cycle,
-          description: `Habitae ${plan.name} - ${billingCycle === "yearly" ? "Anual" : "Mensal"}`,
-          externalReference: orgId,
-        }),
-      });
-
-      const { data: newSub, error: subErr } = await supabase
-        .from("subscriptions")
-        .insert({
-          organization_id: orgId,
-          plan_id: planId,
-          status: "pending",
-          billing_cycle: billingCycle,
-          provider: "asaas",
-          provider_customer_id: customerId,
-          provider_subscription_id: asaasSub.id,
-          payment_method: paymentMethod,
-          current_period_start: now.toISOString(),
-          current_period_end: periodEnd.toISOString(),
-        })
-        .select()
-        .single();
-      if (subErr) throw subErr;
-
-      // NOTE: Old subscriptions will be cancelled by webhook on PAYMENT_CONFIRMED
-
-      // Fetch boleto payment URL
-      const boletoPayments = await asaasFetch(`/subscriptions/${asaasSub.id}/payments?limit=1`);
-      const boletoFirstPayment = boletoPayments.data?.[0];
-      const boletoInvoiceUrl = boletoFirstPayment?.invoiceUrl || boletoFirstPayment?.bankSlipUrl || null;
-
-      if (boletoFirstPayment) {
-        await supabase.from("billing_payments").insert({
-          organization_id: orgId,
-          subscription_id: newSub.id,
-          provider: "asaas",
-          provider_payment_id: boletoFirstPayment.id,
-          amount_cents: Number(priceCents),
-          method: paymentMethod,
-          status: "pending",
-          invoice_url: boletoInvoiceUrl,
-        });
-      }
-
-      return new Response(JSON.stringify({ subscription: newSub, invoiceUrl: boletoInvoiceUrl }), {
+      // Boleto/unknown methods are intentionally disabled for the public checkout.
+      // Keeping this path active would require a separate non-recurring first-fee
+      // flow and could bypass the initial property access fee.
+      return new Response(JSON.stringify({ error: "Forma de pagamento não suportada neste checkout." }), {
+        status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+
+
     }
 
     if (action === "create-custom-subscription") {

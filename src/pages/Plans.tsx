@@ -4,9 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription, SubscriptionPlan } from "@/hooks/useSubscription";
-import { isInternalPlan } from "@/lib/planLimits";
+import { isInternalPlan, isPublicCommercialPlan } from "@/lib/planLimits";
 import { CheckoutDialog } from "@/components/billing/CheckoutDialog";
-import { CustomPlanBuilder } from "@/components/billing/CustomPlanBuilder";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -20,9 +19,9 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import {
-  Check, X, Users, Building2, UserCheck, HardDrive, Sparkles, Store,
-  Crown, Star, Briefcase, Zap,
-  ChevronDown, ArrowRight, Shield, Clock, Landmark,
+  Check, X, Building2, UserCheck, Store,
+  Crown, Star, Briefcase,
+  ChevronDown, ArrowRight, Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -30,16 +29,6 @@ import { cn } from "@/lib/utils";
 const fmt = (cents: number | null | undefined) => {
   const val = (cents ?? 0) / 100;
   return val.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-};
-
-const fmtInt = (cents: number | null | undefined) => {
-  return Math.floor((cents ?? 0) / 100).toLocaleString("pt-BR");
-};
-
-const storageFmt = (mb: number | null | undefined) => {
-  const v = mb ?? 0;
-  if (v >= 1024) return `${(v / 1024).toFixed(0)} GB`;
-  return `${v} MB`;
 };
 
 const limitDisplay = (val: number | null | undefined) => {
@@ -63,9 +52,6 @@ const getNumericFeature = (plan: SubscriptionPlan, key: string, fallback = 0) =>
 interface PlanMeta { icon: React.ElementType; badge?: string; highlighted?: boolean; ctaLabel: string; ctaVariant: "default" | "outline" }
 
 const planMeta: Record<string, PlanMeta> = {
-  gratuito: { icon: Shield, ctaLabel: "Começar grátis", ctaVariant: "outline" },
-  starter: { icon: Star, ctaLabel: "Selecionar", ctaVariant: "default" },
-  correspondente: { icon: Landmark, badge: "Para Financiamentos", ctaLabel: "Selecionar", ctaVariant: "default" },
   essencial: { icon: Briefcase, badge: "Melhor custo", ctaLabel: "Selecionar", ctaVariant: "default" },
   profissional: { icon: Crown, badge: "Mais popular", highlighted: true, ctaLabel: "Selecionar", ctaVariant: "default" },
   business: { icon: Building2, ctaLabel: "Selecionar", ctaVariant: "default" },
@@ -75,85 +61,41 @@ const planMeta: Record<string, PlanMeta> = {
 interface FeatureRow {
   label: string;
   key: string;
-  type: "bool" | "number" | "storage" | "text";
+  type: "bool" | "number";
   category: string;
 }
 
 const featureRows: FeatureRow[] = [
-  // Limites comerciais (todos enforced em código)
-  { label: "Usuários", key: "max_users", type: "number", category: "Limites" },
-  { label: "Imóveis próprios", key: "max_own_properties", type: "number", category: "Limites" },
-  { label: "Leads", key: "max_leads", type: "number", category: "Limites" },
+  { label: "Imóveis cadastrados", key: "max_own_properties", type: "number", category: "Limites" },
+  { label: "Leads no CRM", key: "max_leads", type: "number", category: "Limites" },
   { label: "Imóveis no marketplace", key: "max_marketplace_properties", type: "number", category: "Limites" },
-  { label: "Domínios customizados", key: "max_custom_domains", type: "number", category: "Limites" },
-  // CRM
-  { label: "Financeiro", key: "has_financial", type: "bool", category: "CRM" },
-  { label: "Contratos", key: "has_contracts", type: "bool", category: "CRM" },
-  { label: "Comissões", key: "has_commissions", type: "bool", category: "CRM" },
-  { label: "Proprietários", key: "has_owners", type: "bool", category: "CRM" },
-  { label: "Importação de dados", key: "has_import", type: "bool", category: "CRM" },
-  { label: "Relatórios", key: "has_reports", type: "bool", category: "CRM" },
-  { label: "Log de auditoria", key: "has_audit_log", type: "bool", category: "CRM" },
-  // Créditos de IA
-  { label: "Créditos de IA/mês", key: "ai_credits_limit", type: "number", category: "Créditos de IA" },
-  { label: "Extração PDF com IA", key: "has_pdf_extract", type: "bool", category: "Créditos de IA" },
-  { label: "Contratos com IA", key: "has_contract_ai", type: "bool", category: "Créditos de IA" },
-  { label: "Análise de fotos IA", key: "has_photo_analysis", type: "bool", category: "Créditos de IA" },
-  // WhatsApp / Automações
-  { label: "WhatsApp integrado", key: "has_whatsapp", type: "bool", category: "WhatsApp / Automações" },
-  { label: "Automações", key: "has_automations", type: "bool", category: "WhatsApp / Automações" },
-  { label: "Push notifications", key: "has_push_notifications", type: "bool", category: "WhatsApp / Automações" },
-  { label: "Email automation", key: "has_email_automation", type: "bool", category: "WhatsApp / Automações" },
-  // Integrações
-  { label: "Marketplace publicação", key: "has_marketplace_publish", type: "bool", category: "Integrações" },
-  { label: "Marketplace contato", key: "has_marketplace_contact", type: "bool", category: "Integrações" },
-  { label: "Parcerias", key: "has_partnerships", type: "bool", category: "Integrações" },
-  { label: "Meta Ads", key: "has_meta_ads", type: "bool", category: "Integrações" },
-  { label: "RD Station", key: "has_rd_station", type: "bool", category: "Integrações" },
-  { label: "Feed XML", key: "has_xml_feed", type: "bool", category: "Integrações" },
-  { label: "Landing pages", key: "has_landing_pages", type: "bool", category: "Integrações" },
-  // Extras
-  { label: "Suporte prioritário", key: "has_priority_support", type: "bool", category: "Extras" },
-  { label: "Nível suporte", key: "support_level", type: "text", category: "Extras" },
+  { label: "Agenda", key: "has_schedule", type: "bool", category: "Recursos" },
+  { label: "Marketplace de imóveis", key: "has_marketplace_publish", type: "bool", category: "Recursos" },
+  { label: "Contato no marketplace", key: "has_marketplace_contact", type: "bool", category: "Recursos" },
+  { label: "CRM", key: "has_crm", type: "bool", category: "Recursos" },
+  { label: "CRM com integração", key: "has_import", type: "bool", category: "Recursos" },
+  { label: "Financeiro", key: "has_financial", type: "bool", category: "Recursos" },
+  { label: "Gerenciamento de equipe", key: "has_team_management", type: "bool", category: "Recursos" },
+  { label: "Relatórios", key: "has_reports", type: "bool", category: "Recursos" },
 ];
 
-// Limites/feature flags ainda decorativos (existem no JSON mas não são aplicados em código).
-// Mantidos fora da tabela comparativa para evitar promessas não cumpridas.
-// Quando forem implementados, mover para `featureRows` acima.
-// - max_storage_mb (uso interno técnico)
-// - ai_art_limit / ai_landing_limit / ai_video_limit (sub-limites do crédito IA)
-// - automations_limit (escopo do has_automations)
-
-const supportLabels: Record<string, string> = {
-  chat_ai: "Chat IA",
-  email: "E-mail",
-  whatsapp: "WhatsApp",
-  priority: "Prioritário",
-};
-
 const FAQ_ITEMS = [
-  { q: "Posso trocar de plano?", a: "Sim! O upgrade é imediato e o downgrade acontece no próximo ciclo de cobrança." },
-  { q: "O que acontece quando o trial acaba?", a: "Você volta automaticamente para o plano Gratuito. Todos os seus dados são mantidos." },
-  { q: "Preciso de cartão para o trial?", a: "Não. O período de teste é 100% gratuito, sem necessidade de cartão de crédito." },
-  { q: "Posso adicionar mais usuários?", a: "Sim! No Essencial custa R$19,90/mês por membro extra, no Profissional R$14,90/mês. No Business é ilimitado." },
-  { q: "O que são créditos de IA?", a: "Cada geração de texto, resumo ou análise consome 1 crédito de IA. Artes e vídeos têm contagem separada." },
-  { q: "Posso comprar mais créditos?", a: "Sim! Com o Pacote IA Extra por R$29,90/mês você ganha +50 créditos, +10 artes e +5 landing pages." },
-  { q: "Como funciona o WhatsApp?", a: "Integração com WhatsApp Business para notificações e atendimento. Incluso no Profissional e Business, ou disponível como addon por R$49,90/mês no Essencial." },
-  { q: "O que são automações?", a: "Fluxos automáticos: lead chega → notificação WhatsApp, imóvel publicado → anúncio nos portais, e muito mais." },
-  { q: "Meus dados ficam seguros?", a: "Sim! Criptografia SSL, Row Level Security (RLS), backups diários e infraestrutura de última geração." },
+  { q: "Quais são os planos públicos?", a: "Essencial, Profissional e Imobiliária. Planos antigos ou internos não aparecem nos cards públicos de assinatura." },
+  { q: "Posso testar antes de pagar?", a: "Sim. Os três planos têm 15 dias grátis para teste, sem necessidade de cartão no trial." },
+  { q: "Existe alguma taxa inicial?", a: "Sim. A primeira assinatura paga da organização inclui uma taxa única de R$100 para acesso aos imóveis. Ela não se torna cobrança recorrente." },
+  { q: "Posso trocar de plano?", a: "Sim. Upgrades podem ser feitos pelo checkout e a mensalidade recorrente continua sendo somente o valor do plano escolhido." },
   { q: "Posso cancelar?", a: "Sim, sem multa. Você mantém acesso até o fim do período pago." },
 ];
 
 
 /* ─── Main Features for card display ─── */
 const mainFeatureKeys = [
+  { key: "has_schedule", label: "Agenda" },
+  { key: "has_marketplace_publish", label: "Marketplace de imóveis" },
+  { key: "has_crm", label: "CRM" },
+  { key: "has_import", label: "CRM com integração" },
   { key: "has_financial", label: "Financeiro" },
-  { key: "has_contracts", label: "Contratos" },
-  { key: "has_owners", label: "Proprietários" },
-  { key: "has_whatsapp", label: "WhatsApp" },
-  { key: "has_automations", label: "Automações" },
-  { key: "has_import", label: "Importação" },
-  { key: "has_meta_ads", label: "Meta Ads" },
+  { key: "has_team_management", label: "Gerenciamento de equipe" },
   { key: "has_reports", label: "Relatórios" },
 ];
 
@@ -184,7 +126,7 @@ export default function Plans() {
     },
   });
 
-  const mainPlans = useMemo(() => allPlans.filter((p) => (p as any).plan_type === 'plan'), [allPlans]);
+  const mainPlans = useMemo(() => allPlans.filter(isPublicCommercialPlan), [allPlans]);
   
 
   const currentSlug = isLoggedIn ? getCurrentPlanSlug() : null;
@@ -213,12 +155,6 @@ export default function Plans() {
       return { label, disabled: false, action: () => navigate("/auth") };
     }
     
-    // Free plan can't be "selected" — it's the default
-    if (plan.slug === "gratuito") {
-      if (isCurrent) return { label: "Plano atual", disabled: true, action: () => {} };
-      return { label: "Plano gratuito", disabled: true, action: () => {} };
-    }
-
     // If user needs to pay (trial expired, free plan, etc), allow selecting ANY paid plan
     if (needsToPay) {
       return { 
@@ -240,8 +176,8 @@ export default function Plans() {
         <div className="max-w-7xl mx-auto px-4 py-16">
           <Skeleton className="h-12 w-96 mx-auto mb-4" />
           <Skeleton className="h-6 w-64 mx-auto mb-12" />
-          <div className="grid gap-6 md:grid-cols-3 lg:grid-cols-5">
-            {[1,2,3,4,5].map(i => <Skeleton key={i} className="h-[500px] rounded-xl" />)}
+          <div className="grid gap-6 md:grid-cols-3">
+            {[1,2,3].map(i => <Skeleton key={i} className="h-[500px] rounded-xl" />)}
           </div>
         </div>
       </div>
@@ -276,12 +212,12 @@ export default function Plans() {
       <section className="py-16 sm:py-20 text-center px-4">
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-foreground mb-4">
           {isLoggedIn ? "Escolha o plano ideal" : "Gerencie sua imobiliária com"}{" "}
-          <span className="text-primary">{isLoggedIn ? "para sua operação" : "Inteligência Artificial"}</span>
+          <span className="text-primary">{isLoggedIn ? "para sua operação" : "imobiliária"}</span>
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
           {isLoggedIn
             ? "Compare os planos e faça upgrade para desbloquear mais recursos"
-            : "CRM, Marketplace, IA e Automações — tudo em um só lugar"}
+            : "CRM, Marketplace, Agenda e Financeiro — tudo em um só lugar"}
         </p>
 
         {/* Toggle */}
@@ -299,19 +235,15 @@ export default function Plans() {
 
       {/* ─── PLAN CARDS ─── */}
       <section className="max-w-7xl mx-auto px-4 pb-16">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {mainPlans.map((plan) => {
             const f = plan.features as Record<string, any> || {};
             const meta: PlanMeta = planMeta[plan.slug] || { icon: Star, ctaLabel: "Selecionar", ctaVariant: "default" as const };
             const Icon = meta.icon;
             const isCurrent = currentSlug === plan.slug;
-            const maxUsers = getNumericFeature(plan, "max_users");
             const maxOwnProperties = getNumericFeature(plan, "max_own_properties");
             const maxLeads = getNumericFeature(plan, "max_leads");
-            const maxStorageMb = getNumericFeature(plan, "max_storage_mb");
-            const aiCreditsLimit = getNumericFeature(plan, "ai_credits_limit");
             const maxMarketplaceProperties = getNumericFeature(plan, "max_marketplace_properties");
-            const extraUserPrice = getNumericFeature(plan, "extra_user_price");
             const monthlyPrice = annual ? Math.round(plan.price_yearly / 12) : plan.price_monthly;
             const trialDaysPlan = (plan as any).trial_days || 0;
 
@@ -365,10 +297,6 @@ export default function Plans() {
                   {/* Limits */}
                   <div className="space-y-2.5 mb-4 text-sm">
                     <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span>{limitDisplay(maxUsers)} {maxUsers === 1 ? "usuário" : "usuários"}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
                       <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
                       <span>{limitDisplay(maxOwnProperties)} imóveis</span>
                     </div>
@@ -377,16 +305,8 @@ export default function Plans() {
                       <span>{limitDisplay(maxLeads)} leads</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <HardDrive className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span>{storageFmt(maxStorageMb)}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span>{aiCreditsLimit === 0 ? "Sem IA" : `${limitDisplay(aiCreditsLimit)} créditos IA`}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
                       <Store className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span>{maxMarketplaceProperties === 0 ? "Sem marketplace" : `${limitDisplay(maxMarketplaceProperties)} marketplace`}</span>
+                      <span>{maxMarketplaceProperties === 0 ? "Sem marketplace" : `${limitDisplay(maxMarketplaceProperties)} no marketplace`}</span>
                     </div>
                   </div>
 
@@ -407,11 +327,6 @@ export default function Plans() {
                     })}
                   </div>
 
-                  {extraUserPrice > 0 && (
-                    <p className="text-xs text-muted-foreground mb-4">
-                      +R${fmt(extraUserPrice)} por membro extra
-                    </p>
-                  )}
 
                   {/* CTA */}
                   {(() => {
@@ -435,12 +350,6 @@ export default function Plans() {
         </div>
       </section>
 
-
-      {/* ─── CUSTOM PLAN BUILDER ─── */}
-      <section className="max-w-5xl mx-auto px-4 pb-16">
-        <Separator className="mb-8" />
-        <CustomPlanBuilder />
-      </section>
 
       {/* ─── COMPARISON TABLE ─── */}
       <section className="max-w-7xl mx-auto px-4 pb-16">
@@ -493,10 +402,6 @@ export default function Plans() {
                               let display: React.ReactNode;
                               if (row.type === "bool") {
                                 display = val ? <Check className="h-4 w-4 text-green-500 mx-auto" /> : <X className="h-4 w-4 text-muted-foreground/30 mx-auto" />;
-                              } else if (row.type === "storage") {
-                                display = storageFmt(val || 0);
-                              } else if (row.type === "text") {
-                                display = supportLabels[val] || val || "—";
                               } else {
                                 display = val === -1 ? "∞" : val === 0 ? "—" : val?.toLocaleString("pt-BR") || "—";
                               }
