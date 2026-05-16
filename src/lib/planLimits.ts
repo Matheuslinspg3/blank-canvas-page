@@ -128,7 +128,7 @@ export function isOrgOnInternalUnlimited(
 }
 
 /** True if this plan should be hidden from public upgrade UIs and checkout. */
-export const PUBLIC_COMMERCIAL_PLAN_SLUGS = ['essencial', 'profissional', 'business'] as const;
+export const PUBLIC_COMMERCIAL_PLAN_SLUGS = ['starter', 'essencial', 'profissional', 'business'] as const;
 
 export function isPublicCommercialPlan(
   plan: { slug?: string | null; plan_type?: string | null; features?: any } | null | undefined,

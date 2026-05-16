@@ -87,7 +87,7 @@ serve(async (req) => {
     }
 
     const initialFeeDescription = "Taxa inicial de acesso aos imóveis";
-    const publicCommercialPlanSlugs = new Set(["essencial", "profissional", "business"]);
+    const publicCommercialPlanSlugs = new Set(["starter", "essencial", "profissional", "business"]);
 
     async function orgInitialFeeIsSatisfied(organizationId: string, planRequiresInitialFee: boolean) {
       if (!planRequiresInitialFee) return true;

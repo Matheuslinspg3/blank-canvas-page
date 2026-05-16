@@ -38,7 +38,7 @@ function isValidDocument(doc: string): boolean {
 // A14: CORS allowlist — fail-closed when not configured
 const ALLOWED_ORIGINS = (Deno.env.get("APP_ALLOWED_ORIGINS") || "").split(",").map(s => s.trim()).filter(Boolean);
 const DEFAULT_TRIAL_DAYS = 15;
-const PUBLIC_COMMERCIAL_PLAN_SLUGS = new Set(["essencial", "profissional", "business"]);
+const PUBLIC_COMMERCIAL_PLAN_SLUGS = new Set(["starter", "essencial", "profissional", "business"]);
 const INITIAL_PROPERTY_ACCESS_FEE_DESCRIPTION = "Taxa inicial de acesso aos imóveis";
 
 function getCorsHeaders(req: Request) {

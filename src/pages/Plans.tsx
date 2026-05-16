@@ -52,6 +52,7 @@ const getNumericFeature = (plan: SubscriptionPlan, key: string, fallback = 0) =>
 interface PlanMeta { icon: React.ElementType; badge?: string; highlighted?: boolean; ctaLabel: string; ctaVariant: "default" | "outline" }
 
 const planMeta: Record<string, PlanMeta> = {
+  starter: { icon: Star, badge: "Entrada", ctaLabel: "Selecionar", ctaVariant: "default" },
   essencial: { icon: Briefcase, badge: "Melhor custo", ctaLabel: "Selecionar", ctaVariant: "default" },
   profissional: { icon: Crown, badge: "Mais popular", highlighted: true, ctaLabel: "Selecionar", ctaVariant: "default" },
   business: { icon: Building2, ctaLabel: "Selecionar", ctaVariant: "default" },
@@ -80,8 +81,8 @@ const featureRows: FeatureRow[] = [
 ];
 
 const FAQ_ITEMS = [
-  { q: "Quais são os planos públicos?", a: "Essencial, Profissional e Imobiliária. Planos antigos ou internos não aparecem nos cards públicos de assinatura." },
-  { q: "Posso testar antes de pagar?", a: "Sim. Os três planos têm 15 dias grátis para teste, sem necessidade de cartão no trial." },
+  { q: "Quais são os planos públicos?", a: "Starter, Essencial, Profissional e Imobiliária. Planos antigos ou internos não aparecem nos cards públicos de assinatura." },
+  { q: "Posso testar antes de pagar?", a: "Sim. Os quatro planos têm 15 dias grátis para teste, sem necessidade de cartão no trial." },
   { q: "Existe alguma taxa inicial?", a: "Sim. A primeira assinatura paga da organização inclui uma taxa única de R$100 para acesso aos imóveis. Ela não se torna cobrança recorrente." },
   { q: "Posso trocar de plano?", a: "Sim. Upgrades podem ser feitos pelo checkout e a mensalidade recorrente continua sendo somente o valor do plano escolhido." },
   { q: "Posso cancelar?", a: "Sim, sem multa. Você mantém acesso até o fim do período pago." },
@@ -176,8 +177,8 @@ export default function Plans() {
         <div className="max-w-7xl mx-auto px-4 py-16">
           <Skeleton className="h-12 w-96 mx-auto mb-4" />
           <Skeleton className="h-6 w-64 mx-auto mb-12" />
-          <div className="grid gap-6 md:grid-cols-3">
-            {[1,2,3].map(i => <Skeleton key={i} className="h-[500px] rounded-xl" />)}
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {[1,2,3,4].map(i => <Skeleton key={i} className="h-[500px] rounded-xl" />)}
           </div>
         </div>
       </div>
@@ -235,7 +236,7 @@ export default function Plans() {
 
       {/* ─── PLAN CARDS ─── */}
       <section className="max-w-7xl mx-auto px-4 pb-16">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {mainPlans.map((plan) => {
             const f = plan.features as Record<string, any> || {};
             const meta: PlanMeta = planMeta[plan.slug] || { icon: Star, ctaLabel: "Selecionar", ctaVariant: "default" as const };

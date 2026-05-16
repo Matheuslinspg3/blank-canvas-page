@@ -49,12 +49,12 @@ const features = [
 const steps = [
   { num: "01", title: "Crie sua conta", desc: "Cadastro gratuito em menos de 2 minutos. Sem cartão de crédito para testar." },
   { num: "02", title: "Configure seus imóveis", desc: "Cadastre seus imóveis e comece a organizar a operação." },
-  { num: "03", title: "Escolha seu plano", desc: "Assine Essencial, Profissional ou Imobiliária após o trial de 15 dias." },
+  { num: "03", title: "Escolha seu plano", desc: "Assine Starter, Essencial, Profissional ou Imobiliária após o trial de 15 dias." },
 ];
 
 const faqs = [
   { q: "Preciso de cartão de crédito para começar?", a: "Não. Você pode iniciar um trial de 15 dias sem cartão." },
-  { q: "Quais planos estão disponíveis?", a: "Os planos públicos são Essencial, Profissional e Imobiliária." },
+  { q: "Quais planos estão disponíveis?", a: "Os planos públicos são Starter, Essencial, Profissional e Imobiliária." },
   { q: "Existe taxa inicial?", a: "Sim. A primeira assinatura paga da organização inclui uma taxa única de R$100 para acesso aos imóveis, sem virar recorrência." },
   { q: "Posso cancelar a qualquer momento?", a: "Sim, sem multa e sem burocracia. Você mantém acesso até o fim do período pago." },
 ];
@@ -282,11 +282,11 @@ export default function LandingPage() {
             <Clock className="h-3.5 w-3.5 mr-1" /> Planos
           </Badge>
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Planos para cada fase do seu negócio</h2>
-          <p className="mt-3 text-muted-foreground">Teste por 15 dias e escolha entre Essencial, Profissional ou Imobiliária.</p>
+          <p className="mt-3 text-muted-foreground">Teste por 15 dias e escolha entre Starter, Essencial, Profissional ou Imobiliária.</p>
         </div>
         {plans && plans.length > 0 ? (
           <>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
               {plans.map((plan) => {
                 const highlighted = plan.slug === "profissional";
                 const planFeatures = (plan.features ?? {}) as Record<string, unknown>;
