@@ -43,7 +43,7 @@ export default function OnboardingWizard() {
   const [accountType, setAccountType] = useState<AccountType | null>(null);
   const [companyName, setCompanyName] = useState("");
   const [phone, setPhone] = useState("");
-  const [planSlug, setPlanSlug] = useState<string>("essencial");
+  const [planSlug, setPlanSlug] = useState<string>("starter");
   const [plans, setPlans] = useState<PlanRow[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
   const [planOnlyMode, setPlanOnlyMode] = useState<boolean | null>(null);

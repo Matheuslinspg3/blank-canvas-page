@@ -33,6 +33,7 @@ interface SignupPlan {
 }
 
 const PLAN_ICONS: Record<string, React.ElementType> = {
+  starter: Star,
   essencial: Briefcase,
   profissional: Crown,
   business: Building2,
@@ -113,7 +114,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
     phone: "",
     document: "",
     account_type: "imobiliaria" as "imobiliaria" | "corretor_individual",
-    selected_plan: "essencial",
+    selected_plan: "starter",
   });
 
   // Fetch available plans for signup
@@ -640,7 +641,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
               {/* Plan selection */}
               <div className="space-y-2">
                 <Label className="editorial-label-muted">Escolha seu plano</Label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                   {signupPlans.map((plan) => {
                     const PlanIcon = PLAN_ICONS[plan.slug] || Star;
                     const isSelected = signupForm.selected_plan === plan.slug;
@@ -810,7 +811,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
               <Button type="submit" size="lg" variant="gold" className="w-full h-14 text-base group glow-primary-hover" disabled={isLoading || isMaintenanceMode}>
                 {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : (
                   <>
-                    {`Começar com ${signupPlans.find(p => p.slug === signupForm.selected_plan)?.name || 'Plano Essencial'}`}
+                    {`Começar com ${signupPlans.find(p => p.slug === signupForm.selected_plan)?.name || 'Starter'}`}
                     <ArrowRight className="h-5 w-5 ml-2 transition-transform group-hover:translate-x-1.5" />
                   </>
                 )}
