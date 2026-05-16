@@ -13,11 +13,12 @@ import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger,
 } from "@/components/ui/accordion";
 import {
-  Users, Building2, Sparkles, MessageCircle, Workflow, Globe,
-  ArrowRight, Check, ChevronDown, Zap, Shield, BarChart3, Bot,
+  Users, Building2, CalendarDays, Wallet, Globe,
+  ArrowRight, Check, Zap, Shield, BarChart3,
   Star, Rocket, Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isPublicCommercialPlan } from "@/lib/planLimits";
 
 /* ─── Helpers ─── */
 const fmt = (value: number | null | undefined) =>
@@ -37,26 +38,25 @@ Section.displayName = "Section";
 
 /* ─── Features data ─── */
 const features = [
-  { icon: Users, title: "CRM Inteligente", desc: "Gerencie leads, funil de vendas e acompanhe cada oportunidade com visão clara do seu pipeline." },
-  { icon: Building2, title: "Gestão de Imóveis", desc: "Cadastre, organize e publique seus imóveis com fotos, vídeos e landing pages automáticas." },
-  { icon: Sparkles, title: "IA para Corretores", desc: "Gere descrições, artes para redes sociais e textos de anúncio com inteligência artificial." },
-  { icon: Globe, title: "Marketplace", desc: "Publique imóveis no marketplace e amplie seu alcance para milhares de compradores." },
-  { icon: Workflow, title: "Automações", desc: "Automatize tarefas repetitivas: follow-ups, notificações, distribuição de leads e mais." },
-  { icon: BarChart3, title: "Relatórios & Métricas", desc: "Dashboards com métricas de desempenho, conversão e faturamento em tempo real." },
+  { icon: Users, title: "CRM", desc: "Gerencie leads e acompanhe oportunidades com limites claros para cada plano." },
+  { icon: Building2, title: "Gestão de Imóveis", desc: "Cadastre, organize e publique seus imóveis no marketplace conforme o pacote contratado." },
+  { icon: CalendarDays, title: "Agenda", desc: "Organize visitas, compromissos e rotinas comerciais em uma agenda integrada." },
+  { icon: Globe, title: "Marketplace", desc: "Publique imóveis no marketplace e amplie seu alcance para compradores." },
+  { icon: Wallet, title: "Financeiro", desc: "Acompanhe receitas, despesas e dados financeiros da operação." },
+  { icon: BarChart3, title: "Relatórios", desc: "Disponível no Plano Imobiliária para gestão com visão de equipe e resultados." },
 ];
 
 const steps = [
-  { num: "01", title: "Crie sua conta", desc: "Cadastro gratuito em menos de 2 minutos. Sem cartão de crédito." },
-  { num: "02", title: "Configure seus imóveis", desc: "Importe ou cadastre seus imóveis com fotos e dados completos." },
-  { num: "03", title: "Gerencie com IA", desc: "Use o CRM, automações e IA para fechar mais negócios." },
+  { num: "01", title: "Crie sua conta", desc: "Cadastro gratuito em menos de 2 minutos. Sem cartão de crédito para testar." },
+  { num: "02", title: "Configure seus imóveis", desc: "Cadastre seus imóveis e comece a organizar a operação." },
+  { num: "03", title: "Escolha seu plano", desc: "Assine Essencial, Profissional ou Imobiliária após o trial de 15 dias." },
 ];
 
 const faqs = [
-  { q: "Preciso de cartão de crédito para começar?", a: "Não! Você pode criar sua conta e usar o plano gratuito ou iniciar um trial de 15 dias sem precisar de cartão." },
-  { q: "Posso importar meus imóveis de outro sistema?", a: "Sim, oferecemos importação via planilha e integrações com sistemas como Imobzi para migração facilitada." },
-  { q: "Quantos corretores podem usar a plataforma?", a: "Depende do plano. O plano gratuito permite 1 usuário, e os planos pagos vão de 3 a usuários ilimitados." },
-  { q: "A IA tem custo adicional?", a: "Cada plano inclui créditos de IA. Você pode adquirir pacotes extras se precisar de mais." },
-  { q: "Posso cancelar a qualquer momento?", a: "Sim, sem multa e sem burocracia. Seus dados ficam disponíveis para exportação." },
+  { q: "Preciso de cartão de crédito para começar?", a: "Não. Você pode iniciar um trial de 15 dias sem cartão." },
+  { q: "Quais planos estão disponíveis?", a: "Os planos públicos são Essencial, Profissional e Imobiliária." },
+  { q: "Existe taxa inicial?", a: "Sim. A primeira assinatura paga da organização inclui uma taxa única de R$100 para acesso aos imóveis, sem virar recorrência." },
+  { q: "Posso cancelar a qualquer momento?", a: "Sim, sem multa e sem burocracia. Você mantém acesso até o fim do período pago." },
 ];
 
 /* ─── Hero with 3D Parallax Logo ─── */
@@ -137,16 +137,16 @@ function HeroSection() {
         </Badge>
         <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-[1.1] max-w-3xl mx-auto">
           Gerencie sua imobiliária com{" "}
-          <span className="text-accent">Inteligência Artificial</span>
+          <span className="text-accent">CRM, agenda e marketplace</span>
         </h1>
         <p className="mt-6 text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-          CRM, marketplace, automações e IA — tudo em uma plataforma feita para
-          corretores que querem vender mais e trabalhar menos.
+          CRM, marketplace de imóveis, agenda e financeiro — tudo em uma plataforma feita para
+          corretores que querem organizar a operação e vender mais.
         </p>
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
           <Button variant="gold" size="xl" asChild>
             <Link to="/auth?tab=cadastro">
-              Comece grátis — 15 dias sem compromisso
+              Teste grátis por 15 dias
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
           </Button>
@@ -175,11 +175,11 @@ export default function LandingPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("subscription_plans")
-        .select("id, name, slug, price_monthly, price_yearly, max_users, max_own_properties, is_active")
+        .select("id, name, slug, price_monthly, price_yearly, max_own_properties, max_leads, marketplace_access, features, is_active, plan_type")
         .eq("is_active", true)
         .eq("plan_type", "plan")
-        .order("price_monthly", { ascending: true });
-      return data ?? [];
+        .order("display_order", { ascending: true });
+      return (data ?? []).filter(isPublicCommercialPlan);
     },
     staleTime: 10 * 60 * 1000,
   });
@@ -282,13 +282,14 @@ export default function LandingPage() {
             <Clock className="h-3.5 w-3.5 mr-1" /> Planos
           </Badge>
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Planos para cada fase do seu negócio</h2>
-          <p className="mt-3 text-muted-foreground">Comece grátis e evolua conforme cresce.</p>
+          <p className="mt-3 text-muted-foreground">Teste por 15 dias e escolha entre Essencial, Profissional ou Imobiliária.</p>
         </div>
         {plans && plans.length > 0 ? (
           <>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
-              {(plans.filter(p => p.slug !== 'correspondente').slice(0, 3)).map((plan) => {
-                const highlighted = plan.slug === "essencial" || plan.slug === "profissional";
+              {plans.map((plan) => {
+                const highlighted = plan.slug === "profissional";
+                const planFeatures = (plan.features ?? {}) as Record<string, unknown>;
                 return (
                   <Card
                     key={plan.id}
@@ -317,12 +318,28 @@ export default function LandingPage() {
                       <ul className="text-sm space-y-2 text-left mb-6">
                         <li className="flex items-center gap-2">
                           <Check className="h-4 w-4 text-accent shrink-0" />
-                          {plan.max_users === -1 ? "Usuários ilimitados" : `${plan.max_users ?? 1} usuário(s)`}
+                          {plan.max_own_properties === -1 ? "Imóveis ilimitados" : `${plan.max_own_properties ?? 0} imóveis cadastrados`}
                         </li>
                         <li className="flex items-center gap-2">
                           <Check className="h-4 w-4 text-accent shrink-0" />
-                          {plan.max_own_properties === -1 ? "Imóveis ilimitados" : `${plan.max_own_properties ?? 10} imóveis`}
+                          {plan.max_leads === -1 ? "Leads ilimitados no CRM" : `${plan.max_leads ?? 0} leads no CRM`}
                         </li>
+                        <li className="flex items-center gap-2">
+                          <Check className="h-4 w-4 text-accent shrink-0" />
+                          Agenda e financeiro
+                        </li>
+                        {planFeatures.has_import === true && (
+                          <li className="flex items-center gap-2">
+                            <Check className="h-4 w-4 text-accent shrink-0" />
+                            CRM com integração
+                          </li>
+                        )}
+                        {planFeatures.has_team_management === true && (
+                          <li className="flex items-center gap-2">
+                            <Check className="h-4 w-4 text-accent shrink-0" />
+                            Gerenciamento de equipe
+                          </li>
+                        )}
                       </ul>
                       <Button
                         variant={highlighted ? "default" : "outline"}
@@ -363,12 +380,12 @@ export default function LandingPage() {
           </h2>
           <div className="grid sm:grid-cols-2 gap-x-12 gap-y-5 text-left">
             {[
-              "Economia de 10+ horas por semana com automações",
-              "Artes para redes sociais geradas por IA em segundos",
-              "CRM visual com funil de vendas drag-and-drop",
-              "Landing pages automáticas para cada imóvel",
-              "Suporte humanizado via WhatsApp",
-              "Dados seguros com criptografia e backups",
+              "Agenda, CRM e financeiro no mesmo lugar",
+              "Marketplace de imóveis em todos os planos pagos",
+              "Limites transparentes de imóveis e leads",
+              "CRM com integração a partir do Profissional",
+              "Equipe e relatórios no Plano Imobiliária",
+              "Trial de 15 dias antes da primeira assinatura paga",
             ].map((b) => (
               <div key={b} className="flex items-start gap-3">
                 <Check className="h-5 w-5 text-accent shrink-0 mt-0.5" />
@@ -402,7 +419,7 @@ export default function LandingPage() {
           Pronto para transformar sua imobiliária?
         </h2>
         <p className="mt-4 text-primary-foreground/80 text-lg max-w-lg mx-auto">
-          Junte-se a centenas de corretores que já usam IA para vender mais.
+          Junte-se a corretores que organizam imóveis, leads e agenda no Porta do Corretor.
         </p>
         <Button
           size="xl"

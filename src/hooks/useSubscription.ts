@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
-import { isInternalPlan, isOrgOnInternalUnlimited } from "@/lib/planLimits";
+import { isInternalPlan, isOrgOnInternalUnlimited, isPublicCommercialPlan } from "@/lib/planLimits";
 
 export interface SubscriptionPlan {
   id: string;
@@ -59,6 +59,7 @@ export interface BillingPayment {
   pix_copy_paste: string | null;
   created_at: string;
   paid_at: string | null;
+  description?: string | null;
 }
 
 export type PlanLine = "marketplace" | "erp" | "combo" | "main";
@@ -205,7 +206,7 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
       // COST OPT: exclude pix_qr_code (base64 image string) — pix_copy_paste kept for UI.
       const { data, error } = await supabase
         .from("billing_payments")
-        .select("id, organization_id, subscription_id, provider, provider_payment_id, amount_cents, method, status, invoice_url, pix_copy_paste, created_at, paid_at")
+        .select("id, organization_id, subscription_id, provider, provider_payment_id, amount_cents, method, status, invoice_url, pix_copy_paste, description, created_at, paid_at")
         .eq("organization_id", orgId)
         .order("created_at", { ascending: false })
         .limit(50);
@@ -330,7 +331,7 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
 
   // Plan groupings
   const safePlans = ensureArray(plans);
-  const mainPlans = safePlans.filter(p => (p as any).plan_type !== 'addon');
+  const mainPlans = safePlans.filter(isPublicCommercialPlan);
   const addonPlans = safePlans.filter(p => (p as any).plan_type === 'addon');
 
   // Legacy groupings (kept for backward compat)

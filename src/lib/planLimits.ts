@@ -128,6 +128,19 @@ export function isOrgOnInternalUnlimited(
 }
 
 /** True if this plan should be hidden from public upgrade UIs and checkout. */
+export const PUBLIC_COMMERCIAL_PLAN_SLUGS = ['essencial', 'profissional', 'business'] as const;
+
+export function isPublicCommercialPlan(
+  plan: { slug?: string | null; plan_type?: string | null; features?: any } | null | undefined,
+): boolean {
+  if (!plan?.slug) return false;
+  if (isInternalPlan(plan)) return false;
+  const feat = (plan as any).features;
+  if (feat && typeof feat === 'object' && feat.is_purchasable === false) return false;
+  return (PUBLIC_COMMERCIAL_PLAN_SLUGS as readonly string[]).includes(plan.slug);
+}
+
+/** True if this plan should be hidden from public upgrade UIs and checkout. */
 export function isInternalPlan(
   plan: { slug?: string | null; features?: any } | null | undefined,
 ): boolean {
