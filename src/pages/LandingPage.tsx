@@ -55,7 +55,6 @@ const steps = [
 const faqs = [
   { q: "Preciso de cartão de crédito para começar?", a: "Não. Você pode iniciar um trial de 15 dias sem cartão." },
   { q: "Quais planos estão disponíveis?", a: "Os planos públicos são Starter, Essencial, Profissional e Imobiliária." },
-  { q: "Existe taxa inicial?", a: "Sim. A primeira assinatura paga da organização inclui uma taxa única de R$100 para acesso aos imóveis, sem virar recorrência." },
   { q: "Posso cancelar a qualquer momento?", a: "Sim, sem multa e sem burocracia. Você mantém acesso até o fim do período pago." },
 ];
 

@@ -83,7 +83,6 @@ const featureRows: FeatureRow[] = [
 const FAQ_ITEMS = [
   { q: "Quais são os planos públicos?", a: "Starter, Essencial, Profissional e Imobiliária. Planos antigos ou internos não aparecem nos cards públicos de assinatura." },
   { q: "Posso testar antes de pagar?", a: "Sim. Os quatro planos têm 15 dias grátis para teste, sem necessidade de cartão no trial." },
-  { q: "Existe alguma taxa inicial?", a: "Sim. A primeira assinatura paga da organização inclui uma taxa única de R$100 para acesso aos imóveis. Ela não se torna cobrança recorrente." },
   { q: "Posso trocar de plano?", a: "Sim. Upgrades podem ser feitos pelo checkout e a mensalidade recorrente continua sendo somente o valor do plano escolhido." },
   { q: "Posso cancelar?", a: "Sim, sem multa. Você mantém acesso até o fim do período pago." },
 ];
