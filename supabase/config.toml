@@ -149,3 +149,6 @@ verify_jwt = false
 
 [functions.meta-resubscribe-leadgen]
 verify_jwt = false
+
+[functions.meta-conversions-api]
+verify_jwt = false

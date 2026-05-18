@@ -189,7 +189,13 @@ window.addEventListener("vite:preloadError", (e: Event) => {
 
 // PostHog initialization — after Sentry, before React
 import { initPostHog } from "./lib/posthog";
+import { captureAttributionFromUrl } from "./lib/attribution";
+import { initMarketingTracking, trackClickWhatsApp, trackPageView } from "./lib/marketingEvents";
 initPostHog();
+captureAttributionFromUrl();
+initMarketingTracking();
+trackPageView();
+window.addEventListener("click", (event) => { const el=(event.target as HTMLElement)?.closest?.("a[href*=\"wa.me\"],a[href*=\"api.whatsapp.com\"]"); if (!el) return; trackClickWhatsApp({ href:(el as HTMLAnchorElement).href }); });
 
 // PWA / Service Worker lifecycle:
 //  - Disabled in preview, iframe and dev → unregister any leftover SWs and

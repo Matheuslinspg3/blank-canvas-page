@@ -30,6 +30,7 @@ interface TrialInfo {
 }
 
 interface SignUpParams {
+  attributionContext?: Record<string, unknown> | null;
   email: string;
   password: string;
   name: string;
@@ -298,7 +299,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = useCallback(async ({ email, password, name, phone, document, accountType, companyName, selectedPlan }: SignUpParams) => {
+  const signUp = useCallback(async ({ email, password, name, phone, document, accountType, companyName, selectedPlan, attributionContext }: SignUpParams) => {
     const redirectUrl = `${window.location.origin}/`;
     
     // Trigger no banco de dados vai criar organização/perfil/role/subscription automaticamente
@@ -314,6 +315,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           account_type: accountType,
           company_name: companyName,
           selected_plan: selectedPlan || 'starter',
+          attribution_context: attributionContext || null,
+          utm_source: (attributionContext as any)?.utm_source || null,
+          utm_medium: (attributionContext as any)?.utm_medium || null,
+          utm_campaign: (attributionContext as any)?.utm_campaign || null,
+          fbclid: (attributionContext as any)?.fbclid || null,
+          gclid: (attributionContext as any)?.gclid || null,
         }
       }
     });
