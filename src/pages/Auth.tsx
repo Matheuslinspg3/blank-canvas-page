@@ -21,6 +21,8 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { isPublicCommercialPlan } from "@/lib/planLimits";
 import { PasskeyLoginButton } from "@/components/auth/PasskeyLoginButton";
+import { buildAttributionPayload } from "@/lib/attribution";
+import { trackCompleteRegistration, trackFormStarted, trackViewContent } from "@/lib/marketingEvents";
 
 interface SignupPlan {
   id: string;
@@ -180,6 +182,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
   };
 
   useEffect(() => {
+    trackViewContent({ page: "auth" });
     if (user && !loading && !showEmailVerification) {
       navigate("/dashboard");
     }
@@ -243,6 +246,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
   };
 
   const handleSignup = async (e: React.FormEvent) => {
+    trackFormStarted({ form: "signup" });
     e.preventDefault();
     if (isMaintenanceMode) return;
     setErrors({});
@@ -299,6 +303,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
         accountType: signupForm.account_type,
         companyName: signupForm.company_name,
         selectedPlan: signupForm.selected_plan,
+        attributionContext: buildAttributionPayload().attribution_context,
       });
 
       if (error) {
@@ -322,6 +327,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
         return;
       }
 
+      trackCompleteRegistration({ method: "email" });
       openEmailVerificationStep(signupForm.email, signupForm.password);
       setIsLoading(false);
 

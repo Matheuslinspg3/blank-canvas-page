@@ -6,13 +6,27 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const MAX_MESSAGE_LENGTH = 4000;
+
+type Attr = Record<string, unknown>;
+
+const asTrimmed = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { organizationId, name, email, phone, message, source } = await req.json();
+    const body = await req.json();
+    const organizationId = asTrimmed(body?.organizationId);
+    const name = asTrimmed(body?.name);
+    const email = asTrimmed(body?.email) || null;
+    const phone = asTrimmed(body?.phone) || null;
+    const source = asTrimmed(body?.source) || "website";
+    const message = asTrimmed(body?.message).slice(0, MAX_MESSAGE_LENGTH) || null;
+    const eventId = asTrimmed(body?.event_id) || crypto.randomUUID();
+    const attribution = body?.attribution_context && typeof body.attribution_context === "object"
+      ? (body.attribution_context as Attr)
+      : null;
 
     if (!organizationId || !name) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
@@ -21,23 +35,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    // Get the first lead stage for this org
-    const { data: stages } = await supabaseAdmin
+    const { data: stages } = await sb
       .from("lead_stages")
       .select("id")
       .eq("organization_id", organizationId)
       .order("position", { ascending: true })
       .limit(1);
 
-    const stageId = stages?.[0]?.id || null;
-
-    // Get an org member for created_by (required NOT NULL column)
-    const { data: members } = await supabaseAdmin
+    const { data: members } = await sb
       .from("profiles")
       .select("user_id")
       .eq("organization_id", organizationId)
@@ -51,33 +58,54 @@ Deno.serve(async (req) => {
       });
     }
 
-    const finalSource = source || "website";
-    const consent_voice_call = resolveVoiceConsent({
-      source: finalSource,
-      explicit: typeof (await Promise.resolve(null)) === "boolean" ? null : null,
-      hasPhone: !!phone,
-    });
+    const notesAttribution = attribution ? `\n\n[Attribution] ${JSON.stringify(attribution)}` : "";
 
-    // Insert lead
-    const { error } = await supabaseAdmin.from("leads").insert({
-      organization_id: organizationId,
-      name: name,
-      email: email || null,
-      phone: phone || null,
-      notes: message ? `[Site] ${message}` : null,
-      source: finalSource,
-      lead_stage_id: stageId,
-      created_by: createdBy,
-      consent_voice_call,
-    });
+    const { data: inserted, error } = await sb
+      .from("leads")
+      .insert({
+        organization_id: organizationId,
+        name,
+        email,
+        phone,
+        notes: `${message ? `[Site] ${message}` : ""}${notesAttribution}` || null,
+        source,
+        traffic_source: typeof attribution?.utm_source === "string" ? attribution.utm_source : null,
+        lead_stage_id: stages?.[0]?.id || null,
+        created_by: createdBy,
+        consent_voice_call: resolveVoiceConsent({ source, explicit: null, hasPhone: !!phone }),
+      })
+      .select("id")
+      .single();
 
     if (error) throw error;
 
-    return new Response(JSON.stringify({ success: true }), {
+    await sb.from("attribution_events").insert({
+      lead_id: inserted?.id ?? null,
+      organization_id: organizationId,
+      event_name: "Lead",
+      event_id: eventId,
+      source: typeof attribution?.utm_source === "string" ? attribution.utm_source : source,
+      medium: typeof attribution?.utm_medium === "string" ? attribution.utm_medium : null,
+      campaign: typeof attribution?.utm_campaign === "string" ? attribution.utm_campaign : null,
+      content: typeof attribution?.utm_content === "string" ? attribution.utm_content : null,
+      term: typeof attribution?.utm_term === "string" ? attribution.utm_term : null,
+      fbclid: typeof attribution?.fbclid === "string" ? attribution.fbclid : null,
+      gclid: typeof attribution?.gclid === "string" ? attribution.gclid : null,
+      fbp: typeof attribution?.fbp === "string" ? attribution.fbp : null,
+      fbc: typeof attribution?.fbc === "string" ? attribution.fbc : null,
+      landing_page: typeof attribution?.landing_page === "string" ? attribution.landing_page : null,
+      referrer: typeof attribution?.referrer === "string" ? attribution.referrer : null,
+      session_id: typeof attribution?.session_id === "string" ? attribution.session_id : null,
+      anonymous_id: typeof attribution?.anonymous_id === "string" ? attribution.anonymous_id : null,
+      consent_state: attribution?.consent_state ?? null,
+      event_payload: attribution,
+    });
+
+    return new Response(JSON.stringify({ success: true, lead_id: inserted?.id || null }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("website-lead error:", err);
+    console.error("website-lead error", { message: err instanceof Error ? err.message : "unknown" });
     return new Response(JSON.stringify({ error: "Internal error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

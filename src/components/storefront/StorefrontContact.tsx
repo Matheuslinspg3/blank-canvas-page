@@ -1,10 +1,13 @@
 import { useState } from "react";
+import { Send, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Send, Loader2 } from "lucide-react";
+import { buildAttributionPayload, getOrCreateEventId } from "@/lib/attribution";
+import { trackLead } from "@/lib/marketingEvents";
 import type { StorefrontOrg, StorefrontWebsite } from "@/hooks/useStorefront";
 
 interface Props {
@@ -22,27 +25,37 @@ export function StorefrontContact({ org, website, primaryColor }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!name.trim() || (!email.trim() && !phone.trim())) {
       toast.error("Preencha seu nome e pelo menos e-mail ou telefone.");
       return;
     }
 
     setSending(true);
+
     try {
-      // Insert into leads table via edge function for proper org association
+      const attribution = buildAttributionPayload().attribution_context;
+      const eventId = getOrCreateEventId("Lead");
+      const payload = {
+        organizationId: org.id,
+        name: name.trim(),
+        email: email.trim() || null,
+        phone: phone.trim() || null,
+        message: message.trim() || null,
+        source: "website",
+        attribution_context: attribution,
+        event_id: eventId,
+      };
+
       const { error } = await supabase.functions.invoke("website-lead", {
-        body: {
-          organizationId: org.id,
-          name: name.trim(),
-          email: email.trim() || null,
-          phone: phone.trim() || null,
-          message: message.trim() || null,
-          source: "website",
-        },
+        body: payload,
       });
+
       if (error) throw error;
 
+      trackLead({ event_id: eventId, form: "storefront_contact" });
       toast.success("Mensagem enviada com sucesso! Entraremos em contato.");
+
       setName("");
       setEmail("");
       setPhone("");
@@ -62,15 +75,44 @@ export function StorefrontContact({ org, website, primaryColor }: Props) {
           Preencha o formulário e nossa equipe entrará em contato
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-4 bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4 bg-white rounded-xl p-6 shadow-sm border border-gray-100"
+        >
           <div>
-            <Input placeholder="Seu nome *" value={name} onChange={(e) => setName(e.target.value)} required className="border-gray-200" />
+            <Input
+              placeholder="Seu nome *"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              className="border-gray-200"
+            />
           </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input placeholder="E-mail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="border-gray-200" />
-            <Input placeholder="Telefone / WhatsApp" value={phone} onChange={(e) => setPhone(e.target.value)} className="border-gray-200" />
+            <Input
+              placeholder="E-mail"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="border-gray-200"
+            />
+            <Input
+              placeholder="Telefone / WhatsApp"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="border-gray-200"
+            />
           </div>
-          <Textarea placeholder="Mensagem (opcional)" value={message} onChange={(e) => setMessage(e.target.value)} rows={4} className="border-gray-200" />
+
+          <Textarea
+            placeholder="Mensagem (opcional)"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            rows={4}
+            className="border-gray-200"
+          />
+
           <Button
             type="submit"
             disabled={sending}
