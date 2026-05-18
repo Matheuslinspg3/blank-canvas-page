@@ -58,7 +58,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    const notesAttribution = attribution ? `\n\n[Attribution] ${JSON.stringify(attribution)}` : "";
+    const sourceLabel = typeof attribution?.utm_source === "string" ? attribution.utm_source : source;
+    const campaignLabel = typeof attribution?.utm_campaign === "string" ? attribution.utm_campaign : null;
+    const notesAttribution = attribution
+      ? `\n\n[Attribution] Origem: ${sourceLabel}${campaignLabel ? ` / Campanha: ${campaignLabel}` : ""}`
+      : "";
 
     const { data: inserted, error } = await sb
       .from("leads")

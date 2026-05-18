@@ -11,7 +11,7 @@ Backend:
 - `META_PIXEL_ID`
 - `META_ACCESS_TOKEN`
 - `META_TEST_EVENT_CODE`
-- `META_CAPI_ALLOWED_ORIGINS` (lista CSV opcional para allowlist de Origin)
+- `META_CAPI_ALLOWED_ORIGINS` (lista CSV obrigatória em produção quando CAPI estiver habilitada)
 
 ## Implementado
 - Captura first-party de UTMs, click IDs, landing/referrer e persistência de 90 dias em `localStorage`.
@@ -20,11 +20,21 @@ Backend:
 - Tabela `attribution_events` com RLS para trilha server-side.
 - Edge Function `meta-conversions-api` com hash de email/telefone apenas no backend.
 
+
+## Regras de event_id
+- `event_id` é único por ocorrência (não reutilizado por janela de tempo).
+- O frontend pode fornecer `event_id` externo; o tracker preserva este valor sem sobrescrever.
+- No fluxo do `website-lead`, o mesmo `event_id` é enviado para backend e para `trackLead` no frontend (deduplicação).
+
+## Meta Pixel: eventos padrão vs customizados
+- Eventos padrão usam `fbq("track", ...)`: `PageView`, `Lead`, `CompleteRegistration`, `Contact`, `Subscribe`, `Purchase`.
+- Eventos fora desta lista usam `fbq("trackCustom", ...)`.
+
 ## Segurança e privacidade
 - Sem secrets hardcoded.
 - Sem envio de PII bruta para Meta Pixel/GA4 no frontend.
 - No CAPI, `email` e `phone` são normalizados/hasheados no backend antes do envio.
-- `meta-conversions-api` aplica validação estrita de evento, limite de payload e allowlist de origem opcional.
+- `meta-conversions-api` aplica validação estrita de evento, limite de payload e allowlist de origem obrigatória quando CAPI estiver habilitada.
 - `verify_jwt=false` em `meta-conversions-api` permanece para suportar eventos anônimos de frontend; mitigação: enable por env + validação estrita + allowlist de origem.
 
 ## QA manual (checklist)

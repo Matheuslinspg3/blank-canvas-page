@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
-import { buildAttributionPayload, getOrCreateEventId } from "@/lib/attribution";
+import { buildAttributionPayload, createEventId } from "@/lib/attribution";
 import { trackLead } from "@/lib/marketingEvents";
 import type { StorefrontOrg, StorefrontWebsite } from "@/hooks/useStorefront";
 
@@ -35,7 +35,7 @@ export function StorefrontContact({ org, website, primaryColor }: Props) {
 
     try {
       const attribution = buildAttributionPayload().attribution_context;
-      const eventId = getOrCreateEventId("Lead");
+      const eventId = createEventId("Lead");
       const payload = {
         organizationId: org.id,
         name: name.trim(),
@@ -53,7 +53,7 @@ export function StorefrontContact({ org, website, primaryColor }: Props) {
 
       if (error) throw error;
 
-      trackLead({ event_id: eventId, form: "storefront_contact" });
+      trackLead({ event_id: eventId, form: "storefront_contact" }, { event_id: eventId });
       toast.success("Mensagem enviada com sucesso! Entraremos em contato.");
 
       setName("");
