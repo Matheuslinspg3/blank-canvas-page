@@ -326,6 +326,20 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
         return;
       }
 
+      const currentAttribution = getAttribution();
+      firePlatformAlert('signup', {
+        name: signupForm.full_name,
+        email: signupForm.email,
+        phone: signupForm.phone,
+        company_name: signupForm.company_name,
+        selected_plan: signupForm.selected_plan
+      }, currentAttribution);
+
+      trackPixelEvent('CompleteRegistration', {
+        content_name: 'Platform Signup',
+        status: 'pending_verification'
+      });
+
       openEmailVerificationStep(signupForm.email, signupForm.password);
       setIsLoading(false);
 
