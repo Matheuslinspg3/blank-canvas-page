@@ -202,9 +202,17 @@ export function useLeadCRUD(opts: {
 
       return data as Lead;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['leads'], refetchType: 'active' });
-      trackEvent('lead_enviado');
+      trackEvent('lead_enviado', { 
+        lead_id: data.id,
+        source: data.source 
+      });
+      trackPixelEvent('Lead', {
+        content_name: 'Lead Manual/CRM',
+        value: data.estimated_value || 0,
+        currency: 'BRL'
+      }, data.id);
       toast({ title: 'Lead criado', description: 'O lead foi criado com sucesso.' });
     },
     onError: (error: any) => {
