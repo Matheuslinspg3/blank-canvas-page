@@ -55,12 +55,19 @@ Deno.serve(async (req) => {
       const { data: { users }, error } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
       if (error) throw error;
 
+      // Fetch payment attempts for all users
+      const { data: attempts } = await adminClient
+        .from("payment_attempts")
+        .select("*")
+        .order("created_at", { ascending: false });
+
       const simplifiedUsers = users.map((u) => ({
         id: u.id,
         email: u.email,
         created_at: u.created_at,
         last_sign_in_at: u.last_sign_in_at,
         user_metadata: u.user_metadata,
+        payment_attempts: attempts?.filter(a => a.user_id === u.id) || [],
       }));
 
       return new Response(JSON.stringify(simplifiedUsers), {
