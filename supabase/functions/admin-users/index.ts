@@ -59,6 +59,8 @@ Deno.serve(async (req) => {
         id: u.id,
         email: u.email,
         created_at: u.created_at,
+        last_sign_in_at: u.last_sign_in_at,
+        user_metadata: u.user_metadata,
       }));
 
       return new Response(JSON.stringify(simplifiedUsers), {
