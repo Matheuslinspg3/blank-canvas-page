@@ -41,7 +41,7 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
     if (open && plan && profile) {
       firePlatformAlert('payment_attempt', {
         name: profile.full_name || 'Usuário',
-        email: profile.email || 'N/A',
+        email: user?.email || 'N/A',
         organization_name: profile.organization_id || 'N/A',
         plan_name: plan.name,
         amount_cents: billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly,
