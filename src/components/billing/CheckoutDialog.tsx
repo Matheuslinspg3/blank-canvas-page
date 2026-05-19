@@ -1,4 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { getAttribution } from "@/hooks/useAttribution";
+import { firePlatformAlert } from "@/lib/alerts";
+import { trackPixelEvent } from "@/lib/metaPixel";
 import {
   Dialog,
   DialogContent,
