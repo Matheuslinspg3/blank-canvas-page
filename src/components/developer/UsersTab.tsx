@@ -13,10 +13,23 @@ import {
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger,
+} from "@/components/ui/sheet";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
-import { Trash2, AlertTriangle, Users, Search, KeyRound, Loader2, Plus, X } from "lucide-react";
-import { useState } from "react";
+import { 
+  Trash2, AlertTriangle, Users, Search, KeyRound, Loader2, Plus, X, 
+  ExternalLink, Eye, Filter, Calendar, Building2, CreditCard, Clock, 
+  CheckCircle2, Globe, MessageSquare, Briefcase, MousePointer2, Info,
+  Smartphone
+} from "lucide-react";
+import { useState, useMemo } from "react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const ALL_ROLES = ["developer", "admin", "sub_admin", "leader", "corretor", "assistente"] as const;
 
@@ -37,6 +50,14 @@ const roleBadgeVariant = (role: string) => {
     default: return "secondary" as const;
   }
 };
+
+interface AuthUser {
+  id: string;
+  email: string;
+  created_at: string;
+  last_sign_in_at: string | null;
+  user_metadata: any;
+}
 
 export function UsersTab() {
   const queryClient = useQueryClient();
