@@ -4549,6 +4549,7 @@ export type Database = {
           additional_requirements: string | null
           ai_summary: string | null
           ai_summary_at: string | null
+          attribution_context: Json | null
           broker_id: string | null
           consent_voice_call: boolean
           conversion_identifier: string | null
@@ -4597,6 +4598,7 @@ export type Database = {
           additional_requirements?: string | null
           ai_summary?: string | null
           ai_summary_at?: string | null
+          attribution_context?: Json | null
           broker_id?: string | null
           consent_voice_call?: boolean
           conversion_identifier?: string | null
@@ -4645,6 +4647,7 @@ export type Database = {
           additional_requirements?: string | null
           ai_summary?: string | null
           ai_summary_at?: string | null
+          attribution_context?: Json | null
           broker_id?: string | null
           consent_voice_call?: boolean
           conversion_identifier?: string | null
@@ -5595,6 +5598,73 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_marketplace_orgs_missing_contact"
             referencedColumns: ["organization_id"]
+          },
+        ]
+      }
+      payment_attempts: {
+        Row: {
+          amount_cents: number | null
+          attribution_context: Json | null
+          billing_cycle: string | null
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          organization_id: string | null
+          payment_method: string | null
+          plan_id: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          amount_cents?: number | null
+          attribution_context?: Json | null
+          billing_cycle?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          organization_id?: string | null
+          payment_method?: string | null
+          plan_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          amount_cents?: number | null
+          attribution_context?: Json | null
+          billing_cycle?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          organization_id?: string | null
+          payment_method?: string | null
+          plan_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_attempts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_attempts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "payment_attempts_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -8111,6 +8181,7 @@ export type Database = {
       }
       subscriptions: {
         Row: {
+          attribution_context: Json | null
           billing_cycle: Database["public"]["Enums"]["billing_cycle"]
           cancel_at_period_end: boolean
           cancelled_at: string | null
@@ -8131,6 +8202,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          attribution_context?: Json | null
           billing_cycle?: Database["public"]["Enums"]["billing_cycle"]
           cancel_at_period_end?: boolean
           cancelled_at?: string | null
@@ -8151,6 +8223,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          attribution_context?: Json | null
           billing_cycle?: Database["public"]["Enums"]["billing_cycle"]
           cancel_at_period_end?: boolean
           cancelled_at?: string | null
