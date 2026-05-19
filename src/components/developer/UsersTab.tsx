@@ -345,171 +345,320 @@ export function UsersTab() {
             </div>
           </div>
         </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto -mx-5 sm:-mx-6 px-5 sm:px-6">
+      <CardContent className="p-0">
+        <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nome / ID / Email</TableHead>
-                <TableHead>Cargos</TableHead>
-                <TableHead className="w-12"></TableHead>
+                <TableHead className="pl-6">Usuário / ID</TableHead>
+                <TableHead>Organização</TableHead>
+                <TableHead>Comercial</TableHead>
+                <TableHead className="text-center">Uso</TableHead>
+                <TableHead className="text-center">Site/Zap</TableHead>
+                <TableHead>Cadastro / Acesso</TableHead>
+                <TableHead className="pr-6 text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.map((p) => {
                 const userRoles = allRoles.filter((r) => r.user_id === p.user_id);
                 const email = getEmail(p.user_id);
+                const authUser = getAuthUser(p.user_id);
                 const isUpdating = updatingRoles === p.user_id;
+                
+                const org = organizations.find(o => o.id === p.organization_id);
+                const sub = subscriptions.find(s => s.organization_id === p.organization_id);
+                const plan = plans.find(pl => pl.id === sub?.plan_id);
+                const usage = orgUsage.find(u => u.id === p.organization_id);
+                const site = websiteSettings.find(ws => ws.organization_id === p.organization_id);
+                const whatsapp = whatsappInstances.find(wi => wi.organization_id === p.organization_id);
+
                 return (
-                  <TableRow key={p.user_id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium text-sm">{p.full_name}</p>
+                  <TableRow key={p.user_id} className="group">
+                    <TableCell className="pl-6">
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-sm">{p.full_name || "Sem nome"}</p>
+                          {p.onboarding_completed && (
+                            <CheckCircle2 className="h-3.5 w-3.5 text-green-500" title="Onboarding concluído" />
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-none">{email}</p>
                         <button
                           type="button"
-                          className="text-[10px] text-muted-foreground font-mono hover:text-foreground transition-colors cursor-pointer"
-                          title="Copiar ID"
+                          className="text-[10px] text-muted-foreground/60 font-mono hover:text-foreground transition-colors cursor-pointer w-fit mt-1"
                           onClick={() => {
                             navigator.clipboard.writeText(p.user_id);
                             toast({ title: "ID copiado!" });
                           }}
                         >
-                          {p.user_id.slice(0, 8)}…
+                          {p.user_id}
                         </button>
-                        <p className="text-xs text-muted-foreground">{email}</p>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {userRoles.map((r) => (
-                          <Badge
-                            key={r.id}
-                            variant={roleBadgeVariant(r.role)}
-                            className="text-[10px] gap-1 cursor-pointer hover:opacity-80 pr-1"
-                            onClick={() => !isUpdating && toggleRole(p.user_id, r.role, userRoles)}
-                          >
-                            {roleLabel[r.role] || r.role}
-                            <X className="h-2.5 w-2.5" />
+                      {org ? (
+                        <div className="flex flex-col gap-0.5">
+                          <p className="text-sm font-medium">{org.name}</p>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-tight">{org.slug || "sem-slug"}</p>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground italic">Sem org</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant={sub?.status === 'active' ? 'default' : 'secondary'} className="text-[10px] h-4.5 px-1.5">
+                            {plan?.name || "Sem plano"}
                           </Badge>
-                        ))}
-                        {userRoles.length === 0 && <Badge variant="outline" className="text-[10px]">corretor (padrão)</Badge>}
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-6 w-6" disabled={isUpdating}>
-                              {isUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-48 p-2" align="start">
-                            <p className="text-xs font-semibold text-muted-foreground mb-2 px-1">Cargos</p>
-                            {ALL_ROLES.map((role) => {
-                              const hasRole = userRoles.some(r => r.role === role);
-                              return (
-                                <label
-                                  key={role}
-                                  className="flex items-center gap-2 px-1 py-1.5 rounded hover:bg-muted cursor-pointer text-sm"
-                                >
-                                  <Checkbox
-                                    checked={hasRole}
-                                    onCheckedChange={() => toggleRole(p.user_id, role, userRoles)}
-                                    disabled={isUpdating}
-                                  />
-                                  <span>{roleLabel[role]}</span>
-                                </label>
-                              );
-                            })}
-                          </PopoverContent>
-                        </Popover>
+                          {sub?.status === 'trialing' && (
+                            <Badge variant="outline" className="text-[10px] h-4.5 border-orange-200 text-orange-600 bg-orange-50">Trial</Badge>
+                          )}
+                        </div>
+                        {sub?.status && sub.status !== 'active' && sub.status !== 'trialing' && (
+                          <span className="text-[10px] text-muted-foreground font-medium uppercase">{sub.status}</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-3">
+                        <div className="flex flex-col items-center">
+                          <span className="text-xs font-bold">{usage?.total_properties || 0}</span>
+                          <span className="text-[9px] text-muted-foreground uppercase">Imóveis</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-xs font-bold">{usage?.total_leads || 0}</span>
+                          <span className="text-[9px] text-muted-foreground uppercase">Leads</span>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <Globe className={`h-4 w-4 ${site?.is_active ? 'text-primary' : 'text-muted-foreground/30'}`} title={site?.custom_domain || "Sem domínio"} />
+                        <MessageSquare className={`h-4 w-4 ${whatsapp?.status === 'connected' ? 'text-green-500' : 'text-muted-foreground/30'}`} title={whatsapp?.status || "Desconectado"} />
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-1">
-                        <AlertDialog open={passwordTarget?.userId === p.user_id} onOpenChange={(open) => { if (!open) { setPasswordTarget(null); setNewPassword(""); } }}>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPasswordTarget({ userId: p.user_id, name: p.full_name || "" })}>
-                              <KeyRound className="h-4 w-4 text-muted-foreground" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Redefinir senha</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Definir nova senha para <strong>{p.full_name}</strong> ({email})
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <Input
-                              type="password"
-                              placeholder="Nova senha (mín. 6 caracteres)"
-                              value={newPassword}
-                              onChange={(e) => setNewPassword(e.target.value)}
-                            />
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction
-                                disabled={newPassword.length < 6}
-                                onClick={async () => {
-                                  try {
-                                    const { data: { session } } = await supabase.auth.getSession();
-                                    const res = await fetch(
-                                      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-users`,
-                                      { method: "PATCH", headers: { Authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify({ user_id: p.user_id, new_password: newPassword }) }
-                                    );
-                                    if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Erro"); }
-                                    toast({ title: `Senha de ${p.full_name} redefinida com sucesso` });
-                                  } catch (e) {
-                                    toast({ title: "Erro", description: (e as Error).message, variant: "destructive" });
-                                  } finally {
-                                    setPasswordTarget(null);
-                                    setNewPassword("");
-                                  }
-                                }}
-                              >
-                                Redefinir
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <Calendar className="h-3 w-3" />
+                          {authUser?.created_at ? format(new Date(authUser.created_at), "dd/MM/yy HH:mm", { locale: ptBR }) : "—"}
+                        </div>
+                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          {authUser?.last_sign_in_at ? format(new Date(authUser.last_sign_in_at), "dd/MM/yy HH:mm", { locale: ptBR }) : "Nunca"}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="pr-6">
+                      <div className="flex items-center justify-end gap-1">
+                        <Sheet open={selectedUser === p.user_id} onOpenChange={(open) => setSelectedUser(open ? p.user_id : null)}>
+                          <SheetTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <Trash2 className="h-4 w-4 text-destructive" />
+                              <Eye className="h-4 w-4" />
                             </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle className="flex items-center gap-2">
-                                <AlertTriangle className="h-5 w-5 text-destructive" />
-                                Excluir usuário
-                              </AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Excluir <strong>{p.full_name}</strong> ({email})? Esta ação é irreversível.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                onClick={async () => {
-                                  try {
-                                    const { data: { session } } = await supabase.auth.getSession();
-                                    const res = await fetch(
-                                      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-users`,
-                                      { method: "DELETE", headers: { Authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify({ user_id: p.user_id }) }
-                                    );
-                                    if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Erro ao excluir"); }
-                                    queryClient.invalidateQueries({ queryKey: ["all-profiles-dev"] });
-                                    queryClient.invalidateQueries({ queryKey: ["admin-users-emails"] });
-                                    queryClient.invalidateQueries({ queryKey: ["all-user-roles"] });
-                                    toast({ title: `${p.full_name} excluído com sucesso` });
-                                  } catch (e) {
-                                    toast({ title: "Erro", description: (e as Error).message, variant: "destructive" });
-                                  }
-                                }}
-                              >
-                                Excluir
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                          </SheetTrigger>
+                          <SheetContent className="sm:max-w-xl overflow-y-auto">
+                            <SheetHeader className="pb-6 border-b">
+                              <div className="flex items-center gap-3">
+                                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xl">
+                                  {p.full_name?.charAt(0) || "?"}
+                                </div>
+                                <div>
+                                  <SheetTitle>{p.full_name}</SheetTitle>
+                                  <SheetDescription className="flex flex-col">
+                                    <span>{email}</span>
+                                    <span className="font-mono text-[10px]">{p.user_id}</span>
+                                  </SheetDescription>
+                                </div>
+                              </div>
+                            </SheetHeader>
+
+                            <div className="py-6 space-y-8">
+                              {/* Seção de Perfil e Cargos */}
+                              <section className="space-y-4">
+                                <h3 className="text-sm font-bold flex items-center gap-2">
+                                  <Briefcase className="h-4 w-4" /> Perfil e Acesso
+                                </h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-1">
+                                    <p className="text-[10px] text-muted-foreground uppercase font-semibold">Cargos Atuais</p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {userRoles.map((r) => (
+                                        <Badge key={r.id} variant={roleBadgeVariant(r.role)} className="gap-1 pr-1">
+                                          {roleLabel[r.role] || r.role}
+                                          <X className="h-3 w-3 cursor-pointer" onClick={() => !isUpdating && toggleRole(p.user_id, r.role, userRoles)} />
+                                        </Badge>
+                                      ))}
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <Button variant="outline" size="sm" className="h-6 w-6 p-0 rounded-full" disabled={isUpdating}>
+                                            <Plus className="h-3 w-3" />
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-48 p-2">
+                                          {ALL_ROLES.map((role) => (
+                                            <label key={role} className="flex items-center gap-2 p-1.5 hover:bg-muted rounded cursor-pointer text-sm">
+                                              <Checkbox checked={userRoles.some(r => r.role === role)} onCheckedChange={() => toggleRole(p.user_id, role, userRoles)} />
+                                              {roleLabel[role]}
+                                            </label>
+                                          ))}
+                                        </PopoverContent>
+                                      </Popover>
+                                    </div>
+                                  </div>
+                                  <div className="space-y-1">
+                                    <p className="text-[10px] text-muted-foreground uppercase font-semibold">Telefone</p>
+                                    <p className="text-sm flex items-center gap-1.5">
+                                      <Smartphone className="h-3.5 w-3.5" />
+                                      {p.phone || "Não informado"}
+                                    </p>
+                                  </div>
+                                </div>
+                              </section>
+
+                              {/* Seção Comercial */}
+                              <section className="space-y-4">
+                                <h3 className="text-sm font-bold flex items-center gap-2">
+                                  <CreditCard className="h-4 w-4" /> Dados Comerciais
+                                </h3>
+                                <div className="bg-muted/50 rounded-lg p-4 grid grid-cols-2 gap-6">
+                                  <div className="space-y-1">
+                                    <p className="text-[10px] text-muted-foreground uppercase font-semibold">Plano Atual</p>
+                                    <p className="text-base font-bold text-primary">{plan?.name || "Sem plano"}</p>
+                                    <Badge variant="outline" className="text-[10px]">{sub?.status || "N/A"}</Badge>
+                                  </div>
+                                  <div className="space-y-1">
+                                    <p className="text-[10px] text-muted-foreground uppercase font-semibold">Vencimento/Trial</p>
+                                    <p className="text-sm font-medium">
+                                      {sub?.trial_end ? format(new Date(sub.trial_end), "dd/MM/yyyy") : "—"}
+                                    </p>
+                                    {sub?.status === 'trialing' && <span className="text-[10px] text-orange-600 font-bold">Em período de teste</span>}
+                                  </div>
+                                </div>
+                              </section>
+
+                              {/* Seção de Uso do Produto */}
+                              <section className="space-y-4">
+                                <h3 className="text-sm font-bold flex items-center gap-2">
+                                  <Info className="h-4 w-4" /> Uso do Produto
+                                </h3>
+                                <div className="grid grid-cols-3 gap-3">
+                                  <div className="border rounded-lg p-3 text-center">
+                                    <p className="text-xl font-bold">{usage?.total_properties || 0}</p>
+                                    <p className="text-[10px] text-muted-foreground uppercase">Imóveis</p>
+                                  </div>
+                                  <div className="border rounded-lg p-3 text-center">
+                                    <p className="text-xl font-bold">{usage?.total_leads || 0}</p>
+                                    <p className="text-[10px] text-muted-foreground uppercase">Leads</p>
+                                  </div>
+                                  <div className="border rounded-lg p-3 text-center">
+                                    <p className="text-xl font-bold">{usage?.total_users || 0}</p>
+                                    <p className="text-[10px] text-muted-foreground uppercase">Membros</p>
+                                  </div>
+                                </div>
+                                <div className="flex gap-4">
+                                  <div className="flex items-center gap-2 text-xs font-medium">
+                                    <Globe className={`h-4 w-4 ${site?.is_active ? 'text-primary' : 'text-muted-foreground/30'}`} />
+                                    Site: {site?.custom_domain || (site?.is_active ? "Ativo" : "Inativo")}
+                                  </div>
+                                  <div className="flex items-center gap-2 text-xs font-medium">
+                                    <MessageSquare className={`h-4 w-4 ${whatsapp?.status === 'connected' ? 'text-green-500' : 'text-muted-foreground/30'}`} />
+                                    WhatsApp: {whatsapp?.status === 'connected' ? "Conectado" : "Desconectado"}
+                                  </div>
+                                </div>
+                              </section>
+
+                              {/* Seção de Rastreabilidade (UTMs) */}
+                              <section className="space-y-4">
+                                <h3 className="text-sm font-bold flex items-center gap-2">
+                                  <MousePointer2 className="h-4 w-4" /> Rastreabilidade (UTMs)
+                                </h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                  {['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'].map(utm => (
+                                    <div key={utm} className="space-y-0.5">
+                                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">{utm.replace('utm_', '')}</p>
+                                      <p className="text-sm font-medium border-b pb-1">{authUser?.user_metadata?.[utm] || "—"}</p>
+                                    </div>
+                                  ))}
+                                  <div className="space-y-0.5">
+                                    <p className="text-[10px] text-muted-foreground uppercase font-semibold">Origem (Meta/Google)</p>
+                                    <p className="text-sm font-medium border-b pb-1">{authUser?.user_metadata?.source || "—"}</p>
+                                  </div>
+                                </div>
+                              </section>
+                              
+                              {/* Rodapé do Drawer com Ações Críticas */}
+                              <div className="pt-6 border-t flex flex-col gap-3">
+                                <p className="text-xs font-bold text-destructive uppercase">Ações de Segurança</p>
+                                <div className="flex gap-2">
+                                  <AlertDialog open={passwordTarget?.userId === p.user_id} onOpenChange={(open) => !open && setPasswordTarget(null)}>
+                                    <AlertDialogTrigger asChild>
+                                      <Button variant="outline" size="sm" className="gap-2" onClick={() => setPasswordTarget({ userId: p.user_id, name: p.full_name || "" })}>
+                                        <KeyRound className="h-4 w-4" /> Redefinir Senha
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Nova Senha</AlertDialogTitle>
+                                        <Input type="password" placeholder="Mín. 6 caracteres" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                        <AlertDialogAction disabled={newPassword.length < 6} onClick={async () => {
+                                          const { data: { session } } = await supabase.auth.getSession();
+                                          await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-users`, {
+                                            method: "PATCH",
+                                            headers: { Authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" },
+                                            body: JSON.stringify({ user_id: p.user_id, new_password: newPassword })
+                                          });
+                                          toast({ title: "Senha alterada" });
+                                          setPasswordTarget(null);
+                                          setNewPassword("");
+                                        }}>Alterar</AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button variant="destructive" size="sm" className="gap-2">
+                                        <Trash2 className="h-4 w-4" /> Excluir Conta
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
+                                        <AlertDialogDescription>Ação irreversível para {p.full_name}.</AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                        <AlertDialogAction className="bg-destructive" onClick={async () => {
+                                          const { data: { session } } = await supabase.auth.getSession();
+                                          await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-users`, {
+                                            method: "DELETE",
+                                            headers: { Authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" },
+                                            body: JSON.stringify({ user_id: p.user_id })
+                                          });
+                                          queryClient.invalidateQueries();
+                                          toast({ title: "Usuário excluído" });
+                                        }}>Excluir</AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </div>
+                              </div>
+                            </div>
+                          </SheetContent>
+                        </Sheet>
+                        
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => {
+                          if (org?.slug) window.open(`https://${org.slug}.portadocorretor.com`, '_blank');
+                          else toast({ title: "Organização sem slug" });
+                        }}>
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -519,6 +668,6 @@ export function UsersTab() {
           </Table>
         </div>
       </CardContent>
-    </Card>
+    </div>
   );
 }
