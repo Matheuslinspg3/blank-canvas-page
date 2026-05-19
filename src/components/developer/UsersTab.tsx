@@ -414,11 +414,11 @@ export function UsersTab() {
                           <Badge variant={sub?.status === 'active' ? 'default' : 'secondary'} className="text-[10px] h-4.5 px-1.5">
                             {plan?.name || "Sem plano"}
                           </Badge>
-                          {sub?.status === 'trialing' && (
+                          {sub?.status === 'trial' && (
                             <Badge variant="outline" className="text-[10px] h-4.5 border-orange-200 text-orange-600 bg-orange-50">Trial</Badge>
                           )}
                         </div>
-                        {sub?.status && sub.status !== 'active' && sub.status !== 'trialing' && (
+                        {sub?.status && sub.status !== 'active' && sub.status !== 'trial' && (
                           <span className="text-[10px] text-muted-foreground font-medium uppercase">{sub.status}</span>
                         )}
                       </div>
