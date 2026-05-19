@@ -179,15 +179,27 @@ export function useLeadCRUD(opts: {
         // mantém broker_id ausente → NULL
       }
 
+      const attribution = getAttribution();
       const insertRow = {
         ...payload,
         organization_id: profile.organization_id,
         created_by: user.id, // sobrescrito pelo trigger; mantido para satisfazer o tipo
         lead_stage_id: lead_stage_id || defaultStageId,
         stage: 'novo',
+        attribution_context: attribution,
       } as any;
       const { data, error } = await supabase.from('leads').insert(insertRow).select(`*, lead_type:lead_types(*)`).single();
       if (error) throw error;
+
+      // Alerta comercial (não bloqueante)
+      firePlatformAlert('lead', {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        organization_id: data.organization_id,
+        source: data.source
+      }, attribution);
+
       return data as Lead;
     },
     onSuccess: () => {
