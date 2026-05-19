@@ -380,7 +380,9 @@ export function UsersTab() {
                         <div className="flex items-center gap-2">
                           <p className="font-semibold text-sm">{p.full_name || "Sem nome"}</p>
                           {p.onboarding_completed && (
-                            <CheckCircle2 className="h-3.5 w-3.5 text-green-500" title="Onboarding concluído" />
+                            <span title="Onboarding concluído">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                            </span>
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground leading-none">{email}</p>
