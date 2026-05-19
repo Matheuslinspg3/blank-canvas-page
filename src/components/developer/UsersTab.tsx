@@ -437,8 +437,12 @@ export function UsersTab() {
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <Globe className={`h-4 w-4 ${site?.is_active ? 'text-primary' : 'text-muted-foreground/30'}`} title={site?.custom_domain || "Sem domínio"} />
-                        <MessageSquare className={`h-4 w-4 ${whatsapp?.status === 'connected' ? 'text-green-500' : 'text-muted-foreground/30'}`} title={whatsapp?.status || "Desconectado"} />
+                        <span title={site?.custom_domain || "Sem domínio"}>
+                          <Globe className={`h-4 w-4 ${site?.is_active ? 'text-primary' : 'text-muted-foreground/30'}`} />
+                        </span>
+                        <span title={whatsapp?.status || "Desconectado"}>
+                          <MessageSquare className={`h-4 w-4 ${whatsapp?.status === 'connected' ? 'text-green-500' : 'text-muted-foreground/30'}`} />
+                        </span>
                       </div>
                     </TableCell>
                     <TableCell>
