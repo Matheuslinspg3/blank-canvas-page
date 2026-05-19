@@ -33,7 +33,7 @@ export interface CheckoutDialogProps {
 
 export function CheckoutDialog({ open, onOpenChange, plan, customModules }: CheckoutDialogProps) {
   const { subscribe, payments } = useSubscription({ enabled: true });
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const attribution = getAttribution();
 
   // Alerta de intenção de compra ao abrir o modal
