@@ -79,3 +79,5 @@ export function buildAttributionPayload() {
 export function createEventId(eventName: string) {
   return `${eventName}_${createId()}`;
 }
+
+export const getOrCreateEventId = createEventId;
