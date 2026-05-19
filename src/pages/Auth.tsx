@@ -373,6 +373,11 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
 
       if (!error) {
         toast({ title: "Bem-vindo!", description: "Email verificado com sucesso!" });
+        trackSignupSuccess();
+        trackPixelEvent('CompleteRegistration', {
+          content_name: 'Platform Signup',
+          status: 'verified'
+        });
         navigate("/dashboard", { replace: true });
         return;
       }
