@@ -1,5 +1,8 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { trackEvent } from '@/lib/posthog';
+import { trackPixelEvent } from '@/lib/metaPixel';
+import { getAttribution } from '@/hooks/useAttribution';
+import { firePlatformAlert } from '@/lib/alerts';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
