@@ -294,7 +294,7 @@ export function UsersTab() {
               <SelectContent>
                 <SelectItem value="all">Todos os Status</SelectItem>
                 <SelectItem value="active">Ativo</SelectItem>
-                <SelectItem value="trialing">Trial</SelectItem>
+                <SelectItem value="trial">Trial</SelectItem>
                 <SelectItem value="past_due">Atrasado</SelectItem>
                 <SelectItem value="canceled">Cancelado</SelectItem>
                 <SelectItem value="incomplete">Incompleto</SelectItem>
