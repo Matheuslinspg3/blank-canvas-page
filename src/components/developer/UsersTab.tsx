@@ -540,7 +540,7 @@ export function UsersTab() {
                                     <p className="text-sm font-medium">
                                       {sub?.trial_end ? format(new Date(sub.trial_end), "dd/MM/yyyy") : "—"}
                                     </p>
-                                    {sub?.status === 'trialing' && <span className="text-[10px] text-orange-600 font-bold">Em período de teste</span>}
+                                    {sub?.status === 'trial' && <span className="text-[10px] text-orange-600 font-bold">Em período de teste</span>}
                                   </div>
                                 </div>
                               </section>
