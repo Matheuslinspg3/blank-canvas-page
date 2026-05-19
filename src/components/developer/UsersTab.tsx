@@ -241,27 +241,110 @@ export function UsersTab() {
   };
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Usuários do Sistema
-            </CardTitle>
-            <CardDescription>Gerencie cargos e contas de todos os usuários</CardDescription>
+    <div className="space-y-4">
+      {/* Filters Section */}
+      <Card>
+        <CardHeader className="pb-3 px-4 sm:px-6">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Filtros Avançados</CardTitle>
           </div>
-          <div className="relative sm:w-64">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-9"
-            />
+        </CardHeader>
+        <CardContent className="px-4 sm:px-6 pb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            <div className="relative col-span-1 sm:col-span-2 md:col-span-1 lg:col-span-2">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Nome, Email, ID, Telefone..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 h-9"
+              />
+            </div>
+
+            <Select value={filterOrg} onValueChange={setFilterOrg}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Organização" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as Orgs</SelectItem>
+                {organizations.map(org => (
+                  <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={filterPlan} onValueChange={setFilterPlan}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Plano" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os Planos</SelectItem>
+                <SelectItem value="none">Sem Plano</SelectItem>
+                {plans.map(plan => (
+                  <SelectItem key={plan.id} value={plan.id}>{plan.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Status Assinatura" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os Status</SelectItem>
+                <SelectItem value="active">Ativo</SelectItem>
+                <SelectItem value="trialing">Trial</SelectItem>
+                <SelectItem value="past_due">Atrasado</SelectItem>
+                <SelectItem value="canceled">Cancelado</SelectItem>
+                <SelectItem value="incomplete">Incompleto</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={filterOnboarding} onValueChange={setFilterOnboarding}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Onboarding" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Status Onboarding</SelectItem>
+                <SelectItem value="completed">Concluído</SelectItem>
+                <SelectItem value="pending">Pendente</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={clearFilters}
+              className="h-9 gap-1.5"
+            >
+              <X className="h-3.5 w-3.5" />
+              Limpar
+            </Button>
           </div>
-        </div>
-      </CardHeader>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3 px-4 sm:px-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Usuários do Sistema
+              </CardTitle>
+              <CardDescription>
+                {filtered.length} usuários encontrados
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries()} className="h-8 gap-1.5">
+                <Loader2 className={`h-3.5 w-3.5 ${isLoadingAuth || isLoadingProfiles ? 'animate-spin' : ''}`} />
+                Atualizar
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
       <CardContent>
         <div className="overflow-x-auto -mx-5 sm:-mx-6 px-5 sm:px-6">
           <Table>
