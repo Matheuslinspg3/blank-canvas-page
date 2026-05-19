@@ -63,9 +63,14 @@ export function UsersTab() {
   const queryClient = useQueryClient();
   const changeRole = useChangeRole();
   const [search, setSearch] = useState("");
+  const [filterOrg, setFilterOrg] = useState<string>("all");
+  const [filterPlan, setFilterPlan] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterOnboarding, setFilterOnboarding] = useState<string>("all");
   const [passwordTarget, setPasswordTarget] = useState<{ userId: string; name: string } | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [updatingRoles, setUpdatingRoles] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<string | null>(null);
 
   const { data: allRoles = [] } = useQuery({
     queryKey: ["all-user-roles"],
@@ -76,16 +81,18 @@ export function UsersTab() {
     },
   });
 
-  const { data: allProfiles = [] } = useQuery({
+  const { data: allProfiles = [], isLoading: isLoadingProfiles } = useQuery({
     queryKey: ["all-profiles-dev"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("user_id, full_name, organization_id");
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, phone, organization_id, onboarding_completed");
       if (error) throw error;
       return data || [];
     },
   });
 
-  const { data: authUsers = [] } = useQuery({
+  const { data: authUsers = [], isLoading: isLoadingAuth } = useQuery({
     queryKey: ["admin-users-emails"],
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -94,29 +101,127 @@ export function UsersTab() {
         { headers: { Authorization: `Bearer ${session?.access_token}` } }
       );
       if (!res.ok) throw new Error("Failed to fetch users");
-      return res.json() as Promise<{ id: string; email: string; created_at: string }[]>;
+      return res.json() as Promise<AuthUser[]>;
+    },
+  });
+
+  const { data: organizations = [] } = useQuery({
+    queryKey: ["dev-organizations"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("id, name, slug, trial_started_at, trial_ends_at, is_active");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: subscriptions = [] } = useQuery({
+    queryKey: ["dev-subscriptions"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("subscriptions")
+        .select("organization_id, plan_id, status, trial_end");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: plans = [] } = useQuery({
+    queryKey: ["dev-subscription-plans"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("subscription_plans")
+        .select("id, name, slug");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: websiteSettings = [] } = useQuery({
+    queryKey: ["dev-website-settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("website_settings")
+        .select("organization_id, custom_domain, is_active");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: whatsappInstances = [] } = useQuery({
+    queryKey: ["dev-whatsapp-instances"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("whatsapp_instances")
+        .select("organization_id, status");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: orgUsage = [] } = useQuery({
+    queryKey: ["dev-org-usage-sync"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("admin_get_org_usage");
+      if (error) return [];
+      return data as any[];
     },
   });
 
   const getEmail = (userId: string) => authUsers.find((u) => u.id === userId)?.email || "—";
+  const getAuthUser = (userId: string) => authUsers.find((u) => u.id === userId);
+  
+  const filtered = useMemo(() => {
+    return allProfiles.filter(p => {
+      const email = getEmail(p.user_id);
+      const authUser = getAuthUser(p.user_id);
+      const org = organizations.find(o => o.id === p.organization_id);
+      const sub = subscriptions.find(s => s.organization_id === p.organization_id);
+      
+      // Search filter
+      if (search) {
+        const s = search.toLowerCase();
+        const matchesSearch = 
+          p.full_name?.toLowerCase().includes(s) || 
+          email.toLowerCase().includes(s) || 
+          p.user_id.toLowerCase().includes(s) ||
+          p.phone?.toLowerCase().includes(s);
+        if (!matchesSearch) return false;
+      }
 
-  const filtered = allProfiles.filter(p => {
-    if (!search) return true;
-    const email = getEmail(p.user_id);
-    return p.full_name?.toLowerCase().includes(search.toLowerCase()) || email.toLowerCase().includes(search.toLowerCase());
-  });
+      // Org filter
+      if (filterOrg !== "all" && p.organization_id !== filterOrg) return false;
+
+      // Plan filter
+      if (filterPlan !== "all") {
+        if (filterPlan === "none" && sub) return false;
+        if (filterPlan !== "none" && sub?.plan_id !== filterPlan) return false;
+      }
+
+      // Status filter
+      if (filterStatus !== "all" && sub?.status !== filterStatus) return false;
+
+      // Onboarding filter
+      if (filterOnboarding !== "all") {
+        const completed = !!p.onboarding_completed;
+        if (filterOnboarding === "completed" && !completed) return false;
+        if (filterOnboarding === "pending" && completed) return false;
+      }
+
+      return true;
+    });
+  }, [allProfiles, authUsers, organizations, subscriptions, search, filterOrg, filterPlan, filterStatus, filterOnboarding]);
 
   const toggleRole = async (userId: string, role: string, currentRoles: typeof allRoles) => {
     setUpdatingRoles(userId);
     try {
       const existing = currentRoles.find(r => r.role === role);
       if (existing) {
-        // Remove role → set to corretor (default)
         changeRole.mutate({ userId, newRole: "corretor" }, {
           onSettled: () => setUpdatingRoles(null),
         });
       } else {
-        // Add/change role
         changeRole.mutate({ userId, newRole: role }, {
           onSettled: () => setUpdatingRoles(null),
         });
@@ -125,6 +230,14 @@ export function UsersTab() {
       toast({ title: "Erro ao alterar cargo", description: (e as Error).message, variant: "destructive" });
       setUpdatingRoles(null);
     }
+  };
+
+  const clearFilters = () => {
+    setSearch("");
+    setFilterOrg("all");
+    setFilterPlan("all");
+    setFilterStatus("all");
+    setFilterOnboarding("all");
   };
 
   return (
