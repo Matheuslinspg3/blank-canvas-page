@@ -51,12 +51,24 @@ const roleBadgeVariant = (role: string) => {
   }
 };
 
+interface PaymentAttempt {
+  id: string;
+  user_id: string;
+  plan_name: string;
+  amount_cents: number;
+  billing_cycle: string;
+  status: string;
+  created_at: string;
+  attribution_context?: any;
+}
+
 interface AuthUser {
   id: string;
   email: string;
   created_at: string;
   last_sign_in_at: string | null;
   user_metadata: any;
+  payment_attempts?: PaymentAttempt[];
 }
 
 export function UsersTab() {
