@@ -189,7 +189,9 @@ window.addEventListener("vite:preloadError", (e: Event) => {
 
 // PostHog initialization — after Sentry, before React
 import { initPostHog } from "./lib/posthog";
+import { initMetaPixel } from "./lib/metaPixel";
 initPostHog();
+initMetaPixel();
 
 // PWA / Service Worker lifecycle:
 //  - Disabled in preview, iframe and dev → unregister any leftover SWs and

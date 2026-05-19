@@ -1,4 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { getAttribution } from "@/hooks/useAttribution";
+import { firePlatformAlert } from "@/lib/alerts";
+import { trackPixelEvent } from "@/lib/metaPixel";
 import {
   Dialog,
   DialogContent,
@@ -29,7 +33,30 @@ export interface CheckoutDialogProps {
 
 export function CheckoutDialog({ open, onOpenChange, plan, customModules }: CheckoutDialogProps) {
   const { subscribe, payments } = useSubscription({ enabled: true });
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
+  const attribution = getAttribution();
+
+  // Alerta de intenção de compra ao abrir o modal
+  useEffect(() => {
+    if (open && plan && profile) {
+      firePlatformAlert('payment_attempt', {
+        name: profile.full_name || 'Usuário',
+        email: user?.email || 'N/A',
+        organization_name: profile.organization_id || 'N/A',
+        plan_name: plan.name,
+        amount_cents: billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly,
+        billing_cycle: billingCycle,
+        status: 'modal_opened'
+      }, attribution);
+
+      trackPixelEvent('InitiateCheckout', {
+        content_name: plan.name,
+        content_category: 'Subscription',
+        value: (billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly) / 100,
+        currency: 'BRL'
+      });
+    }
+  }, [open, plan?.id]);
 
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [paymentMethod, setPaymentMethod] = useState<"pix" | "credit_card">("pix");

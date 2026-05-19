@@ -51,12 +51,24 @@ const roleBadgeVariant = (role: string) => {
   }
 };
 
+interface PaymentAttempt {
+  id: string;
+  user_id: string;
+  plan_name: string;
+  amount_cents: number;
+  billing_cycle: string;
+  status: string;
+  created_at: string;
+  attribution_context?: any;
+}
+
 interface AuthUser {
   id: string;
   email: string;
   created_at: string;
   last_sign_in_at: string | null;
   user_metadata: any;
+  payment_attempts?: PaymentAttempt[];
 }
 
 export function UsersTab() {
@@ -575,7 +587,31 @@ export function UsersTab() {
                                   </div>
                                 </div>
                               </section>
-
+                              {/* Seção de Intenções de Compra */}
+                              {authUser?.payment_attempts && authUser.payment_attempts.length > 0 && (
+                                <section className="space-y-4">
+                                  <h3 className="text-sm font-bold flex items-center gap-2">
+                                    <CreditCard className="h-4 w-4" /> Histórico de Intenções de Compra
+                                  </h3>
+                                  <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2">
+                                    {authUser.payment_attempts.map((attempt) => (
+                                      <div key={attempt.id} className="text-xs border rounded p-2 bg-muted/30">
+                                        <div className="flex justify-between items-start mb-1">
+                                          <span className="font-bold">{attempt.plan_name} ({attempt.billing_cycle})</span>
+                                          <span className="text-muted-foreground">{format(new Date(attempt.created_at), 'dd/MM/yy HH:mm')}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                          <span>R$ {(attempt.amount_cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                          <Badge variant="outline" className="text-[9px] h-4 uppercase">
+                                            {attempt.status}
+                                          </Badge>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </section>
+                              )}
+                              
                               {/* Seção de Rastreabilidade (UTMs) */}
                               <section className="space-y-4">
                                 <h3 className="text-sm font-bold flex items-center gap-2">

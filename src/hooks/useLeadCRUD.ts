@@ -1,5 +1,8 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { trackEvent } from '@/lib/posthog';
+import { trackPixelEvent } from '@/lib/metaPixel';
+import { getAttribution } from '@/hooks/useAttribution';
+import { firePlatformAlert } from '@/lib/alerts';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -176,20 +179,40 @@ export function useLeadCRUD(opts: {
         // mantém broker_id ausente → NULL
       }
 
+      const attribution = getAttribution();
       const insertRow = {
         ...payload,
         organization_id: profile.organization_id,
         created_by: user.id, // sobrescrito pelo trigger; mantido para satisfazer o tipo
         lead_stage_id: lead_stage_id || defaultStageId,
         stage: 'novo',
+        attribution_context: attribution,
       } as any;
       const { data, error } = await supabase.from('leads').insert(insertRow).select(`*, lead_type:lead_types(*)`).single();
       if (error) throw error;
+
+      // Alerta comercial (não bloqueante)
+      firePlatformAlert('lead', {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        organization_id: data.organization_id,
+        source: data.source
+      }, attribution);
+
       return data as Lead;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['leads'], refetchType: 'active' });
-      trackEvent('lead_enviado');
+      trackEvent('lead_enviado', { 
+        lead_id: data.id,
+        source: data.source 
+      });
+      trackPixelEvent('Lead', {
+        content_name: 'Lead Manual/CRM',
+        value: data.estimated_value || 0,
+        currency: 'BRL'
+      }, data.id);
       toast({ title: 'Lead criado', description: 'O lead foi criado com sucesso.' });
     },
     onError: (error: any) => {

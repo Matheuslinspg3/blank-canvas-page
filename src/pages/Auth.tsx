@@ -2,7 +2,10 @@ import React, { useState, useEffect, useRef } from "react";
 import { SEOHead } from "@/components/SEOHead";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { trackLoginSuccess } from "@/components/ClarityProvider";
+import { trackLoginSuccess, trackSignupSuccess } from "@/components/ClarityProvider";
+import { trackPixelEvent } from "@/lib/metaPixel";
+import { useAttribution, getAttribution } from "@/hooks/useAttribution";
+import { firePlatformAlert } from "@/lib/alerts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -84,6 +87,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
   const { signIn, signUp, user, loading, forgotPassword } = useAuth();
   const { toast } = useToast();
   const { isMaintenanceMode, maintenanceMessage } = useMaintenanceMode();
+  const attribution = useAttribution();
 
   const initialTab = searchParams.get("tab") === "cadastro" ? "signup" : "login";
   const [activeTab, setActiveTab] = useState<"login" | "signup">(initialTab);
@@ -322,6 +326,20 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
         return;
       }
 
+      const currentAttribution = getAttribution();
+      firePlatformAlert('signup', {
+        name: signupForm.full_name,
+        email: signupForm.email,
+        phone: signupForm.phone,
+        company_name: signupForm.company_name,
+        selected_plan: signupForm.selected_plan
+      }, currentAttribution);
+
+      trackPixelEvent('CompleteRegistration', {
+        content_name: 'Platform Signup',
+        status: 'pending_verification'
+      });
+
       openEmailVerificationStep(signupForm.email, signupForm.password);
       setIsLoading(false);
 
@@ -355,6 +373,11 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
 
       if (!error) {
         toast({ title: "Bem-vindo!", description: "Email verificado com sucesso!" });
+        trackSignupSuccess();
+        trackPixelEvent('CompleteRegistration', {
+          content_name: 'Platform Signup',
+          status: 'verified'
+        });
         navigate("/dashboard", { replace: true });
         return;
       }
