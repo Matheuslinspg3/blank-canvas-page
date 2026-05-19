@@ -87,6 +87,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
   const { signIn, signUp, user, loading, forgotPassword } = useAuth();
   const { toast } = useToast();
   const { isMaintenanceMode, maintenanceMessage } = useMaintenanceMode();
+  const attribution = useAttribution();
 
   const initialTab = searchParams.get("tab") === "cadastro" ? "signup" : "login";
   const [activeTab, setActiveTab] = useState<"login" | "signup">(initialTab);
