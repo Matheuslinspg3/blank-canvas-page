@@ -668,6 +668,7 @@ export function UsersTab() {
           </Table>
         </div>
       </CardContent>
-    </div>
-  );
+    </Card>
+  </div>
+);
 }
