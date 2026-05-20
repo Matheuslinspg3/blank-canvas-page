@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { getAttribution } from '@/hooks/useAttribution';
 import { queryClient } from '@/lib/queryClient';
 import { loginOneSignal, logoutOneSignal } from '@/lib/onesignal';
 import { identifyUser, resetPostHog } from '@/lib/posthog';
