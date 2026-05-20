@@ -31,6 +31,7 @@ import { PillBadge } from "@/components/ui/pill-badge";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRoles } from "@/hooks/useUserRole";
+import { useSubscription } from "@/hooks/useSubscription";
 import { useAdLeadsCount } from "@/hooks/useAdLeads";
 import { useSetupPendingCount } from "@/components/developer/SetupChecklistTab";
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,7 @@ export function AppSidebar() {
   const location = useLocation();
   const { signOut, user, profile, organizationType } = useAuth();
   const { isDeveloper, isAdminOrAbove } = useUserRoles();
+  const { hasFeature } = useSubscription();
   const currentPath = location.pathname;
   const { data: newAdLeadsCount = 0 } = useAdLeadsCount();
   const setupPending = useSetupPendingCount();
@@ -185,9 +187,9 @@ export function AppSidebar() {
               {mainItems
                 .filter((item) => isDeveloper || !item.developerOnly)
                 .map(renderMenuItem)}
-              {isDeveloper &&
+              {(isDeveloper || hasFeature("has_whatsapp")) &&
                 renderMenuItem({ title: "Meu WhatsApp", url: "/whatsapp/meu-canal", icon: Smartphone })}
-              {isDeveloper &&
+              {(isDeveloper || hasFeature("has_automations")) &&
                 renderMenuItem({ title: "Automações", url: "/automacoes", icon: Zap })}
             </SidebarMenu>
           </SidebarGroupContent>
@@ -200,9 +202,9 @@ export function AppSidebar() {
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {isDeveloper &&
+                {(isDeveloper || hasFeature("has_brand_settings")) &&
                   renderMenuItem({ title: "Meu Site", url: "/site", icon: Globe })}
-                {isDeveloper &&
+                {(isDeveloper || hasFeature("has_whatsapp")) &&
                   renderMenuItem({ title: "Canais da Equipe", url: "/whatsapp/canais-equipe", icon: Smartphone })}
                 {renderMenuItem({ title: "Administração", url: "/administracao", icon: UserCog })}
                 {renderMenuItem({ title: "Integrações", url: "/integracoes", icon: Plug })}

@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useUserRoles } from "@/hooks/useUserRole";
+import { useSubscription } from "@/hooks/useSubscription";
 
 const primaryItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
@@ -18,6 +19,7 @@ interface MoreItem {
   path: string;
   adminOnly?: boolean;
   developerOnly?: boolean;
+  featureKey?: string;
 }
 
 interface MenuGroup {
@@ -34,13 +36,13 @@ const menuGroups: MenuGroup[] = [
       { icon: Landmark, label: "Correspondente", path: "/correspondente" },
       { icon: Megaphone, label: "Marketing", path: "/marketing" },
       { icon: Building2, label: "Proprietários", path: "/proprietarios" },
-      { icon: Zap, label: "Automações", path: "/automacoes" },
+      { icon: Zap, label: "Automações", path: "/automacoes", featureKey: "has_automations" },
     ],
   },
   {
     title: "Gestão",
     items: [
-      { icon: Globe, label: "Meu Site", path: "/site" },
+      { icon: Globe, label: "Meu Site", path: "/site", featureKey: "has_brand_settings" },
       { icon: UserCog, label: "Administração", path: "/administracao", adminOnly: true },
       { icon: Plug, label: "Integrações", path: "/integracoes", adminOnly: true },
     ],
@@ -59,6 +61,7 @@ export function MobileBottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAdminOrAbove, isDeveloper } = useUserRoles();
+  const { hasFeature } = useSubscription();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
@@ -87,6 +90,7 @@ export function MobileBottomNav() {
     items.filter(item => {
       if (item.adminOnly && !isAdminOrAbove) return false;
       if (item.developerOnly && !isDeveloper) return false;
+      if (item.featureKey && !hasFeature(item.featureKey) && !isDeveloper) return false;
       return true;
     });
 
