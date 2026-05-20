@@ -78,6 +78,7 @@ const featureRows: FeatureRow[] = [
   { label: "Financeiro", key: "has_financial", type: "bool", category: "Recursos" },
   { label: "Gerenciamento de equipe", key: "has_team_management", type: "bool", category: "Recursos" },
   { label: "Relatórios", key: "has_reports", type: "bool", category: "Recursos" },
+  { label: "Automações", key: "automations_limit", type: "number", category: "Recursos" },
 ];
 
 const FAQ_ITEMS = [
