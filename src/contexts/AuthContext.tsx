@@ -315,6 +315,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           account_type: accountType,
           company_name: companyName,
           selected_plan: selectedPlan || 'starter',
+          ...getAttribution(),
         }
       }
     });
