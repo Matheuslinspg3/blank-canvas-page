@@ -38,13 +38,29 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
 
   // Alerta de intenção de compra ao abrir o modal
   useEffect(() => {
-    if (open && plan && profile) {
+    if (open && plan && profile && user) {
+      const amount_cents = billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly;
+      
+      // Registrar no banco de dados
+      supabase.from('payment_attempts').insert({
+        user_id: user.id,
+        organization_id: profile.organization_id,
+        plan_id: plan.id,
+        amount_cents,
+        billing_cycle: billingCycle,
+        status: 'initiated',
+        attribution_context: attribution
+      }).then(({ error }) => {
+        if (error) console.error('[payment_attempts] Error saving:', error);
+      });
+
+      // Disparar alerta por email
       firePlatformAlert('payment_attempt', {
         name: profile.full_name || 'Usuário',
-        email: user?.email || 'N/A',
+        email: user.email || 'N/A',
         organization_name: profile.organization_id || 'N/A',
         plan_name: plan.name,
-        amount_cents: billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly,
+        amount_cents,
         billing_cycle: billingCycle,
         status: 'modal_opened'
       }, attribution);
@@ -52,11 +68,11 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
       trackPixelEvent('InitiateCheckout', {
         content_name: plan.name,
         content_category: 'Subscription',
-        value: (billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly) / 100,
+        value: amount_cents / 100,
         currency: 'BRL'
       });
     }
-  }, [open, plan?.id]);
+  }, [open, plan?.id, billingCycle]);
 
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [paymentMethod, setPaymentMethod] = useState<"pix" | "credit_card">("pix");
