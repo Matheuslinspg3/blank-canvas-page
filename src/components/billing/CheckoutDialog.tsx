@@ -36,28 +36,6 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
   const { profile, user } = useAuth();
   const attribution = getAttribution();
 
-  // Alerta de intenção de compra ao abrir o modal
-  useEffect(() => {
-    if (open && plan && profile) {
-      firePlatformAlert('payment_attempt', {
-        name: profile.full_name || 'Usuário',
-        email: user?.email || 'N/A',
-        organization_name: profile.organization_id || 'N/A',
-        plan_name: plan.name,
-        amount_cents: billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly,
-        billing_cycle: billingCycle,
-        status: 'modal_opened'
-      }, attribution);
-
-      trackPixelEvent('InitiateCheckout', {
-        content_name: plan.name,
-        content_category: 'Subscription',
-        value: (billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly) / 100,
-        currency: 'BRL'
-      });
-    }
-  }, [open, plan?.id]);
-
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [paymentMethod, setPaymentMethod] = useState<"pix" | "credit_card">("pix");
   const [customerName, setCustomerName] = useState(profile?.full_name || "");
@@ -68,6 +46,44 @@ export function CheckoutDialog({ open, onOpenChange, plan, customModules }: Chec
   const [chargedInitialFeeCents, setChargedInitialFeeCents] = useState(0);
   const [copied, setCopied] = useState(false);
   const [cpfError, setCpfError] = useState<string | null>(null);
+
+  // Alerta de intenção de compra ao abrir o modal
+  useEffect(() => {
+    if (open && plan && profile && user) {
+      const amount_cents = billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly;
+      
+      // Registrar no banco de dados (fail silently)
+      supabase.from('payment_attempts').insert([{
+        user_id: user.id,
+        organization_id: profile.organization_id,
+        plan_id: plan.id,
+        amount_cents,
+        billing_cycle: billingCycle,
+        status: 'initiated',
+        attribution_context: attribution as any
+      }]).then(({ error }) => {
+        if (error) console.error('[payment_attempts] Error saving:', error);
+      });
+
+      // Disparar alerta por email
+      firePlatformAlert('payment_attempt', {
+        name: profile.full_name || 'Usuário',
+        email: user.email || 'N/A',
+        organization_name: profile.organization_id || 'N/A',
+        plan_name: plan.name,
+        amount_cents,
+        billing_cycle: billingCycle,
+        status: 'modal_opened'
+      }, attribution);
+
+      trackPixelEvent('InitiateCheckout', {
+        content_name: plan.name,
+        content_category: 'Subscription',
+        value: amount_cents / 100,
+        currency: 'BRL'
+      });
+    }
+  }, [open, plan?.id, billingCycle]);
 
   if (!plan) return null;
 
