@@ -67,7 +67,7 @@ export function useAutomations() {
   const automationsLimit = getFeatureLimit(currentPlan, "automations_limit");
 
   const plan: AutomationPlan = useMemo(() => {
-    if (automationsLimit === null) return "enterprise";
+    if (automationsLimit === null || automationsLimit === Infinity) return "enterprise";
     if (automationsLimit > 0) return "pro";
     return "free";
   }, [automationsLimit]);
