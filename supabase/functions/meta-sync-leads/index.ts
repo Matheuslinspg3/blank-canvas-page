@@ -384,7 +384,10 @@ async function syncOrgLeads(
 
         for (const lead of (leadsData.data || [])) {
           const createdTime = new Date(lead.created_time);
-          if (createdTime < cutoff) continue;
+          if (createdTime < cutoff) {
+            leadsUrl = null; // Break pagination
+            break; 
+          }
 
           const fieldData = lead.field_data || [];
           const getField = (name: string) => {
@@ -395,6 +398,36 @@ async function syncOrgLeads(
           const name = getField("full_name") || getField("nome") || getField("name");
           const email = getField("email");
           const phone = getField("phone_number") || getField("telefone") || getField("phone");
+
+          // For preview mode, we don't necessarily want to upsert everything, 
+          // but we want to check if they ALREADY exist.
+          const { data: existingAdLead } = await supabase
+            .from("ad_leads")
+            .select("id, status, crm_record_id")
+            .eq("organization_id", orgId)
+            .eq("external_lead_id", lead.id)
+            .maybeSingle();
+
+          let crmLeadId = existingAdLead?.crm_record_id;
+          if (!crmLeadId) {
+            crmLeadId = await findExistingCrmLead(supabase, orgId, email, phone, name);
+          }
+
+          if (mode === "preview") {
+            allLeads.push({
+              id: lead.id,
+              name,
+              email,
+              phone,
+              created_time: lead.created_time,
+              status: existingAdLead?.status || "new",
+              crm_record_id: crmLeadId,
+              is_in_crm: !!crmLeadId,
+              form_name: form.name,
+              page_name: page.name
+            });
+            continue;
+          }
 
           const { data: upserted, error: upsertError } = await supabase
             .from("ad_leads")
@@ -419,7 +452,12 @@ async function syncOrgLeads(
           } else {
             totalSynced++;
             if (upserted) {
-              allLeads.push({ ...upserted, form_name: form.name, page_name: page.name });
+              allLeads.push({ 
+                ...upserted, 
+                form_name: form.name, 
+                page_name: page.name,
+                is_in_crm: !!(upserted.crm_record_id || crmLeadId)
+              });
             }
           }
         }
