@@ -197,11 +197,11 @@ const App = () => (
                         <Route path="/whatsapp/automacoes" element={<BrokerAutomationStatus />} />
                         <Route path="/contratos" element={<Navigate to="/financeiro?tab=contracts" replace />} />
                         <Route path="/financeiro" element={<Financial />} />
-                        <Route path="/correspondente" element={<DeveloperOnlyRoute><CorrespondenteBancario /></DeveloperOnlyRoute>} />
+                        <Route path="/correspondente" element={<CorrespondenteBancario />} />
                         <Route path="/metricas" element={<MetricsDashboard />} />
                         <Route path="/agenda" element={<Schedule />} />
                         
-                        <Route path="/automacoes" element={<DeveloperOnlyRoute><Automations /></DeveloperOnlyRoute>} />
+                        <Route path="/automacoes" element={<Automations />} />
                         <Route path="/atividades" element={<Navigate to="/administracao?tab=activities" replace />} />
                         <Route path="/administracao" element={<Administration />} />
                         <Route path="/site" element={<SitePage />} />
