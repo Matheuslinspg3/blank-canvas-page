@@ -458,7 +458,7 @@ async function syncOrgLeads(
   let autoSent = 0;
   let duplicates = 0;
 
-  if (adSettings?.auto_send_to_crm && adSettings?.crm_stage_id) {
+  if (mode !== "preview" && adSettings?.auto_send_to_crm && adSettings?.crm_stage_id) {
     const { data: newAdLeads } = await supabase
       .from("ad_leads")
       .select("id, name, email, phone, external_ad_id, external_lead_id, crm_record_id")
