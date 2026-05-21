@@ -31,12 +31,12 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <>{children}</>;
   }
 
+  // Se não estiver carregando e não tiver usuário, redireciona imediatamente
+  if (!loading && !user) {
+    return <Navigate to="/auth" replace />;
+  }
+
   if (loading || rolesLoading || freeLoading) {
-    // If we've already waited but know there's no user, don't wait further
-    if (!loading && !user) {
-      return <Navigate to="/auth" replace />;
-    }
-    
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
@@ -45,10 +45,6 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
         </div>
       </div>
     );
-  }
-
-  if (!user) {
-    return <Navigate to="/auth" replace />;
   }
 
   // Redirect to onboarding if not completed (unless already on onboarding)
