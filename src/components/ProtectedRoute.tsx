@@ -32,6 +32,11 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   if (loading || rolesLoading || freeLoading) {
+    // If we've already waited but know there's no user, don't wait further
+    if (!loading && !user) {
+      return <Navigate to="/auth" replace />;
+    }
+    
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
