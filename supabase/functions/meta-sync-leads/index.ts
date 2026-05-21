@@ -312,7 +312,7 @@ async function handleAutoSync(supabase: any): Promise<Response> {
         continue;
       }
 
-      const syncResult = await syncOrgLeads(supabase, accessToken, orgId, adminProfile.user_id, 3);
+      const syncResult = await syncOrgLeads(supabase, accessToken, orgId, adminProfile.user_id, 3, "sync");
       results.push({ org: orgId, synced: syncResult.synced, auto_sent: syncResult.autoSent, duplicates: syncResult.duplicates });
 
       await sleep(1500);
