@@ -26,6 +26,8 @@ interface MetaLead {
   status: string;
   form_name: string;
   page_name: string;
+  is_in_crm?: boolean;
+  crm_record_id?: string | null;
 }
 
 type PeriodOption = "1d" | "7d" | "30d" | "custom";
@@ -66,9 +68,12 @@ export default function MetaLeadImport() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      const fetched: MetaLead[] = (data?.leads || []).filter((l: MetaLead) => l.status === "new");
+      const fetched: MetaLead[] = data?.leads || [];
       setLeads(fetched);
       setHasFetched(true);
+      
+      // Auto-select only truly new leads (not in CRM)
+      setSelectedIds(new Set(fetched.filter(l => !l.is_in_crm).map(l => l.id)));
 
       if (fetched.length === 0) {
         toast({ title: "Nenhum lead novo", description: data?.message || "Não foram encontrados leads novos nesse período." });
@@ -119,10 +124,11 @@ export default function MetaLeadImport() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === leads.length) {
+    const selectableLeads = leads.filter(l => !l.is_in_crm);
+    if (selectedIds.size === selectableLeads.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(leads.map((l) => l.id)));
+      setSelectedIds(new Set(selectableLeads.map((l) => l.id)));
     }
   };
 
@@ -196,13 +202,23 @@ export default function MetaLeadImport() {
         {/* Results */}
         {hasFetched && leads.length > 0 && (
           <>
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                {leads.length} lead{leads.length > 1 ? "s" : ""} encontrado{leads.length > 1 ? "s" : ""}
-                {selectedIds.size > 0 && (
-                  <> · <strong>{selectedIds.size} selecionado{selectedIds.size > 1 ? "s" : ""}</strong></>
-                )}
-              </p>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex gap-4 text-sm">
+                <p className="text-muted-foreground">
+                  Total: <strong>{leads.length}</strong>
+                </p>
+                <p className="text-green-600 font-medium">
+                  Novos: <strong>{leads.filter(l => !l.is_in_crm).length}</strong>
+                </p>
+                <p className="text-blue-600 font-medium">
+                  No CRM: <strong>{leads.filter(l => l.is_in_crm).length}</strong>
+                </p>
+              </div>
+              {selectedIds.size > 0 && (
+                <p className="text-sm font-semibold">
+                  {selectedIds.size} selecionado{selectedIds.size > 1 ? "s" : ""} para importar
+                </p>
+              )}
             </div>
 
             <div className="border rounded-md overflow-auto max-h-[400px]">
@@ -211,10 +227,11 @@ export default function MetaLeadImport() {
                   <TableRow>
                     <TableHead className="w-10">
                       <Checkbox
-                        checked={selectedIds.size === leads.length && leads.length > 0}
+                        checked={leads.length > 0 && leads.filter(l => !l.is_in_crm).length > 0 && selectedIds.size === leads.filter(l => !l.is_in_crm).length}
                         onCheckedChange={toggleSelectAll}
                       />
                     </TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Nome</TableHead>
                     <TableHead>E-mail</TableHead>
                     <TableHead>Telefone</TableHead>
@@ -224,19 +241,35 @@ export default function MetaLeadImport() {
                 </TableHeader>
                 <TableBody>
                   {leads.map((lead) => (
-                    <TableRow key={lead.id} className="cursor-pointer" onClick={() => toggleSelect(lead.id)}>
+                    <TableRow 
+                      key={lead.id} 
+                      className={cn("cursor-pointer", lead.is_in_crm && "bg-muted/30 opacity-80")} 
+                      onClick={() => !lead.is_in_crm && toggleSelect(lead.id)}
+                    >
                       <TableCell>
                         <Checkbox
                           checked={selectedIds.has(lead.id)}
-                          onCheckedChange={() => toggleSelect(lead.id)}
+                          onCheckedChange={() => !lead.is_in_crm && toggleSelect(lead.id)}
+                          disabled={lead.is_in_crm}
                           onClick={(e) => e.stopPropagation()}
                         />
+                      </TableCell>
+                      <TableCell>
+                        {lead.is_in_crm ? (
+                          <Badge variant="outline" className="text-[10px] uppercase bg-blue-50 text-blue-700 border-blue-200">
+                            No CRM
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] uppercase bg-green-50 text-green-700 border-green-200">
+                            Novo
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell className="font-medium">{lead.name || "—"}</TableCell>
                       <TableCell className="text-sm">{lead.email || "—"}</TableCell>
                       <TableCell className="text-sm">{lead.phone || "—"}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className="text-xs">{lead.form_name}</Badge>
+                        <Badge variant="secondary" className="text-[10px] font-normal">{lead.form_name}</Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {format(new Date(lead.created_time), "dd/MM/yy HH:mm")}
