@@ -337,7 +337,8 @@ async function syncOrgLeads(
   accessToken: string,
   orgId: string,
   userId: string,
-  daysBack: number
+  daysBack: number,
+  mode: "sync" | "preview" = "sync"
 ): Promise<{ synced: number; skipped: number; autoSent: number; duplicates: number; forms: number; pages: number; newLeads: any[] }> {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - daysBack);
