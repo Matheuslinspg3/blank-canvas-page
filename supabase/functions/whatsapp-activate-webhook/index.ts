@@ -8,6 +8,52 @@ const corsHeaders = {
 
 const WEBHOOK_URL = "https://n8n.costazul.shop/webhook/WEBHOOK-WA-AGENT-PORT";
 
+
+const captureWhatsAppException = async (error: unknown, context: Record<string, unknown> = {}) => {
+  try {
+    const dsn = Deno.env.get("SENTRY_DSN");
+    if (!dsn) return;
+    const message = error instanceof Error ? error.message : String(error ?? "unknown_error");
+    const now = new Date().toISOString();
+    const payload = {
+      event_id: crypto.randomUUID().replace(/-/g, ""),
+      timestamp: now,
+      level: "error",
+      platform: "javascript",
+      environment: Deno.env.get("DENO_DEPLOYMENT_ID") ? "production" : "unknown",
+      server_name: "supabase-edge",
+      tags: {
+        source: "whatsapp",
+        ...((context.tags as Record<string, string> | undefined) ?? {}),
+      },
+      extra: {
+        ...context,
+      },
+      exception: {
+        values: [{
+          type: error instanceof Error ? error.name : "Error",
+          value: message,
+        }],
+      },
+    };
+
+    const url = new URL(dsn);
+    const projectId = url.pathname.split("/").filter(Boolean).pop();
+    if (!projectId) return;
+    const key = url.username;
+    const host = `${url.protocol}//${url.host}`;
+    const sentryUrl = `${host}/api/${projectId}/store/?sentry_version=7&sentry_key=${encodeURIComponent(key)}`;
+    await fetch(sentryUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    // never break flow because of observability
+  }
+};
+
+
 const auditLog = async (
   sb: any,
   orgId: string,
@@ -415,6 +461,7 @@ Deno.serve(async (req) => {
           console.warn("Instance name already exists in Evolution API, reusing existing instance:", instanceName);
           instanceExists = true;
         } else {
+          await captureWhatsAppException(new Error("agent_create_instance_failed"), { flow: "agent_whatsapp", action: "create_instance", status: createRes.status, instance_name: instanceName });
           throw new Error(`Evolution API create error [${createRes.status}]: ${createRaw.substring(0, 500)}`);
         }
       } else {
@@ -443,6 +490,9 @@ Deno.serve(async (req) => {
     }));
 
     const pairingCode = connectResult.pairingCode;
+    if (!connectResult.isConnected && !connectResult.pairingCode && !connectResult.qrBase64) {
+      await captureWhatsAppException(new Error("agent_connect_without_qr_or_pairing"), { flow: "agent_whatsapp", action: "connect_instance", instance_name: instanceName, provider_status: connectResult.status });
+    }
     const qrBase64 = connectResult.qrBase64;
     const evoState = connectResult.evoState;
     const isConnected = connectResult.isConnected;
@@ -492,6 +542,7 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error("Unexpected error:", err);
+    await captureWhatsAppException(err, { action: "unexpected", flow: "agent_whatsapp", route: "whatsapp-activate-webhook" });
     return new Response(
       JSON.stringify({ error: err instanceof Error ? err.message : "Erro interno" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },

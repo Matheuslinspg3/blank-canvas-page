@@ -7,6 +7,52 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+
+
+const captureWhatsAppException = async (error: unknown, context: Record<string, unknown> = {}) => {
+  try {
+    const dsn = Deno.env.get("SENTRY_DSN");
+    if (!dsn) return;
+    const message = error instanceof Error ? error.message : String(error ?? "unknown_error");
+    const now = new Date().toISOString();
+    const payload = {
+      event_id: crypto.randomUUID().replace(/-/g, ""),
+      timestamp: now,
+      level: "error",
+      platform: "javascript",
+      environment: Deno.env.get("DENO_DEPLOYMENT_ID") ? "production" : "unknown",
+      server_name: "supabase-edge",
+      tags: {
+        source: "whatsapp",
+        ...((context.tags as Record<string, string> | undefined) ?? {}),
+      },
+      extra: {
+        ...context,
+      },
+      exception: {
+        values: [{
+          type: error instanceof Error ? error.name : "Error",
+          value: message,
+        }],
+      },
+    };
+
+    const url = new URL(dsn);
+    const projectId = url.pathname.split("/").filter(Boolean).pop();
+    if (!projectId) return;
+    const key = url.username;
+    const host = `${url.protocol}//${url.host}`;
+    const sentryUrl = `${host}/api/${projectId}/store/?sentry_version=7&sentry_key=${encodeURIComponent(key)}`;
+    await fetch(sentryUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    // never break flow because of observability
+  }
+};
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -35,6 +81,43 @@ const extractPhone = (payload: any): string | null => {
   return null;
 };
 
+
+
+const parseJsonSafely = (raw: string) => {
+  try { return JSON.parse(raw); } catch { return {}; }
+};
+
+const extractQrBase64 = (payload: any): string | null => {
+  for (const candidate of [
+    payload?.qrcode?.base64,
+    payload?.data?.qrcode?.base64,
+    payload?.base64,
+    payload?.data?.base64,
+    payload?.qr,
+    payload?.data?.qr,
+  ]) {
+    if (typeof candidate !== "string") continue;
+    const t = candidate.trim();
+    if (t) return t;
+  }
+  return null;
+};
+
+const extractPairingCode = (payload: any): string | null => {
+  for (const candidate of [
+    payload?.qrcode?.pairingCode,
+    payload?.data?.qrcode?.pairingCode,
+    payload?.pairingCode,
+    payload?.data?.pairingCode,
+    payload?.code,
+    payload?.data?.code,
+  ]) {
+    if (typeof candidate !== "string") continue;
+    const t = candidate.trim();
+    if (t && t.length <= 128 && !t.startsWith("data:image")) return t;
+  }
+  return null;
+};
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -119,37 +202,53 @@ serve(async (req) => {
 
     // ── CONNECT ──
     if (action === "connect") {
-      // Assistente cannot connect
       const { data: roles } = await sb.from("user_roles").select("role").eq("user_id", userId);
       const roleList = (roles ?? []).map((r: any) => r.role);
       if (roleList.includes("assistente") && roleList.length === 1) {
         return json({ error: "Assistentes não podem conectar WhatsApp individual" }, 403);
       }
 
-      // Optional phone number for pairing code mode
       const rawPhone = String(body.phoneNumber ?? "").replace(/\D/g, "");
       const usePairing = rawPhone.length >= 10;
 
-      // Get org slug for instance naming
       const { data: org } = await sb.from("organizations").select("slug, name").eq("id", orgId).single();
       const orgSlug = org?.slug || orgId.substring(0, 8);
       const userShort = userId.substring(0, 8);
       const instanceName = `broker_${orgSlug}_${userShort}`;
+      const webhookUrl = `${supabaseUrl}/functions/v1/whatsapp-broker-webhook`;
 
-      // Upsert channel record
       const { data: channel, error: upsertErr } = await sb.from("broker_whatsapp_channels").upsert({
         organization_id: orgId,
         user_id: userId,
         instance_name: instanceName,
         status: "connecting",
+        webhook_url: webhookUrl,
       }, { onConflict: "organization_id,user_id" }).select().single();
-
       if (upsertErr) throw upsertErr;
 
-      // Create instance on Evolution API
-      const webhookUrl = `${supabaseUrl}/functions/v1/whatsapp-broker-webhook`;
+      let instanceExists = false;
+      let token = channel?.instance_token ?? null;
 
       try {
+        const fetchRes = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances`, {
+          method: "GET",
+          headers: { apikey: EVOLUTION_API_KEY },
+        });
+        const fetchRaw = await fetchRes.text();
+        const fetchData = parseJsonSafely(fetchRaw);
+        if (fetchRes.ok) {
+          const list = Array.isArray(fetchData) ? fetchData : Array.isArray(fetchData?.instances) ? fetchData.instances : [];
+          const existingEvo = list.find((i: any) => (i?.name ?? i?.instanceName ?? i?.instance?.instanceName) === instanceName);
+          if (existingEvo) {
+            instanceExists = true;
+            token = existingEvo?.token ?? existingEvo?.instance?.token ?? token;
+          }
+        }
+      } catch (e) {
+        console.warn("fetchInstances failed for broker channel:", e);
+      }
+
+      if (!instanceExists) {
         const createBody: Record<string, unknown> = {
           instanceName,
           integration: "WHATSAPP-BAILEYS",
@@ -168,56 +267,50 @@ serve(async (req) => {
           headers: { apikey: EVOLUTION_API_KEY, "Content-Type": "application/json" },
           body: JSON.stringify(createBody),
         });
+        const createRaw = await createRes.text();
+        const createData = parseJsonSafely(createRaw);
 
-        const createData = await createRes.json();
-        console.log("Evolution create response:", JSON.stringify(createData).substring(0, 500));
-
-        const token = createData?.hash?.apikey || createData?.token || createData?.instance?.token || null;
-        let qrCode = createData?.qrcode?.base64 || createData?.qr || createData?.base64 || null;
-        let pairingCode =
-          createData?.qrcode?.pairingCode ||
-          createData?.pairingCode ||
-          createData?.code ||
-          null;
-
-        // If pairing requested but not returned on create, call connect endpoint
-        if (usePairing && !pairingCode) {
-          try {
-            const connRes = await fetch(
-              `${EVOLUTION_API_URL}/instance/connect/${instanceName}?number=${rawPhone}`,
-              { method: "GET", headers: { apikey: EVOLUTION_API_KEY } },
-            );
-            const connData = await connRes.json().catch(() => ({}));
-            pairingCode =
-              connData?.pairingCode ||
-              connData?.code ||
-              connData?.qrcode?.pairingCode ||
-              pairingCode;
-            qrCode = connData?.base64 || connData?.qrcode?.base64 || qrCode;
-          } catch (e) {
-            console.warn("Evolution pairing connect failed:", e);
+        if (!createRes.ok) {
+          if (!/already in use|already exists|em uso|já existe/i.test(createRaw)) {
+            await sb.from("broker_whatsapp_channels").update({ status: "disconnected" }).eq("id", channel.id);
+            await captureWhatsAppException(new Error("broker_create_instance_failed"), { flow: "broker_whatsapp", action: "create_instance", status: createRes.status, instance_name: instanceName });
+            throw new Error(`Falha ao criar instância: ${createRaw.substring(0, 200)}`);
           }
+          instanceExists = true;
         }
 
-        await sb.from("broker_whatsapp_channels").update({
-          instance_token: token,
-          webhook_url: webhookUrl,
-          qr_code: qrCode,
-          phone_number: usePairing ? rawPhone : null,
-          status: "connecting",
-        }).eq("id", channel.id);
-
-        return json({
-          status: "connecting",
-          qr_code: qrCode,
-          pairing_code: pairingCode,
-          instance_name: instanceName,
-        });
-      } catch (e) {
-        console.error("Evolution create failed:", e);
-        await sb.from("broker_whatsapp_channels").update({ status: "disconnected" }).eq("id", channel.id);
-        throw new Error("Falha ao criar instância no Evolution API");
+        token = createData?.hash?.apikey || createData?.token || createData?.instance?.token || token;
       }
+
+      const connRes = await fetch(
+        usePairing
+          ? `${EVOLUTION_API_URL}/instance/connect/${instanceName}?number=${rawPhone}`
+          : `${EVOLUTION_API_URL}/instance/connect/${instanceName}`,
+        { method: "GET", headers: { apikey: EVOLUTION_API_KEY } },
+      );
+      const connRaw = await connRes.text();
+      const connData = parseJsonSafely(connRaw);
+      const pairingCode = extractPairingCode(connData);
+      const qrCode = extractQrBase64(connData);
+
+      const stateText = String(connData?.instance?.state ?? connData?.state ?? "").toLowerCase();
+      const status = /open|connected/.test(stateText) ? "connected" : "connecting";
+
+      await sb.from("broker_whatsapp_channels").update({
+        instance_token: token,
+        webhook_url: webhookUrl,
+        qr_code: qrCode,
+        phone_number: usePairing ? rawPhone : null,
+        status,
+      }).eq("id", channel.id);
+
+      return json({
+        status,
+        qr_code: qrCode,
+        pairing_code: pairingCode,
+        instance_name: instanceName,
+        instance_created: !instanceExists,
+      });
     }
 
     // ── DISCONNECT ──
@@ -278,6 +371,7 @@ serve(async (req) => {
     return json({ error: "Invalid action. Supported: status, connect, disconnect, delete" }, 400);
   } catch (err: unknown) {
     console.error("whatsapp-broker-instance error:", err);
+    await captureWhatsAppException(err, { action: "unexpected", flow: "broker_whatsapp", route: "whatsapp-broker-instance" });
     const message = err instanceof Error ? err.message : "Erro interno";
     return json({ error: message }, 500);
   }
