@@ -399,36 +399,7 @@ async function syncOrgLeads(
           const email = getField("email") || getField("e-mail");
           const phone = getField("phone_number") || getField("telefone") || getField("phone") || getField("whatsapp") || getField("celular");
 
-          // For preview mode, we don't necessarily want to upsert everything, 
-          // but we want to check if they ALREADY exist.
-          const { data: existingAdLead } = await supabase
-            .from("ad_leads")
-            .select("id, status, crm_record_id")
-            .eq("organization_id", orgId)
-            .eq("external_lead_id", lead.id)
-            .maybeSingle();
-
-          let crmLeadId = existingAdLead?.crm_record_id;
-          if (!crmLeadId) {
-            crmLeadId = await findExistingCrmLead(supabase, orgId, email, phone, name);
-          }
-
-          if (mode === "preview") {
-            allLeads.push({
-              id: lead.id,
-              name,
-              email,
-              phone,
-              created_time: lead.created_time,
-              status: existingAdLead?.status || "new",
-              crm_record_id: crmLeadId,
-              is_in_crm: !!crmLeadId,
-              form_name: form.name,
-              page_name: page.name
-            });
-            continue;
-          }
-
+          // Always upsert to ad_leads to ensure they are available for import
           const { data: upserted, error: upsertError } = await supabase
             .from("ad_leads")
             .upsert({
@@ -449,16 +420,25 @@ async function syncOrgLeads(
 
           if (upsertError) {
             totalSkipped++;
-          } else {
-            totalSynced++;
-            if (upserted) {
-              allLeads.push({ 
-                ...upserted, 
-                form_name: form.name, 
-                page_name: page.name,
-                is_in_crm: !!(upserted.crm_record_id || crmLeadId)
-              });
-            }
+            continue;
+          }
+
+          totalSynced++;
+          
+          // Check for CRM match for visual feedback
+          let crmLeadId = upserted.crm_record_id;
+          if (!crmLeadId) {
+            crmLeadId = await findExistingCrmLead(supabase, orgId, email, phone, name);
+          }
+
+          if (upserted) {
+            allLeads.push({ 
+              ...upserted, 
+              form_name: form.name, 
+              page_name: page.name,
+              is_in_crm: !!crmLeadId,
+              crm_record_id: crmLeadId
+            });
           }
         }
 
