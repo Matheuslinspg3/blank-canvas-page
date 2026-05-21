@@ -395,9 +395,9 @@ async function syncOrgLeads(
             return f?.values?.[0] || null;
           };
 
-          const name = getField("full_name") || getField("nome") || getField("name");
-          const email = getField("email");
-          const phone = getField("phone_number") || getField("telefone") || getField("phone");
+          const name = getField("full_name") || getField("nome_completo") || getField("nome") || getField("name");
+          const email = getField("email") || getField("e-mail");
+          const phone = getField("phone_number") || getField("telefone") || getField("phone") || getField("whatsapp") || getField("celular");
 
           // For preview mode, we don't necessarily want to upsert everything, 
           // but we want to check if they ALREADY exist.
