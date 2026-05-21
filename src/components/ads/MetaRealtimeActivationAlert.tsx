@@ -5,6 +5,7 @@ import { Zap, Loader2, AlertCircle, RefreshCw, CheckCircle2 } from "lucide-react
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAdAccount } from "@/hooks/useAdSettings";
+import { cn } from "@/lib/utils";
 
 export default function MetaRealtimeActivationAlert() {
   const { account } = useAdAccount();
