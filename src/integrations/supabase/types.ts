@@ -5137,6 +5137,72 @@ export type Database = {
           },
         ]
       }
+      meta_lead_failures: {
+        Row: {
+          attempt_count: number | null
+          created_at: string
+          form_id: string | null
+          id: string
+          last_attempt_at: string | null
+          leadgen_id: string
+          organization_id: string | null
+          page_id: string | null
+          payload: Json | null
+          provider: string
+          reason: string | null
+          resolved_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempt_count?: number | null
+          created_at?: string
+          form_id?: string | null
+          id?: string
+          last_attempt_at?: string | null
+          leadgen_id: string
+          organization_id?: string | null
+          page_id?: string | null
+          payload?: Json | null
+          provider?: string
+          reason?: string | null
+          resolved_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempt_count?: number | null
+          created_at?: string
+          form_id?: string | null
+          id?: string
+          last_attempt_at?: string | null
+          leadgen_id?: string
+          organization_id?: string | null
+          page_id?: string | null
+          payload?: Json | null
+          provider?: string
+          reason?: string | null
+          resolved_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_lead_failures_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_lead_failures_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+        ]
+      }
       meta_webhook_events: {
         Row: {
           channel_type: string
