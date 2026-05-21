@@ -191,10 +191,10 @@ const App = () => (
                         <Route path="/marketplace/:id" element={<MarketplacePropertyDetails />} />
                         <Route path="/crm" element={<CRM />} />
                         <Route path="/inbox" element={<Inbox />} />
-                        <Route path="/whatsapp/meu-canal" element={<DeveloperOnlyRoute><MyWhatsAppChannel /></DeveloperOnlyRoute>} />
-                        <Route path="/whatsapp/meu-canal/chat" element={<DeveloperOnlyRoute><BrokerChat /></DeveloperOnlyRoute>} />
-                        <Route path="/whatsapp/canais-equipe" element={<DeveloperOnlyRoute><TeamChannels /></DeveloperOnlyRoute>} />
-                        <Route path="/whatsapp/automacoes" element={<DeveloperOnlyRoute><BrokerAutomationStatus /></DeveloperOnlyRoute>} />
+                        <Route path="/whatsapp/meu-canal" element={<MyWhatsAppChannel />} />
+                        <Route path="/whatsapp/meu-canal/chat" element={<BrokerChat />} />
+                        <Route path="/whatsapp/canais-equipe" element={<TeamChannels />} />
+                        <Route path="/whatsapp/automacoes" element={<BrokerAutomationStatus />} />
                         <Route path="/contratos" element={<Navigate to="/financeiro?tab=contracts" replace />} />
                         <Route path="/financeiro" element={<Financial />} />
                         <Route path="/correspondente" element={<DeveloperOnlyRoute><CorrespondenteBancario /></DeveloperOnlyRoute>} />
