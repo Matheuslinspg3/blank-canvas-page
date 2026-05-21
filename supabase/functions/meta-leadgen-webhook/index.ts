@@ -180,9 +180,9 @@ async function processLeadgenPayload(payload: any) {
             return f?.values?.[0] || null;
           };
 
-          const name = getField("full_name") || getField("nome") || getField("name");
-          const email = getField("email");
-          const phone = getField("phone_number") || getField("telefone") || getField("phone");
+          const name = getField("full_name") || getField("nome_completo") || getField("nome") || getField("name");
+          const email = getField("email") || getField("e-mail");
+          const phone = getField("phone_number") || getField("telefone") || getField("phone") || getField("whatsapp") || getField("celular");
           const externalAdId = leadData.ad_id || adId || "unknown";
           const externalFormId = leadData.form_id || formId || null;
 

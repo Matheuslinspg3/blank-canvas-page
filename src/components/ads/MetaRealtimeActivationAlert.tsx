@@ -5,6 +5,7 @@ import { Zap, Loader2, AlertCircle, RefreshCw, CheckCircle2 } from "lucide-react
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAdAccount } from "@/hooks/useAdSettings";
+import { cn } from "@/lib/utils";
 
 export default function MetaRealtimeActivationAlert() {
   const { account } = useAdAccount();
@@ -78,23 +79,38 @@ export default function MetaRealtimeActivationAlert() {
 
   if (status === "needs_reconnect" || status === "attention") {
     return (
-      <Alert variant="destructive" className="bg-destructive/5 border-destructive/20">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Reconexão necessária</AlertTitle>
+      <Alert variant={status === "needs_reconnect" ? "destructive" : "default"} className={cn(
+        status === "needs_reconnect" ? "bg-destructive/5 border-destructive/20" : "bg-amber-50 border-amber-200"
+      )}>
+        {status === "needs_reconnect" ? <AlertCircle className="h-4 w-4" /> : <Zap className="h-4 w-4 text-amber-600" />}
+        <AlertTitle>{status === "needs_reconnect" ? "Reconexão necessária" : "Sincronização automática desativada"}</AlertTitle>
         <AlertDescription className="space-y-3">
           <p className="text-sm">
-            Não conseguimos confirmar a inscrição das suas páginas no webhook do Meta. 
-            Reconecte sua conta Meta para liberar a sincronização automática de leads.
+            {status === "needs_reconnect" 
+              ? "Não conseguimos confirmar a inscrição das suas páginas no webhook do Meta. Reconecte sua conta Meta para liberar a sincronização automática de leads."
+              : "A sincronização em tempo real (webhook) não está ativa para suas páginas. Isso significa que os leads não entrarão automaticamente."}
           </p>
-          <Button 
-            variant="outline"
-            size="sm" 
-            onClick={() => window.location.reload()} // Reload to trigger OAuth if they click connect again
-            className="mt-2"
-          >
-            <RefreshCw className="mr-2 h-3 w-3" />
-            Recarregar para reconectar
-          </Button>
+          <div className="flex gap-2">
+            {status === "attention" && (
+              <Button 
+                variant="outline"
+                size="sm" 
+                onClick={handleCheckSilently}
+                disabled={isChecking}
+              >
+                {isChecking ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Zap className="mr-2 h-3 w-3" />}
+                Ativar agora
+              </Button>
+            )}
+            <Button 
+              variant="outline"
+              size="sm" 
+              onClick={() => window.location.reload()} 
+            >
+              <RefreshCw className="mr-2 h-3 w-3" />
+              {status === "needs_reconnect" ? "Recarregar para reconectar" : "Recarregar página"}
+            </Button>
+          </div>
         </AlertDescription>
       </Alert>
     );

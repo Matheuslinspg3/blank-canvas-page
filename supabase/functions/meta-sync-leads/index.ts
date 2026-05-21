@@ -249,7 +249,7 @@ Deno.serve(async (req) => {
       return await handleImport(supabase, orgId, userId, selectedLeadIds, crmStageId);
     }
 
-    const result = await syncOrgLeads(supabase, accessToken, orgId, userId, daysBack);
+    const result = await syncOrgLeads(supabase, accessToken, orgId, userId, daysBack, mode);
 
     if (mode === "sync") {
       return new Response(
@@ -312,7 +312,7 @@ async function handleAutoSync(supabase: any): Promise<Response> {
         continue;
       }
 
-      const syncResult = await syncOrgLeads(supabase, accessToken, orgId, adminProfile.user_id, 3);
+      const syncResult = await syncOrgLeads(supabase, accessToken, orgId, adminProfile.user_id, 3, "sync");
       results.push({ org: orgId, synced: syncResult.synced, auto_sent: syncResult.autoSent, duplicates: syncResult.duplicates });
 
       await sleep(1500);
@@ -337,7 +337,8 @@ async function syncOrgLeads(
   accessToken: string,
   orgId: string,
   userId: string,
-  daysBack: number
+  daysBack: number,
+  mode: "sync" | "preview" = "sync"
 ): Promise<{ synced: number; skipped: number; autoSent: number; duplicates: number; forms: number; pages: number; newLeads: any[] }> {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - daysBack);
@@ -384,7 +385,10 @@ async function syncOrgLeads(
 
         for (const lead of (leadsData.data || [])) {
           const createdTime = new Date(lead.created_time);
-          if (createdTime < cutoff) continue;
+          if (createdTime < cutoff) {
+            leadsUrl = null; // Break pagination
+            break; 
+          }
 
           const fieldData = lead.field_data || [];
           const getField = (name: string) => {
@@ -392,10 +396,11 @@ async function syncOrgLeads(
             return f?.values?.[0] || null;
           };
 
-          const name = getField("full_name") || getField("nome") || getField("name");
-          const email = getField("email");
-          const phone = getField("phone_number") || getField("telefone") || getField("phone");
+          const name = getField("full_name") || getField("nome_completo") || getField("nome") || getField("name");
+          const email = getField("email") || getField("e-mail");
+          const phone = getField("phone_number") || getField("telefone") || getField("phone") || getField("whatsapp") || getField("celular");
 
+          // Always upsert to ad_leads to ensure they are available for import
           const { data: upserted, error: upsertError } = await supabase
             .from("ad_leads")
             .upsert({
@@ -416,11 +421,25 @@ async function syncOrgLeads(
 
           if (upsertError) {
             totalSkipped++;
-          } else {
-            totalSynced++;
-            if (upserted) {
-              allLeads.push({ ...upserted, form_name: form.name, page_name: page.name });
-            }
+            continue;
+          }
+
+          totalSynced++;
+          
+          // Check for CRM match for visual feedback
+          let crmLeadId = upserted.crm_record_id;
+          if (!crmLeadId) {
+            crmLeadId = await findExistingCrmLead(supabase, orgId, email, phone, name);
+          }
+
+          if (upserted) {
+            allLeads.push({ 
+              ...upserted, 
+              form_name: form.name, 
+              page_name: page.name,
+              is_in_crm: !!crmLeadId,
+              crm_record_id: crmLeadId
+            });
           }
         }
 
@@ -439,7 +458,7 @@ async function syncOrgLeads(
   let autoSent = 0;
   let duplicates = 0;
 
-  if (adSettings?.auto_send_to_crm && adSettings?.crm_stage_id) {
+  if (mode !== "preview" && adSettings?.auto_send_to_crm && adSettings?.crm_stage_id) {
     const { data: newAdLeads } = await supabase
       .from("ad_leads")
       .select("id, name, email, phone, external_ad_id, external_lead_id, crm_record_id")
