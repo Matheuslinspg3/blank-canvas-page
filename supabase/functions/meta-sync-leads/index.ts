@@ -249,7 +249,7 @@ Deno.serve(async (req) => {
       return await handleImport(supabase, orgId, userId, selectedLeadIds, crmStageId);
     }
 
-    const result = await syncOrgLeads(supabase, accessToken, orgId, userId, daysBack);
+    const result = await syncOrgLeads(supabase, accessToken, orgId, userId, daysBack, mode);
 
     if (mode === "sync") {
       return new Response(
