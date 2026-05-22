@@ -417,19 +417,42 @@ Deno.serve(async (req) => {
 
           await delay(1200);
 
-          const retryRes = await fetch(`${baseUrl}/instance/create`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
-            body: JSON.stringify(createPayload),
-          });
-          const retryRaw = await retryRes.text();
+          const { res: retryRes, raw: retryRaw, token: retryToken } = await createEvolutionInstance(
+            baseUrl,
+            EVOLUTION_API_KEY,
+            instanceName,
+            WEBHOOK_URL,
+            WHATSAPP_AGENT_SECRET,
+          );
           console.log(`Retry create status: ${retryRes.status}. Preview: ${safePreview(retryRaw, 300)}`);
 
           if (retryRes.ok) {
-            const retryData = parseJsonSafely(retryRaw);
-            instanceToken = retryData?.hash?.apikey ?? retryData?.token ?? retryData?.apikey ?? null;
+            instanceToken = retryToken;
           } else {
-            return errorResponse(409, "EVOLUTION_INSTANCE_CONFLICT", "A Evolution API recusou a criação da instância mesmo após limpar sessão órfã. Tente novamente em instantes.");
+            const fallbackName = `${baseInstanceName}-${Date.now().toString(36)}`.slice(0, 96);
+            console.warn(`Orphan recovery failed for base instance; creating fallback instance ${fallbackName}`);
+            const { res: fallbackRes, raw: fallbackRaw, token: fallbackToken } = await createEvolutionInstance(
+              baseUrl,
+              EVOLUTION_API_KEY,
+              fallbackName,
+              WEBHOOK_URL,
+              WHATSAPP_AGENT_SECRET,
+            );
+            console.log(`Fallback create status: ${fallbackRes.status}. Preview: ${safePreview(fallbackRaw, 300)}`);
+
+            if (!fallbackRes.ok) {
+              return jsonResponse({
+                success: false,
+                recoverable: true,
+                error: {
+                  code: "EVOLUTION_INSTANCE_CONFLICT",
+                  message: "A Evolution API manteve uma sessão órfã. Tente novamente em instantes ou remova a instância no painel da Evolution.",
+                },
+              });
+            }
+
+            instanceName = fallbackName;
+            instanceToken = fallbackToken;
           }
         }
       } else {
