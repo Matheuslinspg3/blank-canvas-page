@@ -42,6 +42,7 @@ export function WhatsAppIntegrationCard() {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [isActivating, setIsActivating] = useState(false);
+  const [activationError, setActivationError] = useState<{ code: string; message: string } | null>(null);
   const [connectionMode, setConnectionMode] = useState<"qr" | "pairing">("qr");
   const [phoneInput, setPhoneInput] = useState("");
   const isActiveRef = useRef(false);
