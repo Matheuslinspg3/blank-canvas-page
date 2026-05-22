@@ -20,6 +20,9 @@ const errorResponse = (status: number, code: string, message: string) =>
 
 const safePreview = (value: unknown, limit = 1000) => {
   const text = String(value ?? "");
+  if (/prismaRepository|integrationSession|findFirst|\/evolution\/dist\/main\.js/i.test(text)) {
+    return "[Evolution internal error redacted]";
+  }
   const masked = text
     .replace(/("?(?:apikey|api_key|token|authorization)"?\s*[:=]\s*")([^"\n]+)(")/gi, '$1***$3')
     .replace(/(Bearer\s+)[A-Za-z0-9._\-]+/gi, '$1***');
@@ -204,6 +207,61 @@ const connectEvolutionInstance = async (
   return { success: false, isConnected: false };
 };
 
+const createEvolutionInstance = async (
+  baseUrl: string,
+  apiKey: string,
+  instanceName: string,
+  webhookUrl: string,
+  webhookSecret: string,
+) => {
+  const payload = {
+    instanceName,
+    integration: "WHATSAPP-BAILEYS",
+    qrcode: true,
+    rejectCall: true,
+    groupsIgnore: true,
+    alwaysOnline: false,
+    readMessages: false,
+    readStatus: false,
+    syncFullHistory: true,
+    webhook: {
+      url: webhookUrl,
+      byEvents: false,
+      base64: true,
+      headers: { "x-webhook-secret": webhookSecret },
+      events: ["MESSAGES_UPSERT"],
+    },
+  };
+
+  const res = await fetch(`${baseUrl}/instance/create`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: apiKey },
+    body: JSON.stringify(payload),
+  });
+  const raw = await res.text();
+  const data = parseJsonSafely(raw);
+  const token = data?.hash?.apikey ?? data?.token ?? data?.apikey ?? null;
+  return { res, raw, token };
+};
+
+const configureEvolutionWebhook = (
+  baseUrl: string,
+  apiKey: string,
+  instanceName: string,
+  webhookUrl: string,
+  webhookSecret: string,
+) => fetch(`${baseUrl}/webhook/set/${instanceName}`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json", apikey: apiKey },
+  body: JSON.stringify({
+    url: webhookUrl,
+    byEvents: false,
+    base64: true,
+    headers: { "x-webhook-secret": webhookSecret },
+    events: ["MESSAGES_UPSERT"],
+  }),
+});
+
 const auditLog = async (sb: any, orgId: string, action: string, actorId: string | null, details: Record<string, any> = {}) => {
   try {
     await sb.from("whatsapp_audit_log").insert({
@@ -250,10 +308,13 @@ Deno.serve(async (req) => {
 
     const orgId = org.id;
     const orgSlug = org.slug || org.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "-").toLowerCase().replace(/-+/g, "-").replace(/^-|-$/g, "");
-    const instanceName = `${orgSlug}-${orgId}`;
+    const baseInstanceName = `${orgSlug}-${orgId}`;
 
     // 3. Check current state
     const { data: existingConfig } = await sb.from("whatsapp_agent_config").select("*").eq("organization_id", orgId).maybeSingle();
+    let instanceName = typeof existingConfig?.instance_name === "string" && existingConfig.instance_name.trim()
+      ? existingConfig.instance_name.trim()
+      : baseInstanceName;
 
     if (existingConfig?.status === "connected" && existingConfig?.instance_token) {
       return jsonResponse({
@@ -300,51 +361,21 @@ Deno.serve(async (req) => {
     if (instanceExists) {
       // Configure Webhook
       console.log(`Configuring webhook for ${instanceName}`);
-      await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
-        body: JSON.stringify({
-          url: WEBHOOK_URL,
-          byEvents: false,
-          base64: true,
-          headers: { "x-webhook-secret": WHATSAPP_AGENT_SECRET },
-          events: ["MESSAGES_UPSERT"],
-        }),
-      });
+      await configureEvolutionWebhook(baseUrl, EVOLUTION_API_KEY, instanceName, WEBHOOK_URL, WHATSAPP_AGENT_SECRET);
     } else {
       // Create Instance
       console.log(`Creating instance ${instanceName}`);
-      const createPayload = {
+      const { res: createRes, raw: createRaw, token: createToken } = await createEvolutionInstance(
+        baseUrl,
+        EVOLUTION_API_KEY,
         instanceName,
-        integration: "WHATSAPP-BAILEYS",
-        qrcode: true,
-        rejectCall: true,
-        groupsIgnore: true,
-        alwaysOnline: false,
-        readMessages: false,
-        readStatus: false,
-        syncFullHistory: true,
-        webhook: {
-          url: WEBHOOK_URL,
-          byEvents: false,
-          base64: true,
-          headers: { "x-webhook-secret": WHATSAPP_AGENT_SECRET },
-          events: ["MESSAGES_UPSERT"],
-        },
-      };
-
-      const createRes = await fetch(`${baseUrl}/instance/create`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
-        body: JSON.stringify(createPayload),
-      });
-
-      const createRaw = await createRes.text();
+        WEBHOOK_URL,
+        WHATSAPP_AGENT_SECRET,
+      );
       console.log(`Create status: ${createRes.status}. Preview: ${safePreview(createRaw, 500)}`);
 
       if (createRes.ok) {
-        const createData = parseJsonSafely(createRaw);
-        instanceToken = createData?.hash?.apikey ?? createData?.token ?? createData?.apikey ?? null;
+        instanceToken = createToken;
       } else if (createRes.status === 401) {
         return errorResponse(401, "EVOLUTION_UNAUTHORIZED", "A Evolution API recusou a autenticação. Verifique EVOLUTION_API_GLOBAL_KEY.");
       } else if (createRes.status === 400 || createRes.status === 403) {
@@ -361,17 +392,7 @@ Deno.serve(async (req) => {
           if (refound) {
             instanceExists = true;
             instanceToken = refound?.apikey ?? refound?.token ?? refound?.instance?.apikey ?? refound?.instance?.token ?? null;
-            await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
-              body: JSON.stringify({
-                url: WEBHOOK_URL,
-                byEvents: false,
-                base64: true,
-                headers: { "x-webhook-secret": WHATSAPP_AGENT_SECRET },
-                events: ["MESSAGES_UPSERT"],
-              }),
-            });
+            await configureEvolutionWebhook(baseUrl, EVOLUTION_API_KEY, instanceName, WEBHOOK_URL, WHATSAPP_AGENT_SECRET);
           }
         }
 
@@ -396,19 +417,42 @@ Deno.serve(async (req) => {
 
           await delay(1200);
 
-          const retryRes = await fetch(`${baseUrl}/instance/create`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
-            body: JSON.stringify(createPayload),
-          });
-          const retryRaw = await retryRes.text();
+          const { res: retryRes, raw: retryRaw, token: retryToken } = await createEvolutionInstance(
+            baseUrl,
+            EVOLUTION_API_KEY,
+            instanceName,
+            WEBHOOK_URL,
+            WHATSAPP_AGENT_SECRET,
+          );
           console.log(`Retry create status: ${retryRes.status}. Preview: ${safePreview(retryRaw, 300)}`);
 
           if (retryRes.ok) {
-            const retryData = parseJsonSafely(retryRaw);
-            instanceToken = retryData?.hash?.apikey ?? retryData?.token ?? retryData?.apikey ?? null;
+            instanceToken = retryToken;
           } else {
-            return errorResponse(409, "EVOLUTION_INSTANCE_CONFLICT", "A Evolution API recusou a criação da instância mesmo após limpar sessão órfã. Tente novamente em instantes.");
+            const fallbackName = `${baseInstanceName}-${Date.now().toString(36)}`.slice(0, 96);
+            console.warn(`Orphan recovery failed for base instance; creating fallback instance ${fallbackName}`);
+            const { res: fallbackRes, raw: fallbackRaw, token: fallbackToken } = await createEvolutionInstance(
+              baseUrl,
+              EVOLUTION_API_KEY,
+              fallbackName,
+              WEBHOOK_URL,
+              WHATSAPP_AGENT_SECRET,
+            );
+            console.log(`Fallback create status: ${fallbackRes.status}. Preview: ${safePreview(fallbackRaw, 300)}`);
+
+            if (!fallbackRes.ok) {
+              return jsonResponse({
+                success: false,
+                recoverable: true,
+                error: {
+                  code: "EVOLUTION_INSTANCE_CONFLICT",
+                  message: "A Evolution API manteve uma sessão órfã. Tente novamente em instantes ou remova a instância no painel da Evolution.",
+                },
+              });
+            }
+
+            instanceName = fallbackName;
+            instanceToken = fallbackToken;
           }
         }
       } else {
