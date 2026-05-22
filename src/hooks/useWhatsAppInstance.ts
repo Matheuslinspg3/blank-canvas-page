@@ -106,7 +106,10 @@ export function useWhatsAppInstance() {
       invalidate();
     },
     onError: (err: Error) => {
-      toastError("Erro ao remover instância WhatsApp", err, { module: "useWhatsAppInstance" });
+      // Use toast.error directly for expected delete failures to avoid Sentry noise
+      toast.error("Erro ao remover instância WhatsApp", { 
+        description: err.message 
+      });
     },
   });
 
