@@ -371,21 +371,7 @@ serve(async (req) => {
     console.error("whatsapp-instance error:", error);
     const message = error instanceof Error ? error.message : "Erro interno";
     return new Response(JSON.stringify({ success: false, error: { code: "WHATSAPP_DELETE_FAILED", message } }), {
-      status: 200, // Return 200 with success:false as requested for standardized handling
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-});
-
-    return new Response(JSON.stringify({ error: "Invalid action. Supported: status, disconnect, delete" }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (error: unknown) {
-    console.error("whatsapp-instance error:", error);
-    const message = error instanceof Error ? error.message : "Erro interno";
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
