@@ -20,6 +20,9 @@ const errorResponse = (status: number, code: string, message: string) =>
 
 const safePreview = (value: unknown, limit = 1000) => {
   const text = String(value ?? "");
+  if (/prismaRepository|integrationSession|findFirst|\/evolution\/dist\/main\.js/i.test(text)) {
+    return "[Evolution internal error redacted]";
+  }
   const masked = text
     .replace(/("?(?:apikey|api_key|token|authorization)"?\s*[:=]\s*")([^"\n]+)(")/gi, '$1***$3')
     .replace(/(Bearer\s+)[A-Za-z0-9._\-]+/gi, '$1***');
@@ -250,10 +253,13 @@ Deno.serve(async (req) => {
 
     const orgId = org.id;
     const orgSlug = org.slug || org.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "-").toLowerCase().replace(/-+/g, "-").replace(/^-|-$/g, "");
-    const instanceName = `${orgSlug}-${orgId}`;
+    const baseInstanceName = `${orgSlug}-${orgId}`;
 
     // 3. Check current state
     const { data: existingConfig } = await sb.from("whatsapp_agent_config").select("*").eq("organization_id", orgId).maybeSingle();
+    let instanceName = typeof existingConfig?.instance_name === "string" && existingConfig.instance_name.trim()
+      ? existingConfig.instance_name.trim()
+      : baseInstanceName;
 
     if (existingConfig?.status === "connected" && existingConfig?.instance_token) {
       return jsonResponse({
