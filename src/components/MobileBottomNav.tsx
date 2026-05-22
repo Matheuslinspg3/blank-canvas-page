@@ -34,6 +34,7 @@ const menuGroups: MenuGroup[] = [
     title: "Menu",
     items: [
       { icon: Store, label: "Marketplace", path: "/marketplace" },
+      { icon: Smartphone, label: "Meu WhatsApp", path: "/whatsapp/meu-canal", featureKey: "has_whatsapp" },
       { icon: DollarSign, label: "Financeiro", path: "/financeiro" },
       { icon: Landmark, label: "Correspondente", path: "/correspondente" },
       { icon: Megaphone, label: "Marketing", path: "/marketing" },
@@ -45,6 +46,7 @@ const menuGroups: MenuGroup[] = [
     title: "Gestão",
     items: [
       { icon: Globe, label: "Meu Site", path: "/site", featureKey: "has_brand_settings" },
+      { icon: Smartphone, label: "Canais da Equipe", path: "/whatsapp/canais-equipe", featureKey: "has_whatsapp" },
       { icon: UserCog, label: "Administração", path: "/administracao", adminOnly: true },
       { icon: Plug, label: "Integrações", path: "/integracoes", adminOnly: true },
     ],
