@@ -244,6 +244,24 @@ const createEvolutionInstance = async (
   return { res, raw, token };
 };
 
+const configureEvolutionWebhook = (
+  baseUrl: string,
+  apiKey: string,
+  instanceName: string,
+  webhookUrl: string,
+  webhookSecret: string,
+) => fetch(`${baseUrl}/webhook/set/${instanceName}`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json", apikey: apiKey },
+  body: JSON.stringify({
+    url: webhookUrl,
+    byEvents: false,
+    base64: true,
+    headers: { "x-webhook-secret": webhookSecret },
+    events: ["MESSAGES_UPSERT"],
+  }),
+});
+
 const auditLog = async (sb: any, orgId: string, action: string, actorId: string | null, details: Record<string, any> = {}) => {
   try {
     await sb.from("whatsapp_audit_log").insert({
