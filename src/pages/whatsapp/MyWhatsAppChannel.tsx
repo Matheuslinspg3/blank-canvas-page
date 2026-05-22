@@ -13,8 +13,6 @@ import { FeatureFlagGate } from "@/components/FeatureGate";
 export default function MyWhatsAppChannel() {
   return (
     <FeatureFlagGate featureKey="has_whatsapp">
-
-    <>
       <Helmet>
         <title>Meu WhatsApp — Porta do Corretor</title>
         <meta name="description" content="Conecte seu número WhatsApp pessoal ao sistema." />
