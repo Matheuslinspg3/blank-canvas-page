@@ -460,7 +460,7 @@ export function WhatsAppIntegrationCard() {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Carregando...
           </div>
-        ) : !instance && !qrCode && !pairingCode ? (
+        ) : !instance || (!instance.instance_token && !qrCode && !pairingCode) ? (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
               Ative o WhatsApp para enviar mensagens automáticas diretamente do CRM.
