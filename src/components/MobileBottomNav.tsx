@@ -1,10 +1,12 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Home, Users, Calendar, Menu, DollarSign, Store, Megaphone, Settings, Plug, UserCog, X, Building2, Zap, Terminal, ChevronDown, CreditCard, Landmark, Globe } from "lucide-react";
+import { LayoutDashboard, Home, Users, Calendar, Menu, DollarSign, Store, Megaphone, Settings, Plug, UserCog, X, Building2, Zap, Terminal, ChevronDown, CreditCard, Landmark, Globe, Smartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useUserRoles } from "@/hooks/useUserRole";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useAuth } from "@/contexts/AuthContext";
+import { getSidebarVisibilityFlags } from "@/config/featureAccess";
 
 const primaryItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
@@ -32,6 +34,7 @@ const menuGroups: MenuGroup[] = [
     title: "Menu",
     items: [
       { icon: Store, label: "Marketplace", path: "/marketplace" },
+      { icon: Smartphone, label: "Meu WhatsApp", path: "/whatsapp/meu-canal", featureKey: "has_whatsapp" },
       { icon: DollarSign, label: "Financeiro", path: "/financeiro" },
       { icon: Landmark, label: "Correspondente", path: "/correspondente" },
       { icon: Megaphone, label: "Marketing", path: "/marketing" },
@@ -43,6 +46,7 @@ const menuGroups: MenuGroup[] = [
     title: "Gestão",
     items: [
       { icon: Globe, label: "Meu Site", path: "/site", featureKey: "has_brand_settings" },
+      { icon: Smartphone, label: "Canais da Equipe", path: "/whatsapp/canais-equipe", featureKey: "has_whatsapp" },
       { icon: UserCog, label: "Administração", path: "/administracao", adminOnly: true },
       { icon: Plug, label: "Integrações", path: "/integracoes", adminOnly: true },
     ],
@@ -60,8 +64,19 @@ const menuGroups: MenuGroup[] = [
 export function MobileBottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAdminOrAbove, isDeveloper } = useUserRoles();
-  const { hasFeature } = useSubscription();
+  const { user, loading: loadingAuth } = useAuth();
+  const { isAdminOrAbove, isDeveloper, isLoading: loadingRoles } = useUserRoles();
+  const { hasFeature, loadingSub: loadingSubscription } = useSubscription();
+
+  const { showWhatsApp, showAutomations, showBrandSettings } = getSidebarVisibilityFlags({
+    isDeveloper,
+    hasFeature,
+    isLoadingAuth: loadingAuth,
+    isLoadingRoles: loadingRoles,
+    isLoadingSubscription: loadingSubscription,
+    hasAuthenticatedUser: !!user,
+  });
+
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
@@ -90,7 +105,10 @@ export function MobileBottomNav() {
     items.filter(item => {
       if (item.adminOnly && !isAdminOrAbove) return false;
       if (item.developerOnly && !isDeveloper) return false;
-      if (item.featureKey && !hasFeature(item.featureKey) && !isDeveloper) return false;
+      if (item.featureKey === "has_whatsapp" && !showWhatsApp) return false;
+      if (item.featureKey === "has_automations" && !showAutomations) return false;
+      if (item.featureKey === "has_brand_settings" && !showBrandSettings) return false;
+      if (item.featureKey && !item.featureKey.includes("has_") && !hasFeature(item.featureKey) && !isDeveloper) return false;
       return true;
     });
 

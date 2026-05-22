@@ -32,6 +32,7 @@ import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRoles } from "@/hooks/useUserRole";
 import { useSubscription } from "@/hooks/useSubscription";
+import { getSidebarVisibilityFlags } from "@/config/featureAccess";
 import { useAdLeadsCount } from "@/hooks/useAdLeads";
 import { useSetupPendingCount } from "@/components/developer/SetupChecklistTab";
 import { Button } from "@/components/ui/button";
@@ -75,12 +76,21 @@ export function AppSidebar() {
   const { state, setOpenMobile, isMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
-  const { signOut, user, profile, organizationType } = useAuth();
-  const { isDeveloper, isAdminOrAbove } = useUserRoles();
-  const { hasFeature } = useSubscription();
+  const { signOut, user, profile, organizationType, loading: loadingAuth } = useAuth();
+  const { isDeveloper, isAdminOrAbove, isLoading: loadingRoles } = useUserRoles();
+  const { hasFeature, loadingSub: loadingSubscription } = useSubscription();
   const currentPath = location.pathname;
   const { data: newAdLeadsCount = 0 } = useAdLeadsCount();
   const setupPending = useSetupPendingCount();
+
+  const { showWhatsApp, showAutomations, showBrandSettings } = getSidebarVisibilityFlags({
+    isDeveloper,
+    hasFeature,
+    isLoadingAuth: loadingAuth,
+    isLoadingRoles: loadingRoles,
+    isLoadingSubscription: loadingSubscription,
+    hasAuthenticatedUser: !!user,
+  });
 
   const [orgName, setOrgName] = React.useState<string>("");
 
@@ -187,9 +197,9 @@ export function AppSidebar() {
               {mainItems
                 .filter((item) => isDeveloper || !item.developerOnly)
                 .map(renderMenuItem)}
-              {(isDeveloper || hasFeature("has_whatsapp")) &&
+              {showWhatsApp &&
                 renderMenuItem({ title: "Meu WhatsApp", url: "/whatsapp/meu-canal", icon: Smartphone })}
-              {(isDeveloper || hasFeature("has_automations")) &&
+              {showAutomations &&
                 renderMenuItem({ title: "Automações", url: "/automacoes", icon: Zap })}
             </SidebarMenu>
           </SidebarGroupContent>
@@ -202,9 +212,9 @@ export function AppSidebar() {
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {(isDeveloper || hasFeature("has_brand_settings")) &&
+                {showBrandSettings &&
                   renderMenuItem({ title: "Meu Site", url: "/site", icon: Globe })}
-                {(isDeveloper || hasFeature("has_whatsapp")) &&
+                {showWhatsApp &&
                   renderMenuItem({ title: "Canais da Equipe", url: "/whatsapp/canais-equipe", icon: Smartphone })}
                 {renderMenuItem({ title: "Administração", url: "/administracao", icon: UserCog })}
                 {renderMenuItem({ title: "Integrações", url: "/integracoes", icon: Plug })}

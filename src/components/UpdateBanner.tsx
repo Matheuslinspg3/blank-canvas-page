@@ -3,6 +3,7 @@ import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { isPwaRuntimeEnabled } from "@/utils/runtimeEnvironment";
+import * as Sentry from "@sentry/react";
 
 const SUPPRESS_KEY = "sw-update-suppressed";
 
@@ -57,6 +58,8 @@ function UpdateBannerInner() {
       await updateServiceWorker(true);
     } catch (err) {
       console.warn("[SW] updateServiceWorker failed, forcing reload", err);
+      // Capture error in Sentry
+      Sentry.captureException(err, { extra: { module: 'UpdateBanner' } });
     }
     setTimeout(() => {
       window.location.reload();

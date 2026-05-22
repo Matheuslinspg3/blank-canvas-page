@@ -35,15 +35,48 @@ export const DEVELOPER_ONLY_FEATURE_SET: ReadonlySet<string> = new Set(
 );
 
 /**
+ * Centralized sidebar visibility logic — Prevents flicker during rehydration.
+ */
+export function getSidebarVisibilityFlags({
+  isDeveloper,
+  hasFeature,
+  isLoadingAuth,
+  isLoadingRoles,
+  isLoadingSubscription,
+  hasAuthenticatedUser,
+}: {
+  isDeveloper: boolean;
+  hasFeature: (key: string) => boolean;
+  isLoadingAuth: boolean;
+  isLoadingRoles: boolean;
+  isLoadingSubscription: boolean;
+  hasAuthenticatedUser: boolean;
+}) {
+  const isAnyLoading = isLoadingAuth || isLoadingRoles || isLoadingSubscription;
+
+  // During loading, if we have a user session, we keep items visible to avoid 
+  // the sidebar jumping/shrinking before roles/subscription data arrives.
+  const showWhatsApp =
+    isDeveloper || hasFeature("has_whatsapp") || (isAnyLoading && hasAuthenticatedUser);
+
+  const showAutomations =
+    isDeveloper || hasFeature("has_automations") || (isAnyLoading && hasAuthenticatedUser);
+
+  const showBrandSettings = 
+    isDeveloper || hasFeature("has_brand_settings") || (isAnyLoading && hasAuthenticatedUser);
+
+  return { showWhatsApp, showAutomations, showBrandSettings };
+}
+
+/**
  * Routes (path prefixes) that only `developer` users can access.
- * Subroutes are also blocked — `/whatsapp/meu-canal/chat` matches `/whatsapp/meu-canal`.
+ * Subroutes are also blocked — `/automacoes/logs` matches `/automacoes`.
  */
 export const DEVELOPER_ONLY_ROUTES: readonly string[] = [
   "/correspondente",
   // `/financiamentos` NÃO é listado: é aba dentro de `/financeiro`,
   // gated em Financial.tsx via FINANCEIRO_FINANCIAMENTOS.
   "/automacoes",
-  "/whatsapp/meu-canal",
   "/whatsapp/automacoes",
   "/whatsapp/canais-equipe",
 ];
