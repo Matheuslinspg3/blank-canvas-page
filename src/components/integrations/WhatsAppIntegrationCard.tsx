@@ -42,6 +42,7 @@ export function WhatsAppIntegrationCard() {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [isActivating, setIsActivating] = useState(false);
+  const [activationError, setActivationError] = useState<{ code: string; message: string } | null>(null);
   const [connectionMode, setConnectionMode] = useState<"qr" | "pairing">("qr");
   const [phoneInput, setPhoneInput] = useState("");
   const isActiveRef = useRef(false);
@@ -163,6 +164,7 @@ export function WhatsAppIntegrationCard() {
   const handleActivate = async (phoneNumber?: string) => {
     const isPairingRequest = Boolean(phoneNumber);
     setIsActivating(true);
+    setActivationError(null);
 
     if (isPairingRequest) {
       setQrCode(null);
@@ -178,9 +180,37 @@ export function WhatsAppIntegrationCard() {
       }
 
       const { data, error } = await supabase.functions.invoke("whatsapp-activate-webhook", { body });
+      
       if (error) throw error;
-      if (data?.error) {
-        throw new Error(data.error?.message || data.error || "Não foi possível ativar o WhatsApp");
+
+      if (data?.success === false) {
+        const errCode = data.error?.code;
+        const errMsg = data.error?.message || "Não foi possível ativar o WhatsApp";
+        
+        if (errCode === "EVOLUTION_INSTANCE_CONFLICT") {
+          setActivationError({ code: errCode, message: errMsg });
+          toast.error("Instância órfã na Evolution", {
+            description: errMsg,
+            duration: 6000
+          });
+          return;
+        }
+
+        const knownErrors = [
+          "EVOLUTION_CREATE_FAILED",
+          "EVOLUTION_CONNECT_FAILED",
+          "EVOLUTION_QR_NOT_AVAILABLE",
+          "EVOLUTION_UNAUTHORIZED",
+          "MISSING_EVOLUTION_CONFIG",
+          "MISSING_WEBHOOK_CONFIG"
+        ];
+
+        if (knownErrors.includes(errCode)) {
+          toast.error(errMsg);
+          return;
+        }
+
+        throw new Error(errMsg);
       }
 
       const isConnectedNow =
@@ -305,25 +335,45 @@ export function WhatsAppIntegrationCard() {
 
   // Connection mode selector (for initial activation or reconnection)
   const renderConnectionOptions = () => (
-    <Tabs value={connectionMode} onValueChange={(v) => setConnectionMode(v as "qr" | "pairing")} className="w-full">
-      <TabsList className="grid w-full grid-cols-2">
-        <TabsTrigger value="qr" className="gap-1.5">
-          <QrCode className="h-4 w-4" /> QR Code
-        </TabsTrigger>
-        <TabsTrigger value="pairing" className="gap-1.5">
-          <Hash className="h-4 w-4" /> Código
-        </TabsTrigger>
-      </TabsList>
+    <div className="space-y-4 w-full">
+      {activationError?.code === "EVOLUTION_INSTANCE_CONFLICT" && (
+        <div className="p-3 border border-destructive/20 bg-destructive/5 rounded-md text-sm text-destructive animate-in fade-in slide-in-from-top-1">
+          <p className="font-semibold flex items-center gap-2 mb-1">
+            <XCircle className="h-4 w-4" /> Conflito na Evolution API
+          </p>
+          <p>
+            Existe uma sessão antiga ou corrompida na Evolution. 
+            Remova a instância no painel da Evolution ou use o botão <strong>Remover</strong> abaixo para limpar esta conexão local.
+          </p>
+        </div>
+      )}
 
-      <TabsContent value="qr" className="space-y-3">
-        <p className="text-sm text-muted-foreground">
-          Escaneie o QR Code com seu celular para conectar o WhatsApp.
-        </p>
-        <Button onClick={handleActivateQr} disabled={isActivating}>
-          {isActivating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Smartphone className="h-4 w-4 mr-2" />}
-          {instance ? "Reconectar via QR" : "Ativar via QR Code"}
-        </Button>
-      </TabsContent>
+      <Tabs 
+        value={connectionMode} 
+        onValueChange={(v) => {
+          setConnectionMode(v as "qr" | "pairing");
+          setActivationError(null);
+        }} 
+        className="w-full"
+      >
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="qr" className="gap-1.5">
+            <QrCode className="h-4 w-4" /> QR Code
+          </TabsTrigger>
+          <TabsTrigger value="pairing" className="gap-1.5">
+            <Hash className="h-4 w-4" /> Código
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="qr" className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Escaneie o QR Code com seu celular para conectar o WhatsApp.
+          </p>
+          <Button onClick={handleActivateQr} disabled={isActivating}>
+            {isActivating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Smartphone className="h-4 w-4 mr-2" />}
+            {activationError?.code === "EVOLUTION_INSTANCE_CONFLICT" ? "Tentar novamente" : instance ? "Reconectar via QR" : "Ativar via QR Code"}
+          </Button>
+        </TabsContent>
 
       <TabsContent value="pairing" className="space-y-3">
         <p className="text-sm text-muted-foreground">
@@ -342,7 +392,8 @@ export function WhatsAppIntegrationCard() {
           </Button>
         </div>
       </TabsContent>
-    </Tabs>
+      </Tabs>
+    </div>
   );
 
   // Pairing code display
@@ -486,7 +537,7 @@ export function WhatsAppIntegrationCard() {
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => { deleteInstance(); setQrCode(null); setPairingCode(null); stopRefresh(); stopStatusPolling(); isActiveRef.current = false; }} disabled={isDeleting}>
+                        <AlertDialogAction onClick={() => { deleteInstance(); setQrCode(null); setPairingCode(null); setActivationError(null); stopRefresh(); stopStatusPolling(); isActiveRef.current = false; }} disabled={isDeleting}>
                           {isDeleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                           Remover
                         </AlertDialogAction>
