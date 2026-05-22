@@ -346,6 +346,17 @@ export function WhatsAppIntegrationCard() {
       </TabsList>
 
       <TabsContent value="qr" className="space-y-3">
+        {activationError?.code === "EVOLUTION_INSTANCE_CONFLICT" && (
+          <div className="p-3 border border-destructive/20 bg-destructive/5 rounded-md text-sm text-destructive animate-in fade-in slide-in-from-top-1">
+            <p className="font-semibold flex items-center gap-2 mb-1">
+              <XCircle className="h-4 w-4" /> Conflito na Evolution API
+            </p>
+            <p>
+              Existe uma sessão antiga ou corrompida na Evolution. 
+              Remova a instância no painel da Evolution ou use o botão <strong>Remover</strong> abaixo para limpar esta conexão local.
+            </p>
+          </div>
+        )}
         <p className="text-sm text-muted-foreground">
           Escaneie o QR Code com seu celular para conectar o WhatsApp.
         </p>
