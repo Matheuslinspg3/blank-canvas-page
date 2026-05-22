@@ -207,6 +207,43 @@ const connectEvolutionInstance = async (
   return { success: false, isConnected: false };
 };
 
+const createEvolutionInstance = async (
+  baseUrl: string,
+  apiKey: string,
+  instanceName: string,
+  webhookUrl: string,
+  webhookSecret: string,
+) => {
+  const payload = {
+    instanceName,
+    integration: "WHATSAPP-BAILEYS",
+    qrcode: true,
+    rejectCall: true,
+    groupsIgnore: true,
+    alwaysOnline: false,
+    readMessages: false,
+    readStatus: false,
+    syncFullHistory: true,
+    webhook: {
+      url: webhookUrl,
+      byEvents: false,
+      base64: true,
+      headers: { "x-webhook-secret": webhookSecret },
+      events: ["MESSAGES_UPSERT"],
+    },
+  };
+
+  const res = await fetch(`${baseUrl}/instance/create`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: apiKey },
+    body: JSON.stringify(payload),
+  });
+  const raw = await res.text();
+  const data = parseJsonSafely(raw);
+  const token = data?.hash?.apikey ?? data?.token ?? data?.apikey ?? null;
+  return { res, raw, token };
+};
+
 const auditLog = async (sb: any, orgId: string, action: string, actorId: string | null, details: Record<string, any> = {}) => {
   try {
     await sb.from("whatsapp_audit_log").insert({
