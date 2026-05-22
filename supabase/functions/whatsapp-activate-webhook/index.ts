@@ -348,7 +348,7 @@ Deno.serve(async (req) => {
       } else if (createRes.status === 401) {
         return errorResponse(401, "EVOLUTION_UNAUTHORIZED", "A Evolution API recusou a autenticação. Verifique EVOLUTION_API_GLOBAL_KEY.");
       } else if (createRes.status === 400 || createRes.status === 403) {
-        // Fallback: fetch again
+        // Fallback 1: refetch (instance may already exist)
         console.log("Create failed with 400/403, refetching instances...");
         const refetchRes = await fetch(`${baseUrl}/instance/fetchInstances`, {
           method: "GET",
@@ -361,7 +361,6 @@ Deno.serve(async (req) => {
           if (refound) {
             instanceExists = true;
             instanceToken = refound?.apikey ?? refound?.token ?? refound?.instance?.apikey ?? refound?.instance?.token ?? null;
-            // Configure Webhook for re-found instance
             await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
               method: "POST",
               headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
@@ -376,8 +375,41 @@ Deno.serve(async (req) => {
           }
         }
 
+        // Fallback 2: orphan Prisma session — instance not listed but stale rows exist.
+        // Force-delete (logout + delete) and retry create.
         if (!instanceExists) {
-          return errorResponse(409, "EVOLUTION_INSTANCE_CONFLICT", "A Evolution API recusou a criação da instância. Pode existir uma sessão órfã ou conflito interno. Remova a instância na Evolution ou tente novamente com outro nome.");
+          const isPrismaConflict = /prisma|integrationSession|findFirst/i.test(createRaw);
+          console.log(`Orphan recovery: prismaConflict=${isPrismaConflict}, forcing DELETE on ${instanceName}`);
+
+          try {
+            await fetch(`${baseUrl}/instance/logout/${instanceName}`, {
+              method: "DELETE",
+              headers: { apikey: EVOLUTION_API_KEY },
+            }).then(r => r.text());
+          } catch { /* ignore */ }
+          try {
+            await fetch(`${baseUrl}/instance/delete/${instanceName}`, {
+              method: "DELETE",
+              headers: { apikey: EVOLUTION_API_KEY },
+            }).then(r => r.text());
+          } catch { /* ignore */ }
+
+          await delay(1200);
+
+          const retryRes = await fetch(`${baseUrl}/instance/create`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
+            body: JSON.stringify(createPayload),
+          });
+          const retryRaw = await retryRes.text();
+          console.log(`Retry create status: ${retryRes.status}. Preview: ${safePreview(retryRaw, 300)}`);
+
+          if (retryRes.ok) {
+            const retryData = parseJsonSafely(retryRaw);
+            instanceToken = retryData?.hash?.apikey ?? retryData?.token ?? retryData?.apikey ?? null;
+          } else {
+            return errorResponse(409, "EVOLUTION_INSTANCE_CONFLICT", "A Evolution API recusou a criação da instância mesmo após limpar sessão órfã. Tente novamente em instantes.");
+          }
         }
       } else {
         return errorResponse(502, "EVOLUTION_CREATE_FAILED", "Não foi possível criar a instância na Evolution API. Tente novamente em instantes.");
