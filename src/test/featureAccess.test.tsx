@@ -45,10 +45,12 @@ describe("featureAccess config", () => {
   it("flags real developer-only routes (and their subpaths)", () => {
     expect(isDeveloperOnlyRoute("/correspondente")).toBe(true);
     expect(isDeveloperOnlyRoute("/automacoes")).toBe(true);
-    expect(isDeveloperOnlyRoute("/whatsapp/meu-canal")).toBe(true);
-    expect(isDeveloperOnlyRoute("/whatsapp/meu-canal/chat")).toBe(true);
     expect(isDeveloperOnlyRoute("/whatsapp/automacoes")).toBe(true);
     expect(isDeveloperOnlyRoute("/whatsapp/canais-equipe")).toBe(true);
+  });
+
+  it("does not flag '/whatsapp/meu-canal' as developer-only (standardized as plan-gated instead)", () => {
+    expect(isDeveloperOnlyRoute("/whatsapp/meu-canal")).toBe(false);
   });
 
   it("does not flag common routes", () => {

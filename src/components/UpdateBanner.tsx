@@ -57,6 +57,10 @@ function UpdateBannerInner() {
       await updateServiceWorker(true);
     } catch (err) {
       console.warn("[SW] updateServiceWorker failed, forcing reload", err);
+      // Capture error in Sentry if available
+      if (window.Sentry) {
+        window.Sentry.captureException(err, { extra: { module: 'UpdateBanner' } });
+      }
     }
     setTimeout(() => {
       window.location.reload();
