@@ -114,8 +114,6 @@ serve(async (req) => {
     const { action } = body;
 
     const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
-    const N8N_VERIFICA = "https://n8n.costazul.shop/webhook/autouazapiagenteiavalentpolling";
-
     // ── STATUS ──
     if (action === "status") {
       const { data: config } = await supabaseClient
@@ -143,38 +141,7 @@ serve(async (req) => {
       const persistedStatus = normalizePersistedStatus(config.status);
       let newStatus = persistedStatus;
       let phone = config.phone_number || null;
-      let n8nStatus: "connected" | "connecting" | "disconnected" | "unknown" = "unknown";
       let evoStatus: "connected" | "connecting" | "disconnected" | "unknown" = "unknown";
-
-      try {
-        const verificaRes = await fetch(N8N_VERIFICA, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ instanceName: config.instance_name }),
-        });
-
-        const verificaRaw = await verificaRes.text();
-        const verificaData = parseJsonSafely(verificaRaw);
-        if (verificaRes.ok) {
-          n8nStatus = classifyConnectionStatus(
-            verificaRaw,
-            verificaData ? JSON.stringify(verificaData) : "",
-            verificaData?.status,
-            verificaData?.state,
-            verificaData?.connectionStatus,
-            verificaData?.instance?.state,
-          );
-          phone = extractPhoneNumber(verificaData) ?? phone;
-        }
-
-        console.log("N8N VERIFICA response:", JSON.stringify({
-          status: verificaRes.status,
-          interpretedStatus: n8nStatus,
-          raw: verificaRaw.substring(0, 300),
-        }));
-      } catch (e) {
-        console.warn("N8N VERIFICA failed:", e);
-      }
 
       try {
         const evoRes = await fetch(`${baseUrl}/instance/connectionState/${config.instance_name}`, {
@@ -204,7 +171,7 @@ serve(async (req) => {
         console.warn("Evolution connectionState failed:", e);
       }
 
-      const providerStatus = evoStatus !== "unknown" ? evoStatus : n8nStatus;
+      const providerStatus = evoStatus;
       if (providerStatus === "connected") {
         newStatus = "connected";
       } else if (providerStatus === "connecting") {
@@ -227,7 +194,6 @@ serve(async (req) => {
       await auditLog(supabaseClient, orgId, "status_check", user.id, {
         newStatus,
         persistedStatus,
-        n8nStatus,
         evoStatus,
       });
 
