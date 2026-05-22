@@ -26,6 +26,48 @@ import { toastError } from "@/lib/toastError";
 const QR_REFRESH_INTERVAL = 45_000;
 const STATUS_POLL_INTERVAL = 10_000;
 
+const safeText = (value: unknown) => String(value ?? "").trim();
+
+const extractBackendErrorMessage = (payload: any): string | null => {
+  const candidates = [
+    payload?.error?.message,
+    payload?.message,
+    payload?.error,
+    payload?.details?.message,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate !== "string") continue;
+    const message = candidate.trim();
+    if (message) return message;
+  }
+
+  if (payload?.success === false) {
+    return "Não foi possível ativar o WhatsApp. Verifique a configuração da integração e tente novamente.";
+  }
+
+  return null;
+};
+
+const readFunctionErrorMessage = async (error: any): Promise<string> => {
+  const fallback = safeText(error?.message) || "Não foi possível ativar o WhatsApp.";
+
+  try {
+    const response = error?.context;
+    if (!response?.clone) return fallback;
+
+    try {
+      const json = await response.clone().json();
+      return extractBackendErrorMessage(json) || fallback;
+    } catch {
+      const text = await response.clone().text();
+      return safeText(text) || fallback;
+    }
+  } catch {
+    return fallback;
+  }
+};
+
 export function WhatsAppIntegrationCard() {
   const {
     instance,
@@ -63,6 +105,13 @@ export function WhatsAppIntegrationCard() {
   }, []);
 
   useEffect(() => () => { stopRefresh(); stopStatusPolling(); }, [stopRefresh, stopStatusPolling]);
+
+  const hasPreviousWhatsAppConnection = Boolean(
+    instance?.instance_token
+    || instance?.phone_number
+    || instance?.status === "connected"
+  );
+  const qrButtonLabel = hasPreviousWhatsAppConnection ? "Reconectar via QR" : "Conectar via QR Code";
 
   // Auto-check status on mount
   const hasAutoCheckedRef = useRef(false);
@@ -114,7 +163,7 @@ export function WhatsAppIntegrationCard() {
         }
       } catch { /* silent */ }
     }, STATUS_POLL_INTERVAL);
-  }, [stopRefresh, stopStatusPolling, checkStatus, queryClient]);
+  }, [stopRefresh, stopStatusPolling, queryClient]);
 
   const requestQrRefresh = useCallback(async () => {
     if (!isActiveRef.current) return false;
@@ -124,7 +173,7 @@ export function WhatsAppIntegrationCard() {
         body: {},
       });
 
-      if (error || !data?.qrCode) return false;
+      if (error || data?.success === false || !data?.qrCode) return false;
 
       if (data.connected) {
         setQrCode(null);
@@ -178,8 +227,12 @@ export function WhatsAppIntegrationCard() {
       }
 
       const { data, error } = await supabase.functions.invoke("whatsapp-activate-webhook", { body });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (error) {
+        throw new Error(await readFunctionErrorMessage(error));
+      }
+
+      const backendError = extractBackendErrorMessage(data);
+      if (backendError) throw new Error(backendError);
 
       const isConnectedNow =
         data?.connected === true ||
@@ -222,11 +275,16 @@ export function WhatsAppIntegrationCard() {
         if (refreshedNow) {
           toast.success("QR Code gerado! Escaneie com o WhatsApp.");
         } else {
-          toast.success("Ativação enviada! Buscando QR Code automaticamente.");
+          toast.info("Conexão iniciada. O QR Code ainda não foi retornado pela Evolution API; tentando atualizar automaticamente.");
         }
       }
     } catch (err: any) {
-      toastError("Erro ao ativar WhatsApp", err instanceof Error ? err : new Error(String(err?.message || err)), { module: "WhatsAppIntegrationCard" });
+      const error = err instanceof Error ? err : new Error(String(err?.message || err));
+      toastError("Erro ao ativar WhatsApp", error, {
+        module: "WhatsAppIntegrationCard",
+        description: error.message,
+        duration: 9000,
+      });
     } finally {
       setIsActivating(false);
     }
@@ -319,7 +377,7 @@ export function WhatsAppIntegrationCard() {
         </p>
         <Button onClick={handleActivateQr} disabled={isActivating}>
           {isActivating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Smartphone className="h-4 w-4 mr-2" />}
-          {instance ? "Reconectar via QR" : "Ativar via QR Code"}
+          {qrButtonLabel}
         </Button>
       </TabsContent>
 
@@ -336,7 +394,7 @@ export function WhatsAppIntegrationCard() {
           />
           <Button onClick={handleActivatePairing} disabled={isActivating || phoneInput.replace(/\D/g, "").length < 10}>
             {isActivating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Hash className="h-4 w-4 mr-2" />}
-            Gerar
+            Gerar código
           </Button>
         </div>
       </TabsContent>
