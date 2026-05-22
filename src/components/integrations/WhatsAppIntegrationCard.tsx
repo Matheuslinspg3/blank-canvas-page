@@ -316,7 +316,13 @@ export function WhatsAppIntegrationCard() {
     }
   };
 
-  const shouldShowConnectionOptions = !!instance && !displayedQr && !pairingCode && instance.status !== "connected";
+  const shouldShowConnectionOptions = !instance || (
+    !instance.instance_token && 
+    !instance.phone_number && 
+    instance.status !== "connected" && 
+    !displayedQr && 
+    !pairingCode
+  );
 
   const formatPhone = (value: string) => {
     const digits = value.replace(/\D/g, "");
