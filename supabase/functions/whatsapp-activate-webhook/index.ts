@@ -146,6 +146,27 @@ const extractQrBase64 = (payload: any) => {
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const extractInstanceIdentifier = (item: any): string | null => {
+  const candidates = [
+    item?.instanceName,
+    item?.name,
+    item?.instance?.instanceName,
+    item?.instance?.name,
+    item?.instance?.id,
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate == null) continue;
+    const value = String(candidate).trim();
+    if (value) return value;
+  }
+
+  return null;
+};
+
+const findEvolutionInstance = (list: any[], instanceName: string) =>
+  list.find((item: any) => extractInstanceIdentifier(item) === instanceName);
+
 const connectEvolutionInstance = async (
   baseUrl: string,
   apiKey: string,
@@ -421,10 +442,7 @@ Deno.serve(async (req) => {
               ? [fetchData.instance]
               : [];
 
-        const found = list.find((item: any) => {
-          const name = item?.instanceName ?? item?.instance?.instanceName ?? item?.name;
-          return name === instanceName;
-        });
+        const found = findEvolutionInstance(list, instanceName);
 
         if (found) {
           instanceExists = true;
@@ -523,12 +541,67 @@ Deno.serve(async (req) => {
             instance_name: instanceName,
             provider_preview: safeCreatePreview,
           });
-          const status = (createRes.status === 401 || createRes.status === 403) ? 401 : 502;
-          return errorResponse(
-            status,
-            "EVOLUTION_CREATE_FAILED",
-            "Não foi possível criar a instância na Evolution API. Verifique URL, token e permissões da API.",
-          );
+
+          if (createRes.status === 400 || createRes.status === 403) {
+            try {
+              const refetchRes = await fetch(`${baseUrl}/instance/fetchInstances`, {
+                method: "GET",
+                headers: { apikey: EVOLUTION_API_KEY },
+              });
+
+              if (refetchRes.ok) {
+                const refetchData = await refetchRes.json();
+                const refetchList = Array.isArray(refetchData)
+                  ? refetchData
+                  : Array.isArray(refetchData?.instances)
+                    ? refetchData.instances
+                    : refetchData?.instance
+                      ? [refetchData.instance]
+                      : [];
+
+                const refound = findEvolutionInstance(refetchList, instanceName);
+                if (refound) {
+                  instanceExists = true;
+                  instanceToken =
+                    refound?.apikey ??
+                    refound?.token ??
+                    refound?.instance?.apikey ??
+                    refound?.instance?.token ??
+                    instanceToken;
+
+                  await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
+                    body: JSON.stringify({
+                      url: WEBHOOK_URL,
+                      byEvents: false,
+                      base64: true,
+                      headers: {
+                        "x-webhook-secret": WHATSAPP_AGENT_SECRET,
+                      },
+                      events: ["MESSAGES_UPSERT"],
+                    }),
+                  });
+                }
+              }
+            } catch (refetchErr) {
+              console.warn("fetchInstances retry after create conflict failed:", refetchErr);
+            }
+
+            if (!instanceExists) {
+              return errorResponse(
+                409,
+                "EVOLUTION_INSTANCE_CONFLICT",
+                "A Evolution API recusou a criação da instância. Pode existir uma sessão órfã ou conflito interno. Remova a instância na Evolution ou tente recriar com novo nome.",
+              );
+            }
+          } else {
+            return errorResponse(
+              502,
+              "EVOLUTION_CREATE_FAILED",
+              "Não foi possível criar a instância na Evolution API. Verifique URL, token e permissões da API.",
+            );
+          }
         }
       } else {
         let createData: any = {};
