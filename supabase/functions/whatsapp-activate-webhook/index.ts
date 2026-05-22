@@ -392,17 +392,7 @@ Deno.serve(async (req) => {
           if (refound) {
             instanceExists = true;
             instanceToken = refound?.apikey ?? refound?.token ?? refound?.instance?.apikey ?? refound?.instance?.token ?? null;
-            await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
-              body: JSON.stringify({
-                url: WEBHOOK_URL,
-                byEvents: false,
-                base64: true,
-                headers: { "x-webhook-secret": WHATSAPP_AGENT_SECRET },
-                events: ["MESSAGES_UPSERT"],
-              }),
-            });
+            await configureEvolutionWebhook(baseUrl, EVOLUTION_API_KEY, instanceName, WEBHOOK_URL, WHATSAPP_AGENT_SECRET);
           }
         }
 
