@@ -378,7 +378,7 @@ export function WhatsAppIntegrationCard() {
           </p>
           <Button onClick={handleActivateQr} disabled={isActivating}>
             {isActivating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Smartphone className="h-4 w-4 mr-2" />}
-            {activationError?.code === "EVOLUTION_INSTANCE_CONFLICT" ? "Tentar novamente" : (instance?.instance_token || instance?.phone_number || instance?.instance_name) ? "Reconectar via QR" : "Ativar via QR Code"}
+            {activationError?.code === "EVOLUTION_INSTANCE_CONFLICT" ? "Tentar novamente" : (instance?.instance_token || instance?.phone_number || instance?.instance_name) ? "Reconectar via QR" : "Conectar via QR Code"}
           </Button>
         </TabsContent>
 
