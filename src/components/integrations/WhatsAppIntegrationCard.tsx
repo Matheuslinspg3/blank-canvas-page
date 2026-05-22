@@ -335,36 +335,45 @@ export function WhatsAppIntegrationCard() {
 
   // Connection mode selector (for initial activation or reconnection)
   const renderConnectionOptions = () => (
-    <Tabs value={connectionMode} onValueChange={(v) => setConnectionMode(v as "qr" | "pairing")} className="w-full">
-      <TabsList className="grid w-full grid-cols-2">
-        <TabsTrigger value="qr" className="gap-1.5">
-          <QrCode className="h-4 w-4" /> QR Code
-        </TabsTrigger>
-        <TabsTrigger value="pairing" className="gap-1.5">
-          <Hash className="h-4 w-4" /> Código
-        </TabsTrigger>
-      </TabsList>
+    <div className="space-y-4 w-full">
+      {activationError?.code === "EVOLUTION_INSTANCE_CONFLICT" && (
+        <div className="p-3 border border-destructive/20 bg-destructive/5 rounded-md text-sm text-destructive animate-in fade-in slide-in-from-top-1">
+          <p className="font-semibold flex items-center gap-2 mb-1">
+            <XCircle className="h-4 w-4" /> Conflito na Evolution API
+          </p>
+          <p>
+            Existe uma sessão antiga ou corrompida na Evolution. 
+            Remova a instância no painel da Evolution ou use o botão <strong>Remover</strong> abaixo para limpar esta conexão local.
+          </p>
+        </div>
+      )}
 
-      <TabsContent value="qr" className="space-y-3">
-        {activationError?.code === "EVOLUTION_INSTANCE_CONFLICT" && (
-          <div className="p-3 border border-destructive/20 bg-destructive/5 rounded-md text-sm text-destructive animate-in fade-in slide-in-from-top-1">
-            <p className="font-semibold flex items-center gap-2 mb-1">
-              <XCircle className="h-4 w-4" /> Conflito na Evolution API
-            </p>
-            <p>
-              Existe uma sessão antiga ou corrompida na Evolution. 
-              Remova a instância no painel da Evolution ou use o botão <strong>Remover</strong> abaixo para limpar esta conexão local.
-            </p>
-          </div>
-        )}
-        <p className="text-sm text-muted-foreground">
-          Escaneie o QR Code com seu celular para conectar o WhatsApp.
-        </p>
-        <Button onClick={handleActivateQr} disabled={isActivating}>
-          {isActivating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Smartphone className="h-4 w-4 mr-2" />}
-          {instance ? "Reconectar via QR" : "Ativar via QR Code"}
-        </Button>
-      </TabsContent>
+      <Tabs 
+        value={connectionMode} 
+        onValueChange={(v) => {
+          setConnectionMode(v as "qr" | "pairing");
+          setActivationError(null);
+        }} 
+        className="w-full"
+      >
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="qr" className="gap-1.5">
+            <QrCode className="h-4 w-4" /> QR Code
+          </TabsTrigger>
+          <TabsTrigger value="pairing" className="gap-1.5">
+            <Hash className="h-4 w-4" /> Código
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="qr" className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Escaneie o QR Code com seu celular para conectar o WhatsApp.
+          </p>
+          <Button onClick={handleActivateQr} disabled={isActivating}>
+            {isActivating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Smartphone className="h-4 w-4 mr-2" />}
+            {instance ? "Reconectar via QR" : "Ativar via QR Code"}
+          </Button>
+        </TabsContent>
 
       <TabsContent value="pairing" className="space-y-3">
         <p className="text-sm text-muted-foreground">
