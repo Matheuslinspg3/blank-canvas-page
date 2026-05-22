@@ -8,9 +8,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MessageSquare, Shield, Zap, BarChart3, MessagesSquare, Users, Settings } from "lucide-react";
+import { FeatureFlagGate } from "@/components/FeatureGate";
 
 export default function MyWhatsAppChannel() {
   return (
+    <FeatureFlagGate featureKey="has_whatsapp">
+
     <>
       <Helmet>
         <title>Meu WhatsApp — Porta do Corretor</title>
@@ -122,6 +125,6 @@ export default function MyWhatsAppChannel() {
           </TabsContent>
         </Tabs>
       </div>
-    </>
+    </FeatureFlagGate>
   );
 }
