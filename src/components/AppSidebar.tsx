@@ -83,13 +83,14 @@ export function AppSidebar() {
   const { data: newAdLeadsCount = 0 } = useAdLeadsCount();
   const setupPending = useSetupPendingCount();
 
-  const canAccessMyWhatsApp = isDeveloper || hasFeature("has_whatsapp");
-  const canAccessAutomations = isDeveloper || hasFeature("has_automations");
-
-  // Guardrail: keep nav structure stable while auth/subscription/roles are hydrating
-  // after updates/reloads. Loading is not equal to "no permission".
-  const shouldShowMyWhatsApp = canAccessMyWhatsApp || rolesLoading || loadingSub;
-  const shouldShowAutomations = canAccessAutomations || rolesLoading || loadingSub;
+  const { shouldShowMyWhatsApp, shouldShowAutomations } = getSidebarVisibilityFlags({
+    isDeveloper,
+    hasWhatsAppFeature: hasFeature("has_whatsapp"),
+    hasAutomationsFeature: hasFeature("has_automations"),
+    rolesLoading,
+    subscriptionLoading: loadingSub,
+    hasAuthenticatedUser: !!user,
+  });
 
   const [orgName, setOrgName] = React.useState<string>("");
 
@@ -301,4 +302,36 @@ export function AppSidebar() {
       </SidebarFooter>
     </Sidebar>
   );
+}
+
+
+type SidebarVisibilityInputs = {
+  isDeveloper: boolean;
+  hasWhatsAppFeature: boolean;
+  hasAutomationsFeature: boolean;
+  rolesLoading: boolean;
+  subscriptionLoading: boolean;
+  hasAuthenticatedUser: boolean;
+};
+
+export function getSidebarVisibilityFlags({
+  isDeveloper,
+  hasWhatsAppFeature,
+  hasAutomationsFeature,
+  rolesLoading,
+  subscriptionLoading,
+  hasAuthenticatedUser,
+}: SidebarVisibilityInputs) {
+  const canAccessMyWhatsApp = isDeveloper || hasWhatsAppFeature;
+  const canAccessAutomations = isDeveloper || hasAutomationsFeature;
+
+  // Guardrail: keep nav structure stable while auth/subscription/roles are hydrating
+  // after updates/reloads. Loading is not equal to "no permission", but only for
+  // authenticated sessions.
+  const keepVisibleDuringLoading = hasAuthenticatedUser && (rolesLoading || subscriptionLoading);
+
+  return {
+    shouldShowMyWhatsApp: canAccessMyWhatsApp || keepVisibleDuringLoading,
+    shouldShowAutomations: canAccessAutomations || keepVisibleDuringLoading,
+  };
 }
