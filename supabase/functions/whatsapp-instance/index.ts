@@ -274,23 +274,18 @@ serve(async (req) => {
         .eq("organization_id", orgId)
         .single();
 
-      if (!config) {
-        return new Response(JSON.stringify({ success: true, deleted: true, skipped: "config_not_found" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
       // Collect potential names to delete
       const namesToDelete = new Set<string>();
-      if (config.instance_name) namesToDelete.add(config.instance_name);
+      if (config?.instance_name) namesToDelete.add(config.instance_name);
       namesToDelete.add(instanceNameFallback);
       
       const attemptedEvolutionInstances = Array.from(namesToDelete);
       let evolutionDeletedCount = 0;
+      let someInstancesStillExist = false;
 
-      for (const name of namesToDelete) {
+      for (const name of attemptedEvolutionInstances) {
         try {
-          // First logout to be safe
+          // Pre-emptive logout
           await fetch(`${baseUrl}/instance/logout/${name}`, {
             method: "DELETE",
             headers: { apikey: EVOLUTION_API_KEY },
@@ -304,57 +299,60 @@ serve(async (req) => {
           if (res.ok || res.status === 404) {
             evolutionDeletedCount++;
           } else {
-             const errorRaw = await res.text();
-             console.warn(`Evolution delete failed for ${name} [${res.status}]:`, safePreview(errorRaw));
+            const errorRaw = await res.text();
+            console.warn(`Evolution delete failed for ${name} [${res.status}]:`, safePreview(errorRaw));
           }
         } catch (e) {
           console.warn(`Failed to delete ${name} on Evolution:`, e);
         }
       }
 
-      // Check if any still exist
-      let warning: string | null = null;
+      // Verification fetch
       try {
         const fetchRes = await fetch(`${baseUrl}/instance/fetchInstances`, {
           method: "GET",
           headers: { apikey: EVOLUTION_API_KEY },
         });
         if (fetchRes.ok) {
-           const list = await fetchRes.json();
-           const instances = Array.isArray(list) ? list : (Array.isArray(list?.instances) ? list.instances : []);
-           const stillExists = attemptedEvolutionInstances.some(name => 
-              instances.some((item: any) => String(item?.instanceName || item?.name || "").trim() === name)
-           );
-           if (stillExists) {
-             warning = "A instância ainda pode existir na Evolution. Remova manualmente no painel.";
-           }
+          const list = await fetchRes.json();
+          const instances = Array.isArray(list) ? list : (Array.isArray(list?.instances) ? list.instances : []);
+          someInstancesStillExist = attemptedEvolutionInstances.some(name => 
+            instances.some((item: any) => String(item?.instanceName || item?.name || "").trim() === name)
+          );
         }
       } catch (e) {
         console.warn("Failed to verify instances after delete:", e);
       }
 
-      // ALWAYS clear local state
-      await supabaseClient
-        .from("whatsapp_agent_config")
-        .update({
-          instance_name: null,
-          instance_token: null,
-          status: "disconnected",
-          phone_number: null,
-          qr_code: null,
-          webhook_url: null,
-        })
-        .eq("id", config.id);
+      const warning = someInstancesStillExist 
+        ? "A instância ainda pode existir na Evolution. Remova manualmente no painel se persistir."
+        : null;
+
+      // ALWAYS clear local state if config exists
+      if (config) {
+        await supabaseClient
+          .from("whatsapp_agent_config")
+          .update({
+            instance_name: null,
+            instance_token: null,
+            status: "disconnected",
+            phone_number: null,
+            qr_code: null,
+            webhook_url: null,
+          })
+          .eq("id", config.id);
+      }
 
       await auditLog(supabaseClient, orgId, "delete", user.id, { 
         attempted: attemptedEvolutionInstances,
-        evolutionDeletedCount 
+        evolutionDeletedCount,
+        someInstancesStillExist
       });
 
       return new Response(JSON.stringify({ 
         success: true,
         deleted: true, 
-        localCleared: true,
+        localCleared: !!config,
         attemptedEvolutionInstances,
         evolutionDeleted: evolutionDeletedCount > 0,
         warning

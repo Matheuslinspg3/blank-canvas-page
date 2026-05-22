@@ -320,6 +320,7 @@ export function WhatsAppIntegrationCard() {
     !instance.instance_token && 
     !instance.phone_number && 
     instance.status !== "connected" && 
+    !instance.instance_name &&
     !displayedQr && 
     !pairingCode
   );
@@ -377,7 +378,7 @@ export function WhatsAppIntegrationCard() {
           </p>
           <Button onClick={handleActivateQr} disabled={isActivating}>
             {isActivating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Smartphone className="h-4 w-4 mr-2" />}
-            {activationError?.code === "EVOLUTION_INSTANCE_CONFLICT" ? "Tentar novamente" : instance?.instance_token ? "Reconectar via QR" : "Ativar via QR Code"}
+            {activationError?.code === "EVOLUTION_INSTANCE_CONFLICT" ? "Tentar novamente" : (instance?.instance_token || instance?.phone_number || instance?.instance_name) ? "Reconectar via QR" : "Ativar via QR Code"}
           </Button>
         </TabsContent>
 
@@ -472,10 +473,12 @@ export function WhatsAppIntegrationCard() {
           <div className="space-y-4">
             {instance && (
               <div className="grid gap-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Instância:</span>
-                  <span className="font-medium">{instance.instance_name}</span>
-                </div>
+                {instance.instance_name && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Instância:</span>
+                    <span className="font-medium">{instance.instance_name}</span>
+                  </div>
+                )}
                 {instance.phone_number && (
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Número:</span>
