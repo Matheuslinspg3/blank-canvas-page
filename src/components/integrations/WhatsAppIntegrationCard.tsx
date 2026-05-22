@@ -527,7 +527,7 @@ export function WhatsAppIntegrationCard() {
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => { deleteInstance(); setQrCode(null); setPairingCode(null); stopRefresh(); stopStatusPolling(); isActiveRef.current = false; }} disabled={isDeleting}>
+                        <AlertDialogAction onClick={() => { deleteInstance(); setQrCode(null); setPairingCode(null); setActivationError(null); stopRefresh(); stopStatusPolling(); isActiveRef.current = false; }} disabled={isDeleting}>
                           {isDeleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                           Remover
                         </AlertDialogAction>
