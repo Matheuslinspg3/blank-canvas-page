@@ -285,11 +285,11 @@ serve(async (req) => {
 
       for (const name of attemptedEvolutionInstances) {
         try {
-          // Pre-emptive logout
+          // Pre-emptive logout (don't fail the whole process if this fails)
           await fetch(`${baseUrl}/instance/logout/${name}`, {
             method: "DELETE",
             headers: { apikey: EVOLUTION_API_KEY },
-          });
+          }).catch(() => null);
           
           const res = await fetch(`${baseUrl}/instance/delete/${name}`, {
             method: "DELETE",
@@ -330,7 +330,7 @@ serve(async (req) => {
 
       // ALWAYS clear local state if config exists
       if (config) {
-        await supabaseClient
+        const { error: updateError } = await supabaseClient
           .from("whatsapp_agent_config")
           .update({
             instance_name: null,
@@ -341,12 +341,18 @@ serve(async (req) => {
             webhook_url: null,
           })
           .eq("id", config.id);
+          
+        if (updateError) {
+          console.error("Failed to clear local config:", updateError);
+          throw new Error("Falha ao limpar configuração local no banco de dados.");
+        }
       }
 
       await auditLog(supabaseClient, orgId, "delete", user.id, { 
         attempted: attemptedEvolutionInstances,
         evolutionDeletedCount,
-        someInstancesStillExist
+        someInstancesStillExist,
+        localCleared: !!config
       });
 
       return new Response(JSON.stringify({ 

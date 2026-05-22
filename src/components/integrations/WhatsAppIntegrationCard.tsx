@@ -316,11 +316,15 @@ export function WhatsAppIntegrationCard() {
     }
   };
 
+  const isActuallyProvisioned = !!(
+    instance?.instance_token || 
+    instance?.phone_number || 
+    instance?.instance_name || 
+    instance?.status === "connected"
+  );
+
   const shouldShowConnectionOptions = !instance || (
-    !instance.instance_token && 
-    !instance.phone_number && 
-    instance.status !== "connected" && 
-    !instance.instance_name &&
+    !isActuallyProvisioned && 
     !displayedQr && 
     !pairingCode
   );
@@ -378,7 +382,7 @@ export function WhatsAppIntegrationCard() {
           </p>
           <Button onClick={handleActivateQr} disabled={isActivating}>
             {isActivating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Smartphone className="h-4 w-4 mr-2" />}
-            {activationError?.code === "EVOLUTION_INSTANCE_CONFLICT" ? "Tentar novamente" : (instance?.instance_token || instance?.phone_number || instance?.instance_name) ? "Reconectar via QR" : "Conectar via QR Code"}
+            {activationError?.code === "EVOLUTION_INSTANCE_CONFLICT" ? "Tentar novamente" : isActuallyProvisioned ? "Reconectar via QR" : "Conectar via QR Code"}
           </Button>
         </TabsContent>
 
@@ -533,7 +537,7 @@ export function WhatsAppIntegrationCard() {
 
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm">
+                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10">
                         <Trash2 className="h-4 w-4 mr-2" /> Remover
                       </Button>
                     </AlertDialogTrigger>
@@ -541,14 +545,28 @@ export function WhatsAppIntegrationCard() {
                       <AlertDialogHeader>
                         <AlertDialogTitle>Remover instância WhatsApp?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Esta ação irá desconectar e remover permanentemente a instância WhatsApp desta organização.
+                          Isso irá desconectar seu WhatsApp e remover a configuração. 
+                          Você precisará escanear o QR Code novamente para conectar.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => { deleteInstance(); setQrCode(null); setPairingCode(null); setActivationError(null); stopRefresh(); stopStatusPolling(); isActiveRef.current = false; }} disabled={isDeleting}>
-                          {isDeleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                          Remover
+                        <AlertDialogAction 
+                          onClick={async () => { 
+                            try {
+                              await deleteInstance(); 
+                              setQrCode(null); 
+                              setPairingCode(null); 
+                              setActivationError(null); 
+                              stopRefresh(); 
+                              stopStatusPolling(); 
+                              isActiveRef.current = false; 
+                            } catch (e) { /* Error handled by hook */ }
+                          }} 
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          disabled={isDeleting}
+                        >
+                          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sim, remover"}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
