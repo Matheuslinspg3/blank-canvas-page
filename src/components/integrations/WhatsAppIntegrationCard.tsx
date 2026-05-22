@@ -164,6 +164,7 @@ export function WhatsAppIntegrationCard() {
   const handleActivate = async (phoneNumber?: string) => {
     const isPairingRequest = Boolean(phoneNumber);
     setIsActivating(true);
+    setActivationError(null);
 
     if (isPairingRequest) {
       setQrCode(null);
@@ -179,9 +180,37 @@ export function WhatsAppIntegrationCard() {
       }
 
       const { data, error } = await supabase.functions.invoke("whatsapp-activate-webhook", { body });
+      
       if (error) throw error;
-      if (data?.error) {
-        throw new Error(data.error?.message || data.error || "Não foi possível ativar o WhatsApp");
+
+      if (data?.success === false) {
+        const errCode = data.error?.code;
+        const errMsg = data.error?.message || "Não foi possível ativar o WhatsApp";
+        
+        if (errCode === "EVOLUTION_INSTANCE_CONFLICT") {
+          setActivationError({ code: errCode, message: errMsg });
+          toast.error("Instância órfã na Evolution", {
+            description: errMsg,
+            duration: 6000
+          });
+          return;
+        }
+
+        const knownErrors = [
+          "EVOLUTION_CREATE_FAILED",
+          "EVOLUTION_CONNECT_FAILED",
+          "EVOLUTION_QR_NOT_AVAILABLE",
+          "EVOLUTION_UNAUTHORIZED",
+          "MISSING_EVOLUTION_CONFIG",
+          "MISSING_WEBHOOK_CONFIG"
+        ];
+
+        if (knownErrors.includes(errCode)) {
+          toast.error(errMsg);
+          return;
+        }
+
+        throw new Error(errMsg);
       }
 
       const isConnectedNow =
