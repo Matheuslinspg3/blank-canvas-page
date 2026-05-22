@@ -45,8 +45,8 @@ describe("featureAccess config", () => {
   it("flags real developer-only routes (and their subpaths)", () => {
     expect(isDeveloperOnlyRoute("/correspondente")).toBe(true);
     expect(isDeveloperOnlyRoute("/automacoes")).toBe(true);
-    expect(isDeveloperOnlyRoute("/whatsapp/meu-canal")).toBe(true);
-    expect(isDeveloperOnlyRoute("/whatsapp/meu-canal/chat")).toBe(true);
+    expect(isDeveloperOnlyRoute("/whatsapp/meu-canal")).toBe(false);
+    expect(isDeveloperOnlyRoute("/whatsapp/meu-canal/chat")).toBe(false);
     expect(isDeveloperOnlyRoute("/whatsapp/automacoes")).toBe(true);
     expect(isDeveloperOnlyRoute("/whatsapp/canais-equipe")).toBe(true);
   });

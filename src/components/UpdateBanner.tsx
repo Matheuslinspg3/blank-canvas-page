@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import * as Sentry from "@sentry/react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRegisterSW } from "virtual:pwa-register/react";
@@ -57,6 +58,7 @@ function UpdateBannerInner() {
       await updateServiceWorker(true);
     } catch (err) {
       console.warn("[SW] updateServiceWorker failed, forcing reload", err);
+      Sentry.captureException(err, { tags: { module: "UpdateBanner", action: "update_click" } });
     }
     setTimeout(() => {
       window.location.reload();

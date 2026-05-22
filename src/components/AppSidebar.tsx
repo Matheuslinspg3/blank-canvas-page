@@ -1,4 +1,5 @@
 import React from "react";
+import * as Sentry from "@sentry/react";
 import {
   Users,
   DollarSign,
@@ -76,11 +77,19 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { signOut, user, profile, organizationType } = useAuth();
-  const { isDeveloper, isAdminOrAbove } = useUserRoles();
-  const { hasFeature } = useSubscription();
+  const { isDeveloper, isAdminOrAbove, isLoading: rolesLoading } = useUserRoles();
+  const { hasFeature, loadingSub } = useSubscription();
   const currentPath = location.pathname;
   const { data: newAdLeadsCount = 0 } = useAdLeadsCount();
   const setupPending = useSetupPendingCount();
+
+  const canAccessMyWhatsApp = isDeveloper || hasFeature("has_whatsapp");
+  const canAccessAutomations = isDeveloper || hasFeature("has_automations");
+
+  // Guardrail: keep nav structure stable while auth/subscription/roles are hydrating
+  // after updates/reloads. Loading is not equal to "no permission".
+  const shouldShowMyWhatsApp = canAccessMyWhatsApp || rolesLoading || loadingSub;
+  const shouldShowAutomations = canAccessAutomations || rolesLoading || loadingSub;
 
   const [orgName, setOrgName] = React.useState<string>("");
 
@@ -88,11 +97,15 @@ export function AppSidebar() {
     if (!profile?.organization_id) return;
 
     const load = async () => {
-      const { data } = await (await import("@/integrations/supabase/client")).supabase
+      const { data, error } = await (await import("@/integrations/supabase/client")).supabase
         .from("organizations")
         .select("name")
         .eq("id", profile.organization_id!)
         .maybeSingle();
+
+      if (error) {
+        Sentry.captureException(error, { tags: { module: "AppSidebar", action: "load_organization" } });
+      }
 
       if (data?.name) setOrgName(data.name);
     };
@@ -187,9 +200,9 @@ export function AppSidebar() {
               {mainItems
                 .filter((item) => isDeveloper || !item.developerOnly)
                 .map(renderMenuItem)}
-              {(isDeveloper || hasFeature("has_whatsapp")) &&
+              {shouldShowMyWhatsApp &&
                 renderMenuItem({ title: "Meu WhatsApp", url: "/whatsapp/meu-canal", icon: Smartphone })}
-              {(isDeveloper || hasFeature("has_automations")) &&
+              {shouldShowAutomations &&
                 renderMenuItem({ title: "Automações", url: "/automacoes", icon: Zap })}
             </SidebarMenu>
           </SidebarGroupContent>

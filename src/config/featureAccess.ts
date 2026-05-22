@@ -19,7 +19,6 @@ export const DEVELOPER_ONLY_FEATURES = {
   MARKETING_ARTES: "marketing.artes",
   MARKETING_VIDEO: "marketing.video",
   MARKETING_MARCA: "marketing.marca",
-  MEU_WHATSAPP: "meu_whatsapp",
   AUTOMACOES: "automacoes",
   GESTAO_PORTAIS_ANUNCIO: "gestao.portais_anuncio",
   GESTAO_MEU_SITE: "gestao.meu_site",
@@ -43,7 +42,6 @@ export const DEVELOPER_ONLY_ROUTES: readonly string[] = [
   // `/financiamentos` NÃO é listado: é aba dentro de `/financeiro`,
   // gated em Financial.tsx via FINANCEIRO_FINANCIAMENTOS.
   "/automacoes",
-  "/whatsapp/meu-canal",
   "/whatsapp/automacoes",
   "/whatsapp/canais-equipe",
 ];
