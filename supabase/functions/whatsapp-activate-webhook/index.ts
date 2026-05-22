@@ -361,51 +361,21 @@ Deno.serve(async (req) => {
     if (instanceExists) {
       // Configure Webhook
       console.log(`Configuring webhook for ${instanceName}`);
-      await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
-        body: JSON.stringify({
-          url: WEBHOOK_URL,
-          byEvents: false,
-          base64: true,
-          headers: { "x-webhook-secret": WHATSAPP_AGENT_SECRET },
-          events: ["MESSAGES_UPSERT"],
-        }),
-      });
+      await configureEvolutionWebhook(baseUrl, EVOLUTION_API_KEY, instanceName, WEBHOOK_URL, WHATSAPP_AGENT_SECRET);
     } else {
       // Create Instance
       console.log(`Creating instance ${instanceName}`);
-      const createPayload = {
+      const { res: createRes, raw: createRaw, token: createToken } = await createEvolutionInstance(
+        baseUrl,
+        EVOLUTION_API_KEY,
         instanceName,
-        integration: "WHATSAPP-BAILEYS",
-        qrcode: true,
-        rejectCall: true,
-        groupsIgnore: true,
-        alwaysOnline: false,
-        readMessages: false,
-        readStatus: false,
-        syncFullHistory: true,
-        webhook: {
-          url: WEBHOOK_URL,
-          byEvents: false,
-          base64: true,
-          headers: { "x-webhook-secret": WHATSAPP_AGENT_SECRET },
-          events: ["MESSAGES_UPSERT"],
-        },
-      };
-
-      const createRes = await fetch(`${baseUrl}/instance/create`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
-        body: JSON.stringify(createPayload),
-      });
-
-      const createRaw = await createRes.text();
+        WEBHOOK_URL,
+        WHATSAPP_AGENT_SECRET,
+      );
       console.log(`Create status: ${createRes.status}. Preview: ${safePreview(createRaw, 500)}`);
 
       if (createRes.ok) {
-        const createData = parseJsonSafely(createRaw);
-        instanceToken = createData?.hash?.apikey ?? createData?.token ?? createData?.apikey ?? null;
+        instanceToken = createToken;
       } else if (createRes.status === 401) {
         return errorResponse(401, "EVOLUTION_UNAUTHORIZED", "A Evolution API recusou a autenticação. Verifique EVOLUTION_API_GLOBAL_KEY.");
       } else if (createRes.status === 400 || createRes.status === 403) {
