@@ -392,7 +392,8 @@ export function WhatsAppIntegrationCard() {
           </Button>
         </div>
       </TabsContent>
-    </Tabs>
+      </Tabs>
+    </div>
   );
 
   // Pairing code display
