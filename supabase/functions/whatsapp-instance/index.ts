@@ -78,6 +78,14 @@ const auditLog = async (
   }
 };
 
+const safePreview = (value: unknown, limit = 1000) => {
+  const text = String(value ?? "");
+  const masked = text
+    .replace(/("?(?:apikey|api_key|token|authorization)"?\s*[:=]\s*")([^"\n]+)(")/gi, '$1***$3')
+    .replace(/(Bearer\s+)[A-Za-z0-9._\-]+/gi, '$1***');
+  return masked.substring(0, limit);
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -110,10 +118,24 @@ serve(async (req) => {
     if (!profile?.organization_id) throw new Error("No organization found");
 
     const orgId = profile.organization_id;
+
+    // Get Organization Details for slug calculation
+    const { data: org } = await supabaseClient
+      .from("organizations")
+      .select("id, name, slug")
+      .eq("id", orgId)
+      .single();
+    
+    if (!org) throw new Error("Organization not found in database");
+
+    const orgSlug = org.slug || org.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "-").toLowerCase().replace(/-+/g, "-").replace(/^-|-$/g, "");
+    const instanceNameFallback = `${orgSlug}-${orgId}`;
+
     const body = await req.json();
     const { action } = body;
 
     const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
+    
     // ── STATUS ──
     if (action === "status") {
       const { data: config } = await supabaseClient
@@ -165,7 +187,7 @@ serve(async (req) => {
         console.log("Evolution connectionState response:", JSON.stringify({
           status: evoRes.status,
           interpretedStatus: evoStatus,
-          raw: evoRaw.substring(0, 300),
+          raw: safePreview(evoRaw, 300),
         }));
       } catch (e) {
         console.warn("Evolution connectionState failed:", e);
@@ -220,16 +242,16 @@ serve(async (req) => {
         });
       }
 
-      if (config.instance_token) {
-        try {
-          const res = await fetch(`${baseUrl}/instance/logout/${config.instance_name}`, {
-            method: "DELETE",
-            headers: { apikey: EVOLUTION_API_KEY },
-          });
-          await res.text();
-        } catch (e) {
-          console.warn("Failed to disconnect on Evolution:", e);
-        }
+      const instanceName = config.instance_name || instanceNameFallback;
+
+      try {
+        const res = await fetch(`${baseUrl}/instance/logout/${instanceName}`, {
+          method: "DELETE",
+          headers: { apikey: EVOLUTION_API_KEY },
+        });
+        await res.text();
+      } catch (e) {
+        console.warn("Failed to disconnect on Evolution:", e);
       }
 
       await supabaseClient
@@ -253,24 +275,65 @@ serve(async (req) => {
         .single();
 
       if (!config) {
-        return new Response(JSON.stringify({ deleted: true, skipped: "config_not_found" }), {
+        return new Response(JSON.stringify({ success: true, deleted: true, skipped: "config_not_found" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      if (config.instance_token && config.instance_name) {
+      // Collect potential names to delete
+      const namesToDelete = new Set<string>();
+      if (config.instance_name) namesToDelete.add(config.instance_name);
+      namesToDelete.add(instanceNameFallback);
+      
+      const attemptedEvolutionInstances = Array.from(namesToDelete);
+      let evolutionDeletedCount = 0;
+
+      for (const name of namesToDelete) {
         try {
-          const res = await fetch(`${baseUrl}/instance/delete/${config.instance_name}`, {
+          // First logout to be safe
+          await fetch(`${baseUrl}/instance/logout/${name}`, {
             method: "DELETE",
             headers: { apikey: EVOLUTION_API_KEY },
           });
-          await res.text();
+          
+          const res = await fetch(`${baseUrl}/instance/delete/${name}`, {
+            method: "DELETE",
+            headers: { apikey: EVOLUTION_API_KEY },
+          });
+          
+          if (res.ok || res.status === 404) {
+            evolutionDeletedCount++;
+          } else {
+             const errorRaw = await res.text();
+             console.warn(`Evolution delete failed for ${name} [${res.status}]:`, safePreview(errorRaw));
+          }
         } catch (e) {
-          console.warn("Failed to delete on Evolution:", e);
+          console.warn(`Failed to delete ${name} on Evolution:`, e);
         }
       }
 
-      // Clear instance fields but keep the config row
+      // Check if any still exist
+      let warning: string | null = null;
+      try {
+        const fetchRes = await fetch(`${baseUrl}/instance/fetchInstances`, {
+          method: "GET",
+          headers: { apikey: EVOLUTION_API_KEY },
+        });
+        if (fetchRes.ok) {
+           const list = await fetchRes.json();
+           const instances = Array.isArray(list) ? list : (Array.isArray(list?.instances) ? list.instances : []);
+           const stillExists = attemptedEvolutionInstances.some(name => 
+              instances.some((item: any) => String(item?.instanceName || item?.name || "").trim() === name)
+           );
+           if (stillExists) {
+             warning = "A instância ainda pode existir na Evolution. Remova manualmente no painel.";
+           }
+        }
+      } catch (e) {
+        console.warn("Failed to verify instances after delete:", e);
+      }
+
+      // ALWAYS clear local state
       await supabaseClient
         .from("whatsapp_agent_config")
         .update({
@@ -283,9 +346,19 @@ serve(async (req) => {
         })
         .eq("id", config.id);
 
-      await auditLog(supabaseClient, orgId, "delete", user.id, { instanceName: config.instance_name });
+      await auditLog(supabaseClient, orgId, "delete", user.id, { 
+        attempted: attemptedEvolutionInstances,
+        evolutionDeletedCount 
+      });
 
-      return new Response(JSON.stringify({ deleted: true }), {
+      return new Response(JSON.stringify({ 
+        success: true,
+        deleted: true, 
+        localCleared: true,
+        attemptedEvolutionInstances,
+        evolutionDeleted: evolutionDeletedCount > 0,
+        warning
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -297,8 +370,8 @@ serve(async (req) => {
   } catch (error: unknown) {
     console.error("whatsapp-instance error:", error);
     const message = error instanceof Error ? error.message : "Erro interno";
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
+    return new Response(JSON.stringify({ success: false, error: { code: "WHATSAPP_DELETE_FAILED", message } }), {
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

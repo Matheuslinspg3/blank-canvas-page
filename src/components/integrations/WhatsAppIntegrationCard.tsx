@@ -316,7 +316,13 @@ export function WhatsAppIntegrationCard() {
     }
   };
 
-  const shouldShowConnectionOptions = !!instance && !displayedQr && !pairingCode && instance.status !== "connected";
+  const shouldShowConnectionOptions = !instance || (
+    !instance.instance_token && 
+    !instance.phone_number && 
+    instance.status !== "connected" && 
+    !displayedQr && 
+    !pairingCode
+  );
 
   const formatPhone = (value: string) => {
     const digits = value.replace(/\D/g, "");
@@ -371,7 +377,7 @@ export function WhatsAppIntegrationCard() {
           </p>
           <Button onClick={handleActivateQr} disabled={isActivating}>
             {isActivating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Smartphone className="h-4 w-4 mr-2" />}
-            {activationError?.code === "EVOLUTION_INSTANCE_CONFLICT" ? "Tentar novamente" : instance ? "Reconectar via QR" : "Ativar via QR Code"}
+            {activationError?.code === "EVOLUTION_INSTANCE_CONFLICT" ? "Tentar novamente" : instance?.instance_token ? "Reconectar via QR" : "Ativar via QR Code"}
           </Button>
         </TabsContent>
 
@@ -454,7 +460,7 @@ export function WhatsAppIntegrationCard() {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Carregando...
           </div>
-        ) : !instance && !qrCode && !pairingCode ? (
+        ) : !instance || (!instance.instance_token && !qrCode && !pairingCode) ? (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
               Ative o WhatsApp para enviar mensagens automáticas diretamente do CRM.
