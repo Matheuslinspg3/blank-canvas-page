@@ -29,6 +29,11 @@ export const DEVELOPER_ONLY_FEATURES = {
 export type DeveloperOnlyFeatureKey =
   (typeof DEVELOPER_ONLY_FEATURES)[keyof typeof DEVELOPER_ONLY_FEATURES];
 
+/** Set of all developer-only feature keys (O(1) lookup). */
+export const DEVELOPER_ONLY_FEATURE_SET: ReadonlySet<string> = new Set(
+  Object.values(DEVELOPER_ONLY_FEATURES),
+);
+
 /**
  * Centralized sidebar visibility logic — Prevents flicker during rehydration.
  */
