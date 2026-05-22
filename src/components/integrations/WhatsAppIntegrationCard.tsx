@@ -179,7 +179,9 @@ export function WhatsAppIntegrationCard() {
 
       const { data, error } = await supabase.functions.invoke("whatsapp-activate-webhook", { body });
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (data?.error) {
+        throw new Error(data.error?.message || data.error || "Não foi possível ativar o WhatsApp");
+      }
 
       const isConnectedNow =
         data?.connected === true ||
