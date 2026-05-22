@@ -94,11 +94,15 @@ export function useWhatsAppInstance() {
         body: { action: "delete" },
       });
       if (error) await throwDetailedFunctionError(error);
-      if (data?.error) throw new Error(data.error);
+      if (data?.success === false && data?.error) throw new Error(data.error.message || "Erro ao remover instância");
       return data;
     },
-    onSuccess: () => {
-      toast.success("Instância WhatsApp removida");
+    onSuccess: (data) => {
+      if (data?.warning) {
+        toast.warning(data.warning, { duration: 6000 });
+      } else {
+        toast.success("Integração WhatsApp removida");
+      }
       invalidate();
     },
     onError: (err: Error) => {
