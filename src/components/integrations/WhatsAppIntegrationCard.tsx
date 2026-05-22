@@ -316,11 +316,15 @@ export function WhatsAppIntegrationCard() {
     }
   };
 
+  const isActuallyProvisioned = !!(
+    instance?.instance_token || 
+    instance?.phone_number || 
+    instance?.instance_name || 
+    instance?.status === "connected"
+  );
+
   const shouldShowConnectionOptions = !instance || (
-    !instance.instance_token && 
-    !instance.phone_number && 
-    instance.status !== "connected" && 
-    !instance.instance_name &&
+    !isActuallyProvisioned && 
     !displayedQr && 
     !pairingCode
   );
@@ -378,7 +382,7 @@ export function WhatsAppIntegrationCard() {
           </p>
           <Button onClick={handleActivateQr} disabled={isActivating}>
             {isActivating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Smartphone className="h-4 w-4 mr-2" />}
-            {activationError?.code === "EVOLUTION_INSTANCE_CONFLICT" ? "Tentar novamente" : (instance?.instance_token || instance?.phone_number || instance?.instance_name) ? "Reconectar via QR" : "Conectar via QR Code"}
+            {activationError?.code === "EVOLUTION_INSTANCE_CONFLICT" ? "Tentar novamente" : isActuallyProvisioned ? "Reconectar via QR" : "Conectar via QR Code"}
           </Button>
         </TabsContent>
 
