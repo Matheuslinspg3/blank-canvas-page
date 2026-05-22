@@ -6,15 +6,11 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-
 const jsonResponse = (payload: unknown, status = 200) =>
   new Response(JSON.stringify(payload), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-
-const missingWebhookConfigResponse = (missingKeys: string[]) =>
-  errorResponse(422, "MISSING_WEBHOOK_CONFIG", `Missing required webhook configuration: ${missingKeys.join(", ")}`);
 
 const errorResponse = (status: number, code: string, message: string) =>
   jsonResponse({
@@ -22,68 +18,12 @@ const errorResponse = (status: number, code: string, message: string) =>
     error: { code, message },
   }, status);
 
-const captureWhatsAppException = async (error: unknown, context: Record<string, unknown> = {}) => {
-  try {
-    const dsn = Deno.env.get("SENTRY_DSN");
-    if (!dsn) return;
-    const message = error instanceof Error ? error.message : String(error ?? "unknown_error");
-    const now = new Date().toISOString();
-    const payload = {
-      event_id: crypto.randomUUID().replace(/-/g, ""),
-      timestamp: now,
-      level: "error",
-      platform: "javascript",
-      environment: Deno.env.get("DENO_DEPLOYMENT_ID") ? "production" : "unknown",
-      server_name: "supabase-edge",
-      tags: {
-        source: "whatsapp",
-        ...((context.tags as Record<string, string> | undefined) ?? {}),
-      },
-      extra: {
-        ...context,
-      },
-      exception: {
-        values: [{
-          type: error instanceof Error ? error.name : "Error",
-          value: message,
-        }],
-      },
-    };
-
-    const url = new URL(dsn);
-    const projectId = url.pathname.split("/").filter(Boolean).pop();
-    if (!projectId) return;
-    const key = url.username;
-    const host = `${url.protocol}//${url.host}`;
-    const sentryUrl = `${host}/api/${projectId}/store/?sentry_version=7&sentry_key=${encodeURIComponent(key)}`;
-    await fetch(sentryUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-  } catch {
-    // never break flow because of observability
-  }
-};
-
-
-const auditLog = async (
-  sb: any,
-  orgId: string,
-  action: string,
-  actorId: string | null,
-  details: Record<string, any> = {},
-) => {
-  try {
-    await sb.from("whatsapp_audit_log").insert({
-      organization_id: orgId,
-      action,
-      actor_id: actorId,
-      details,
-    });
-  } catch (e) {
-    console.warn("Failed to write audit log:", e);
-  }
+const safePreview = (value: unknown, limit = 1000) => {
+  const text = String(value ?? "");
+  const masked = text
+    .replace(/("?(?:apikey|api_key|token|authorization)"?\s*[:=]\s*")([^"\n]+)(")/gi, '$1***$3')
+    .replace(/(Bearer\s+)[A-Za-z0-9._\-]+/gi, '$1***');
+  return masked.substring(0, limit);
 };
 
 const parseJsonSafely = (raw: string) => {
@@ -94,91 +34,108 @@ const parseJsonSafely = (raw: string) => {
   }
 };
 
-const safePreview = (value: unknown, limit = 1000) => {
-  const text = String(value ?? "");
-  const masked = text
-    .replace(/("?(?:apikey|api_key|token|authorization)"?\s*[:=]\s*")([^"\n]+)(")/gi, '$1***$3')
-    .replace(/(Bearer\s+)[A-Za-z0-9._\-]+/gi, '$1***');
-  return masked.substring(0, limit);
-};
-
 const extractPairingCode = (payload: any) => {
   const candidates = [
     payload?.pairingCode,
     payload?.pairing_code,
+    payload?.code,
     payload?.data?.pairingCode,
     payload?.data?.pairing_code,
+    payload?.data?.code,
     payload?.response?.pairingCode,
     payload?.response?.pairing_code,
+    payload?.response?.code,
     payload?.qrcode?.pairingCode,
     payload?.data?.qrcode?.pairingCode,
-    payload?.code,
-    payload?.data?.code,
-    payload?.response?.code,
   ];
 
   for (const candidate of candidates) {
     if (typeof candidate !== "string") continue;
     const normalized = candidate.trim();
-    if (!normalized || normalized.startsWith("data:image") || normalized.length > 128) continue;
+    if (!normalized || normalized.startsWith("data:image") || normalized.length > 32) continue;
     return normalized;
   }
-
   return null;
 };
 
 const extractQrBase64 = (payload: any) => {
   const candidates = [
     payload?.base64,
-    payload?.data?.base64,
+    payload?.qrCode,
+    payload?.qr_code,
+    payload?.qrcode,
     payload?.qrcode?.base64,
+    payload?.qrcode?.code,
+    payload?.data?.base64,
+    payload?.data?.qrCode,
+    payload?.data?.qr_code,
+    payload?.data?.qrcode,
     payload?.data?.qrcode?.base64,
+    payload?.data?.qrcode?.code,
+    payload?.response?.base64,
+    payload?.response?.qrCode,
+    payload?.response?.qrcode,
+    payload?.response?.qrcode?.base64,
   ];
 
   for (const candidate of candidates) {
-    if (typeof candidate !== "string") continue;
-    const normalized = candidate.trim();
-    if (normalized) return normalized;
+    let val = candidate;
+    if (typeof val === "object" && val !== null) {
+      val = val.base64 || val.code || val.qr || null;
+    }
+    if (typeof val !== "string") continue;
+    const normalized = val.trim();
+    if (normalized.length > 100) return normalized;
   }
-
   return null;
+};
+
+const normalizeInstancesList = (data: any): any[] => {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.instances)) return data.instances;
+  if (data?.instance) return Array.isArray(data.instance) ? data.instance : [data.instance];
+  if (data?.data) {
+    if (Array.isArray(data.data)) return data.data;
+    if (Array.isArray(data.data.instances)) return data.data.instances;
+  }
+  if (data?.response) {
+    if (Array.isArray(data.response)) return data.response;
+    if (Array.isArray(data.response.instances)) return data.response.instances;
+  }
+  return [];
+};
+
+const findEvolutionInstance = (list: any[], instanceName: string) => {
+  return list.find((item: any) => {
+    const candidates = [
+      item?.instanceName,
+      item?.name,
+      item?.id,
+      item?.instance?.instanceName,
+      item?.instance?.name,
+      item?.instance?.id,
+      item?.data?.instanceName,
+      item?.data?.name,
+    ];
+    return candidates.some(c => String(c ?? "").trim() === instanceName);
+  });
 };
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const extractInstanceIdentifier = (item: any): string | null => {
-  const candidates = [
-    item?.instanceName,
-    item?.name,
-    item?.instance?.instanceName,
-    item?.instance?.name,
-    item?.instance?.id,
-  ];
-
-  for (const candidate of candidates) {
-    if (candidate == null) continue;
-    const value = String(candidate).trim();
-    if (value) return value;
-  }
-
-  return null;
-};
-
-const findEvolutionInstance = (list: any[], instanceName: string) =>
-  list.find((item: any) => extractInstanceIdentifier(item) === instanceName);
 
 const connectEvolutionInstance = async (
   baseUrl: string,
   apiKey: string,
   instanceName: string,
   phoneNumber: string | null,
-  retries = 0,
 ) => {
-  let attempt = 0;
   const cleanPhone = phoneNumber?.replace(/\D/g, "") ?? null;
+  const maxRetries = 3;
+  let attempt = 0;
 
-  while (true) {
-    const requestVariants = cleanPhone
+  while (attempt < maxRetries) {
+    attempt++;
+    const variants = cleanPhone
       ? [
           {
             label: "get_query_number",
@@ -214,268 +171,149 @@ const connectEvolutionInstance = async (
           },
         ];
 
-    let bestResult: any = null;
+    for (const variant of variants) {
+      try {
+        const res = await variant.request();
+        const raw = await res.text();
+        const data = parseJsonSafely(raw);
+        
+        const qrBase64 = extractQrBase64(data);
+        const pairingCode = extractPairingCode(data);
+        const state = String(data?.instance?.state ?? data?.state ?? data?.status ?? "").toLowerCase();
+        const isConnected = ["open", "connected", "online", "ready"].includes(state);
 
-    for (const variant of requestVariants) {
-      const connectRes = await variant.request();
-      const connectRaw = await connectRes.text();
-      const connectData = parseJsonSafely(connectRaw);
-      const pairingCode = cleanPhone ? extractPairingCode(connectData) : null;
-      const qrBase64 = extractQrBase64(connectData);
-      const evoState = String(connectData?.instance?.state ?? connectData?.state ?? "").toLowerCase();
-      const isConnected = evoState === "open" || evoState === "connected";
-
-      bestResult = {
-        method: variant.label,
-        status: connectRes.status,
-        connectRaw,
-        connectData,
-        pairingCode,
-        qrBase64,
-        evoState,
-        isConnected,
-      };
-
-      if (cleanPhone) {
-        if (isConnected || pairingCode) {
-          return bestResult;
+        if (isConnected || qrBase64 || pairingCode) {
+          return {
+            success: true,
+            isConnected,
+            qrBase64,
+            pairingCode,
+            evoState: state,
+            status: res.status,
+            connectRaw: raw
+          };
         }
-      } else if (isConnected || qrBase64) {
-        return bestResult;
+      } catch (e) {
+        console.warn(`Connect attempt ${attempt} variant ${variant.label} failed:`, e);
       }
     }
 
-    if (attempt >= retries) {
-      return bestResult;
-    }
+    if (attempt < maxRetries) await delay(1500);
+  }
 
-    attempt += 1;
-    await delay(1500);
+  return { success: false, isConnected: false };
+};
+
+const auditLog = async (sb: any, orgId: string, action: string, actorId: string | null, details: Record<string, any> = {}) => {
+  try {
+    await sb.from("whatsapp_audit_log").insert({
+      organization_id: orgId,
+      action,
+      actor_id: actorId,
+      details,
+    });
+  } catch (e) {
+    console.warn("Failed to write audit log:", e);
   }
 };
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    // 1. Config validation
     const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
     const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
-    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
-      const missingKeys = [
-        !EVOLUTION_API_URL ? "EVOLUTION_API_URL" : null,
-        !EVOLUTION_API_KEY ? "EVOLUTION_API_GLOBAL_KEY" : null,
-      ].filter(Boolean) as string[];
-      return errorResponse(422, "MISSING_EVOLUTION_CONFIG", `Missing required Evolution API configuration: ${missingKeys.join(", ")}`);
-    }
-    const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
-
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")?.replace(/\/$/, "");
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const WHATSAPP_AGENT_SECRET = Deno.env.get("WHATSAPP_AGENT_SECRET");
-    const missingWebhookKeys = [
-      !SUPABASE_URL ? "SUPABASE_URL" : null,
-      !WHATSAPP_AGENT_SECRET ? "WHATSAPP_AGENT_SECRET" : null,
-    ].filter(Boolean) as string[];
 
-    if (missingWebhookKeys.length > 0) {
-      return missingWebhookConfigResponse(missingWebhookKeys);
+    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
+      return errorResponse(422, "MISSING_EVOLUTION_CONFIG", "Missing Evolution API configuration (URL/Key)");
+    }
+    if (!SUPABASE_URL || !WHATSAPP_AGENT_SECRET) {
+      return errorResponse(422, "MISSING_WEBHOOK_CONFIG", "Missing Webhook configuration (URL/Secret)");
     }
 
-    const WEBHOOK_URL = `${SUPABASE_URL}/functions/v1/whatsapp-persist-message`;
+    const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
+    const WEBHOOK_URL = `${SUPABASE_URL.replace(/\/$/, "")}/functions/v1/whatsapp-persist-message`;
 
+    // 2. Auth & Organization
     const { user, error: authError } = await getAuthenticatedUser(req);
-    if (authError || !user) {
-      return errorResponse(401, "UNAUTHORIZED", String(authError ?? "Não autenticado"));
-    }
+    if (authError || !user) return errorResponse(401, "UNAUTHORIZED", "Authentication failed");
 
     const sb = createServiceClient();
-    const { data: profile } = await sb
-      .from("profiles")
-      .select("organization_id")
-      .eq("user_id", user.id)
-      .single();
+    const { data: profile } = await sb.from("profiles").select("organization_id").eq("user_id", user.id).single();
+    if (!profile?.organization_id) return errorResponse(404, "ORGANIZATION_NOT_FOUND", "Profile organization not found");
 
-    const orgId = profile?.organization_id;
-    if (!orgId) {
-      return errorResponse(400, "ORGANIZATION_NOT_FOUND", "Organização não encontrada");
+    const { data: org } = await sb.from("organizations").select("id, name, slug").eq("id", profile.organization_id).single();
+    if (!org) return errorResponse(404, "ORGANIZATION_NOT_FOUND", "Organization not found");
+
+    const orgId = org.id;
+    const orgSlug = org.slug || org.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "-").toLowerCase().replace(/-+/g, "-").replace(/^-|-$/g, "");
+    const instanceName = `${orgSlug}-${orgId}`;
+
+    // 3. Check current state
+    const { data: existingConfig } = await sb.from("whatsapp_agent_config").select("*").eq("organization_id", orgId).maybeSingle();
+
+    if (existingConfig?.status === "connected" && existingConfig?.instance_token) {
+      return jsonResponse({
+        success: true,
+        qrCode: null,
+        pairingCode: null,
+        connected: true,
+        status: "connected",
+        instanceName,
+        instanceCreated: false,
+      });
     }
 
-    // Parse optional phone_number from request body
+    // 4. Parse phone number if present
     let phoneNumber: string | null = null;
     try {
       const body = await req.json();
       phoneNumber = body?.phone_number ?? null;
-    } catch { /* no body or invalid json — QR mode */ }
+    } catch { /* QR mode */ }
 
-    const { data: org } = await sb
-      .from("organizations")
-      .select("id, name, slug")
-      .eq("id", orgId)
-      .single();
-
-    if (!org) {
-      return errorResponse(404, "ORGANIZATION_NOT_FOUND", "Organização não encontrada");
-    }
-
-    const orgSlug = org.slug ||
-      org.name
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-zA-Z0-9]/g, "-")
-        .toLowerCase()
-        .replace(/-+/g, "-")
-        .replace(/^-|-$/g, "");
-
-    // Check existing config (unified table)
-    const { data: existing } = await sb
-      .from("whatsapp_agent_config")
-      .select("id, instance_name, status, qr_code, phone_number, instance_token")
-      .eq("organization_id", orgId)
-      .maybeSingle();
-
-    // Idempotency: already connected
-    if (existing?.status === "connected" && existing?.instance_token) {
-      await auditLog(sb, orgId, "activate_idempotent", user.id, { reason: "already_connected" });
-      return new Response(JSON.stringify({
-        success: true,
-        qrCode: null,
-        connected: true,
-        status: "connected",
-        instanceCreated: false,
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // If instance exists in Evo, try to get QR code for reconnection
-    if (existing?.instance_name && existing?.instance_token) {
-      console.log("Attempting reconnect for existing instance:", existing.instance_name);
-      await sb.from("whatsapp_agent_config").update({ status: "connecting" }).eq("id", existing.id);
-
-      try {
-        const connectResult = await connectEvolutionInstance(
-          baseUrl,
-          EVOLUTION_API_KEY,
-          existing.instance_name,
-          phoneNumber,
-          phoneNumber ? 2 : 0,
-        );
-
-        console.log("Reconnect response:", JSON.stringify({
-          method: connectResult.method,
-          status: connectResult.status,
-          state: connectResult.evoState,
-          hasQr: !!connectResult.qrBase64,
-          hasPairingCode: !!connectResult.pairingCode,
-          raw: connectResult.connectRaw.substring(0, 500),
-        }));
-
-        if (connectResult.isConnected || connectResult.pairingCode || connectResult.qrBase64) {
-          const updatePayload: Record<string, any> = {
-            status: connectResult.isConnected ? "connected" : "connecting",
-            qr_code: connectResult.qrBase64 ?? null,
-          };
-          if (phoneNumber) updatePayload.phone_number = phoneNumber.replace(/\D/g, "");
-          await sb.from("whatsapp_agent_config").update(updatePayload).eq("id", existing.id);
-
-          await auditLog(sb, orgId, "reconnect_evo", user.id, {
-            hasQr: !!connectResult.qrBase64,
-            hasPairingCode: !!connectResult.pairingCode,
-            state: connectResult.evoState,
-            isConnected: connectResult.isConnected,
-          });
-
-          return new Response(JSON.stringify({
-            success: true,
-            qrCode: connectResult.qrBase64,
-            pairingCode: connectResult.pairingCode,
-            connected: connectResult.isConnected,
-            status: connectResult.isConnected ? "connected" : "connecting",
-            instanceCreated: false,
-          }), {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-      } catch (e) {
-        console.warn("Reconnect failed, will create new instance:", e);
-      }
-    }
-
-    const instanceName = existing?.instance_name || `${orgSlug}-${org.id}`;
-    console.log("Target instance name:", instanceName);
-
-    // Set provisioning status in DB
-    if (existing?.id) {
-      await sb.from("whatsapp_agent_config").update({
-        status: "provisioning",
-        instance_name: instanceName,
-        qr_code: null,
-        instance_token: existing.instance_token ?? null,
-      }).eq("id", existing.id);
-    } else {
-      await sb.from("whatsapp_agent_config").insert({
-        organization_id: orgId,
-        instance_name: instanceName,
-        status: "provisioning",
-      });
-    }
-
-    // Check if instance already exists in Evolution API
-    let instanceToken: string | null = existing?.instance_token ?? null;
+    // 5. Mandatory Preflight
+    console.log(`Preflight: Fetching instances for ${instanceName}`);
     let instanceExists = false;
+    let instanceToken: string | null = null;
 
-    try {
-      const fetchRes = await fetch(`${baseUrl}/instance/fetchInstances`, {
-        method: "GET",
-        headers: { apikey: EVOLUTION_API_KEY },
-      });
-      if (fetchRes.ok) {
-        const fetchData = await fetchRes.json();
-        const list = Array.isArray(fetchData)
-          ? fetchData
-          : Array.isArray(fetchData?.instances)
-            ? fetchData.instances
-            : fetchData?.instance
-              ? [fetchData.instance]
-              : [];
+    const fetchRes = await fetch(`${baseUrl}/instance/fetchInstances`, {
+      method: "GET",
+      headers: { apikey: EVOLUTION_API_KEY },
+    });
 
-        const found = findEvolutionInstance(list, instanceName);
+    if (fetchRes.ok) {
+      const fetchData = await fetchRes.json();
+      const list = normalizeInstancesList(fetchData);
+      const found = findEvolutionInstance(list, instanceName);
 
-        if (found) {
-          instanceExists = true;
-          instanceToken =
-            found?.apikey ??
-            found?.token ??
-            found?.instance?.apikey ??
-            found?.instance?.token ??
-            instanceToken;
-
-          console.log("Instance already exists in Evo, reusing:", instanceName);
-
-          await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
-            body: JSON.stringify({
-              url: WEBHOOK_URL,
-              byEvents: false,
-              base64: true,
-              headers: {
-                "x-webhook-secret": WHATSAPP_AGENT_SECRET,
-              },
-              events: ["MESSAGES_UPSERT"],
-            }),
-          });
-        }
+      if (found) {
+        instanceExists = true;
+        instanceToken = found?.apikey ?? found?.token ?? found?.instance?.apikey ?? found?.instance?.token ?? null;
+        console.log("Preflight: Instance found, reusing.");
       }
-    } catch (e) {
-      console.warn("fetchInstances check failed, will try create:", e);
     }
 
-    // Create only if it doesn't exist
-    if (!instanceExists) {
+    // 6. State Machine: Reuse or Create
+    if (instanceExists) {
+      // Configure Webhook
+      console.log(`Configuring webhook for ${instanceName}`);
+      await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
+        body: JSON.stringify({
+          url: WEBHOOK_URL,
+          byEvents: false,
+          base64: true,
+          headers: { "x-webhook-secret": WHATSAPP_AGENT_SECRET },
+          events: ["MESSAGES_UPSERT"],
+        }),
+      });
+    } else {
+      // Create Instance
+      console.log(`Creating instance ${instanceName}`);
       const createPayload = {
         instanceName,
         integration: "WHATSAPP-BAILEYS",
@@ -490,31 +328,11 @@ Deno.serve(async (req) => {
           url: WEBHOOK_URL,
           byEvents: false,
           base64: true,
-          headers: {
-            "x-webhook-secret": WHATSAPP_AGENT_SECRET,
-          },
+          headers: { "x-webhook-secret": WHATSAPP_AGENT_SECRET },
           events: ["MESSAGES_UPSERT"],
         },
       };
 
-      console.log("Creating new instance:", JSON.stringify({
-        instanceName: createPayload.instanceName,
-        integration: createPayload.integration,
-        qrcode: createPayload.qrcode,
-        rejectCall: createPayload.rejectCall,
-        groupsIgnore: createPayload.groupsIgnore,
-        alwaysOnline: createPayload.alwaysOnline,
-        readMessages: createPayload.readMessages,
-        readStatus: createPayload.readStatus,
-        syncFullHistory: createPayload.syncFullHistory,
-        webhook: {
-          url: createPayload.webhook.url,
-          byEvents: createPayload.webhook.byEvents,
-          base64: createPayload.webhook.base64,
-          hasSecretHeader: Boolean(createPayload.webhook.headers?.["x-webhook-secret"]),
-          events: createPayload.webhook.events,
-        },
-      }));
       const createRes = await fetch(`${baseUrl}/instance/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
@@ -522,163 +340,95 @@ Deno.serve(async (req) => {
       });
 
       const createRaw = await createRes.text();
-      console.log("Evolution create response:", JSON.stringify({
-        status: createRes.status,
-        preview: safePreview(createRaw, 1000),
-      }));
+      console.log(`Create status: ${createRes.status}. Preview: ${safePreview(createRaw, 500)}`);
 
-      if (!createRes.ok) {
-        const duplicateName = createRes.status === 403 && /already in use|already exists|em uso|já existe/i.test(createRaw);
-        if (duplicateName) {
-          console.warn("Instance name already exists in Evolution API, reusing existing instance:", instanceName);
-          instanceExists = true;
-        } else {
-          const safeCreatePreview = safePreview(createRaw, 500);
-          await captureWhatsAppException(new Error("agent_create_instance_failed"), {
-            flow: "agent_whatsapp",
-            action: "create_instance",
-            status: createRes.status,
-            instance_name: instanceName,
-            provider_preview: safeCreatePreview,
-          });
-
-          if (createRes.status === 400 || createRes.status === 403) {
-            try {
-              const refetchRes = await fetch(`${baseUrl}/instance/fetchInstances`, {
-                method: "GET",
-                headers: { apikey: EVOLUTION_API_KEY },
-              });
-
-              if (refetchRes.ok) {
-                const refetchData = await refetchRes.json();
-                const refetchList = Array.isArray(refetchData)
-                  ? refetchData
-                  : Array.isArray(refetchData?.instances)
-                    ? refetchData.instances
-                    : refetchData?.instance
-                      ? [refetchData.instance]
-                      : [];
-
-                const refound = findEvolutionInstance(refetchList, instanceName);
-                if (refound) {
-                  instanceExists = true;
-                  instanceToken =
-                    refound?.apikey ??
-                    refound?.token ??
-                    refound?.instance?.apikey ??
-                    refound?.instance?.token ??
-                    instanceToken;
-
-                  await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
-                    body: JSON.stringify({
-                      url: WEBHOOK_URL,
-                      byEvents: false,
-                      base64: true,
-                      headers: {
-                        "x-webhook-secret": WHATSAPP_AGENT_SECRET,
-                      },
-                      events: ["MESSAGES_UPSERT"],
-                    }),
-                  });
-                }
-              }
-            } catch (refetchErr) {
-              console.warn("fetchInstances retry after create conflict failed:", refetchErr);
-            }
-
-            if (!instanceExists) {
-              return errorResponse(
-                409,
-                "EVOLUTION_INSTANCE_CONFLICT",
-                "A Evolution API recusou a criação da instância. Pode existir uma sessão órfã ou conflito interno. Remova a instância na Evolution ou tente recriar com novo nome.",
-              );
-            }
-          } else {
-            return errorResponse(
-              502,
-              "EVOLUTION_CREATE_FAILED",
-              "Não foi possível criar a instância na Evolution API. Verifique URL, token e permissões da API.",
-            );
+      if (createRes.ok) {
+        const createData = parseJsonSafely(createRaw);
+        instanceToken = createData?.hash?.apikey ?? createData?.token ?? createData?.apikey ?? null;
+      } else if (createRes.status === 401) {
+        return errorResponse(401, "EVOLUTION_UNAUTHORIZED", "A Evolution API recusou a autenticação. Verifique EVOLUTION_API_GLOBAL_KEY.");
+      } else if (createRes.status === 400 || createRes.status === 403) {
+        // Fallback: fetch again
+        console.log("Create failed with 400/403, refetching instances...");
+        const refetchRes = await fetch(`${baseUrl}/instance/fetchInstances`, {
+          method: "GET",
+          headers: { apikey: EVOLUTION_API_KEY },
+        });
+        if (refetchRes.ok) {
+          const refetchData = await refetchRes.json();
+          const refetchList = normalizeInstancesList(refetchData);
+          const refound = findEvolutionInstance(refetchList, instanceName);
+          if (refound) {
+            instanceExists = true;
+            instanceToken = refound?.apikey ?? refound?.token ?? refound?.instance?.apikey ?? refound?.instance?.token ?? null;
+            // Configure Webhook for re-found instance
+            await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
+              body: JSON.stringify({
+                url: WEBHOOK_URL,
+                byEvents: false,
+                base64: true,
+                headers: { "x-webhook-secret": WHATSAPP_AGENT_SECRET },
+                events: ["MESSAGES_UPSERT"],
+              }),
+            });
           }
         }
+
+        if (!instanceExists) {
+          return errorResponse(409, "EVOLUTION_INSTANCE_CONFLICT", "A Evolution API recusou a criação da instância. Pode existir uma sessão órfã ou conflito interno. Remova a instância na Evolution ou tente novamente com outro nome.");
+        }
       } else {
-        let createData: any = {};
-        try { createData = JSON.parse(createRaw); } catch { /* raw text */ }
-        instanceToken = createData?.hash?.apikey ?? createData?.token ?? createData?.apikey ?? instanceToken;
+        return errorResponse(502, "EVOLUTION_CREATE_FAILED", "Não foi possível criar a instância na Evolution API. Tente novamente em instantes.");
       }
     }
 
-    // Step 2: Connect instance — pairing code (POST with phone) or QR code (GET)
-    const connectResult = await connectEvolutionInstance(
-      baseUrl,
-      EVOLUTION_API_KEY,
-      instanceName,
-      phoneNumber,
-      phoneNumber ? 2 : 0,
-    );
+    // 7. Connect (get QR or Pairing Code)
+    const connectResult = await connectEvolutionInstance(baseUrl, EVOLUTION_API_KEY, instanceName, phoneNumber);
+    
+    if (!connectResult.success) {
+      return errorResponse(502, "EVOLUTION_CONNECT_FAILED", "Não foi possível estabelecer conexão com a Evolution API.");
+    }
 
-    console.log("Evolution connect response:", JSON.stringify({
-      method: connectResult.method,
-      status: connectResult.status,
-      state: connectResult.evoState,
+    // 8. DB Update
+    const status = connectResult.isConnected ? "connected" : (connectResult.qrBase64 || connectResult.pairingCode ? "connecting" : "provisioning");
+    
+    const dbPayload: any = {
+      instance_name: instanceName,
+      status,
+      qr_code: connectResult.qrBase64 ?? null,
+      updated_at: new Date().toISOString(),
+    };
+    if (instanceToken) dbPayload.instance_token = instanceToken;
+    if (phoneNumber) dbPayload.phone_number = phoneNumber.replace(/\D/g, "");
+
+    if (existingConfig) {
+      await sb.from("whatsapp_agent_config").update(dbPayload).eq("id", existingConfig.id);
+    } else {
+      await sb.from("whatsapp_agent_config").insert({ ...dbPayload, organization_id: orgId });
+    }
+
+    await auditLog(sb, orgId, "activate_webhook", user.id, {
+      instanceName,
+      instanceCreated: !instanceExists,
+      isConnected: connectResult.isConnected,
       hasQr: !!connectResult.qrBase64,
-      hasPairingCode: !!connectResult.pairingCode,
-      raw: connectResult.connectRaw.substring(0, 500),
-    }));
-
-    const pairingCode = connectResult.pairingCode;
-    if (!connectResult.isConnected && !connectResult.pairingCode && !connectResult.qrBase64) {
-      await captureWhatsAppException(new Error("agent_connect_without_qr_or_pairing"), { flow: "agent_whatsapp", action: "connect_instance", instance_name: instanceName, provider_status: connectResult.status });
-    }
-    const qrBase64 = connectResult.qrBase64;
-    const evoState = connectResult.evoState;
-    const isConnected = connectResult.isConnected;
-    const instanceStatus = isConnected
-      ? "connected"
-      : ((phoneNumber || qrBase64 || pairingCode) ? "connecting" : "provisioning");
-
-    // Update DB
-    const { data: currentConfig } = await sb
-      .from("whatsapp_agent_config")
-      .select("id")
-      .eq("organization_id", orgId)
-      .maybeSingle();
-
-    if (currentConfig?.id) {
-      const updatePayload: Record<string, any> = {
-        instance_name: instanceName,
-        status: instanceStatus,
-        qr_code: qrBase64 ?? null,
-      };
-      if (instanceToken) updatePayload.instance_token = instanceToken;
-      if (phoneNumber) updatePayload.phone_number = phoneNumber.replace(/\D/g, "");
-
-      await sb.from("whatsapp_agent_config").update(updatePayload).eq("id", currentConfig.id);
-    }
-
-    await auditLog(sb, orgId, "activate_evo_direct", user.id, {
-      instanceName,
-      hasToken: !!instanceToken,
-      hasQr: !!qrBase64,
-      hasPairingCode: !!pairingCode,
-      state: evoState,
-      isConnected,
-      isReconnection: !!existing,
+      hasPairingCode: !!connectResult.pairingCode
     });
 
     return jsonResponse({
       success: true,
-      qrCode: qrBase64,
-      pairingCode,
-      connected: isConnected,
-      status: instanceStatus,
+      qrCode: connectResult.qrBase64,
+      pairingCode: connectResult.pairingCode,
+      connected: connectResult.isConnected,
+      status,
+      instanceName,
       instanceCreated: !instanceExists,
-    }, 200);
-  } catch (err) {
-    console.error("Unexpected error:", err);
-    await captureWhatsAppException(err, { action: "unexpected", flow: "agent_whatsapp", route: "whatsapp-activate-webhook" });
+    });
+
+  } catch (err: any) {
+    console.error("Internal Error:", err);
     return errorResponse(500, "INTERNAL_ERROR", "Ocorreu um erro interno ao ativar o WhatsApp. Tente novamente em instantes.");
   }
 });
