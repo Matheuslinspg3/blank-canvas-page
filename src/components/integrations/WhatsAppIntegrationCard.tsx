@@ -252,14 +252,35 @@ export function WhatsAppIntegrationCard() {
         ) : (
           <>
             {activationError?.code === "EVOLUTION_INSTANCE_CONFLICT" && (
-              <div className="p-3 border border-destructive/20 bg-destructive/5 rounded-md text-sm text-destructive">
-                <p className="font-semibold flex items-center gap-2 mb-1">
-                  <XCircle className="h-4 w-4" /> Conflito na Evolution API
+              <div className="p-4 border border-destructive/20 bg-destructive/5 rounded-lg text-sm text-destructive animate-in fade-in slide-in-from-top-1">
+                <p className="font-bold flex items-center gap-2 mb-1 text-base">
+                  <XCircle className="h-5 w-5" /> Conflito na Evolution API
                 </p>
-                <p>Existe uma sessão órfã. Tente remover a integração para limpar o estado.</p>
-                <Button variant="outline" size="sm" className="mt-2 text-destructive border-destructive/20" onClick={() => deleteInstance()} disabled={isDeleting}>
-                    Limpar localmente
-                </Button>
+                <p className="mb-3">{activationError.message}</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    onClick={() => deleteInstance()} 
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                    Remover Conexão Local
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="border-destructive/20 text-destructive hover:bg-destructive/10" 
+                    onClick={() => handleActivate()} 
+                    disabled={isActivating}
+                  >
+                    {isActivating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                    Tentar Novamente
+                  </Button>
+                </div>
+                {activationError.debug_ref && (
+                  <p className="mt-2 text-[10px] opacity-70 font-mono">Ref: {activationError.debug_ref}</p>
+                )}
               </div>
             )}
 
