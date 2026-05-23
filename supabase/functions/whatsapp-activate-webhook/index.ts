@@ -4,11 +4,12 @@ import {
   parseJsonSafely, 
   extractPairingCode, 
   extractQrBase64, 
-  safePreview,
   jsonResponse,
   errorResponse,
   AppError
 } from "../_shared/whatsapp.ts";
+
+const buildDebugRef = () => `ERR-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
 
 const normalizeInstancesList = (data: any): any[] => {
   if (Array.isArray(data)) return data;
@@ -121,6 +122,8 @@ Deno.serve(async (req) => {
     return errorResponse(405, "METHOD_NOT_ALLOWED", "Method not allowed");
   }
 
+  const dRef = buildDebugRef();
+
   try {
     const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
     const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
@@ -128,24 +131,24 @@ Deno.serve(async (req) => {
     const WHATSAPP_AGENT_SECRET = Deno.env.get("WHATSAPP_AGENT_SECRET");
 
     if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
-      throw new AppError("MISSING_EVOLUTION_CONFIG", "Missing Evolution API configuration", 422);
+      throw new AppError("MISSING_EVOLUTION_CONFIG", "Configuração da Evolution API ausente.", 422, dRef);
     }
     if (!SUPABASE_URL || !WHATSAPP_AGENT_SECRET) {
-      throw new AppError("MISSING_WEBHOOK_CONFIG", "Missing Webhook configuration", 422);
+      throw new AppError("MISSING_WEBHOOK_CONFIG", "Configuração de Webhook ausente.", 422, dRef);
     }
 
     const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
     const WEBHOOK_URL = `${SUPABASE_URL.replace(/\/$/, "")}/functions/v1/whatsapp-persist-message`;
 
     const { user, error: authError } = await getAuthenticatedUser(req);
-    if (authError || !user) throw new AppError("UNAUTHORIZED", "Authentication failed", 401);
+    if (authError || !user) throw new AppError("UNAUTHORIZED", "Falha na autenticação.", 401, dRef);
 
     const sb = createServiceClient();
     const { data: profile } = await sb.from("profiles").select("organization_id").eq("user_id", user.id).single();
-    if (!profile?.organization_id) throw new AppError("ORGANIZATION_NOT_FOUND", "Profile organization not found", 404);
+    if (!profile?.organization_id) throw new AppError("ORGANIZATION_NOT_FOUND", "Organização do perfil não encontrada.", 404, dRef);
 
     const { data: org } = await sb.from("organizations").select("id, name, slug").eq("id", profile.organization_id).single();
-    if (!org) throw new AppError("ORGANIZATION_NOT_FOUND", "Organization not found", 404);
+    if (!org) throw new AppError("ORGANIZATION_NOT_FOUND", "Organização não encontrada.", 404, dRef);
 
     const orgId = org.id;
     const orgSlug = org.slug || org.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "-").toLowerCase().replace(/-+/g, "-").replace(/^-|-$/g, "");
@@ -162,7 +165,7 @@ Deno.serve(async (req) => {
       phoneNumber = body?.phone_number ?? null;
     } catch { /* QR mode */ }
 
-    console.log(`Preflight: Fetching instances for ${instanceName}`);
+    console.log(`[${dRef}] Preflight: Fetching instances for ${instanceName}`);
     let instanceExists = false;
     let instanceToken: string | null = null;
 
@@ -186,16 +189,16 @@ Deno.serve(async (req) => {
     let initialPairing: string | null = null;
 
     if (instanceExists) {
-      console.log(`Configuring webhook for existing instance ${instanceName}`);
+      console.log(`[${dRef}] Configuring webhook for existing instance ${instanceName}`);
       await configureEvolutionWebhook(baseUrl, EVOLUTION_API_KEY, instanceName, WEBHOOK_URL, WHATSAPP_AGENT_SECRET);
     } else {
       const tryCreate = async (name: string) => {
-        console.log(`Creating instance ${name}`);
+        console.log(`[${dRef}] Creating instance ${name}`);
         return await createEvolutionInstance(baseUrl, EVOLUTION_API_KEY, name, WEBHOOK_URL, WHATSAPP_AGENT_SECRET);
       };
 
       const cleanupOrphan = async (name: string) => {
-        console.log(`Cleanup orphan session for ${name}`);
+        console.log(`[${dRef}] Cleanup orphan session for ${name}`);
         try {
           await fetch(`${baseUrl}/instance/logout/${name}`, { method: "DELETE", headers: { apikey: EVOLUTION_API_KEY } });
         } catch (_) { /* ignore */ }
@@ -207,61 +210,63 @@ Deno.serve(async (req) => {
 
       let createAttempt = await tryCreate(instanceName);
 
-      // Auto-recovery: orphan Prisma session
-      if (!createAttempt.res.ok && (createAttempt.res.status === 400 || createAttempt.res.status === 403)) {
-        const isPrismaConflict = /prisma|integrationSession|findFirst|already in use|already exists/i.test(createAttempt.raw);
-        if (isPrismaConflict) {
+      // Auto-recovery: orphan Prisma session (400 or 403)
+      if (!createAttempt.res.ok && (createAttempt.res.status === 400 || createAttempt.res.status === 403 || createAttempt.res.status === 409)) {
+        const isConflict = /prisma|integrationSession|findFirst|already in use|already exists/i.test(createAttempt.raw);
+        if (isConflict) {
           await cleanupOrphan(instanceName);
           createAttempt = await tryCreate(instanceName);
 
-          // Last resort: timestamp fallback name
+          // Second fallback: timestamped unique name
           if (!createAttempt.res.ok) {
             const fallbackName = `${baseInstanceName}-${Date.now().toString(36)}`;
-            console.log(`Fallback to new instance name ${fallbackName}`);
+            console.log(`[${dRef}] Fallback to unique instance name ${fallbackName}`);
             instanceName = fallbackName;
             createAttempt = await tryCreate(instanceName);
           }
         }
       }
 
-      const { res: createRes, raw: createRaw, token: createToken, qrBase64: createQr, pairingCode: createPairing } = createAttempt;
-
-      if (createRes.ok) {
-        instanceToken = createToken;
-        initialQr = createQr;
-        initialPairing = createPairing;
-      } else if (createRes.status === 401) {
-        throw new AppError("EVOLUTION_UNAUTHORIZED", "A Evolution API recusou a autenticação.", 401);
-      } else if (createRes.status === 400 || createRes.status === 403) {
-        const isPrismaConflict = /prisma|integrationSession|findFirst/i.test(createRaw);
-        if (isPrismaConflict) {
-          throw new AppError("EVOLUTION_INSTANCE_CONFLICT", "Sessão órfã persistente na Evolution API após auto-recuperação.", 409, "prisma_conflict_persistent");
-        }
-        throw new AppError("EVOLUTION_CREATE_FAILED", "Falha ao criar instância.", 502, "http_" + createRes.status);
+      if (createAttempt.res.ok) {
+        instanceToken = createAttempt.token;
+        initialQr = createAttempt.qrBase64;
+        initialPairing = createAttempt.pairingCode;
       } else {
-        throw new AppError("EVOLUTION_CREATE_FAILED", "Falha ao criar instância na Evolution.", 502);
+        const status = createAttempt.res.status;
+        const isConflict = /prisma|integrationSession|findFirst/i.test(createAttempt.raw);
+        
+        if (isConflict) {
+          // Operational error, not fatal. Return 200 with ok:false
+          return jsonResponse({
+            ok: false,
+            code: "EVOLUTION_INSTANCE_CONFLICT",
+            message: "Encontramos uma sessão antiga na Evolution que não pôde ser limpa automaticamente. Tente remover a conexão e conectar novamente.",
+            debug_ref: dRef,
+            recoverable: true
+          });
+        }
+        
+        if (status === 401) throw new AppError("EVOLUTION_UNAUTHORIZED", "A Evolution API recusou a autenticação.", 401, dRef);
+        throw new AppError("EVOLUTION_CREATE_FAILED", "Falha ao criar instância na Evolution.", 502, dRef);
       }
     }
 
     let finalQr = initialQr;
     let finalPairing = initialPairing;
 
-    // If we want a specific mode (pairing) but only have QR, or if we were reusing and need to trigger a connect call
     if (phoneNumber && !finalPairing) {
         const connRes = await fetch(`${baseUrl}/instance/connect/${instanceName}?number=${encodeURIComponent(phoneNumber)}`, {
             method: "GET",
             headers: { apikey: EVOLUTION_API_KEY },
         });
-        const connRaw = await connRes.text();
-        const connData = parseJsonSafely(connRaw);
+        const connData = parseJsonSafely(await connRes.text());
         finalPairing = extractPairingCode(connData);
     } else if (!phoneNumber && !finalQr) {
         const connRes = await fetch(`${baseUrl}/instance/connect/${instanceName}`, {
             method: "GET",
             headers: { apikey: EVOLUTION_API_KEY },
         });
-        const connRaw = await connRes.text();
-        const connData = parseJsonSafely(connRaw);
+        const connData = parseJsonSafely(await connRes.text());
         finalQr = extractQrBase64(connData);
     }
 
@@ -285,7 +290,8 @@ Deno.serve(async (req) => {
       instanceName,
       instanceCreated: !instanceExists,
       hasQr: !!finalQr,
-      hasPairingCode: !!finalPairing
+      hasPairingCode: !!finalPairing,
+      debug_ref: dRef
     });
 
     return jsonResponse({
@@ -298,10 +304,10 @@ Deno.serve(async (req) => {
     });
 
   } catch (err: any) {
-    console.error("whatsapp-activate-webhook error:", err);
+    console.error(`[${dRef}] whatsapp-activate-webhook error:`, err);
     if (err instanceof AppError) {
       return errorResponse(err.status, err.code, err.message, err.debug_ref);
     }
-    return errorResponse(500, "INTERNAL_ERROR", "Ocorreu um erro interno.");
+    return errorResponse(500, "INTERNAL_ERROR", "Ocorreu um erro interno.", dRef);
   }
 });

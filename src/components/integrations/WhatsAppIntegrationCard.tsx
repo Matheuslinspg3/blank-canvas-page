@@ -86,27 +86,28 @@ export function WhatsAppIntegrationCard() {
     setActivationError(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke("whatsapp-activate-webhook", {
+      const { data, error: invokeError } = await supabase.functions.invoke("whatsapp-activate-webhook", {
         body: { phone_number: phoneNumber },
       });
 
-      if (error) {
-        const status = error?.context?.status;
-        let payload: { code?: string; message?: string; debug_ref?: string } | null = null;
+      if (invokeError) {
+        const status = invokeError?.context?.status;
+        let payload: { ok?: boolean; code?: string; message?: string; debug_ref?: string } | null = null;
         try { 
-            const response = error.context;
+            const response = invokeError.context;
             if (response && response.clone) {
                 payload = await response.clone().json();
             }
         } catch { /* ignore */ }
         
         const code = payload?.code || "ACTIVATE_ERROR";
-        const message = payload?.message || "Erro ao ativar conexão";
+        const message = payload?.message || invokeError?.message || "Erro ao ativar conexão";
         const debug_ref = payload?.debug_ref;
 
+        // Never throw, always set state
         setActivationError({ code, message, debug_ref });
         
-        Sentry.captureException(error, {
+        Sentry.captureException(invokeError, {
           tags: {
             function_name: "whatsapp-activate-webhook",
             route: "/automacoes",
@@ -114,7 +115,7 @@ export function WhatsAppIntegrationCard() {
             error_code: code,
             http_status: status,
           },
-          extra: { debug_ref, org_id: instance?.organization_id }
+          extra: { debug_ref, org_id: instance?.organization_id, payload }
         });
 
         toast.error(message, { description: debug_ref });
@@ -122,7 +123,11 @@ export function WhatsAppIntegrationCard() {
       }
 
       if (data?.ok === false) {
-          setActivationError(data);
+          setActivationError({ 
+            code: data.code || "UNKNOWN_ERROR", 
+            message: data.message || "Erro operacional na integração", 
+            debug_ref: data.debug_ref 
+          });
           toast.error(data.message, { description: data.debug_ref });
           return;
       }
