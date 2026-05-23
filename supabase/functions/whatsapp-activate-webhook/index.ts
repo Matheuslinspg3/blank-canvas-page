@@ -189,14 +189,42 @@ Deno.serve(async (req) => {
       console.log(`Configuring webhook for existing instance ${instanceName}`);
       await configureEvolutionWebhook(baseUrl, EVOLUTION_API_KEY, instanceName, WEBHOOK_URL, WHATSAPP_AGENT_SECRET);
     } else {
-      console.log(`Creating instance ${instanceName}`);
-      const { res: createRes, raw: createRaw, token: createToken, qrBase64: createQr, pairingCode: createPairing } = await createEvolutionInstance(
-        baseUrl,
-        EVOLUTION_API_KEY,
-        instanceName,
-        WEBHOOK_URL,
-        WHATSAPP_AGENT_SECRET,
-      );
+      const tryCreate = async (name: string) => {
+        console.log(`Creating instance ${name}`);
+        return await createEvolutionInstance(baseUrl, EVOLUTION_API_KEY, name, WEBHOOK_URL, WHATSAPP_AGENT_SECRET);
+      };
+
+      const cleanupOrphan = async (name: string) => {
+        console.log(`Cleanup orphan session for ${name}`);
+        try {
+          await fetch(`${baseUrl}/instance/logout/${name}`, { method: "DELETE", headers: { apikey: EVOLUTION_API_KEY } });
+        } catch (_) { /* ignore */ }
+        try {
+          await fetch(`${baseUrl}/instance/delete/${name}`, { method: "DELETE", headers: { apikey: EVOLUTION_API_KEY } });
+        } catch (_) { /* ignore */ }
+        await delay(800);
+      };
+
+      let createAttempt = await tryCreate(instanceName);
+
+      // Auto-recovery: orphan Prisma session
+      if (!createAttempt.res.ok && (createAttempt.res.status === 400 || createAttempt.res.status === 403)) {
+        const isPrismaConflict = /prisma|integrationSession|findFirst|already in use|already exists/i.test(createAttempt.raw);
+        if (isPrismaConflict) {
+          await cleanupOrphan(instanceName);
+          createAttempt = await tryCreate(instanceName);
+
+          // Last resort: timestamp fallback name
+          if (!createAttempt.res.ok) {
+            const fallbackName = `${baseInstanceName}-${Date.now().toString(36)}`;
+            console.log(`Fallback to new instance name ${fallbackName}`);
+            instanceName = fallbackName;
+            createAttempt = await tryCreate(instanceName);
+          }
+        }
+      }
+
+      const { res: createRes, raw: createRaw, token: createToken, qrBase64: createQr, pairingCode: createPairing } = createAttempt;
 
       if (createRes.ok) {
         instanceToken = createToken;
@@ -207,7 +235,7 @@ Deno.serve(async (req) => {
       } else if (createRes.status === 400 || createRes.status === 403) {
         const isPrismaConflict = /prisma|integrationSession|findFirst/i.test(createRaw);
         if (isPrismaConflict) {
-          throw new AppError("EVOLUTION_INSTANCE_CONFLICT", "Sessão órfã na Evolution API. Remova manualmente ou use fallback.", 409, "prisma_conflict");
+          throw new AppError("EVOLUTION_INSTANCE_CONFLICT", "Sessão órfã persistente na Evolution API após auto-recuperação.", 409, "prisma_conflict_persistent");
         }
         throw new AppError("EVOLUTION_CREATE_FAILED", "Falha ao criar instância.", 502, "http_" + createRes.status);
       } else {
