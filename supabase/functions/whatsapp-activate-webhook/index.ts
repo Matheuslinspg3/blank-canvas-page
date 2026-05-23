@@ -396,8 +396,7 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Fallback 2: orphan Prisma session — instance not listed but stale rows exist.
-        // Force-delete (logout + delete) and retry create.
+        // Fallback 2: orphan Prisma session — try DELETE + retry, then direct connect as last resort.
         if (!instanceExists) {
           const isPrismaConflict = /prisma|integrationSession|findFirst/i.test(createRaw);
           console.log(`Orphan recovery: prismaConflict=${isPrismaConflict}, forcing DELETE on ${instanceName}`);
@@ -429,19 +428,18 @@ Deno.serve(async (req) => {
           if (retryRes.ok) {
             instanceToken = retryToken;
           } else {
-            const fallbackName = `${baseInstanceName}-${Date.now().toString(36)}`.slice(0, 96);
-            console.warn(`Orphan recovery failed for base instance; creating fallback instance ${fallbackName}`);
-            const { res: fallbackRes, raw: fallbackRaw, token: fallbackToken } = await createEvolutionInstance(
-              baseUrl,
-              EVOLUTION_API_KEY,
-              fallbackName,
-              WEBHOOK_URL,
-              WHATSAPP_AGENT_SECRET,
-            );
-            console.log(`Fallback create status: ${fallbackRes.status}. Preview: ${safePreview(fallbackRaw, 300)}`);
+            // Fallback 3: try direct connect — Evolution may have the instance row even though create returned 400.
+            console.log(`Retry failed; attempting direct connect on ${instanceName} as last resort`);
+            const directConnect = await connectEvolutionInstance(baseUrl, EVOLUTION_API_KEY, instanceName, phoneNumber);
 
-            if (!fallbackRes.ok) {
-              const conflictMessage = "A Evolution API manteve uma sessão órfã. Tente novamente em instantes ou remova a instância no painel da Evolution.";
+            if (directConnect.success) {
+              console.log("Direct connect succeeded — reusing orphan instance.");
+              instanceExists = true;
+              try {
+                await configureEvolutionWebhook(baseUrl, EVOLUTION_API_KEY, instanceName, WEBHOOK_URL, WHATSAPP_AGENT_SECRET);
+              } catch { /* ignore */ }
+            } else {
+              const conflictMessage = "A Evolution API manteve uma sessão órfã que não pôde ser recuperada automaticamente. Remova a instância no painel da Evolution e tente novamente.";
               return jsonResponse({
                 success: false,
                 recoverable: true,
@@ -453,9 +451,6 @@ Deno.serve(async (req) => {
                 },
               }, 409);
             }
-
-            instanceName = fallbackName;
-            instanceToken = fallbackToken;
           }
         }
       } else {
