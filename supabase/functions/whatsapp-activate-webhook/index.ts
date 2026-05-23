@@ -449,7 +449,7 @@ Deno.serve(async (req) => {
                   code: "EVOLUTION_INSTANCE_CONFLICT",
                   message: conflictMessage,
                 },
-              }, 409);
+              }, 200);
             }
           }
         }
