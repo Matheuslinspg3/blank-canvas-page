@@ -1,10 +1,12 @@
 import { createServiceClient, getAuthenticatedUser } from "../_shared/auth.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { 
+  corsHeaders, 
+  parseJsonSafely, 
+  extractPairingCode, 
+  extractQrBase64, 
+  safePreview,
+  classifyConnectionStatus
+} from "../_shared/whatsapp.ts";
 
 const jsonResponse = (payload: unknown, status = 200) =>
   new Response(JSON.stringify(payload), {
@@ -17,81 +19,6 @@ const errorResponse = (status: number, code: string, message: string) =>
     success: false,
     error: { code, message },
   }, status);
-
-const safePreview = (value: unknown, limit = 1000) => {
-  const text = String(value ?? "");
-  if (/prismaRepository|integrationSession|findFirst|\/evolution\/dist\/main\.js/i.test(text)) {
-    return "[Evolution internal error redacted]";
-  }
-  const masked = text
-    .replace(/("?(?:apikey|api_key|token|authorization)"?\s*[:=]\s*")([^"\n]+)(")/gi, '$1***$3')
-    .replace(/(Bearer\s+)[A-Za-z0-9._\-]+/gi, '$1***');
-  return masked.substring(0, limit);
-};
-
-const parseJsonSafely = (raw: string) => {
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return {};
-  }
-};
-
-const extractPairingCode = (payload: any) => {
-  const candidates = [
-    payload?.pairingCode,
-    payload?.pairing_code,
-    payload?.code,
-    payload?.data?.pairingCode,
-    payload?.data?.pairing_code,
-    payload?.data?.code,
-    payload?.response?.pairingCode,
-    payload?.response?.pairing_code,
-    payload?.response?.code,
-    payload?.qrcode?.pairingCode,
-    payload?.data?.qrcode?.pairingCode,
-  ];
-
-  for (const candidate of candidates) {
-    if (typeof candidate !== "string") continue;
-    const normalized = candidate.trim();
-    if (!normalized || normalized.startsWith("data:image") || normalized.length > 32) continue;
-    return normalized;
-  }
-  return null;
-};
-
-const extractQrBase64 = (payload: any) => {
-  const candidates = [
-    payload?.base64,
-    payload?.qrCode,
-    payload?.qr_code,
-    payload?.qrcode,
-    payload?.qrcode?.base64,
-    payload?.qrcode?.code,
-    payload?.data?.base64,
-    payload?.data?.qrCode,
-    payload?.data?.qr_code,
-    payload?.data?.qrcode,
-    payload?.data?.qrcode?.base64,
-    payload?.data?.qrcode?.code,
-    payload?.response?.base64,
-    payload?.response?.qrCode,
-    payload?.response?.qrcode,
-    payload?.response?.qrcode?.base64,
-  ];
-
-  for (const candidate of candidates) {
-    let val = candidate;
-    if (typeof val === "object" && val !== null) {
-      val = val.base64 || val.code || val.qr || null;
-    }
-    if (typeof val !== "string") continue;
-    const normalized = val.trim();
-    if (normalized.length > 100) return normalized;
-  }
-  return null;
-};
 
 const normalizeInstancesList = (data: any): any[] => {
   if (Array.isArray(data)) return data;
@@ -182,8 +109,13 @@ const connectEvolutionInstance = async (
         
         const qrBase64 = extractQrBase64(data);
         const pairingCode = extractPairingCode(data);
-        const state = String(data?.instance?.state ?? data?.state ?? data?.status ?? "").toLowerCase();
-        const isConnected = ["open", "connected", "online", "ready"].includes(state);
+        const state = classifyConnectionStatus(
+          raw,
+          data?.instance?.state,
+          data?.state,
+          data?.status
+        );
+        const isConnected = state === "connected";
 
         if (isConnected || qrBase64 || pairingCode) {
           return {
@@ -206,6 +138,7 @@ const connectEvolutionInstance = async (
 
   return { success: false, isConnected: false };
 };
+
 
 const createEvolutionInstance = async (
   baseUrl: string,
