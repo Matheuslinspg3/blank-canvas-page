@@ -1,13 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
-
+import { 
+  corsHeaders, 
+  parseJsonSafely, 
+  classifyConnectionStatus, 
+  extractPhoneNumber, 
+  extractQrBase64, 
+  extractPairingCode,
+  safePreview
+} from "../_shared/whatsapp.ts";
 
 const captureWhatsAppException = async (error: unknown, context: Record<string, unknown> = {}) => {
   try {
@@ -59,65 +60,6 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-const classifyStatus = (...values: unknown[]): "connected" | "connecting" | "disconnected" | "unknown" => {
-  const text = values.map((v) => String(v ?? "").trim().toLowerCase()).filter(Boolean).join(" ");
-  if (!text) return "unknown";
-  if (/(^|[^a-z])(open|connected|online|ready)([^a-z]|$)/.test(text)) return "connected";
-  if (/(connecting|pairing|pair|qr|qrcode|scan|await|starting|sync|opening)/.test(text)) return "connecting";
-  if (/(disconnected|close|closed|logout|logged.?out|offline|removed|delete)/.test(text)) return "disconnected";
-  return "unknown";
-};
-
-const extractPhone = (payload: any): string | null => {
-  for (const c of [
-    payload?.phone, payload?.number, payload?.phoneNumber,
-    payload?.instance?.phone, payload?.instance?.number,
-    payload?.data?.phone, payload?.data?.number,
-  ]) {
-    if (c == null) continue;
-    const d = String(c).replace(/\D/g, "");
-    if (d.length >= 10) return d;
-  }
-  return null;
-};
-
-
-
-const parseJsonSafely = (raw: string) => {
-  try { return JSON.parse(raw); } catch { return {}; }
-};
-
-const extractQrBase64 = (payload: any): string | null => {
-  for (const candidate of [
-    payload?.qrcode?.base64,
-    payload?.data?.qrcode?.base64,
-    payload?.base64,
-    payload?.data?.base64,
-    payload?.qr,
-    payload?.data?.qr,
-  ]) {
-    if (typeof candidate !== "string") continue;
-    const t = candidate.trim();
-    if (t) return t;
-  }
-  return null;
-};
-
-const extractPairingCode = (payload: any): string | null => {
-  for (const candidate of [
-    payload?.qrcode?.pairingCode,
-    payload?.data?.qrcode?.pairingCode,
-    payload?.pairingCode,
-    payload?.data?.pairingCode,
-    payload?.code,
-    payload?.data?.code,
-  ]) {
-    if (typeof candidate !== "string") continue;
-    const t = candidate.trim();
-    if (t && t.length <= 128 && !t.startsWith("data:image")) return t;
-  }
-  return null;
-};
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -175,13 +117,12 @@ serve(async (req) => {
           headers: { apikey: EVOLUTION_API_KEY },
         });
         const evoRaw = await evoRes.text();
-        let evoData: any = null;
-        try { evoData = JSON.parse(evoRaw); } catch {}
+        const evoData = parseJsonSafely(evoRaw);
 
         if (evoRes.ok) {
-          const evoStatus = classifyStatus(evoRaw, evoData?.state, evoData?.instance?.state);
+          const evoStatus = classifyConnectionStatus(evoRaw, evoData?.state, evoData?.instance?.state);
           if (evoStatus !== "unknown") newStatus = evoStatus;
-          phone = extractPhone(evoData) ?? phone;
+          phone = extractPhoneNumber(evoData) ?? phone;
         }
       } catch (e) {
         console.warn("Evolution status check failed:", e);
@@ -293,8 +234,8 @@ serve(async (req) => {
       const pairingCode = extractPairingCode(connData);
       const qrCode = extractQrBase64(connData);
 
-      const stateText = String(connData?.instance?.state ?? connData?.state ?? "").toLowerCase();
-      const status = /open|connected/.test(stateText) ? "connected" : "connecting";
+      const stateText = classifyConnectionStatus(connRaw, connData?.instance?.state, connData?.state);
+      const status = stateText === "connected" ? "connected" : "connecting";
 
       await sb.from("broker_whatsapp_channels").update({
         instance_token: token,

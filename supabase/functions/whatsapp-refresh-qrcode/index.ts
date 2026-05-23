@@ -1,10 +1,11 @@
 import { getAuthenticatedUser, createServiceClient } from "../_shared/auth.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { 
+  corsHeaders, 
+  parseJsonSafely, 
+  extractPairingCode, 
+  extractQrBase64,
+  classifyConnectionStatus
+} from "../_shared/whatsapp.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -64,31 +65,20 @@ Deno.serve(async (req) => {
     const connectRaw = await connectRes.text();
     console.log("QR refresh response:", connectRaw.substring(0, 500));
 
-    let connectData: any;
-    try {
-      connectData = JSON.parse(connectRaw);
-    } catch {
-      connectData = {};
-    }
+    const connectData = parseJsonSafely(connectRaw);
+    
+    const qrBase64 = extractQrBase64(connectData);
+    const pairingCode = extractPairingCode(connectData);
 
-    const qrBase64 =
-      connectData?.base64 ??
-      connectData?.data?.base64 ??
-      connectData?.qrcode?.base64 ??
-      connectData?.data?.qrcode?.base64 ??
-      null;
+    const state = classifyConnectionStatus(
+      connectRaw,
+      connectData?.state,
+      connectData?.instance?.state
+    );
+    
+    const connected = state === "connected";
 
-    const pairingCode =
-      connectData?.pairingCode ??
-      connectData?.data?.pairingCode ??
-      connectData?.qrcode?.pairingCode ??
-      connectData?.data?.qrcode?.pairingCode ??
-      connectData?.code ??
-      connectData?.data?.code ??
-      null;
-
-    const state = String(connectData?.state ?? connectData?.instance?.state ?? "").toLowerCase();
-    if (state === "open" || state === "connected") {
+    if (connected) {
       await sb.from("whatsapp_agent_config").update({ status: "connected", qr_code: null }).eq("id", config.id);
       return new Response(JSON.stringify({
         success: true,
@@ -106,7 +96,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify({
-      success: !!qrBase64,
+      success: !!(qrBase64 || pairingCode),
       qrCode: qrBase64,
       pairingCode,
       connected: false,

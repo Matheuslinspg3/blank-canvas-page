@@ -1,10 +1,10 @@
 import { getAuthenticatedUser, createServiceClient } from "../_shared/auth.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { 
+  corsHeaders, 
+  parseJsonSafely, 
+  classifyConnectionStatus,
+  extractPhoneNumber 
+} from "../_shared/whatsapp.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -64,19 +64,17 @@ Deno.serve(async (req) => {
     const stateRaw = await stateRes.text();
     console.log("Polling status response:", stateRaw.substring(0, 300));
 
-    let stateData: any;
-    try {
-      stateData = JSON.parse(stateRaw);
-    } catch {
-      stateData = {};
-    }
+    const stateData = parseJsonSafely(stateRaw);
+    
+    const connStatus = classifyConnectionStatus(
+      stateRaw,
+      stateData?.instance?.state,
+      stateData?.state,
+      stateData?.connectionStatus
+    );
 
-    const connStatus = String(
-      stateData?.instance?.state ?? stateData?.state ?? stateData?.connectionStatus ?? ""
-    ).toLowerCase();
-
-    const connected = connStatus === "open" || connStatus === "connected";
-    const phoneNumber = stateData?.instance?.phoneNumber ?? stateData?.phoneNumber ?? null;
+    const connected = connStatus === "connected";
+    const phoneNumber = extractPhoneNumber(stateData);
 
     if (connected) {
       await sb.from("whatsapp_agent_config").update({
