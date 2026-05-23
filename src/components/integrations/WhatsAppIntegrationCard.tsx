@@ -91,6 +91,7 @@ export function WhatsAppIntegrationCard() {
       });
 
       if (invokeError) {
+        // Normalizing Supabase Function error
         const status = invokeError?.context?.status;
         let payload: { ok?: boolean; code?: string; message?: string; debug_ref?: string } | null = null;
         try { 
@@ -98,13 +99,12 @@ export function WhatsAppIntegrationCard() {
             if (response && response.clone) {
                 payload = await response.clone().json();
             }
-        } catch { /* ignore */ }
+        } catch { /* silent */ }
         
-        const code = payload?.code || "ACTIVATE_ERROR";
-        const message = payload?.message || invokeError?.message || "Erro ao ativar conexão";
+        const code = payload?.code || "ACTIVATE_HTTP_ERROR";
+        const message = payload?.message || invokeError?.message || "Erro de rede ao ativar conexão";
         const debug_ref = payload?.debug_ref;
 
-        // Never throw, always set state
         setActivationError({ code, message, debug_ref });
         
         Sentry.captureException(invokeError, {
@@ -122,13 +122,17 @@ export function WhatsAppIntegrationCard() {
         return;
       }
 
+      // Check for operational errors returned with status 200
       if (data?.ok === false) {
-          setActivationError({ 
-            code: data.code || "UNKNOWN_ERROR", 
-            message: data.message || "Erro operacional na integração", 
-            debug_ref: data.debug_ref 
-          });
-          toast.error(data.message, { description: data.debug_ref });
+          const code = data.code || "ACTIVATE_OP_ERROR";
+          const message = data.message || "Não foi possível completar a ativação";
+          const debug_ref = data.debug_ref;
+
+          setActivationError({ code, message, debug_ref });
+          
+          if (code !== "EVOLUTION_INSTANCE_CONFLICT") {
+            toast.error(message, { description: debug_ref });
+          }
           return;
       }
 
@@ -153,7 +157,12 @@ export function WhatsAppIntegrationCard() {
       queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
 
     } catch (err: unknown) {
-      toast.error("Falha na requisição");
+      console.error("handleActivate unexpected error:", err);
+      setActivationError({ 
+        code: "UNEXPECTED_CLIENT_ERROR", 
+        message: "Ocorreu um erro inesperado no navegador." 
+      });
+      toast.error("Erro inesperado");
       Sentry.captureException(err);
     } finally {
       setIsActivating(false);
