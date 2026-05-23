@@ -441,14 +441,17 @@ Deno.serve(async (req) => {
             console.log(`Fallback create status: ${fallbackRes.status}. Preview: ${safePreview(fallbackRaw, 300)}`);
 
             if (!fallbackRes.ok) {
+              const conflictMessage = "A Evolution API manteve uma sessão órfã. Tente novamente em instantes ou remova a instância no painel da Evolution.";
               return jsonResponse({
                 success: false,
                 recoverable: true,
+                code: "EVOLUTION_INSTANCE_CONFLICT",
+                message: conflictMessage,
                 error: {
                   code: "EVOLUTION_INSTANCE_CONFLICT",
-                  message: "A Evolution API manteve uma sessão órfã. Tente novamente em instantes ou remova a instância no painel da Evolution.",
+                  message: conflictMessage,
                 },
-              });
+              }, 409);
             }
 
             instanceName = fallbackName;
