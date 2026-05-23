@@ -159,6 +159,7 @@ const createEvolutionInstance = async (
     syncFullHistory: true,
     webhook: {
       url: webhookUrl,
+      enabled: true,
       byEvents: false,
       base64: true,
       headers: { "x-webhook-secret": webhookSecret },
@@ -174,8 +175,12 @@ const createEvolutionInstance = async (
   const raw = await res.text();
   const data = parseJsonSafely(raw);
   const token = data?.hash?.apikey ?? data?.token ?? data?.apikey ?? null;
-  return { res, raw, token };
+  const qrBase64 = extractQrBase64(data);
+  const pairingCode = extractPairingCode(data);
+  
+  return { res, raw, token, qrBase64, pairingCode };
 };
+
 
 const configureEvolutionWebhook = (
   baseUrl: string,
