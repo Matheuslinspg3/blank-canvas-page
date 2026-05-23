@@ -67,18 +67,22 @@ const createEvolutionInstance = async (
     },
   };
 
-  const res = await fetch(`${baseUrl}/instance/create`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", apikey: apiKey },
-    body: JSON.stringify(payload),
-  });
-  const raw = await res.text();
-  const data = parseJsonSafely(raw);
-  const token = data?.hash?.apikey ?? data?.token ?? data?.apikey ?? null;
-  const qrBase64 = extractQrBase64(data);
-  const pairingCode = extractPairingCode(data);
-  
-  return { res, raw, token, qrBase64, pairingCode };
+  try {
+    const res = await fetch(`${baseUrl}/instance/create`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: apiKey },
+      body: JSON.stringify(payload),
+    });
+    const raw = await res.text();
+    const data = parseJsonSafely(raw);
+    const token = data?.hash?.apikey ?? data?.token ?? data?.apikey ?? null;
+    const qrBase64 = extractQrBase64(data);
+    const pairingCode = extractPairingCode(data);
+    
+    return { res, raw, token, qrBase64, pairingCode };
+  } catch (e) {
+    return { res: { ok: false, status: 500 }, raw: String(e), token: null, qrBase64: null, pairingCode: null };
+  }
 };
 
 const configureEvolutionWebhook = (
@@ -210,16 +214,16 @@ Deno.serve(async (req) => {
 
       let createAttempt = await tryCreate(instanceName);
 
-      // Auto-recovery: orphan Prisma session (400 or 403)
+      // Auto-recovery: orphan Prisma session (400, 403 or 409)
       if (!createAttempt.res.ok && (createAttempt.res.status === 400 || createAttempt.res.status === 403 || createAttempt.res.status === 409)) {
         const isConflict = /prisma|integrationSession|findFirst|already in use|already exists/i.test(createAttempt.raw);
         if (isConflict) {
           await cleanupOrphan(instanceName);
           createAttempt = await tryCreate(instanceName);
 
-          // Second fallback: timestamped unique name
+          // Second fallback: unique name
           if (!createAttempt.res.ok) {
-            const fallbackName = `${baseInstanceName}-${Date.now().toString(36)}`;
+            const fallbackName = `${baseInstanceName}-${Math.random().toString(36).substring(2, 7)}`;
             console.log(`[${dRef}] Fallback to unique instance name ${fallbackName}`);
             instanceName = fallbackName;
             createAttempt = await tryCreate(instanceName);
@@ -232,20 +236,19 @@ Deno.serve(async (req) => {
         initialQr = createAttempt.qrBase64;
         initialPairing = createAttempt.pairingCode;
       } else {
-        const status = createAttempt.res.status;
         const isConflict = /prisma|integrationSession|findFirst/i.test(createAttempt.raw);
-        
         if (isConflict) {
-          // Operational error, not fatal. Return 200 with ok:false
+          // Returning 200 with error payload to avoid breaking UI with 409
           return jsonResponse({
             ok: false,
             code: "EVOLUTION_INSTANCE_CONFLICT",
-            message: "Encontramos uma sessão antiga na Evolution que não pôde ser limpa automaticamente. Tente remover a conexão e conectar novamente.",
+            message: "Encontramos uma sessão antiga na Evolution que não pôde ser limpa automaticamente. Tente remover a conexão local para sincronizar.",
             debug_ref: dRef,
             recoverable: true
           });
         }
         
+        const status = createAttempt.res.status;
         if (status === 401) throw new AppError("EVOLUTION_UNAUTHORIZED", "A Evolution API recusou a autenticação.", 401, dRef);
         throw new AppError("EVOLUTION_CREATE_FAILED", "Falha ao criar instância na Evolution.", 502, dRef);
       }
@@ -254,6 +257,7 @@ Deno.serve(async (req) => {
     let finalQr = initialQr;
     let finalPairing = initialPairing;
 
+    // Se já existia ou se criamos mas não retornou o código de conexão esperado
     if (phoneNumber && !finalPairing) {
         const connRes = await fetch(`${baseUrl}/instance/connect/${instanceName}?number=${encodeURIComponent(phoneNumber)}`, {
             method: "GET",
@@ -301,6 +305,7 @@ Deno.serve(async (req) => {
       status,
       instanceName,
       instanceCreated: !instanceExists,
+      debug_ref: dRef
     });
 
   } catch (err: any) {
@@ -308,6 +313,12 @@ Deno.serve(async (req) => {
     if (err instanceof AppError) {
       return errorResponse(err.status, err.code, err.message, err.debug_ref);
     }
-    return errorResponse(500, "INTERNAL_ERROR", "Ocorreu um erro interno.", dRef);
+    // Para erros inesperados, retornamos 200 com ok: false para evitar o overlay de erro do preview
+    return jsonResponse({
+      ok: false,
+      code: "INTERNAL_ERROR",
+      message: "Ocorreu um erro interno ao processar a requisição.",
+      debug_ref: dRef
+    });
   }
 });
