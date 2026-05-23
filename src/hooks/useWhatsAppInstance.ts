@@ -4,8 +4,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import * as Sentry from "@sentry/react";
 
-const safeText = (value: unknown) => String(value ?? "").trim();
-
 export interface WhatsAppError {
   ok: false;
   code: string;
@@ -14,7 +12,17 @@ export interface WhatsAppError {
   status?: number;
 }
 
-const handleFunctionError = async (error: any, functionName: string, action: string, orgId?: string) => {
+interface SupabaseFunctionError {
+  message: string;
+  context?: {
+    status?: number;
+    clone?: () => {
+      json: () => Promise<any>;
+    };
+  };
+}
+
+const handleFunctionError = async (error: SupabaseFunctionError, functionName: string, action: string, orgId?: string) => {
   const status = error?.context?.status;
   let payload: any = null;
   
@@ -46,6 +54,17 @@ const handleFunctionError = async (error: any, functionName: string, action: str
   return { ok: false, code, message, debug_ref, status } as WhatsAppError;
 };
 
+export interface WhatsAppConfig {
+  id: string;
+  organization_id: string;
+  instance_name?: string;
+  instance_token?: string;
+  status: "connected" | "connecting" | "provisioning" | "disconnected";
+  phone_number?: string;
+  qr_code?: string;
+  webhook_url?: string;
+}
+
 export function useWhatsAppInstance() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
@@ -61,7 +80,7 @@ export function useWhatsAppInstance() {
         .eq("organization_id", orgId)
         .maybeSingle();
       if (error) throw error;
-      return data as any;
+      return data as WhatsAppConfig;
     },
     enabled: !!orgId,
   });
@@ -74,7 +93,7 @@ export function useWhatsAppInstance() {
       const { data, error } = await supabase.functions.invoke("whatsapp-instance", {
         body: { action: "status" },
       });
-      if (error) throw await handleFunctionError(error, "whatsapp-instance", "status", orgId);
+      if (error) throw await handleFunctionError(error as SupabaseFunctionError, "whatsapp-instance", "status", orgId);
       if (data?.ok === false) throw data;
       return data;
     },
@@ -97,7 +116,7 @@ export function useWhatsAppInstance() {
       const { data, error } = await supabase.functions.invoke("whatsapp-instance", {
         body: { action: "disconnect" },
       });
-      if (error) throw await handleFunctionError(error, "whatsapp-instance", "disconnect", orgId);
+      if (error) throw await handleFunctionError(error as SupabaseFunctionError, "whatsapp-instance", "disconnect", orgId);
       if (data?.ok === false) throw data;
       return data;
     },
@@ -118,7 +137,7 @@ export function useWhatsAppInstance() {
       const { data, error } = await supabase.functions.invoke("whatsapp-instance", {
         body: { action: "delete" },
       });
-      if (error) throw await handleFunctionError(error, "whatsapp-instance", "delete", orgId);
+      if (error) throw await handleFunctionError(error as SupabaseFunctionError, "whatsapp-instance", "delete", orgId);
       if (data?.ok === false) throw data;
       return data;
     },
