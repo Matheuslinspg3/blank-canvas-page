@@ -298,14 +298,15 @@ Deno.serve(async (req) => {
     }
 
     // 6. State Machine: Reuse or Create
+    let initialQr: string | null = null;
+    let initialPairing: string | null = null;
+
     if (instanceExists) {
-      // Configure Webhook
-      console.log(`Configuring webhook for ${instanceName}`);
+      console.log(`Configuring webhook for existing instance ${instanceName}`);
       await configureEvolutionWebhook(baseUrl, EVOLUTION_API_KEY, instanceName, WEBHOOK_URL, WHATSAPP_AGENT_SECRET);
     } else {
-      // Create Instance
       console.log(`Creating instance ${instanceName}`);
-      const { res: createRes, raw: createRaw, token: createToken } = await createEvolutionInstance(
+      const { res: createRes, raw: createRaw, token: createToken, qrBase64: createQr, pairingCode: createPairing } = await createEvolutionInstance(
         baseUrl,
         EVOLUTION_API_KEY,
         instanceName,
@@ -316,94 +317,84 @@ Deno.serve(async (req) => {
 
       if (createRes.ok) {
         instanceToken = createToken;
+        initialQr = createQr;
+        initialPairing = createPairing;
       } else if (createRes.status === 401) {
         return errorResponse(401, "EVOLUTION_UNAUTHORIZED", "A Evolution API recusou a autenticação. Verifique EVOLUTION_API_GLOBAL_KEY.");
       } else if (createRes.status === 400 || createRes.status === 403) {
-        // Fallback 1: refetch (instance may already exist)
-        console.log("Create failed with 400/403, refetching instances...");
-        const refetchRes = await fetch(`${baseUrl}/instance/fetchInstances`, {
-          method: "GET",
-          headers: { apikey: EVOLUTION_API_KEY },
-        });
-        if (refetchRes.ok) {
-          const refetchData = await refetchRes.json();
-          const refetchList = normalizeInstancesList(refetchData);
-          const refound = findEvolutionInstance(refetchList, instanceName);
-          if (refound) {
-            instanceExists = true;
-            instanceToken = refound?.apikey ?? refound?.token ?? refound?.instance?.apikey ?? refound?.instance?.token ?? null;
-            await configureEvolutionWebhook(baseUrl, EVOLUTION_API_KEY, instanceName, WEBHOOK_URL, WHATSAPP_AGENT_SECRET);
-          }
-        }
-
-        // Fallback 2: orphan Prisma session — try DELETE + retry, then direct connect as last resort.
-        if (!instanceExists) {
-          const isPrismaConflict = /prisma|integrationSession|findFirst/i.test(createRaw);
-          console.log(`Orphan recovery: prismaConflict=${isPrismaConflict}, forcing DELETE on ${instanceName}`);
-
-          try {
-            await fetch(`${baseUrl}/instance/logout/${instanceName}`, {
-              method: "DELETE",
-              headers: { apikey: EVOLUTION_API_KEY },
-            }).then(r => r.text());
-          } catch { /* ignore */ }
+        const isPrismaConflict = /prisma|integrationSession|findFirst/i.test(createRaw);
+        
+        // Try fallback name immediately if it's a Prisma conflict and normal recovery fails
+        if (isPrismaConflict) {
+          console.log(`Prisma conflict detected on ${instanceName}. Attempting recovery...`);
+          
           try {
             await fetch(`${baseUrl}/instance/delete/${instanceName}`, {
               method: "DELETE",
               headers: { apikey: EVOLUTION_API_KEY },
-            }).then(r => r.text());
+            });
+            await delay(1000);
           } catch { /* ignore */ }
 
-          await delay(1200);
-
-          const { res: retryRes, raw: retryRaw, token: retryToken } = await createEvolutionInstance(
+          const { res: retryRes, raw: retryRaw, token: retryToken, qrBase64: retryQr, pairingCode: retryPairing } = await createEvolutionInstance(
             baseUrl,
             EVOLUTION_API_KEY,
             instanceName,
             WEBHOOK_URL,
             WHATSAPP_AGENT_SECRET,
           );
-          console.log(`Retry create status: ${retryRes.status}. Preview: ${safePreview(retryRaw, 300)}`);
 
           if (retryRes.ok) {
             instanceToken = retryToken;
+            initialQr = retryQr;
+            initialPairing = retryPairing;
           } else {
-            // Fallback 3: try direct connect — Evolution may have the instance row even though create returned 400.
-            console.log(`Retry failed; attempting direct connect on ${instanceName} as last resort`);
-            const directConnect = await connectEvolutionInstance(baseUrl, EVOLUTION_API_KEY, instanceName, phoneNumber);
-
-            if (directConnect.success) {
-              console.log("Direct connect succeeded — reusing orphan instance.");
-              instanceExists = true;
-              try {
-                await configureEvolutionWebhook(baseUrl, EVOLUTION_API_KEY, instanceName, WEBHOOK_URL, WHATSAPP_AGENT_SECRET);
-              } catch { /* ignore */ }
-            } else {
-              const conflictMessage = "A Evolution API manteve uma sessão órfã que não pôde ser recuperada automaticamente. Remova a instância no painel da Evolution e tente novamente.";
-              return jsonResponse({
-                success: false,
-                recoverable: true,
-                code: "EVOLUTION_INSTANCE_CONFLICT",
-                message: conflictMessage,
-                error: {
-                  code: "EVOLUTION_INSTANCE_CONFLICT",
-                  message: conflictMessage,
-                },
-              }, 200);
-            }
+             // Second level fallback: Use a timestamped name
+             const fallbackInstanceName = `${instanceName}-${Date.now()}`;
+             console.log(`Still failing. Using timestamped fallback: ${fallbackInstanceName}`);
+             const { res: fsRes, raw: fsRaw, token: fsToken, qrBase64: fsQr, pairingCode: fsPairing } = await createEvolutionInstance(
+               baseUrl,
+               EVOLUTION_API_KEY,
+               fallbackInstanceName,
+               WEBHOOK_URL,
+               WHATSAPP_AGENT_SECRET,
+             );
+             if (fsRes.ok) {
+               instanceName = fallbackInstanceName;
+               instanceToken = fsToken;
+               initialQr = fsQr;
+               initialPairing = fsPairing;
+             } else {
+               const conflictMessage = "A Evolution API manteve uma sessão órfã que não pôde ser recuperada automaticamente. Remova a instância no painel da Evolution e tente novamente.";
+               return jsonResponse({
+                 success: false,
+                 recoverable: true,
+                 code: "EVOLUTION_INSTANCE_CONFLICT",
+                 message: conflictMessage,
+                 error: { code: "EVOLUTION_INSTANCE_CONFLICT", message: conflictMessage },
+               }, 200);
+             }
           }
+        } else {
+           return errorResponse(502, "EVOLUTION_CREATE_FAILED", "Não foi possível criar a instância na Evolution API. Tente novamente em instantes.");
         }
       } else {
-        return errorResponse(502, "EVOLUTION_CREATE_FAILED", "Não foi possível criar a instância na Evolution API. Tente novamente em instantes.");
+        return errorResponse(502, "EVOLUTION_CREATE_FAILED", "Não foi possível criar a instância na Evolution API.");
       }
     }
 
     // 7. Connect (get QR or Pairing Code)
-    const connectResult = await connectEvolutionInstance(baseUrl, EVOLUTION_API_KEY, instanceName, phoneNumber);
+    let connectResult: any = { success: !!(initialQr || initialPairing), qrBase64: initialQr, pairingCode: initialPairing };
+    
+    // If we don't have QR/Pairing from create, or if we were reusing, call connect
+    if (!initialQr && !initialPairing) {
+      connectResult = await connectEvolutionInstance(baseUrl, EVOLUTION_API_KEY, instanceName, phoneNumber);
+    }
     
     if (!connectResult.success) {
       return errorResponse(502, "EVOLUTION_CONNECT_FAILED", "Não foi possível estabelecer conexão com a Evolution API.");
     }
+
 
     // 8. DB Update
     const status = connectResult.isConnected ? "connected" : (connectResult.qrBase64 || connectResult.pairingCode ? "connecting" : "provisioning");
