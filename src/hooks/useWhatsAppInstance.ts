@@ -15,7 +15,7 @@ const throwDetailedFunctionError = async (error: any): Promise<never> => {
 
     try {
       const json = await response.clone().json();
-      const detailed = safeText(json?.error || json?.message || JSON.stringify(json));
+      const detailed = safeText(json?.error?.message || json?.message || json?.error || JSON.stringify(json));
       throw new Error(detailed || fallback);
     } catch {
       const text = await response.clone().text();
@@ -54,7 +54,7 @@ export function useWhatsAppInstance() {
         body: { action: "status" },
       });
       if (error) await throwDetailedFunctionError(error);
-      if (data?.error) throw new Error(data.error);
+      if (data?.error) throw new Error(data.error?.message || data.error);
       return data;
     },
     onSuccess: (data) => {
@@ -76,7 +76,7 @@ export function useWhatsAppInstance() {
         body: { action: "disconnect" },
       });
       if (error) await throwDetailedFunctionError(error);
-      if (data?.error) throw new Error(data.error);
+      if (data?.error) throw new Error(data.error?.message || data.error);
       return data;
     },
     onSuccess: () => {
