@@ -3,6 +3,7 @@ export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 export const parseJsonSafely = (raw: string) => {
@@ -114,3 +115,32 @@ export const safePreview = (value: unknown, limit = 1000) => {
     .replace(/(Bearer\s+)[A-Za-z0-9._\-]+/gi, '$1***');
   return masked.substring(0, limit);
 };
+
+export const jsonResponse = (payload: unknown, status = 200) =>
+  new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
+export const errorResponse = (status: number, code: string, message: string, debug_ref?: string) =>
+  jsonResponse({
+    ok: false,
+    code,
+    message,
+    debug_ref,
+  }, status);
+
+export class AppError extends Error {
+  code: string;
+  status: number;
+  debug_ref?: string;
+
+  constructor(code: string, message: string, status = 400, debug_ref?: string) {
+    super(message);
+    this.code = code;
+    this.status = status;
+    this.debug_ref = debug_ref;
+    this.name = "AppError";
+  }
+}
+
