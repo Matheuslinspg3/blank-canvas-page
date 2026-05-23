@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from "@/components/ui/input-otp";
 import { Loader2, MessageCircle, CheckCircle2, XCircle, RefreshCw, Smartphone, QrCode, Hash, Trash2 } from "lucide-react";
 import { useWhatsAppInstance } from "@/hooks/useWhatsAppInstance";
 import { useQueryClient } from "@tanstack/react-query";
@@ -23,7 +22,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-const QR_REFRESH_INTERVAL = 45_000;
 const STATUS_POLL_INTERVAL = 10_000;
 
 export function WhatsAppIntegrationCard() {
@@ -46,15 +44,7 @@ export function WhatsAppIntegrationCard() {
   const [connectionMode, setConnectionMode] = useState<"qr" | "pairing">("qr");
   const [phoneInput, setPhoneInput] = useState("");
   const isActiveRef = useRef(false);
-  const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const statusPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const stopRefresh = useCallback(() => {
-    if (refreshTimerRef.current) {
-      clearInterval(refreshTimerRef.current);
-      refreshTimerRef.current = null;
-    }
-  }, []);
 
   const stopStatusPolling = useCallback(() => {
     if (statusPollingRef.current) {
@@ -63,16 +53,15 @@ export function WhatsAppIntegrationCard() {
     }
   }, []);
 
-  useEffect(() => () => { stopRefresh(); stopStatusPolling(); }, [stopRefresh, stopStatusPolling]);
+  useEffect(() => () => { stopStatusPolling(); }, [stopStatusPolling]);
 
   const handleConnected = useCallback(() => {
     setQrCode(null);
     setPairingCode(null);
-    stopRefresh();
     stopStatusPolling();
     isActiveRef.current = false;
     queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
-  }, [stopRefresh, stopStatusPolling, queryClient]);
+  }, [stopStatusPolling, queryClient]);
 
   const startStatusPolling = useCallback(() => {
     stopStatusPolling();
@@ -103,8 +92,13 @@ export function WhatsAppIntegrationCard() {
 
       if (error) {
         const status = error?.context?.status;
-        let payload: any = null;
-        try { payload = await error.context.clone().json(); } catch { /* ignore */ }
+        let payload: { code?: string; message?: string; debug_ref?: string } | null = null;
+        try { 
+            const response = error.context;
+            if (response && response.clone) {
+                payload = await response.clone().json();
+            }
+        } catch { /* ignore */ }
         
         const code = payload?.code || "ACTIVATE_ERROR";
         const message = payload?.message || "Erro ao ativar conexão";
@@ -153,7 +147,7 @@ export function WhatsAppIntegrationCard() {
       startStatusPolling();
       queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error("Falha na requisição");
       Sentry.captureException(err);
     } finally {
@@ -179,6 +173,16 @@ export function WhatsAppIntegrationCard() {
     if (digits.length <= 9) return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4)}`;
     return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9, 13)}`;
   };
+
+  if (isLoading) {
+      return (
+          <Card>
+              <CardContent className="flex items-center justify-center py-10">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </CardContent>
+          </Card>
+      );
+  }
 
   return (
     <Card>
