@@ -26,6 +26,26 @@ import { toastError } from "@/lib/toastError";
 const QR_REFRESH_INTERVAL = 45_000;
 const STATUS_POLL_INTERVAL = 10_000;
 
+const parseFunctionErrorPayload = async (error: any) => {
+  const response = error?.context;
+  if (!response?.clone) return null;
+
+  try {
+    return await response.clone().json();
+  } catch {
+    return null;
+  }
+};
+
+const readOperationalActivationError = async (error: any) => {
+  const payload = await parseFunctionErrorPayload(error);
+  const code = payload?.error?.code || payload?.code;
+  const message = payload?.error?.message || payload?.message || error?.message;
+
+  if (!code) return null;
+  return { code: String(code), message: String(message || "Não foi possível ativar o WhatsApp") };
+};
+
 export function WhatsAppIntegrationCard() {
   const {
     instance,
@@ -258,6 +278,28 @@ export function WhatsAppIntegrationCard() {
         }
       }
     } catch (err: any) {
+      const operationalError = await readOperationalActivationError(err);
+      if (operationalError?.code === "EVOLUTION_INSTANCE_CONFLICT") {
+        setActivationError(operationalError);
+        toast.error("Conflito na Evolution API", {
+          description: operationalError.message,
+          duration: 6000,
+        });
+        return;
+      }
+
+      if (operationalError && [
+        "EVOLUTION_CREATE_FAILED",
+        "EVOLUTION_CONNECT_FAILED",
+        "EVOLUTION_QR_NOT_AVAILABLE",
+        "EVOLUTION_UNAUTHORIZED",
+        "MISSING_EVOLUTION_CONFIG",
+        "MISSING_WEBHOOK_CONFIG",
+      ].includes(operationalError.code)) {
+        toast.error(operationalError.message);
+        return;
+      }
+
       toastError("Erro ao ativar WhatsApp", err instanceof Error ? err : new Error(String(err?.message || err)), { module: "WhatsAppIntegrationCard" });
     } finally {
       setIsActivating(false);
