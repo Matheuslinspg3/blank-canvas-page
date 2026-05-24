@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { useMemo } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -29,7 +29,7 @@ export function useWhatsAppV2() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: connection, isLoading, error, refetch } = useQuery({
+  const { data: connectionData, isLoading, error, refetch } = useQuery({
     queryKey: ["whatsapp-connection-v2"],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("whatsapp-status");
@@ -37,8 +37,8 @@ export function useWhatsAppV2() {
       return data as { ok: boolean; status: WhatsAppStatus; connection?: WhatsAppConnection };
     },
     enabled: !!user,
-    refetchInterval: (data) => {
-      const status = data?.status;
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
       if (status === "qr_pending" || status === "pairing_pending" || status === "provisioning" || status === "connecting") {
         return 5000;
       }
@@ -79,8 +79,8 @@ export function useWhatsAppV2() {
   });
 
   return {
-    connection: connection?.connection,
-    status: connection?.status || "not_configured",
+    connection: connectionData?.connection,
+    status: connectionData?.status || "not_configured",
     isLoading,
     error,
     connect: connectMutation.mutate,
