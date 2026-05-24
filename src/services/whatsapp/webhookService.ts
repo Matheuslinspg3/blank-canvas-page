@@ -36,7 +36,14 @@ export async function sendWhatsAppWebhook(payload: WhatsAppWebhookPayload) {
       throw new Error(`Erro no webhook (${response.status}): ${errorText || response.statusText}`);
     }
 
-    const data = await response.json();
+    // Try to parse JSON, if it fails, just return success if the status was OK
+    let data = {};
+    try {
+      data = await response.json();
+    } catch (e) {
+      console.warn("[WhatsAppWebhook] Response is not JSON", e);
+    }
+
     return { ok: true, data };
   } catch (error: any) {
     console.error("[WhatsAppWebhook] Error:", error);
