@@ -17,6 +17,7 @@ export default function MeuWhatsApp() {
     connect, 
     isConnecting, 
     connectError,
+    resetConnect,
     deleteConnection, 
     isDeleting, 
     refetch 
@@ -24,12 +25,14 @@ export default function MeuWhatsApp() {
   const [phoneNumber, setPhoneNumber] = useState("");
 
   const handleConnect = (mode: "qr" | "pairing") => {
+    // Reset any previous errors before trying again
+    resetConnect();
     connect({ mode, phoneNumber: mode === "pairing" ? phoneNumber : undefined });
   };
 
-  if (isLoading) {
+  if (isLoading && !connection) {
     return (
-      <div className="container max-w-4xl py-10 space-y-6">
+      <div className="container max-w-4xl py-6 md:py-10 space-y-6">
         <Skeleton className="h-10 w-48" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -37,7 +40,7 @@ export default function MeuWhatsApp() {
   }
 
   return (
-    <div className="container max-w-4xl py-10 space-y-6 animate-in fade-in duration-500">
+    <div className="container max-w-4xl py-6 md:py-10 space-y-6 animate-in fade-in duration-500 overflow-x-hidden">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Meu WhatsApp v2</h1>
@@ -67,24 +70,30 @@ export default function MeuWhatsApp() {
           
           <CardContent className="flex flex-col items-center">
             {connectError && (
-              <Alert variant="destructive" className="mb-6 max-w-sm">
+              <Alert variant="destructive" className="mb-6 max-w-sm animate-in zoom-in-95">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Erro na conexão</AlertTitle>
+                <AlertTitle>Falha na operação</AlertTitle>
                 <AlertDescription className="text-xs break-all">
-                  {connectError.message || "Erro desconhecido"}
+                  <p className="font-medium">
+                    {connectError.code === "WHATSAPP_QR_NOT_AVAILABLE" 
+                      ? "O servidor não conseguiu gerar o QR Code. Tente novamente em 30 segundos." 
+                      : connectError.code === "WHATSAPP_PAIRING_NOT_AVAILABLE"
+                      ? "Não foi possível gerar o código de pareamento. Verifique o número digitado."
+                      : connectError.message || "Não foi possível iniciar a conexão"}
+                  </p>
                   {connectError.debug_ref && (
-                    <div className="mt-1 font-mono font-bold text-[10px] uppercase">
-                      Ref: {connectError.debug_ref}
+                    <div className="mt-2 flex items-center gap-1.5 font-mono font-bold text-[9px] uppercase bg-destructive/10 p-1 rounded w-fit">
+                      ID: {connectError.debug_ref}
                     </div>
                   )}
                 </AlertDescription>
               </Alert>
             )}
 
-            <Tabs defaultValue="qr" className="w-full max-w-sm">
+            <Tabs defaultValue="qr" className="w-full max-w-sm" onValueChange={() => resetConnect()}>
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="qr">QR Code</TabsTrigger>
-                <TabsTrigger value="pairing">Código</TabsTrigger>
+                <TabsTrigger value="qr" disabled={isConnecting}>QR Code</TabsTrigger>
+                <TabsTrigger value="pairing" disabled={isConnecting}>Código</TabsTrigger>
               </TabsList>
               <TabsContent value="qr" className="mt-6">
                 <Button 
@@ -151,21 +160,29 @@ export default function MeuWhatsApp() {
           </CardHeader>
           <CardContent className="flex flex-col items-center space-y-6">
             {connection?.qr_code ? (
-              <div className="bg-white p-4 rounded-xl border shadow-sm relative group">
+              <div className="bg-white p-4 rounded-xl border shadow-sm relative group overflow-hidden">
                 <img 
                   src={connection.qr_code.startsWith('data:') ? connection.qr_code : `data:image/png;base64,${connection.qr_code}`} 
                   alt="WhatsApp QR Code" 
-                  className="w-64 h-64" 
+                  className="w-full max-w-[256px] h-auto aspect-square mx-auto" 
                 />
                 {isConnecting && (
-                  <div className="absolute inset-0 bg-white/80 flex items-center justify-center animate-in fade-in">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <div className="absolute inset-0 bg-white/80 flex flex-col items-center justify-center animate-in fade-in">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+                    <span className="text-xs font-medium text-primary">Atualizando QR...</span>
                   </div>
                 )}
               </div>
+            ) : status === "qr_pending" && !isConnecting ? (
+              <div className="w-full max-w-[256px] aspect-square bg-destructive/5 rounded-xl border-2 border-dashed border-destructive/20 flex flex-col items-center justify-center p-6 text-center">
+                <XCircle className="h-10 w-10 text-destructive mb-3 opacity-60" />
+                <p className="text-sm font-semibold text-destructive mb-1">QR Code indisponível</p>
+                <p className="text-[10px] text-muted-foreground">O servidor não retornou a imagem. Tente gerar novamente.</p>
+              </div>
             ) : (
-              <div className="w-64 h-64 bg-muted animate-pulse rounded-xl flex items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <div className="w-full max-w-[256px] aspect-square bg-muted animate-pulse rounded-xl flex flex-col items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-2" />
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Gerando QR...</span>
               </div>
             )}
             <div className="flex flex-col items-center space-y-4 w-full">
@@ -204,13 +221,20 @@ export default function MeuWhatsApp() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center space-y-8">
-            <div className="relative group">
-              <div className="text-5xl font-mono font-bold tracking-[0.5em] bg-muted px-8 py-6 rounded-lg border">
+            <div className="relative group w-full max-w-sm">
+              <div className={`text-3xl md:text-5xl font-mono font-bold tracking-[0.2em] md:tracking-[0.5em] bg-muted px-4 md:px-8 py-6 rounded-lg border text-center ${!connection?.pairing_code && "opacity-50"}`}>
                 {connection?.pairing_code || "-------"}
               </div>
               {isConnecting && (
-                <div className="absolute inset-0 bg-muted/80 flex items-center justify-center rounded-lg">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <div className="absolute inset-0 bg-muted/80 flex flex-col items-center justify-center rounded-lg animate-in fade-in">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+                  <span className="text-xs font-medium text-primary">Gerando novo código...</span>
+                </div>
+              )}
+              {status === "pairing_pending" && !connection?.pairing_code && !isConnecting && (
+                <div className="absolute inset-0 bg-destructive/5 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-destructive/20 text-center p-4">
+                  <p className="text-sm font-semibold text-destructive">Falha ao gerar código</p>
+                  <Button variant="link" size="sm" onClick={() => handleConnect("pairing")} className="text-xs h-auto p-0">Tentar novamente</Button>
                 </div>
               )}
             </div>

@@ -25,6 +25,11 @@ export interface WhatsAppConnection {
   provider: string;
 }
 
+export interface WhatsAppError extends Error {
+  code?: string;
+  debug_ref?: string;
+}
+
 export function useWhatsAppV2() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -60,7 +65,7 @@ export function useWhatsAppV2() {
       
       if (!data.ok) {
         console.error("[WhatsAppV2] Function returned error:", data);
-        const error = new Error(data.message || "Erro ao conectar") as any;
+        const error = new Error(data.message || "Erro ao conectar") as WhatsAppError;
         error.code = data.code;
         error.debug_ref = data.debug_ref;
         throw error;
@@ -78,7 +83,7 @@ export function useWhatsAppV2() {
       // Still invalidate to ensure we have the absolute latest from status check
       queryClient.invalidateQueries({ queryKey: ["whatsapp-connection-v2"] });
     },
-    onError: (err: any) => {
+    onError: (err: WhatsAppError) => {
       const msg = err.debug_ref ? `${err.message} (${err.debug_ref})` : err.message;
       toast.error(msg || "Falha ao iniciar conexão");
     }
@@ -94,7 +99,7 @@ export function useWhatsAppV2() {
       queryClient.setQueryData(["whatsapp-connection-v2"], { ok: true, status: "not_configured" });
       toast.success("Integração removida com sucesso");
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(err.message || "Falha ao remover integração");
     }
   });
@@ -102,11 +107,12 @@ export function useWhatsAppV2() {
   return {
     connection: connectionData?.connection,
     status: connectionData?.status || "not_configured",
-    isLoading,
-    error: error || connectMutation.error,
+    isLoading: isLoading && !connectionData,
+    error: (error || connectMutation.error) as WhatsAppError | null,
     connect: connectMutation.mutate,
     isConnecting: connectMutation.isPending,
-    connectError: connectMutation.error as any,
+    connectError: connectMutation.error as WhatsAppError | null,
+    resetConnect: connectMutation.reset,
     deleteConnection: deleteMutation.mutate,
     isDeleting: deleteMutation.isPending,
     refetch
