@@ -55,18 +55,32 @@ export class EvolutionProvider {
   }
 
   async createInstance(name: string, token?: string) {
+    const tk = token || crypto.randomUUID().replace(/-/g, "");
     if (this.config.provider === "evolution_go") {
-      // Evolution Go creation
-      return await this.request("POST", "/instance/create", {
-        name,
-        token: token || crypto.randomUUID().replace(/-/g, ""),
-        qrcode: true,
-      });
+      // Evolution Go: tenta múltiplas variantes de payload pois builds diferentes
+      // aceitam campos distintos (name/instanceName, qrcode/qrCode, integration opcional)
+      const variants: any[] = [
+        { name, token: tk, qrcode: true, integration: "WHATSAPP-BAILEYS" },
+        { instanceName: name, token: tk, qrcode: true, integration: "WHATSAPP-BAILEYS" },
+        { name, token: tk, qrcode: true },
+        { instanceName: name, token: tk, qrcode: true },
+        { name, token: tk, qrCode: true, integration: "WHATSAPP-BAILEYS" },
+      ];
+      let last: InstanceResponse | null = null;
+      for (const body of variants) {
+        const res = await this.request("POST", "/instance/create", body);
+        last = res;
+        if (res.ok) return res;
+        // Se já existe, retorna imediatamente para o caller tratar
+        if (/already in use|already exists|in use/i.test(res.raw)) return res;
+      }
+      console.log(`[EvolutionGo] createInstance failed status=${last?.status} raw=${last?.raw?.slice(0, 500)}`);
+      return last!;
     } else {
       // Evolution Node creation
       return await this.request("POST", "/instance/create", {
         name,
-        token: token || crypto.randomUUID().replace(/-/g, ""),
+        token: tk,
         integration: "WHATSAPP-BAILEYS",
         qrcode: true,
       });
