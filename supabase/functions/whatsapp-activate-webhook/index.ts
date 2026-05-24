@@ -47,8 +47,12 @@ const createEvolutionInstance = async (
   webhookUrl: string,
   webhookSecret: string,
 ) => {
+  // In v2.4.0, 'instanceName' is often a protected field in the DTO, 
+  // but 'name' is required for the database mapping.
+  // We send both to ensure compatibility across versions.
   const payload = {
     instanceName,
+    name: instanceName,
     integration: "WHATSAPP-BAILEYS",
     qrcode: true,
     rejectCall: true,
@@ -56,31 +60,36 @@ const createEvolutionInstance = async (
     alwaysOnline: false,
     readMessages: false,
     readStatus: false,
-    syncFullHistory: true,
-    webhook: {
-      url: webhookUrl,
-      enabled: true,
-      byEvents: false,
-      base64: true,
-      headers: { "x-webhook-secret": webhookSecret },
-      events: ["MESSAGES_UPSERT"],
-    },
+    syncFullHistory: false, // Recommended to be false during initial creation in v2.x
   };
 
   try {
+    console.log(`[createEvolutionInstance] POST to ${baseUrl}/instance/create with payload keys: ${Object.keys(payload).join(", ")}`);
+    
     const res = await fetch(`${baseUrl}/instance/create`, {
       method: "POST",
       headers: { "Content-Type": "application/json", apikey: apiKey },
       body: JSON.stringify(payload),
     });
+    
     const raw = await res.text();
     const data = parseJsonSafely(raw);
-    const token = data?.hash?.apikey ?? data?.token ?? data?.apikey ?? null;
+    
+    // We try to extract data even if status is not 2xx, 
+    // as some versions return 400 with partial success or useful info.
+    const token = data?.hash?.apikey ?? data?.token ?? data?.apikey ?? data?.instance?.apikey ?? null;
     const qrBase64 = extractQrBase64(data);
     const pairingCode = extractPairingCode(data);
     
+    // If the creation was successful or returned a token/QR, we proceed to set the webhook
+    if (res.ok || token || qrBase64) {
+      console.log(`[createEvolutionInstance] Instance created or token found, configuring webhook...`);
+      await configureEvolutionWebhook(baseUrl, apiKey, instanceName, webhookUrl, webhookSecret);
+    }
+    
     return { res, raw, token, qrBase64, pairingCode };
   } catch (e) {
+    console.error("[createEvolutionInstance] unexpected error:", e);
     return { res: { ok: false, status: 500 }, raw: String(e), token: null, qrBase64: null, pairingCode: null };
   }
 };
