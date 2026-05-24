@@ -114,6 +114,7 @@ export function AppSidebar() {
 
   const prevPath = React.useRef(currentPath);
   React.useEffect(() => {
+    // No mobile, fecha a sidebar se a rota mudar (clique em link)
     if (isMobile && currentPath !== prevPath.current) {
       setOpenMobile(false);
     }

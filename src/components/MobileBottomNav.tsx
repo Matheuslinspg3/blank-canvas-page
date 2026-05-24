@@ -2,12 +2,9 @@ import { NavLink } from "react-router-dom";
 import { 
   LayoutDashboard, 
   Home, 
-  Megaphone, 
   Settings, 
   Users,
-  Building2,
-  Zap,
-  DollarSign
+  Calendar
 } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { useAdLeadsCount } from "@/hooks/useAdLeads";
@@ -37,10 +34,10 @@ export function MobileBottomNav() {
   });
 
   const items = [
-    { label: "Início", icon: LayoutDashboard, path: "/dashboard" },
+    { label: "Home", icon: LayoutDashboard, path: "/dashboard" },
     { label: "Imóveis", icon: Home, path: "/imoveis" },
     { label: "CRM", icon: Users, path: "/crm" },
-    { label: "Marketing", icon: Megaphone, path: "/marketing", badge: adLeadsCount > 0 ? adLeadsCount : null },
+    { label: "Agenda", icon: Calendar, path: "/agenda" },
     { label: "Mais", icon: Settings, onClick: () => setOpenMobile(true) },
   ];
 
