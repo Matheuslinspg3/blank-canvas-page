@@ -32,7 +32,12 @@ interface LeadFiltersProps {
   selectedConversion: string | null;
   onConversionChange: (value: string | null) => void;
   conversionOptions: string[];
+  stalenessFilter: string | null;
+  onStalenessChange: (value: string | null) => void;
+  criteriaFilter: string | null;
+  onCriteriaChange: (value: string | null) => void;
 }
+
 
 export function LeadFilters({
   search,
@@ -47,11 +52,16 @@ export function LeadFilters({
   selectedConversion,
   onConversionChange,
   conversionOptions,
+  stalenessFilter,
+  onStalenessChange,
+  criteriaFilter,
+  onCriteriaChange,
 }: LeadFiltersProps) {
+
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { isAdminOrAbove } = useUserRoles();
   const canManageTypes = isAdminOrAbove;
-  const hasAdvancedFilters = !!selectedBrokerId || !!selectedSource || !!selectedTemperature || !!selectedConversion;
+  const hasAdvancedFilters = !!selectedBrokerId || !!selectedSource || !!selectedTemperature || !!selectedConversion || !!stalenessFilter || !!criteriaFilter;
 
   return (
     <div className="flex flex-col gap-2 flex-1">
@@ -151,7 +161,37 @@ export function LeadFilters({
               </Select>
             )}
 
+            <Select
+              value={stalenessFilter || 'all'}
+              onValueChange={(value) => onStalenessChange(value === 'all' ? null : value)}
+            >
+              <SelectTrigger className="flex-1 sm:w-[160px]">
+                <SelectValue placeholder="Inatividade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Qualquer tempo</SelectItem>
+                <SelectItem value="stale">Parado (7+ dias)</SelectItem>
+                <SelectItem value="critical">Crítico (14+ dias)</SelectItem>
+                <SelectItem value="recent">Recente (&lt; 7 dias)</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={criteriaFilter || 'all'}
+              onValueChange={(value) => onCriteriaChange(value === 'all' ? null : value)}
+            >
+              <SelectTrigger className="flex-1 sm:w-[160px]">
+                <SelectValue placeholder="Dados" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Com/Sem critérios</SelectItem>
+                <SelectItem value="has_criteria">Com critérios</SelectItem>
+                <SelectItem value="no_criteria">Sem critérios</SelectItem>
+              </SelectContent>
+            </Select>
+
             {hasAdvancedFilters && (
+
               <Button
                 variant="ghost"
                 size="sm"
@@ -160,7 +200,10 @@ export function LeadFilters({
                   onSourceChange(null);
                   onTemperatureChange(null);
                   onConversionChange(null);
+                  onStalenessChange(null);
+                  onCriteriaChange(null);
                 }}
+
                 className="text-xs"
               >
                 Limpar filtros
