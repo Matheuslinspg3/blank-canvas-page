@@ -102,11 +102,12 @@ export function useWhatsAppV2() {
   return {
     connection: connectionData?.connection,
     status: connectionData?.status || "not_configured",
-    isLoading,
+    isLoading: isLoading && !connectionData,
     error: error || connectMutation.error,
     connect: connectMutation.mutate,
     isConnecting: connectMutation.isPending,
     connectError: connectMutation.error as any,
+    resetConnect: connectMutation.reset,
     deleteConnection: deleteMutation.mutate,
     isDeleting: deleteMutation.isPending,
     refetch
