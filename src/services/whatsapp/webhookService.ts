@@ -17,9 +17,18 @@ export interface WhatsAppWebhookPayload {
   environment?: string;
 }
 
+export interface WhatsAppWebhookResponse {
+  ok: boolean;
+  message?: string;
+  data?: any;
+  error?: string;
+  qrCode?: string;
+  pairingCode?: string;
+}
+
 const N8N_WEBHOOK_URL = "https://n8n.costazul.shop/webhook/2089d8f5-252c-4eb8-9da6-58fbc694cf72whatsapp";
 
-export async function sendWhatsAppWebhook(payload: WhatsAppWebhookPayload) {
+export async function sendWhatsAppWebhook(payload: WhatsAppWebhookPayload): Promise<WhatsAppWebhookResponse> {
   console.log(`[WhatsAppWebhook] Sending ${payload.action} for ${payload.source}`, payload);
   
   try {
@@ -36,15 +45,20 @@ export async function sendWhatsAppWebhook(payload: WhatsAppWebhookPayload) {
       throw new Error(`Erro no webhook (${response.status}): ${errorText || response.statusText}`);
     }
 
-    // Try to parse JSON, if it fails, just return success if the status was OK
-    let data = {};
+    let data: any = {};
     try {
       data = await response.json();
     } catch (e) {
       console.warn("[WhatsAppWebhook] Response is not JSON", e);
     }
 
-    return { ok: true, data };
+    return { 
+      ok: true, 
+      message: data.message,
+      qrCode: data.qrCode || data.qr_code,
+      pairingCode: data.pairingCode || data.pairing_code,
+      data 
+    };
   } catch (error: any) {
     console.error("[WhatsAppWebhook] Error:", error);
     return { ok: false, error: error.message || "Erro ao processar requisição" };
