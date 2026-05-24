@@ -57,9 +57,20 @@ await testCreate({
   qrcode: true
 }, "Only instanceName");
 
-// 3. Only name
+// 4. Minimal
 await testCreate({
-  name: instanceName + "-3",
-  integration: "WHATSAPP-BAILEYS",
-  qrcode: true
-}, "Only name");
+  instanceName: instanceName + "-4"
+}, "Minimal instanceName");
+
+// 5. Minimal with integration lowercase
+await testCreate({
+  instanceName: instanceName + "-5",
+  integration: "whatsapp-baileys"
+}, "Minimal with integration lowercase");
+
+// 6. Using 'name' instead of 'instanceName' in a different way
+await testCreate({
+  name: instanceName + "-6",
+  integration: "WHATSAPP-BAILEYS"
+}, "Only name with integration");
+
