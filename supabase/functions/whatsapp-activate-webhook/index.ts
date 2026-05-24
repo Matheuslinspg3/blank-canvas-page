@@ -210,6 +210,7 @@ Deno.serve(async (req) => {
         initialQr = createAttempt.qrBase64;
         initialPairing = createAttempt.pairingCode;
       } else {
+        console.error(`[${dRef}] createInstance failed status=${createAttempt.res.status} raw=${createAttempt.raw?.slice(0, 800)}`);
         const isConflict = /prisma|integrationSession|findFirst/i.test(createAttempt.raw);
         if (isConflict) {
           return jsonResponse({
@@ -220,7 +221,12 @@ Deno.serve(async (req) => {
             recoverable: true
           });
         }
-        throw new AppError("EVO_GO_INSTANCE_CREATE_FAILED", "Falha ao criar instância na Evolution.", 502, dRef);
+        throw new AppError(
+          "EVO_GO_INSTANCE_CREATE_FAILED",
+          `Falha ao criar instância na Evolution (status ${createAttempt.res.status}). ${String(createAttempt.raw || "").slice(0, 200)}`,
+          502,
+          dRef,
+        );
       }
 
     }
