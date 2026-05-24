@@ -60,20 +60,29 @@ await testCreate({
   qrcode: true
 }, "Only instanceName");
 
-// 4. Minimal
+// 7. instanceName in URL query
 await testCreate({
-  instanceName: instanceName + "-4"
-}, "Minimal instanceName");
-
-// 5. Minimal with integration lowercase
-await testCreate({
-  instanceName: instanceName + "-5",
-  integration: "whatsapp-baileys"
-}, "Minimal with integration lowercase");
-
-// 6. Using 'name' instead of 'instanceName' in a different way
-await testCreate({
-  name: instanceName + "-6",
   integration: "WHATSAPP-BAILEYS"
-}, "Only name with integration");
+}, "instanceName in URL query", `${baseUrl}/instance/create?instanceName=${instanceName}-7`);
+
+// 8. Both in URL and body
+await testCreate({
+  instanceName: instanceName + "-8",
+  integration: "WHATSAPP-BAILEYS"
+}, "Both in URL and body", `${baseUrl}/instance/create?instanceName=${instanceName}-8`);
+
+// 9. name in body, instanceName in URL
+await testCreate({
+  name: instanceName + "-9",
+  integration: "WHATSAPP-BAILEYS"
+}, "name in body, instanceName in URL", `${baseUrl}/instance/create?instanceName=${instanceName}-9`);
+
+// 10. Trying 'instance' object
+await testCreate({
+  instance: {
+    instanceName: instanceName + "-10",
+    integration: "WHATSAPP-BAILEYS"
+  }
+}, "Nested in 'instance' object");
+
 
