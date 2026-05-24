@@ -115,6 +115,15 @@ serve(async (req) => {
           }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       }
       pairingCode = extractPairingCode(pairRes.data)
+      if (!pairingCode) {
+        return new Response(JSON.stringify({
+          ok: false,
+          code: 'WHATSAPP_PAIRING_NOT_AVAILABLE',
+          message: 'Não foi possível obter o código de pareamento. Verifique o número e tente novamente.',
+          debug_ref: `ERR-${crypto.randomUUID().split('-')[0].toUpperCase()}`,
+          recoverable: true
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
       status = 'pairing_pending'
     } else {
       const connectRes = await provider.connectInstance(instanceName)
