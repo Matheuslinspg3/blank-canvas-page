@@ -166,14 +166,17 @@ Deno.serve(async (req) => {
     const baseInstanceName = `${orgSlug}-${orgId}`;
 
     const { data: existingConfig } = await sb.from("whatsapp_agent_config").select("*").eq("organization_id", orgId).maybeSingle();
+    
     let instanceName = typeof existingConfig?.instance_name === "string" && existingConfig.instance_name.trim()
       ? existingConfig.instance_name.trim()
       : baseInstanceName;
 
-    if (!instanceName || typeof instanceName !== "string" || !instanceName.trim()) {
-      throw new AppError("INVALID_INSTANCE_NAME", "Nome da instância inválido.", 400, dRef);
+    // Defensive validation
+    if (!instanceName || typeof instanceName !== "string" || !instanceName.trim() || instanceName === "undefined") {
+      throw new AppError("INVALID_INSTANCE_NAME", "Nome da instância inválido ou ausente.", 400, dRef);
     }
     instanceName = instanceName.trim();
+
 
 
     let phoneNumber: string | null = null;
