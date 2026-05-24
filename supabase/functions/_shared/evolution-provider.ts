@@ -99,8 +99,23 @@ export class EvolutionProvider {
 
   async getQr(instanceName: string) {
     if (this.config.provider === "evolution_go") {
-      // Evolution Go: QR é retornado pelo /instance/connect (POST)
-      return await this.request("POST", "/instance/connect", { name: instanceName });
+      // Evolution Go: QR é retornado pelo /instance/connect, mas versões/builds
+      // diferentes aceitam nomes de campo distintos no payload.
+      const attempts = [
+        () => this.request("POST", "/instance/connect", { name: instanceName }),
+        () => this.request("POST", "/instance/connect", { instanceName }),
+        () => this.request("POST", "/instance/connect", { instance: instanceName }),
+      ];
+
+      let last: InstanceResponse | null = null;
+      for (const attempt of attempts) {
+        const res = await attempt();
+        last = res;
+        if (res.ok && (extractQrBase64(res.data) || extractPairingCode(res.data) || classifyConnectionStatus(res.raw, res.data?.state, res.data?.status, res.data?.instance?.state) === "connected")) {
+          return res;
+        }
+      }
+      return last!;
     } else {
       return await this.request("GET", `/instance/connect/${instanceName}`);
     }
@@ -129,10 +144,19 @@ export class EvolutionProvider {
 
   async logout(instanceName: string) {
     if (this.config.provider === "evolution_go") {
-      // In Go, logout is usually POST /instance/logout
-      return await this.request("POST", "/instance/logout", {
-        name: instanceName
-      });
+      const attempts = [
+        () => this.request("POST", "/instance/logout", { name: instanceName }),
+        () => this.request("POST", "/instance/logout", { instanceName }),
+        () => this.request("DELETE", `/instance/logout?name=${encodeURIComponent(instanceName)}`),
+      ];
+
+      let last: InstanceResponse | null = null;
+      for (const attempt of attempts) {
+        const res = await attempt();
+        last = res;
+        if (res.ok || res.status === 404) return res;
+      }
+      return last!;
     } else {
       return await this.request("DELETE", `/instance/logout/${instanceName}`);
     }
@@ -140,9 +164,19 @@ export class EvolutionProvider {
 
   async delete(instanceName: string) {
     if (this.config.provider === "evolution_go") {
-      // In Go, delete is DELETE /instance/delete?name=... or DELETE /instance/delete/ID
-      // Common pattern is ?name=
-      return await this.request("DELETE", `/instance/delete?name=${instanceName}`);
+      const attempts = [
+        () => this.request("DELETE", `/instance/delete?name=${encodeURIComponent(instanceName)}`),
+        () => this.request("DELETE", "/instance/delete", { name: instanceName }),
+        () => this.request("DELETE", "/instance/delete", { instanceName }),
+      ];
+
+      let last: InstanceResponse | null = null;
+      for (const attempt of attempts) {
+        const res = await attempt();
+        last = res;
+        if (res.ok || res.status === 404) return res;
+      }
+      return last!;
     } else {
       return await this.request("DELETE", `/instance/delete/${instanceName}`);
     }
