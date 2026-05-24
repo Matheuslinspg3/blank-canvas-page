@@ -1,13 +1,17 @@
 const baseUrl = Deno.env.get("EVOLUTION_API_URL")?.replace(/\/$/, "");
 const apiKey = Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
 
-async function checkInstances() {
-  const res = await fetch(`${baseUrl}/instance/fetchInstances`, {
-    method: "GET",
-    headers: { apikey: apiKey },
+async function test(label: string, url: string, payload: any) {
+  console.log(`\n--- ${label} ---`);
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: apiKey },
+    body: JSON.stringify(payload),
   });
-  const data = await res.json();
-  console.log(JSON.stringify(data, null, 2));
+  const raw = await res.text();
+  console.log(`Status: ${res.status}`);
+  console.log(`Response: ${raw.substring(0, 500)}`);
 }
 
-await checkInstances();
+const instanceName = "test-" + Math.random().toString(36).substring(2, 7);
+await test("Path param", `${baseUrl}/instance/create/${instanceName}`, { integration: "WHATSAPP-BAILEYS" });
