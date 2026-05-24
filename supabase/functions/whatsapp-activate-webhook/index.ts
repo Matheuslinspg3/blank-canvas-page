@@ -185,25 +185,33 @@ Deno.serve(async (req) => {
     } catch { /* QR mode */ }
 
 
-    console.log(`[${dRef}] Preflight: Fetching instances for ${instanceName}`);
+    console.log(`[${dRef}] Action: Activate. Instance: ${instanceName}. ForceNew: ${forceNewInstance}`);
+    
     let instanceExists = false;
     let instanceToken: string | null = null;
 
-    const fetchRes = await fetch(`${baseUrl}/instance/fetchInstances`, {
-      method: "GET",
-      headers: { apikey: EVOLUTION_API_KEY },
-    });
+    if (!forceNewInstance) {
+      console.log(`[${dRef}] Preflight: Fetching instances to check for ${instanceName}`);
+      const fetchRes = await fetch(`${baseUrl}/instance/fetchInstances`, {
+        method: "GET",
+        headers: { apikey: EVOLUTION_API_KEY },
+      });
 
-    if (fetchRes.ok) {
-      const fetchData = await fetchRes.json();
-      const list = normalizeInstancesList(fetchData);
-      const found = findEvolutionInstance(list, instanceName);
+      if (fetchRes.ok) {
+        const fetchData = await fetchRes.json();
+        const list = normalizeInstancesList(fetchData);
+        const found = findEvolutionInstance(list, instanceName);
 
-      if (found) {
-        instanceExists = true;
-        instanceToken = found?.apikey ?? found?.token ?? found?.instance?.apikey ?? found?.instance?.token ?? null;
+        if (found) {
+          instanceExists = true;
+          instanceToken = found?.apikey ?? found?.token ?? found?.instance?.apikey ?? found?.instance?.token ?? null;
+          console.log(`[${dRef}] Instance already exists on Evolution.`);
+        }
       }
+    } else {
+      console.log(`[${dRef}] force_new_instance=true, skipping fetchInstances and proceeding to cleanup/create.`);
     }
+
 
     let initialQr: string | null = null;
     let initialPairing: string | null = null;
