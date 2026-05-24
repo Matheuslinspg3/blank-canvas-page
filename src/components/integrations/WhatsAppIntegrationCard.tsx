@@ -105,6 +105,14 @@ export function WhatsAppIntegrationCard() {
         const message = payload?.message || invokeError?.message || "Erro de rede ao ativar conexão";
         const debug_ref = payload?.debug_ref;
 
+        // Session expired / unauthenticated — redirect to login instead of crashing
+        if (status === 401 || code === "UNAUTHORIZED") {
+          toast.error("Sessão expirada. Faça login novamente.");
+          try { await supabase.auth.signOut(); } catch { /* silent */ }
+          window.location.href = `/auth?redirect=${encodeURIComponent(window.location.pathname)}`;
+          return;
+        }
+
         setActivationError({ code, message, debug_ref });
         
         Sentry.captureException(invokeError, {
