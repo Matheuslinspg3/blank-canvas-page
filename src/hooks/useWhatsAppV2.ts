@@ -13,7 +13,8 @@ export type WhatsAppStatus =
   | "connected" 
   | "disconnected" 
   | "error" 
-  | "deleting";
+  | "deleting"
+  | "unknown";
 
 export interface WhatsAppConnection {
   id: string;
