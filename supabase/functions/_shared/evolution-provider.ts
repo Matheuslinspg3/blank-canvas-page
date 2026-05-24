@@ -118,11 +118,13 @@ export class EvolutionProvider {
 
   async getStatus(instanceName: string) {
     if (this.config.provider === "evolution_go") {
+      // In Go, status is GET /instance/status?name=... or GET /instance/status/:name
       return await this.request("GET", `/instance/status?name=${instanceName}`);
     } else {
       return await this.request("GET", `/instance/connectionState/${instanceName}`);
     }
   }
+
 
   async logout(instanceName: string) {
     if (this.config.provider === "evolution_go") {
