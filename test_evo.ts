@@ -90,11 +90,25 @@ await testCreate({
   qrcode: true
 }, "instanceName in path AND body", `${baseUrl}/instance/create/${instanceName}-12`);
 
-// 13. Very minimal body
+// 14. With long token
 await testCreate({
-  instanceName: instanceName + "-13",
+  instanceName: instanceName + "-14",
+  token: "token-long-enough-1234567890",
   integration: "WHATSAPP-BAILEYS"
-}, "Very minimal body");
+}, "With long token");
+
+// 15. Only instanceName and token
+await testCreate({
+  instanceName: instanceName + "-15",
+  token: "token-long-enough-1234567890"
+}, "Only instanceName and token");
+
+// 16. What if it's 'instance_name' (lowercase with underscore)?
+await testCreate({
+  instance_name: instanceName + "-16",
+  integration: "WHATSAPP-BAILEYS"
+}, "instance_name with underscore");
+
 
 
 
