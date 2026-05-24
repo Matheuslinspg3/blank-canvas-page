@@ -16,9 +16,17 @@ Deno.serve(async (req) => {
   try {
     const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
     const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
+    const EVOLUTION_PROVIDER = (Deno.env.get("EVOLUTION_PROVIDER") || "evolution_node") as "evolution_node" | "evolution_go";
+
     if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
       throw new Error("EVOLUTION_API_URL ou EVOLUTION_API_GLOBAL_KEY não configurados");
     }
+
+    const provider = new EvolutionProvider({
+      baseUrl: EVOLUTION_API_URL,
+      apiKey: EVOLUTION_API_KEY,
+      provider: EVOLUTION_PROVIDER,
+    });
 
     const { user, error: authError } = await getAuthenticatedUser(req);
     if (authError || !user) {
@@ -56,12 +64,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
+    const stateRes = await provider.getStatus(config.instance_name);
 
-    const stateRes = await fetch(`${baseUrl}/instance/connectionState/${config.instance_name}`, {
-      method: "GET",
-      headers: { apikey: EVOLUTION_API_KEY },
-    });
 
     const stateRaw = await stateRes.text();
     console.log("Polling status response:", stateRaw.substring(0, 300));
