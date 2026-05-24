@@ -54,8 +54,6 @@ export function getSidebarVisibilityFlags({
 
   // During loading, if we have a user session, we keep items visible to avoid 
   // the sidebar jumping/shrinking before roles/subscription data arrives.
-  const showWhatsApp =
-    isDeveloper || hasFeature("has_whatsapp") || (isAnyLoading && hasAuthenticatedUser);
 
   const showAutomations =
     isDeveloper || hasFeature("has_automations") || (isAnyLoading && hasAuthenticatedUser);
