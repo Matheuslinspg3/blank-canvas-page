@@ -127,8 +127,9 @@ export function LeadMetrics({ leads }: LeadMetricsProps) {
               />
             </div>
             <div className="mt-2.5">
-              <p className="text-xl sm:text-2xl font-bold truncate">{card.value}</p>
+              <p className={`text-xl sm:text-2xl font-bold truncate ${(card as any).colorClass || ''}`}>{card.value}</p>
               <p className="text-[11px] sm:text-xs text-muted-foreground truncate mt-0.5">{card.subtitle}</p>
+
             </div>
           </CardContent>
         </Card>
