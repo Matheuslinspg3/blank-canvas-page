@@ -61,7 +61,7 @@ export function getSidebarVisibilityFlags({
   const showBrandSettings = 
     isDeveloper || hasFeature("has_brand_settings") || (isAnyLoading && hasAuthenticatedUser);
 
-  return { showWhatsApp, showAutomations, showBrandSettings };
+  return { showAutomations, showBrandSettings };
 }
 
 /**
