@@ -223,11 +223,18 @@ Deno.serve(async (req) => {
 
     if (phoneNumber && !finalPairing) {
         const connRes = await provider.pair(instanceName, phoneNumber);
+        if (!connRes.ok) {
+           throw new AppError("EVO_GO_PAIRING_FAILED", "Falha ao gerar código de pareamento.", 502, dRef);
+        }
         finalPairing = extractPairingCode(connRes.data);
     } else if (!phoneNumber && !finalQr) {
         const connRes = await provider.getQr(instanceName);
+        if (!connRes.ok) {
+           throw new AppError("EVO_GO_QR_NOT_AVAILABLE", "Não foi possível gerar o QR Code agora.", 502, dRef);
+        }
         finalQr = extractQrBase64(connRes.data);
     }
+
 
 
     const status = (finalQr || finalPairing) ? "connecting" : "provisioning";
