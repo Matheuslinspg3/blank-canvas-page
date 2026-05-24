@@ -103,22 +103,20 @@ export function WhatsAppIntegrationCard() {
       const result = await sendWhatsAppWebhook(payload);
 
       if (!result.ok) {
-        setActivationError({ code: "WEBHOOK_ERROR", message: result.error });
+        setActivationError({ code: "WEBHOOK_ERROR", message: result.error || "Erro desconhecido" });
         toast.error(result.error);
         return;
       }
 
-      const data = result.data;
-
-      if (data?.message) {
-        toast.success(data.message);
+      if (result.message) {
+        toast.success(result.message);
       }
 
-      if (data?.pairingCode) {
-        setPairingCode(data.pairingCode);
+      if (result.pairingCode) {
+        setPairingCode(result.pairingCode);
         setQrCode(null);
-      } else if (data?.qrCode) {
-        setQrCode(data.qrCode);
+      } else if (result.qrCode) {
+        setQrCode(result.qrCode);
         setPairingCode(null);
       }
 

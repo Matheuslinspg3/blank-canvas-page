@@ -34,7 +34,7 @@ export function RetellActivateButton() {
         throw new Error(result.error);
       }
 
-      toast.success(result.data?.message || "Solicitação de ativação enviada!");
+      toast.success(result.message || "Solicitação de ativação enviada!");
       queryClient.invalidateQueries({ queryKey: ["retell-agent-config"] });
     } catch (err: any) {
       toast.error("Erro ao ativar Sofia: " + (err.message ?? String(err)));

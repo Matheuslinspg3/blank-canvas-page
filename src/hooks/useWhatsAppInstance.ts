@@ -129,10 +129,10 @@ export function useWhatsAppInstance() {
 
       const result = await sendWhatsAppWebhook(payload);
       if (!result.ok) throw new Error(result.error);
-      return result.data;
+      return result;
     },
-    onSuccess: (data) => {
-      toast.success(data?.message || "WhatsApp desconectado");
+    onSuccess: (result) => {
+      toast.success(result.message || "WhatsApp desconectado");
       invalidate();
     },
     onError: (err: any) => {
@@ -158,10 +158,10 @@ export function useWhatsAppInstance() {
 
       const result = await sendWhatsAppWebhook(payload);
       if (!result.ok) throw new Error(result.error);
-      return result.data;
+      return result;
     },
-    onSuccess: (data) => {
-      toast.success(data?.message || "Integração WhatsApp removida");
+    onSuccess: (result) => {
+      toast.success(result.message || "Integração WhatsApp removida");
       invalidate();
     },
     onError: (err: any) => {

@@ -73,11 +73,11 @@ export function useWhatsAppV2() {
         throw new Error(result.error);
       }
       
-      return result.data;
+      return result;
     },
-    onSuccess: (data) => {
-      if (data?.message) {
-        toast.success(data.message);
+    onSuccess: (result) => {
+      if (result.ok && result.message) {
+        toast.success(result.message);
       }
       queryClient.invalidateQueries({ queryKey: ["whatsapp-connection-v2"] });
     },
@@ -102,11 +102,11 @@ export function useWhatsAppV2() {
 
       const result = await sendWhatsAppWebhook(payload);
       if (!result.ok) throw new Error(result.error);
-      return result.data;
+      return result;
     },
-    onSuccess: (data) => {
+    onSuccess: (result) => {
       queryClient.setQueryData(["whatsapp-connection-v2"], { ok: true, status: "not_configured" });
-      toast.success(data?.message || "Solicitação de remoção enviada");
+      toast.success(result.message || "Solicitação de remoção enviada");
     },
     onError: (err: Error) => {
       toast.error(err.message || "Falha ao remover integração");
