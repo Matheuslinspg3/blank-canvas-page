@@ -1,9 +1,9 @@
 const baseUrl = Deno.env.get("EVOLUTION_API_URL")?.replace(/\/$/, "");
 const apiKey = Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
 
-async function test(label: string, url: string, payload: any) {
+async function test(label: string, payload: any) {
   console.log(`\n--- ${label} ---`);
-  const res = await fetch(url, {
+  const res = await fetch(`${baseUrl}/instance/create`, {
     method: "POST",
     headers: { "Content-Type": "application/json", apikey: apiKey },
     body: JSON.stringify(payload),
@@ -14,5 +14,5 @@ async function test(label: string, url: string, payload: any) {
 }
 
 const instanceName = "test-" + Math.random().toString(36).substring(2, 7);
-await test("Query param instanceName", `${baseUrl}/instance/create?instanceName=${instanceName}`, { integration: "WHATSAPP-BAILEYS", qrcode: true });
-await test("Query param name", `${baseUrl}/instance/create?name=${instanceName}-q`, { integration: "WHATSAPP-BAILEYS", qrcode: true });
+await test("instanceId", { instanceId: instanceName, integration: "WHATSAPP-BAILEYS" });
+await test("instanceName + instanceId", { instanceName, instanceId: instanceName + "-id", integration: "WHATSAPP-BAILEYS" });
