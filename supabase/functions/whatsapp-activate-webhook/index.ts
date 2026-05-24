@@ -216,14 +216,23 @@ Deno.serve(async (req) => {
     let initialQr: string | null = null;
     let initialPairing: string | null = null;
 
-    if (instanceExists) {
+    if (instanceExists && !forceNewInstance) {
       console.log(`[${dRef}] Configuring webhook for existing instance ${instanceName}`);
       await configureEvolutionWebhook(baseUrl, EVOLUTION_API_KEY, instanceName, WEBHOOK_URL, WHATSAPP_AGENT_SECRET);
     } else {
+      if (forceNewInstance || instanceExists) {
+        console.log(`[${dRef}] Cleaning up instance ${instanceName} before recreation...`);
+        try {
+          await fetch(`${baseUrl}/instance/logout/${instanceName}`, { method: "DELETE", headers: { apikey: EVOLUTION_API_KEY } });
+          await fetch(`${baseUrl}/instance/delete/${instanceName}`, { method: "DELETE", headers: { apikey: EVOLUTION_API_KEY } });
+          await delay(1000);
+        } catch (_) { /* ignore */ }
+      }
+
       const tryCreate = async (name: string) => {
-        console.log(`[${dRef}] Creating instance ${name}`);
         return await createEvolutionInstance(baseUrl, EVOLUTION_API_KEY, name, WEBHOOK_URL, WHATSAPP_AGENT_SECRET);
       };
+
 
       const cleanupOrphan = async (name: string) => {
         console.log(`[${dRef}] Cleanup orphan session for ${name}`);
