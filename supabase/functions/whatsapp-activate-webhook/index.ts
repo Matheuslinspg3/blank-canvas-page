@@ -2,6 +2,7 @@ import { createServiceClient, getAuthenticatedUser } from "../_shared/auth.ts";
 import { 
   corsHeaders, 
   parseJsonSafely, 
+  classifyConnectionStatus,
   extractPairingCode, 
   extractQrBase64, 
   jsonResponse,
@@ -226,6 +227,7 @@ Deno.serve(async (req) => {
 
     let finalQr = initialQr;
     let finalPairing = initialPairing;
+    let finalConnected = false;
 
     if (phoneNumber && !finalPairing) {
         const connRes = await provider.pair(instanceName, phoneNumber);
@@ -237,8 +239,20 @@ Deno.serve(async (req) => {
         const connRes = await provider.getQr(instanceName);
         finalQr = extractQrBase64(connRes.data);
 
+        const connState = classifyConnectionStatus(
+          connRes.raw,
+          connRes.data?.state,
+          connRes.data?.status,
+          connRes.data?.instance?.state,
+          connRes.data?.data?.state,
+        );
+        if (connState === "connected") {
+          finalQr = null;
+          finalConnected = true;
+        }
+
         // Fallback: instância existe mas QR não disponível → recriar
-        if (!finalQr) {
+        if (!finalQr && !finalConnected) {
           console.log(`[${dRef}] QR indisponível para instância existente. Recriando...`);
           try { await provider.logout(instanceName); } catch { /* ignore */ }
           try { await provider.delete(instanceName); } catch { /* ignore */ }
@@ -257,14 +271,26 @@ Deno.serve(async (req) => {
           }
 
           if (!finalQr) {
-            throw new AppError("EVO_GO_QR_NOT_AVAILABLE", "Não foi possível gerar o QR Code. Tente remover a conexão e ativar novamente.", 502, dRef);
+            await auditLog(sb, orgId, "activate_webhook_qr_unavailable", user.id, {
+              instanceName,
+              debug_ref: dRef,
+              provider: EVOLUTION_PROVIDER,
+            });
+
+            return jsonResponse({
+              ok: false,
+              code: "EVO_GO_QR_NOT_AVAILABLE",
+              message: "A Evolution Go não retornou um QR Code agora. Remova a conexão local e tente conectar novamente, ou use o código de pareamento.",
+              debug_ref: dRef,
+              recoverable: true,
+            });
           }
         }
     }
 
 
 
-    const status = (finalQr || finalPairing) ? "connecting" : "provisioning";
+    const status = finalConnected ? "connected" : ((finalQr || finalPairing) ? "connecting" : "provisioning");
     const dbPayload: any = {
       instance_name: instanceName,
       status,

@@ -78,7 +78,7 @@ export function WhatsAppIntegrationCard() {
     }, STATUS_POLL_INTERVAL);
   }, [handleConnected, stopStatusPolling]);
 
-  const handleActivate = async (phoneNumber?: string) => {
+  const handleActivate = async (phoneNumber?: string, forceNewInstance = false) => {
     if (isActivating) return;
     
     const mode = phoneNumber ? "pairing" : "qr";
@@ -87,7 +87,7 @@ export function WhatsAppIntegrationCard() {
 
     try {
       const { data, error: invokeError } = await supabase.functions.invoke("whatsapp-activate-webhook", {
-        body: { phone_number: phoneNumber },
+        body: { phone_number: phoneNumber, force_new_instance: forceNewInstance },
       });
 
       if (invokeError) {
@@ -284,6 +284,37 @@ export function WhatsAppIntegrationCard() {
                   >
                     {isActivating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                     Tentar Novamente
+                  </Button>
+                </div>
+                {activationError.debug_ref && (
+                  <p className="mt-2 text-[10px] opacity-70 font-mono">Ref: {activationError.debug_ref}</p>
+                )}
+              </div>
+            )}
+
+            {activationError && activationError.code !== "EVO_GO_INSTANCE_CONFLICT" && (
+              <div className="p-4 border border-destructive/20 bg-destructive/5 rounded-lg text-sm text-destructive animate-in fade-in slide-in-from-top-1">
+                <p className="font-bold flex items-center gap-2 mb-1 text-base">
+                  <XCircle className="h-5 w-5" /> Falha ao gerar conexão
+                </p>
+                <p className="mb-3">{activationError.message}</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleActivate(undefined, true)}
+                    disabled={isActivating}
+                  >
+                    {isActivating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                    Recriar instância
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-destructive/20 text-destructive hover:bg-destructive/10"
+                    onClick={() => setConnectionMode("pairing")}
+                  >
+                    Usar código
                   </Button>
                 </div>
                 {activationError.debug_ref && (
