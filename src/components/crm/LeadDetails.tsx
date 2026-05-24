@@ -56,6 +56,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { LeadInteractionTimeline } from './LeadInteractionTimeline';
 import { LeadSuggestedProperties } from './LeadSuggestedProperties';
+import { AttributionDisplay } from './AttributionDisplay';
+
 // PERF: lazy load - LeadScoreSection imports recharts (~200KB), only needed when lead detail opens
 const LeadScoreSection = lazy(() => import('./LeadScoreSection').then(m => ({ default: m.LeadScoreSection })));
 import { LeadDocumentsTab } from './LeadDocumentsTab';
@@ -237,12 +239,12 @@ export function LeadDetails({
                   </div>
                 </div>
               )}
-              {leadAny.traffic_source && (
-                <div className="flex items-center gap-3">
-                  <Globe className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">Tráfego: {leadAny.traffic_source}</span>
+              {leadAny.attribution_context && (
+                <div className="pt-2">
+                  <AttributionDisplay attribution={leadAny.attribution_context} />
                 </div>
               )}
+
               {lead.interested_property_type && (
                 <div className="flex items-center gap-3">
                   <Building2 className="h-4 w-4 text-muted-foreground" />

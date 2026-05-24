@@ -1,7 +1,10 @@
 import { useState, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { QueryErrorState } from '@/components/QueryErrorState';
+import { isLeadStale, isLeadCritical, getLeadStalenessDays } from '@/lib/leadStaleness';
+import { leadHasCriteria } from '@/lib/leadCriteria';
 import {
+
   DndContext,
   DragEndEvent,
   DragOverlay,
@@ -141,7 +144,10 @@ export function KanbanBoard() {
     } catch { /* ignore */ }
   }, []);
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
+  const [stalenessFilter, setStalenessFilter] = useState<string | null>(null);
+  const [criteriaFilter, setCriteriaFilter] = useState<string | null>(null);
   const [columnReorderMode, setColumnReorderMode] = useState(false);
+
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -197,7 +203,24 @@ export function KanbanBoard() {
           return ci?.split(',').map(s => s.trim()).includes(selectedConversion);
         });
       }
+      if (stalenessFilter) {
+        if (stalenessFilter === 'stale') {
+          stageLeads = stageLeads.filter(l => isLeadStale(l.updated_at));
+        } else if (stalenessFilter === 'critical') {
+          stageLeads = stageLeads.filter(l => isLeadCritical(l.updated_at));
+        } else if (stalenessFilter === 'recent') {
+          stageLeads = stageLeads.filter(l => !isLeadStale(l.updated_at));
+        }
+      }
+      if (criteriaFilter) {
+        if (criteriaFilter === 'has_criteria') {
+          stageLeads = stageLeads.filter(l => leadHasCriteria(l));
+        } else if (criteriaFilter === 'no_criteria') {
+          stageLeads = stageLeads.filter(l => !leadHasCriteria(l));
+        }
+      }
       // Sort: oldest updated_at first (stalest leads on top)
+
       return [...stageLeads].sort((a, b) => 
         new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime()
       );
@@ -212,7 +235,8 @@ export function KanbanBoard() {
     result['__unclassified__'] = applyFilters(leadsByStage['__unclassified__'] || [], '__unclassified__');
 
     return result;
-  }, [leadsByStage, leadStages, search, selectedBrokerId, selectedSource, selectedTemperature, selectedConversion]);
+  }, [leadsByStage, leadStages, search, selectedBrokerId, selectedSource, selectedTemperature, selectedConversion, stalenessFilter, criteriaFilter]);
+
 
   const filteredStageStats = useMemo(() => {
     const allStageIds = [...leadStages.map(s => s.id), '__unclassified__'];
@@ -488,7 +512,12 @@ export function KanbanBoard() {
           selectedConversion={selectedConversion}
           onConversionChange={setSelectedConversion}
           conversionOptions={conversionOptions}
+          stalenessFilter={stalenessFilter}
+          onStalenessChange={setStalenessFilter}
+          criteriaFilter={criteriaFilter}
+          onCriteriaChange={setCriteriaFilter}
         />
+
         <div className="flex gap-2">
           <div className="flex border rounded-md overflow-hidden shrink-0">
             <Button

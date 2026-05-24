@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { TrendingUp, TrendingDown, Users, DollarSign, Target, Clock } from 'lucide-react';
+import { TrendingUp, TrendingDown, Users, DollarSign, Target, Clock, AlertTriangle } from 'lucide-react';
+import { isLeadStale, isLeadCritical } from '@/lib/leadStaleness';
+
 import { type Lead } from '@/hooks/useLeads';
 
 interface LeadMetricsProps {
@@ -59,8 +61,11 @@ export function LeadMetrics({ leads }: LeadMetricsProps) {
       wonValue,
       pipelineValue,
       avgDaysInPipeline: Math.round(avgDaysInPipeline),
+      staleLeads: activeLeads.filter(l => isLeadStale(l.updated_at)).length,
+      criticalLeads: activeLeads.filter(l => isLeadCritical(l.updated_at)).length,
     };
   }, [leads]);
+
 
   const cards = [
     {
@@ -91,10 +96,19 @@ export function LeadMetrics({ leads }: LeadMetricsProps) {
       icon: DollarSign,
       trend: null,
     },
+    {
+      title: 'Atenção Necessária',
+      value: metrics.staleLeads.toString(),
+      subtitle: `${metrics.criticalLeads} em estado crítico`,
+      icon: AlertTriangle,
+      trend: metrics.staleLeads > 0 ? 'down' : 'up',
+      colorClass: metrics.criticalLeads > 0 ? 'text-red-500' : metrics.staleLeads > 0 ? 'text-amber-500' : '',
+    },
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+
       {cards.map((card) => (
         <Card key={card.title} className="bg-card">
           <CardContent className="p-4 sm:p-4">
@@ -113,8 +127,9 @@ export function LeadMetrics({ leads }: LeadMetricsProps) {
               />
             </div>
             <div className="mt-2.5">
-              <p className="text-xl sm:text-2xl font-bold truncate">{card.value}</p>
+              <p className={`text-xl sm:text-2xl font-bold truncate ${(card as any).colorClass || ''}`}>{card.value}</p>
               <p className="text-[11px] sm:text-xs text-muted-foreground truncate mt-0.5">{card.subtitle}</p>
+
             </div>
           </CardContent>
         </Card>
