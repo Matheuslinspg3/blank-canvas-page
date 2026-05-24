@@ -191,7 +191,8 @@ serve(async (req) => {
 
       if (!instanceExists) {
         const createBody: Record<string, unknown> = {
-          instanceName,
+          name: instanceName,
+
           integration: "WHATSAPP-BAILEYS",
           qrcode: !usePairing,
           webhook: {
