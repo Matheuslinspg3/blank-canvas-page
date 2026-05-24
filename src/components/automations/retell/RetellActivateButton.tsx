@@ -5,18 +5,36 @@ import { Loader2, Sparkles, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
+import { sendWhatsAppWebhook, buildWhatsAppPayload } from "@/services/whatsapp/webhookService";
 
 export function RetellActivateButton() {
   const [loading, setLoading] = useState(false);
   const queryClient = useQueryClient();
+  const { user, profile } = useAuth();
 
   const handleActivate = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("retell-provision-agent");
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      toast.success("Sofia ativada! Sua agente de voz está pronta.");
+      const { data: organization } = await supabase
+        .from("organizations")
+        .select("id, name")
+        .eq("id", profile?.organization_id)
+        .maybeSingle();
+
+      const payload = buildWhatsAppPayload(
+        "create",
+        "ai_agent",
+        { user, profile, organization }
+      );
+
+      const result = await sendWhatsAppWebhook(payload);
+
+      if (!result.ok) {
+        throw new Error(result.error);
+      }
+
+      toast.success(result.message || "Solicitação de ativação enviada!");
       queryClient.invalidateQueries({ queryKey: ["retell-agent-config"] });
     } catch (err: any) {
       toast.error("Erro ao ativar Sofia: " + (err.message ?? String(err)));

@@ -81,11 +81,7 @@ export default function MeuWhatsApp() {
                 <AlertTitle>Falha na operação</AlertTitle>
                 <AlertDescription className="text-xs break-all">
                   <p className="font-medium">
-                    {connectError.code === "WHATSAPP_QR_NOT_AVAILABLE" 
-                      ? "O servidor não conseguiu gerar o QR Code. Tente novamente em 30 segundos." 
-                      : connectError.code === "WHATSAPP_PAIRING_NOT_AVAILABLE"
-                      ? "Não foi possível gerar o código de pareamento. Verifique o número digitado."
-                      : connectError.message || "Não foi possível iniciar a conexão"}
+                    {connectError.message || "Não foi possível iniciar a conexão"}
                   </p>
                   {connectError.debug_ref && (
                     <div className="mt-2 flex items-center gap-1.5 font-mono font-bold text-[9px] uppercase bg-destructive/10 p-1 rounded w-fit">

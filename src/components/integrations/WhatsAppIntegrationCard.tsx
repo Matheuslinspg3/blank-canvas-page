@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, MessageCircle, CheckCircle2, XCircle, RefreshCw, Smartphone, QrCode, Hash, Trash2 } from "lucide-react";
 import { useWhatsAppInstance } from "@/hooks/useWhatsAppInstance";
+import { sendWhatsAppWebhook, buildWhatsAppPayload } from "@/services/whatsapp/webhookService";
+import { useAuth } from "@/contexts/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as Sentry from "@sentry/react";
@@ -36,6 +38,7 @@ export function WhatsAppIntegrationCard() {
     isDeleting,
   } = useWhatsAppInstance();
   const queryClient = useQueryClient();
+  const { user, profile } = useAuth();
 
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [pairingCode, setPairingCode] = useState<string | null>(null);
@@ -81,83 +84,40 @@ export function WhatsAppIntegrationCard() {
   const handleActivate = async (phoneNumber?: string, forceNewInstance = false) => {
     if (isActivating) return;
     
-    const mode = phoneNumber ? "pairing" : "qr";
     setIsActivating(true);
     setActivationError(null);
 
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke("whatsapp-activate-webhook", {
-        body: { phone_number: phoneNumber, force_new_instance: forceNewInstance },
-      });
+      const { data: organization } = await supabase
+        .from("organizations")
+        .select("id, name")
+        .eq("id", profile?.organization_id)
+        .maybeSingle();
 
-      if (invokeError) {
-        // Normalizing Supabase Function error
-        const status = invokeError?.context?.status;
-        let payload: { ok?: boolean; code?: string; message?: string; debug_ref?: string } | null = null;
-        try { 
-            const response = invokeError.context;
-            if (response && response.clone) {
-                payload = await response.clone().json();
-            }
-        } catch { /* silent */ }
-        
-        const code = payload?.code || "ACTIVATE_HTTP_ERROR";
-        const message = payload?.message || invokeError?.message || "Erro de rede ao ativar conexão";
-        const debug_ref = payload?.debug_ref;
+      const payload = buildWhatsAppPayload(
+        instance?.status === "disconnected" ? "reconnect" : "create",
+        "ai_agent",
+        { user, profile, organization }
+      );
 
-        // Session expired / unauthenticated — redirect to login instead of crashing
-        if (status === 401 || code === "UNAUTHORIZED") {
-          toast.error("Sessão expirada. Faça login novamente.");
-          try { await supabase.auth.signOut(); } catch { /* silent */ }
-          window.location.href = `/auth?redirect=${encodeURIComponent(window.location.pathname)}`;
-          return;
-        }
+      const result = await sendWhatsAppWebhook(payload);
 
-        setActivationError({ code, message, debug_ref });
-        
-        Sentry.captureException(invokeError, {
-          tags: {
-            function_name: "whatsapp-activate-webhook",
-            route: "/automacoes",
-            activation_mode: mode,
-            error_code: code,
-            http_status: status,
-          },
-          extra: { debug_ref, org_id: instance?.organization_id, payload }
-        });
-
-        toast.error(message, { description: debug_ref });
+      if (!result.ok) {
+        setActivationError({ code: "WEBHOOK_ERROR", message: result.error || "Erro desconhecido" });
+        toast.error(result.error);
         return;
       }
 
-      // Check for operational errors returned with status 200
-      if (data?.ok === false) {
-          const code = data.code || "ACTIVATE_OP_ERROR";
-          const message = data.message || "Não foi possível completar a ativação";
-          const debug_ref = data.debug_ref;
-
-          setActivationError({ code, message, debug_ref });
-          
-          if (code !== "EVO_GO_INSTANCE_CONFLICT") {
-            toast.error(message, { description: debug_ref });
-          }
-          return;
+      if (result.message) {
+        toast.success(result.message);
       }
 
-      if (data?.status === "connected") {
-        handleConnected();
-        toast.success("WhatsApp já está conectado!");
-        return;
-      }
-
-      if (data?.pairingCode) {
-        setPairingCode(data.pairingCode);
+      if (result.pairingCode) {
+        setPairingCode(result.pairingCode);
         setQrCode(null);
-        toast.success("Código de pareamento gerado!");
-      } else if (data?.qrCode) {
-        setQrCode(data.qrCode);
+      } else if (result.qrCode) {
+        setQrCode(result.qrCode);
         setPairingCode(null);
-        toast.success("QR Code gerado!");
       }
 
       isActiveRef.current = true;
