@@ -130,7 +130,7 @@ export function WhatsAppIntegrationCard() {
 
           setActivationError({ code, message, debug_ref });
           
-          if (code !== "EVOLUTION_INSTANCE_CONFLICT") {
+          if (code !== "EVO_GO_INSTANCE_CONFLICT") {
             toast.error(message, { description: debug_ref });
           }
           return;
