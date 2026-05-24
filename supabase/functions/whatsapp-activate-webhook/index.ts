@@ -47,21 +47,19 @@ const createEvolutionInstance = async (
   webhookUrl: string,
   webhookSecret: string,
 ) => {
-  // In v2.4.0, 'instanceName' is often a protected field in the DTO, 
-  // but 'name' is required for the database mapping.
-  // We send both to ensure compatibility across versions.
+  // Evolution API v2.4.0 is very sensitive. 
+  // We use 'instanceName' as the primary identifier.
+  // We also provide a token to ensure the integration session has a valid key.
+  const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  
   const payload = {
     instanceName,
-    name: instanceName,
+    token,
     integration: "WHATSAPP-BAILEYS",
     qrcode: true,
-    rejectCall: true,
-    groupsIgnore: true,
-    alwaysOnline: false,
-    readMessages: false,
-    readStatus: false,
-    syncFullHistory: false, // Recommended to be false during initial creation in v2.x
+    syncFullHistory: false,
   };
+
 
   try {
     console.log(`[createEvolutionInstance] POST to ${baseUrl}/instance/create with payload keys: ${Object.keys(payload).join(", ")}`);
