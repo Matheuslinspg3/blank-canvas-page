@@ -14,15 +14,22 @@ serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get('Authorization')
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+    if (!serviceRoleKey) {
+      throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY')
+    }
+
     const authClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      { global: { headers: authHeader ? { Authorization: authHeader } : {} } }
     )
     // Service-role client for DB writes (bypasses RLS); auth is validated above.
-    const supabase = createClient(
+    const adminClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      serviceRoleKey
     )
 
     const { data: { user }, error: authError } = await authClient.auth.getUser()
@@ -33,7 +40,7 @@ serve(async (req) => {
       })
     }
 
-    const { data: profile } = await supabase.from('profiles').select('organization_id').eq('user_id', user.id).maybeSingle()
+    const { data: profile } = await adminClient.from('profiles').select('organization_id').eq('user_id', user.id).maybeSingle()
     if (!profile?.organization_id) {
       return new Response(JSON.stringify({ ok: false, code: 'NO_ORG', message: 'Organização não encontrada' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -54,14 +61,14 @@ serve(async (req) => {
     const instanceName = `org-${profile.organization_id.split('-')[0]}-${profile.organization_id.split('-')[4]}`
 
     // 1. Check or Create local connection
-    let { data: connection } = await supabase
+    let { data: connection } = await adminClient
       .from('whatsapp_connections')
       .select('*')
       .eq('organization_id', profile.organization_id)
       .maybeSingle()
 
     if (!connection) {
-      const { data: newConn, error: createError } = await supabase
+      const { data: newConn, error: createError } = await adminClient
         .from('whatsapp_connections')
         .insert({
           organization_id: profile.organization_id,
@@ -118,12 +125,14 @@ serve(async (req) => {
     }
 
     // 4. Update local state
-    await supabase.from('whatsapp_connections').update({
+    const { error: updateError } = await adminClient.from('whatsapp_connections').update({
       status,
       qr_code: qrCode,
       pairing_code: pairingCode,
       phone_number: phoneNumber || connection.phone_number
     }).eq('id', connection.id)
+
+    if (updateError) throw updateError
 
     return new Response(JSON.stringify({
       ok: true,
@@ -137,12 +146,13 @@ serve(async (req) => {
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
   } catch (err) {
-    console.error(err)
+    const debugRef = `ERR-${crypto.randomUUID().split('-')[0].toUpperCase()}`
+    console.error(debugRef, err)
     return new Response(JSON.stringify({
       ok: false,
       code: 'INTERNAL_ERROR',
       message: 'Erro interno ao processar conexão.',
-      debug_ref: `ERR-${crypto.randomUUID().split('-')[0].toUpperCase()}`
+      debug_ref: debugRef
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 })
   }
 })
