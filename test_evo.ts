@@ -10,12 +10,14 @@ if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
 const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
 const instanceName = "test-diag-" + Math.random().toString(36).substring(7);
 
-async function testCreate(payload: any, label: string) {
+async function testCreate(payload: any, label: string, customUrl?: string) {
   console.log(`\n--- Testing: ${label} ---`);
+  const url = customUrl || `${baseUrl}/instance/create`;
+  console.log(`URL: ${url}`);
   console.log(`Payload: ${JSON.stringify(payload)}`);
   
   try {
-    const res = await fetch(`${baseUrl}/instance/create`, {
+    const res = await fetch(url, {
       method: "POST",
       headers: { 
         "Content-Type": "application/json", 
@@ -23,6 +25,7 @@ async function testCreate(payload: any, label: string) {
       },
       body: JSON.stringify(payload),
     });
+
     
     const status = res.status;
     const text = await res.text();
