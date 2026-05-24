@@ -237,6 +237,17 @@ Deno.serve(async (req) => {
         const connRes = await provider.getQr(instanceName);
         finalQr = extractQrBase64(connRes.data);
 
+        const connState = classifyConnectionStatus(
+          connRes.raw,
+          connRes.data?.state,
+          connRes.data?.status,
+          connRes.data?.instance?.state,
+          connRes.data?.data?.state,
+        );
+        if (connState === "connected") {
+          finalQr = null;
+        }
+
         // Fallback: instância existe mas QR não disponível → recriar
         if (!finalQr) {
           console.log(`[${dRef}] QR indisponível para instância existente. Recriando...`);
@@ -257,7 +268,19 @@ Deno.serve(async (req) => {
           }
 
           if (!finalQr) {
-            throw new AppError("EVO_GO_QR_NOT_AVAILABLE", "Não foi possível gerar o QR Code. Tente remover a conexão e ativar novamente.", 502, dRef);
+            await auditLog(sb, orgId, "activate_webhook_qr_unavailable", user.id, {
+              instanceName,
+              debug_ref: dRef,
+              provider: EVOLUTION_PROVIDER,
+            });
+
+            return jsonResponse({
+              ok: false,
+              code: "EVO_GO_QR_NOT_AVAILABLE",
+              message: "A Evolution Go não retornou um QR Code agora. Remova a conexão local e tente conectar novamente, ou use o código de pareamento.",
+              debug_ref: dRef,
+              recoverable: true,
+            });
           }
         }
     }
