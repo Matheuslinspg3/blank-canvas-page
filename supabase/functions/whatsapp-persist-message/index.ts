@@ -45,7 +45,11 @@ serve(async (req) => {
       timestamp: string;
     }> = [];
 
+    const event = body.event || body.type || "MESSAGES_UPSERT";
+    const isMessageEvent = /(messages.upsert|MESSAGES_UPSERT|messages.update|MESSAGES_UPDATE)/i.test(event);
+
     if (body.messages && Array.isArray(body.messages)) {
+
       // Batch format: { instance_name, messages: [...] }
       for (const m of body.messages) {
         messages.push({
