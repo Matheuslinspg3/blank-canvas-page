@@ -257,19 +257,10 @@ serve(async (req) => {
       const channel = await getBrokerChannel(body.targetUserId);
       if (!channel) return json({ status: "disconnected" });
 
-      // Check permission: own channel or admin
       if (channel.user_id !== userId && !isAdmin) return json({ error: "Sem permissão" }, 403);
 
       if (channel.instance_name) {
-        try {
-          const res = await fetch(`${EVOLUTION_API_URL}/instance/logout/${channel.instance_name}`, {
-            method: "DELETE",
-            headers: { apikey: EVOLUTION_API_KEY },
-          });
-          await res.text();
-        } catch (e) {
-          console.warn("Evolution logout failed:", e);
-        }
+        await provider.logout(channel.instance_name).catch(() => null);
       }
 
       await sb.from("broker_whatsapp_channels").update({ status: "disconnected", qr_code: null }).eq("id", channel.id);
@@ -284,15 +275,7 @@ serve(async (req) => {
       if (channel.user_id !== userId && !isAdmin) return json({ error: "Sem permissão" }, 403);
 
       if (channel.instance_name) {
-        try {
-          const res = await fetch(`${EVOLUTION_API_URL}/instance/delete/${channel.instance_name}`, {
-            method: "DELETE",
-            headers: { apikey: EVOLUTION_API_KEY },
-          });
-          await res.text();
-        } catch (e) {
-          console.warn("Evolution delete failed:", e);
-        }
+        await provider.delete(channel.instance_name).catch(() => null);
       }
 
       await sb.from("broker_whatsapp_channels").update({
@@ -306,6 +289,7 @@ serve(async (req) => {
 
       return json({ deleted: true });
     }
+
 
     return json({ error: "Invalid action. Supported: status, connect, disconnect, delete" }, 400);
   } catch (err: unknown) {
