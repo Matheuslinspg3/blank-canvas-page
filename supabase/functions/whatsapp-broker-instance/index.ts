@@ -9,6 +9,8 @@ import {
   extractPairingCode,
   safePreview
 } from "../_shared/whatsapp.ts";
+import { EvolutionProvider } from "../_shared/evolution-provider.ts";
+
 
 const captureWhatsAppException = async (error: unknown, context: Record<string, unknown> = {}) => {
   try {
