@@ -214,7 +214,7 @@ export function AppSidebar() {
                   renderMenuItem({ title: "Meu Site", url: "/site", icon: Globe })}
                 {renderMenuItem({ title: "Administração", url: "/administracao", icon: UserCog })}
                 {renderMenuItem({ title: "Integrações", url: "/integracoes", icon: Plug })}
-                {renderMenuItem({ title: "Meu WhatsApp", url: "/meu-whatsapp", icon: Phone })}
+                {/* Meu WhatsApp item removed */}
 
               </SidebarMenu>
             </SidebarGroupContent>
