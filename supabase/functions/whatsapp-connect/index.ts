@@ -25,7 +25,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const { data: { user }, error: authError } = await authClient.auth.getUser()
     if (authError || !user) {
       return new Response(JSON.stringify({ ok: false, code: 'UNAUTHORIZED', message: 'Não autorizado' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
