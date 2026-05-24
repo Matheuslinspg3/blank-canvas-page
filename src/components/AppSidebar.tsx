@@ -11,7 +11,6 @@ import {
   Store,
   Plug,
   Code,
-  Smartphone,
   Building2,
   User,
   Zap,
@@ -21,7 +20,6 @@ import {
   CreditCard,
   Landmark,
   Globe,
-  Inbox as InboxIcon,
 } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { NavLink } from "@/components/NavLink";
@@ -83,7 +81,7 @@ export function AppSidebar() {
   const { data: newAdLeadsCount = 0 } = useAdLeadsCount();
   const setupPending = useSetupPendingCount();
 
-  const { showWhatsApp, showAutomations, showBrandSettings } = getSidebarVisibilityFlags({
+  const { showAutomations, showBrandSettings } = getSidebarVisibilityFlags({
     isDeveloper,
     hasFeature,
     isLoadingAuth: loadingAuth,
@@ -197,8 +195,6 @@ export function AppSidebar() {
               {mainItems
                 .filter((item) => isDeveloper || !item.developerOnly)
                 .map(renderMenuItem)}
-              {showWhatsApp &&
-                renderMenuItem({ title: "Meu WhatsApp", url: "/whatsapp/meu-canal", icon: Smartphone })}
               {showAutomations &&
                 renderMenuItem({ title: "Automações", url: "/automacoes", icon: Zap })}
             </SidebarMenu>
@@ -214,8 +210,6 @@ export function AppSidebar() {
               <SidebarMenu>
                 {showBrandSettings &&
                   renderMenuItem({ title: "Meu Site", url: "/site", icon: Globe })}
-                {showWhatsApp &&
-                  renderMenuItem({ title: "Canais da Equipe", url: "/whatsapp/canais-equipe", icon: Smartphone })}
                 {renderMenuItem({ title: "Administração", url: "/administracao", icon: UserCog })}
                 {renderMenuItem({ title: "Integrações", url: "/integracoes", icon: Plug })}
               </SidebarMenu>
