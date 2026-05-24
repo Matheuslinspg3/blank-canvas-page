@@ -68,14 +68,20 @@ Deno.serve(async (req) => {
   const dRef = buildDebugRef();
 
   try {
-    const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
-    const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
-    const EVOLUTION_PROVIDER = (Deno.env.get("EVOLUTION_PROVIDER") || "evolution_node") as "evolution_node" | "evolution_go";
+    const EVOLUTION_PROVIDER = (Deno.env.get("EVOLUTION_PROVIDER") || "evolution_go") as "evolution_node" | "evolution_go";
+    const EVOLUTION_API_URL = EVOLUTION_PROVIDER === "evolution_go" 
+      ? Deno.env.get("EVOLUTION_GO_URL") || Deno.env.get("EVOLUTION_API_URL")
+      : Deno.env.get("EVOLUTION_API_URL");
+    const EVOLUTION_API_KEY = EVOLUTION_PROVIDER === "evolution_go"
+      ? Deno.env.get("EVOLUTION_GO_TOKEN") || Deno.env.get("EVOLUTION_API_GLOBAL_KEY")
+      : Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
+
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const WHATSAPP_AGENT_SECRET = Deno.env.get("WHATSAPP_AGENT_SECRET");
 
     if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
-      throw new AppError("MISSING_EVOLUTION_CONFIG", "Configuração da Evolution API ausente.", 422, dRef);
+      console.error(`[${dRef}] Missing config. Provider: ${EVOLUTION_PROVIDER}. URL: ${!!EVOLUTION_API_URL}. Key: ${!!EVOLUTION_API_KEY}`);
+      throw new AppError("MISSING_EVOLUTION_CONFIG", `Configuração da Evolution API (${EVOLUTION_PROVIDER}) ausente.`, 422, dRef);
     }
     if (!SUPABASE_URL || !WHATSAPP_AGENT_SECRET) {
       throw new AppError("MISSING_WEBHOOK_CONFIG", "Configuração de Webhook ausente.", 422, dRef);
