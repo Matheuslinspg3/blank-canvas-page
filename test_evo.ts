@@ -13,5 +13,9 @@ async function test(label: string, payload: any) {
   console.log(`Response: ${raw.substring(0, 500)}`);
 }
 
-const uuid = crypto.randomUUID();
-await test("instanceId (UUID)", { instanceId: uuid, instanceName: "test-lovable", integration: "WHATSAPP-BAILEYS" });
+const instanceName = "test-" + Math.random().toString(36).substring(2, 7);
+await test("instanceName + token as name", { 
+  instanceName, 
+  token: instanceName, 
+  integration: "WHATSAPP-BAILEYS" 
+});
