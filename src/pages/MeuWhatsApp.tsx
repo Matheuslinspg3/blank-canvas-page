@@ -84,10 +84,10 @@ export default function MeuWhatsApp() {
               </Alert>
             )}
 
-            <Tabs defaultValue="qr" className="w-full max-w-sm">
+            <Tabs defaultValue="qr" className="w-full max-w-sm" onValueChange={() => resetConnect()}>
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="qr">QR Code</TabsTrigger>
-                <TabsTrigger value="pairing">Código</TabsTrigger>
+                <TabsTrigger value="qr" disabled={isConnecting}>QR Code</TabsTrigger>
+                <TabsTrigger value="pairing" disabled={isConnecting}>Código</TabsTrigger>
               </TabsList>
               <TabsContent value="qr" className="mt-6">
                 <Button 
