@@ -186,7 +186,7 @@ const App = () => (
                         <Route path="/marketplace" element={<Marketplace />} />
                         <Route path="/marketplace/:id" element={<MarketplacePropertyDetails />} />
                         <Route path="/crm" element={<CRM />} />
-                        <Route path="/inbox" element={<Inbox />} />
+                        
                         {/* Redirecionamentos de WhatsApp para Automações ou Dashboard */}
                         <Route path="/whatsapp/*" element={<Navigate to="/automacoes" replace />} />
                         
