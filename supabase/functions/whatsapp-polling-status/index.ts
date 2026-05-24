@@ -67,10 +67,9 @@ Deno.serve(async (req) => {
     const stateRes = await provider.getStatus(config.instance_name);
 
 
-    const stateRaw = await stateRes.text();
-    console.log("Polling status response:", stateRaw.substring(0, 300));
+    const stateRaw = stateRes.raw;
+    const stateData = stateRes.data;
 
-    const stateData = parseJsonSafely(stateRaw);
     
     const connStatus = classifyConnectionStatus(
       stateRaw,
