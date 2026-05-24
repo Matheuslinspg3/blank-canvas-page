@@ -6,6 +6,8 @@ import {
   extractQrBase64,
   classifyConnectionStatus
 } from "../_shared/whatsapp.ts";
+import { EvolutionProvider } from "../_shared/evolution-provider.ts";
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
