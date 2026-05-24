@@ -68,10 +68,9 @@ Deno.serve(async (req) => {
     const connectRes = await provider.getQr(config.instance_name);
 
 
-    const connectRaw = await connectRes.text();
-    console.log("QR refresh response:", connectRaw.substring(0, 500));
+    const connectRaw = connectRes.raw;
+    const connectData = connectRes.data;
 
-    const connectData = parseJsonSafely(connectRaw);
     
     const qrBase64 = extractQrBase64(connectData);
     const pairingCode = extractPairingCode(connectData);
