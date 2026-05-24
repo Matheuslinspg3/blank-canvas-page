@@ -172,6 +172,12 @@ Deno.serve(async (req) => {
       ? existingConfig.instance_name.trim()
       : baseInstanceName;
 
+    if (!instanceName || typeof instanceName !== "string" || !instanceName.trim()) {
+      throw new AppError("INVALID_INSTANCE_NAME", "Nome da instância inválido.", 400, dRef);
+    }
+    instanceName = instanceName.trim();
+
+
     let phoneNumber: string | null = null;
     try {
       const body = await req.json();
