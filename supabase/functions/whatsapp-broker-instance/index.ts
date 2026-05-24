@@ -156,6 +156,11 @@ serve(async (req) => {
       const orgSlug = org?.slug || orgId.substring(0, 8);
       const userShort = userId.substring(0, 8);
       const instanceName = `broker_${orgSlug}_${userShort}`;
+
+      if (!instanceName || instanceName.includes("undefined")) {
+        return json({ error: "Nome de instância inválido para o corretor" }, 400);
+      }
+
       const webhookUrl = `${supabaseUrl}/functions/v1/whatsapp-broker-webhook`;
 
       const { data: channel, error: upsertErr } = await sb.from("broker_whatsapp_channels").upsert({
@@ -191,7 +196,8 @@ serve(async (req) => {
 
       if (!instanceExists) {
         const createBody: Record<string, unknown> = {
-          instanceName,
+          name: instanceName,
+
           integration: "WHATSAPP-BAILEYS",
           qrcode: !usePairing,
           webhook: {
