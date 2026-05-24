@@ -19,11 +19,11 @@ export interface WhatsAppWebhookPayload {
 
 export interface WhatsAppWebhookResponse {
   ok: boolean;
-  message?: string;
-  data?: any;
-  error?: string;
-  qrCode?: string;
-  pairingCode?: string;
+  message: string;
+  data: any;
+  error: string;
+  qrCode: string;
+  pairingCode: string;
 }
 
 const N8N_WEBHOOK_URL = "https://n8n.costazul.shop/webhook/2089d8f5-252c-4eb8-9da6-58fbc694cf72whatsapp";
@@ -54,14 +54,22 @@ export async function sendWhatsAppWebhook(payload: WhatsAppWebhookPayload): Prom
 
     return { 
       ok: true, 
-      message: data.message,
-      qrCode: data.qrCode || data.qr_code,
-      pairingCode: data.pairingCode || data.pairing_code,
-      data 
+      message: data.message || "",
+      qrCode: data.qrCode || data.qr_code || "",
+      pairingCode: data.pairingCode || data.pairing_code || "",
+      data,
+      error: ""
     };
   } catch (error: any) {
     console.error("[WhatsAppWebhook] Error:", error);
-    return { ok: false, error: error.message || "Erro ao processar requisição" };
+    return { 
+      ok: false, 
+      error: error.message || "Erro ao processar requisição",
+      message: "",
+      qrCode: "",
+      pairingCode: "",
+      data: null
+    };
   }
 }
 
