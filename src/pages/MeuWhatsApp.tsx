@@ -182,7 +182,7 @@ export default function MeuWhatsApp() {
                 <Button variant="outline" onClick={() => deleteConnection()} disabled={isDeleting}>
                   <XCircle className="h-4 w-4 mr-2" /> Desconectar
                 </Button>
-                <Button variant="destructive" variant="outline" onClick={() => deleteConnection()} disabled={isDeleting}>
+                <Button variant="outline" className="text-destructive border-destructive/20 hover:bg-destructive/10" onClick={() => deleteConnection()} disabled={isDeleting}>
                    <Trash2 className="h-4 w-4 mr-2" /> Remover Integração
                 </Button>
               </div>
