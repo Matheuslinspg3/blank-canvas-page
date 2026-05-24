@@ -253,18 +253,18 @@ export default function Maintenance() {
         authToken = session.access_token;
       }
 
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/toggle-maintenance-mode`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${authToken}`,
-            apikey: anonKey,
-          },
-          body: JSON.stringify({ action: "deactivate" }),
-        }
-      );
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/toggle-maintenance-mode`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+          apikey: anonKey,
+        },
+        body: JSON.stringify({ action: "deactivate" }),
+      }
+    );
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
