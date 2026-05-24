@@ -207,14 +207,15 @@ Deno.serve(async (req) => {
         if (isConflict) {
           return jsonResponse({
             ok: false,
-            code: "EVOLUTION_INSTANCE_CONFLICT",
+            code: "EVO_GO_INSTANCE_CONFLICT",
             message: "A Evolution API retornou um erro interno de sessão. Tente remover a conexão local e iniciar uma nova.",
             debug_ref: dRef,
             recoverable: true
           });
         }
-        throw new AppError("EVOLUTION_CREATE_FAILED", "Falha ao criar instância na Evolution.", 502, dRef);
+        throw new AppError("EVO_GO_INSTANCE_CREATE_FAILED", "Falha ao criar instância na Evolution.", 502, dRef);
       }
+
     }
 
     let finalQr = initialQr;
