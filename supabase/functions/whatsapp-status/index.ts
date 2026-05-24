@@ -69,7 +69,14 @@ serve(async (req) => {
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
   } catch (err) {
-    return new Response(JSON.stringify({ ok: false, message: String(err) }), {
+    const debugRef = `ERR-${crypto.randomUUID().split('-')[0].toUpperCase()}`
+    console.error(debugRef, err)
+    return new Response(JSON.stringify({ 
+      ok: false, 
+      code: 'INTERNAL_ERROR',
+      message: 'Erro ao verificar status.',
+      debug_ref: debugRef 
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500
     })

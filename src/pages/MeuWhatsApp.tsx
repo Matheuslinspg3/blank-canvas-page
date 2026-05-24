@@ -10,7 +10,17 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function MeuWhatsApp() {
-  const { connection, status, isLoading, connect, isConnecting, deleteConnection, isDeleting, refetch } = useWhatsAppV2();
+  const { 
+    connection, 
+    status, 
+    isLoading, 
+    connect, 
+    isConnecting, 
+    connectError,
+    deleteConnection, 
+    isDeleting, 
+    refetch 
+  } = useWhatsAppV2();
   const [phoneNumber, setPhoneNumber] = useState("");
 
   const handleConnect = (mode: "qr" | "pairing") => {
@@ -44,7 +54,7 @@ export default function MeuWhatsApp() {
       </div>
 
       {status === "not_configured" && (
-        <Card className="border-2 border-dashed border-muted">
+        <Card className="border-2 border-dashed border-muted overflow-hidden">
           <CardHeader className="text-center pb-2">
             <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
               <Phone className="h-6 w-6 text-primary" />
@@ -54,16 +64,46 @@ export default function MeuWhatsApp() {
               Use seu WhatsApp Business para atender leads, receber mensagens e ativar automações dentro do Porta do Corretor.
             </CardDescription>
           </CardHeader>
+          
           <CardContent className="flex flex-col items-center">
-            <Tabs defaultValue="qr" className="w-full max-w-sm mt-4">
+            {connectError && (
+              <Alert variant="destructive" className="mb-6 max-w-sm">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Erro na conexão</AlertTitle>
+                <AlertDescription className="text-xs break-all">
+                  {connectError.message || "Erro desconhecido"}
+                  {connectError.debug_ref && (
+                    <div className="mt-1 font-mono font-bold text-[10px] uppercase">
+                      Ref: {connectError.debug_ref}
+                    </div>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <Tabs defaultValue="qr" className="w-full max-w-sm">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="qr">QR Code</TabsTrigger>
-                <TabsTrigger value="pairing">Código de Pareamento</TabsTrigger>
+                <TabsTrigger value="pairing">Código</TabsTrigger>
               </TabsList>
               <TabsContent value="qr" className="mt-6">
-                <Button className="w-full" size="lg" onClick={() => handleConnect("qr")} disabled={isConnecting}>
-                  {isConnecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <QrCode className="mr-2 h-4 w-4" />}
-                  Gerar QR Code
+                <Button 
+                  className="w-full relative h-12" 
+                  size="lg" 
+                  onClick={() => handleConnect("qr")} 
+                  disabled={isConnecting}
+                >
+                  {isConnecting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Gerando QR Code...
+                    </>
+                  ) : (
+                    <>
+                      <QrCode className="mr-2 h-4 w-4" />
+                      Gerar QR Code
+                    </>
+                  )}
                 </Button>
               </TabsContent>
               <TabsContent value="pairing" className="mt-6 space-y-4">
@@ -74,11 +114,26 @@ export default function MeuWhatsApp() {
                     placeholder="5511999999999" 
                     value={phoneNumber} 
                     onChange={(e) => setPhoneNumber(e.target.value)} 
+                    disabled={isConnecting}
                   />
                 </div>
-                <Button className="w-full" size="lg" onClick={() => handleConnect("pairing")} disabled={isConnecting || !phoneNumber}>
-                  {isConnecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Phone className="mr-2 h-4 w-4" />}
-                  Gerar Código de Pareamento
+                <Button 
+                  className="w-full h-12" 
+                  size="lg" 
+                  onClick={() => handleConnect("pairing")} 
+                  disabled={isConnecting || !phoneNumber}
+                >
+                  {isConnecting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Gerando Código...
+                    </>
+                  ) : (
+                    <>
+                      <Phone className="mr-2 h-4 w-4" />
+                      Gerar Código de Pareamento
+                    </>
+                  )}
                 </Button>
               </TabsContent>
             </Tabs>
@@ -96,24 +151,42 @@ export default function MeuWhatsApp() {
           </CardHeader>
           <CardContent className="flex flex-col items-center space-y-6">
             {connection?.qr_code ? (
-              <div className="bg-white p-4 rounded-xl border shadow-sm">
-                <img src={connection.qr_code} alt="WhatsApp QR Code" className="w-64 h-64" />
+              <div className="bg-white p-4 rounded-xl border shadow-sm relative group">
+                <img 
+                  src={connection.qr_code.startsWith('data:') ? connection.qr_code : `data:image/png;base64,${connection.qr_code}`} 
+                  alt="WhatsApp QR Code" 
+                  className="w-64 h-64" 
+                />
+                {isConnecting && (
+                  <div className="absolute inset-0 bg-white/80 flex items-center justify-center animate-in fade-in">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                )}
               </div>
             ) : (
               <div className="w-64 h-64 bg-muted animate-pulse rounded-xl flex items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
             )}
-            <div className="flex flex-col items-center space-y-2">
-              <span className="text-sm font-medium flex items-center">
+            <div className="flex flex-col items-center space-y-4 w-full">
+              {connectError && (
+                <Alert variant="destructive" className="max-w-xs py-2">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-[10px] break-all">
+                    {connectError.message} (Ref: {connectError.debug_ref})
+                  </AlertDescription>
+                </Alert>
+              )}
+              <span className="text-sm font-medium flex items-center text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin mr-2" />
                 Aguardando leitura do QR Code...
               </span>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => handleConnect("qr")} disabled={isConnecting}>
-                  <RefreshCw className="h-4 w-4 mr-2" /> Atualizar QR
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isConnecting ? "animate-spin" : ""}`} /> 
+                  Atualizar QR
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => deleteConnection()} className="text-destructive">
+                <Button variant="ghost" size="sm" onClick={() => deleteConnection()} className="text-destructive" disabled={isDeleting}>
                   Cancelar
                 </Button>
               </div>
@@ -131,19 +204,35 @@ export default function MeuWhatsApp() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center space-y-8">
-            <div className="text-5xl font-mono font-bold tracking-[0.5em] bg-muted px-8 py-6 rounded-lg border">
-              {connection?.pairing_code || "-------"}
+            <div className="relative group">
+              <div className="text-5xl font-mono font-bold tracking-[0.5em] bg-muted px-8 py-6 rounded-lg border">
+                {connection?.pairing_code || "-------"}
+              </div>
+              {isConnecting && (
+                <div className="absolute inset-0 bg-muted/80 flex items-center justify-center rounded-lg">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              )}
             </div>
-            <div className="flex flex-col items-center space-y-4">
-              <span className="text-sm font-medium flex items-center">
+            <div className="flex flex-col items-center space-y-4 w-full">
+              {connectError && (
+                <Alert variant="destructive" className="max-w-xs py-2">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-[10px] break-all">
+                    {connectError.message} (Ref: {connectError.debug_ref})
+                  </AlertDescription>
+                </Alert>
+              )}
+              <span className="text-sm font-medium flex items-center text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin mr-2" />
                 Aguardando confirmação no celular...
               </span>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => handleConnect("pairing")} disabled={isConnecting}>
+                  {isConnecting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                   Gerar novo código
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => deleteConnection()} className="text-destructive">
+                <Button variant="ghost" size="sm" onClick={() => deleteConnection()} className="text-destructive" disabled={isDeleting}>
                   Cancelar
                 </Button>
               </div>
