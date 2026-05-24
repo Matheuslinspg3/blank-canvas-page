@@ -13,4 +13,4 @@ async function test(instanceName: string) {
   console.log(`Response: ${raw.substring(0, 500)}`);
 }
 
-await test("testlovable");
+await test("test123");
