@@ -19,11 +19,9 @@ export const DEVELOPER_ONLY_FEATURES = {
   MARKETING_ARTES: "marketing.artes",
   MARKETING_VIDEO: "marketing.video",
   MARKETING_MARCA: "marketing.marca",
-  MEU_WHATSAPP: "meu_whatsapp",
   AUTOMACOES: "automacoes",
   GESTAO_PORTAIS_ANUNCIO: "gestao.portais_anuncio",
   GESTAO_MEU_SITE: "gestao.meu_site",
-  GESTAO_CANAIS_EQUIPE: "gestao.canais_equipe",
 } as const;
 
 export type DeveloperOnlyFeatureKey =
