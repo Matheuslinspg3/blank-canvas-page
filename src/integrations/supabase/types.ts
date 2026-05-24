@@ -9427,6 +9427,145 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_connection_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          connection_id: string | null
+          created_at: string
+          debug_ref: string | null
+          id: string
+          metadata_sanitized: Json | null
+          organization_id: string
+          provider: string | null
+          status_after: string | null
+          status_before: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          connection_id?: string | null
+          created_at?: string
+          debug_ref?: string | null
+          id?: string
+          metadata_sanitized?: Json | null
+          organization_id: string
+          provider?: string | null
+          status_after?: string | null
+          status_before?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          connection_id?: string | null
+          created_at?: string
+          debug_ref?: string | null
+          id?: string
+          metadata_sanitized?: Json | null
+          organization_id?: string
+          provider?: string | null
+          status_after?: string | null
+          status_before?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_connection_events_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_connection_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_connection_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+        ]
+      }
+      whatsapp_connections: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          id: string
+          instance_name: string
+          last_checked_at: string | null
+          last_connected_at: string | null
+          last_debug_ref: string | null
+          last_error_code: string | null
+          last_error_message: string | null
+          organization_id: string
+          pairing_code: string | null
+          phone_number: string | null
+          provider: string
+          provider_instance_id: string | null
+          qr_code: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          instance_name: string
+          last_checked_at?: string | null
+          last_connected_at?: string | null
+          last_debug_ref?: string | null
+          last_error_code?: string | null
+          last_error_message?: string | null
+          organization_id: string
+          pairing_code?: string | null
+          phone_number?: string | null
+          provider?: string
+          provider_instance_id?: string | null
+          qr_code?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          instance_name?: string
+          last_checked_at?: string | null
+          last_connected_at?: string | null
+          last_debug_ref?: string | null
+          last_error_code?: string | null
+          last_error_message?: string | null
+          organization_id?: string
+          pairing_code?: string | null
+          phone_number?: string | null
+          provider?: string
+          provider_instance_id?: string | null
+          qr_code?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_connections_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_connections_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+        ]
+      }
       whatsapp_instances: {
         Row: {
           created_at: string
