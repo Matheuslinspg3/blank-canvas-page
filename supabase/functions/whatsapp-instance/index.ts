@@ -52,11 +52,17 @@ serve(async (req) => {
   }
 
   try {
-    const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
-    const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
-    const EVOLUTION_PROVIDER = (Deno.env.get("EVOLUTION_PROVIDER") || "evolution_node") as "evolution_node" | "evolution_go";
+    const EVOLUTION_PROVIDER = (Deno.env.get("EVOLUTION_PROVIDER") || "evolution_go") as "evolution_node" | "evolution_go";
+    const EVOLUTION_API_URL = EVOLUTION_PROVIDER === "evolution_go" 
+      ? Deno.env.get("EVOLUTION_GO_URL") || Deno.env.get("EVOLUTION_API_URL")
+      : Deno.env.get("EVOLUTION_API_URL");
+    const EVOLUTION_API_KEY = EVOLUTION_PROVIDER === "evolution_go"
+      ? Deno.env.get("EVOLUTION_GO_TOKEN") || Deno.env.get("EVOLUTION_API_GLOBAL_KEY")
+      : Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
     
-    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) throw new AppError("MISSING_EVOLUTION_CONFIG", "Evolution API not configured", 422);
+    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
+      throw new AppError("MISSING_EVOLUTION_CONFIG", `Evolution API (${EVOLUTION_PROVIDER}) not configured`, 422);
+    }
 
     const provider = new EvolutionProvider({
       baseUrl: EVOLUTION_API_URL,
