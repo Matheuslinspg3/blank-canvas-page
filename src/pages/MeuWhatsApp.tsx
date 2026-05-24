@@ -151,24 +151,42 @@ export default function MeuWhatsApp() {
           </CardHeader>
           <CardContent className="flex flex-col items-center space-y-6">
             {connection?.qr_code ? (
-              <div className="bg-white p-4 rounded-xl border shadow-sm">
-                <img src={connection.qr_code} alt="WhatsApp QR Code" className="w-64 h-64" />
+              <div className="bg-white p-4 rounded-xl border shadow-sm relative group">
+                <img 
+                  src={connection.qr_code.startsWith('data:') ? connection.qr_code : `data:image/png;base64,${connection.qr_code}`} 
+                  alt="WhatsApp QR Code" 
+                  className="w-64 h-64" 
+                />
+                {isConnecting && (
+                  <div className="absolute inset-0 bg-white/80 flex items-center justify-center animate-in fade-in">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                )}
               </div>
             ) : (
               <div className="w-64 h-64 bg-muted animate-pulse rounded-xl flex items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
             )}
-            <div className="flex flex-col items-center space-y-2">
-              <span className="text-sm font-medium flex items-center">
+            <div className="flex flex-col items-center space-y-4 w-full">
+              {connectError && (
+                <Alert variant="destructive" className="max-w-xs py-2">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-[10px] break-all">
+                    {connectError.message} (Ref: {connectError.debug_ref})
+                  </AlertDescription>
+                </Alert>
+              )}
+              <span className="text-sm font-medium flex items-center text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin mr-2" />
                 Aguardando leitura do QR Code...
               </span>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => handleConnect("qr")} disabled={isConnecting}>
-                  <RefreshCw className="h-4 w-4 mr-2" /> Atualizar QR
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isConnecting ? "animate-spin" : ""}`} /> 
+                  Atualizar QR
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => deleteConnection()} className="text-destructive">
+                <Button variant="ghost" size="sm" onClick={() => deleteConnection()} className="text-destructive" disabled={isDeleting}>
                   Cancelar
                 </Button>
               </div>
