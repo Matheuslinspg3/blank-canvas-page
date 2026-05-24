@@ -2,6 +2,7 @@ import { createServiceClient, getAuthenticatedUser } from "../_shared/auth.ts";
 import { 
   corsHeaders, 
   parseJsonSafely, 
+  classifyConnectionStatus,
   extractPairingCode, 
   extractQrBase64, 
   jsonResponse,
@@ -226,6 +227,7 @@ Deno.serve(async (req) => {
 
     let finalQr = initialQr;
     let finalPairing = initialPairing;
+    let finalConnected = false;
 
     if (phoneNumber && !finalPairing) {
         const connRes = await provider.pair(instanceName, phoneNumber);
@@ -246,10 +248,11 @@ Deno.serve(async (req) => {
         );
         if (connState === "connected") {
           finalQr = null;
+          finalConnected = true;
         }
 
         // Fallback: instância existe mas QR não disponível → recriar
-        if (!finalQr) {
+        if (!finalQr && !finalConnected) {
           console.log(`[${dRef}] QR indisponível para instância existente. Recriando...`);
           try { await provider.logout(instanceName); } catch { /* ignore */ }
           try { await provider.delete(instanceName); } catch { /* ignore */ }
@@ -287,7 +290,7 @@ Deno.serve(async (req) => {
 
 
 
-    const status = (finalQr || finalPairing) ? "connecting" : "provisioning";
+    const status = finalConnected ? "connected" : ((finalQr || finalPairing) ? "connecting" : "provisioning");
     const dbPayload: any = {
       instance_name: instanceName,
       status,
