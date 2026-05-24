@@ -99,7 +99,8 @@ export class EvolutionProvider {
 
   async getQr(instanceName: string) {
     if (this.config.provider === "evolution_go") {
-      return await this.request("GET", `/instance/qr?name=${instanceName}`);
+      // Evolution Go: QR é retornado pelo /instance/connect (POST)
+      return await this.request("POST", "/instance/connect", { name: instanceName });
     } else {
       return await this.request("GET", `/instance/connect/${instanceName}`);
     }
