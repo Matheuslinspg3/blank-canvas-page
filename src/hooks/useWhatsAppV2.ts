@@ -65,7 +65,7 @@ export function useWhatsAppV2() {
       
       if (!data.ok) {
         console.error("[WhatsAppV2] Function returned error:", data);
-        const error = new Error(data.message || "Erro ao conectar") as any;
+        const error = new Error(data.message || "Erro ao conectar") as WhatsAppError;
         error.code = data.code;
         error.debug_ref = data.debug_ref;
         throw error;
