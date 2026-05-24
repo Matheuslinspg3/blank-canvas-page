@@ -48,18 +48,39 @@ export function useWhatsAppV2() {
 
   const connectMutation = useMutation({
     mutationFn: async ({ mode, phoneNumber }: { mode: "qr" | "pairing", phoneNumber?: string }) => {
+      console.log(`[WhatsAppV2] Connecting mode=${mode} phone=${phoneNumber}`);
       const { data, error } = await supabase.functions.invoke("whatsapp-connect", {
         body: { mode, phone_number: phoneNumber }
       });
-      if (error) throw error;
-      if (!data.ok) throw new Error(data.message || "Erro ao conectar");
+      
+      if (error) {
+        console.error("[WhatsAppV2] Invocation error:", error);
+        throw error;
+      }
+      
+      if (!data.ok) {
+        console.error("[WhatsAppV2] Function returned error:", data);
+        const error = new Error(data.message || "Erro ao conectar") as any;
+        error.code = data.code;
+        error.debug_ref = data.debug_ref;
+        throw error;
+      }
+      
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Update cache immediately for better UX
+      queryClient.setQueryData(["whatsapp-connection-v2"], {
+        ok: true,
+        status: data.status,
+        connection: data.connection
+      });
+      // Still invalidate to ensure we have the absolute latest from status check
       queryClient.invalidateQueries({ queryKey: ["whatsapp-connection-v2"] });
     },
     onError: (err: any) => {
-      toast.error(err.message || "Falha ao iniciar conexão");
+      const msg = err.debug_ref ? `${err.message} (${err.debug_ref})` : err.message;
+      toast.error(msg || "Falha ao iniciar conexão");
     }
   });
 
