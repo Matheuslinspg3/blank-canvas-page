@@ -2,16 +2,28 @@ const baseUrl = Deno.env.get("EVOLUTION_API_URL")?.replace(/\/$/, "");
 const apiKey = Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
 
 async function test() {
-  const instanceName = crypto.randomUUID();
-  console.log(`Testing with UUID as instanceName: ${instanceName}`);
+  const instanceName = "test-final-" + Math.random().toString(36).substring(2, 7);
+  const payload = { 
+    instanceName, 
+    name: instanceName,
+    integration: "WHATSAPP-BAILEYS",
+    qrcode: true
+  };
+  
+  console.log(`Creating ${instanceName}...`);
   const res = await fetch(`${baseUrl}/instance/create`, {
     method: "POST",
     headers: { "Content-Type": "application/json", apikey: apiKey },
-    body: JSON.stringify({ instanceName, integration: "WHATSAPP-BAILEYS" }),
+    body: JSON.stringify(payload),
   });
   const raw = await res.text();
   console.log(`Status: ${res.status}`);
-  console.log(`Response: ${raw.substring(0, 1000)}`);
+  
+  if (res.ok) {
+     console.log("Success!");
+  } else {
+     console.log(`Response: ${raw.substring(0, 500)}`);
+  }
 }
 
 await test();
