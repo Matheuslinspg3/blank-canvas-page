@@ -276,15 +276,17 @@ Deno.serve(async (req) => {
       } else {
         const isConflict = /prisma|integrationSession|findFirst/i.test(createAttempt.raw);
         if (isConflict) {
+          console.log(`[${dRef}] Detected Prisma/Conflict error in Evolution. Returning recoverable error.`);
           // Returning 200 with error payload to avoid breaking UI with 409
           return jsonResponse({
             ok: false,
             code: "EVOLUTION_INSTANCE_CONFLICT",
-            message: "Encontramos uma sessão antiga na Evolution que não pôde ser limpa automaticamente. Tente remover a conexão local para sincronizar.",
+            message: "A Evolution API retornou um erro interno de sessão (Prisma). Isso pode ocorrer após um reset. Tente remover a conexão local e iniciar uma nova com nome limpo.",
             debug_ref: dRef,
             recoverable: true
           });
         }
+
         
         const status = createAttempt.res.status;
         if (status === 401) throw new AppError("EVOLUTION_UNAUTHORIZED", "A Evolution API recusou a autenticação.", 401, dRef);
