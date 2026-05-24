@@ -185,14 +185,11 @@ serve(async (req) => {
       let token = channel?.instance_token ?? null;
 
       try {
-        const fetchRes = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances`, {
-          method: "GET",
-          headers: { apikey: EVOLUTION_API_KEY },
-        });
-        const fetchRaw = await fetchRes.text();
-        const fetchData = parseJsonSafely(fetchRaw);
+        const fetchRes = await provider.fetchInstances();
+        const fetchRaw = fetchRes.raw;
+        const fetchData = fetchRes.data;
         if (fetchRes.ok) {
-          const list = Array.isArray(fetchData) ? fetchData : Array.isArray(fetchData?.instances) ? fetchData.instances : [];
+          const list = Array.isArray(fetchData) ? fetchData : Array.isArray(fetchData?.instances) ? fetchData.instances : (Array.isArray(fetchData?.data) ? fetchData.data : []);
           const existingEvo = list.find((i: any) => (i?.name ?? i?.instanceName ?? i?.instance?.instanceName) === instanceName);
           if (existingEvo) {
             instanceExists = true;
@@ -204,27 +201,9 @@ serve(async (req) => {
       }
 
       if (!instanceExists) {
-        const createBody: Record<string, unknown> = {
-          name: instanceName,
-
-          integration: "WHATSAPP-BAILEYS",
-          qrcode: !usePairing,
-          webhook: {
-            url: webhookUrl,
-            enabled: true,
-            events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "QRCODE_UPDATED"],
-            webhook_by_events: false,
-          },
-        };
-        if (usePairing) createBody.number = rawPhone;
-
-        const createRes = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
-          method: "POST",
-          headers: { apikey: EVOLUTION_API_KEY, "Content-Type": "application/json" },
-          body: JSON.stringify(createBody),
-        });
-        const createRaw = await createRes.text();
-        const createData = parseJsonSafely(createRaw);
+        const createRes = await provider.createInstance(instanceName);
+        const createRaw = createRes.raw;
+        const createData = createRes.data;
 
         if (!createRes.ok) {
           if (!/already in use|already exists|em uso|já existe/i.test(createRaw)) {
@@ -236,18 +215,22 @@ serve(async (req) => {
         }
 
         token = createData?.hash?.apikey || createData?.token || createData?.instance?.token || token;
+        
+        // Configurar webhook logo após criar
+        if (createRes.ok) {
+            await provider.setWebhook(instanceName, webhookUrl, Deno.env.get("WHATSAPP_AGENT_SECRET") || "");
+        }
       }
 
-      const connRes = await fetch(
-        usePairing
-          ? `${EVOLUTION_API_URL}/instance/connect/${instanceName}?number=${rawPhone}`
-          : `${EVOLUTION_API_URL}/instance/connect/${instanceName}`,
-        { method: "GET", headers: { apikey: EVOLUTION_API_KEY } },
-      );
-      const connRaw = await connRes.text();
-      const connData = parseJsonSafely(connRaw);
+      const connRes = usePairing 
+        ? await provider.pair(instanceName, rawPhone)
+        : await provider.getQr(instanceName);
+
+      const connRaw = connRes.raw;
+      const connData = connRes.data;
       const pairingCode = extractPairingCode(connData);
       const qrCode = extractQrBase64(connData);
+
 
       const stateText = classifyConnectionStatus(connRaw, connData?.instance?.state, connData?.state);
       const status = stateText === "connected" ? "connected" : "connecting";
