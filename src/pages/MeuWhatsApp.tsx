@@ -17,6 +17,7 @@ export default function MeuWhatsApp() {
     connect, 
     isConnecting, 
     connectError,
+    resetConnect,
     deleteConnection, 
     isDeleting, 
     refetch 
@@ -24,12 +25,14 @@ export default function MeuWhatsApp() {
   const [phoneNumber, setPhoneNumber] = useState("");
 
   const handleConnect = (mode: "qr" | "pairing") => {
+    // Reset any previous errors before trying again
+    resetConnect();
     connect({ mode, phoneNumber: mode === "pairing" ? phoneNumber : undefined });
   };
 
-  if (isLoading) {
+  if (isLoading && !connection) {
     return (
-      <div className="container max-w-4xl py-10 space-y-6">
+      <div className="container max-w-4xl py-6 md:py-10 space-y-6">
         <Skeleton className="h-10 w-48" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -37,7 +40,7 @@ export default function MeuWhatsApp() {
   }
 
   return (
-    <div className="container max-w-4xl py-10 space-y-6 animate-in fade-in duration-500">
+    <div className="container max-w-4xl py-6 md:py-10 space-y-6 animate-in fade-in duration-500 overflow-x-hidden">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Meu WhatsApp v2</h1>
