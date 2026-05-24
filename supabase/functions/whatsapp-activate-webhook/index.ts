@@ -50,7 +50,7 @@ const createEvolutionInstance = async (
 ) => {
   // Evolution API v2.4.0 uses 'name' as the primary field for creation.
   // 'instanceName' is often marked as @Exclude() in the DTO, causing "protected field" warnings.
-  const token = `token-${Math.random().toString(36).substring(2, 15)}`;
+  const token = crypto.randomUUID().replace(/-/g, "");
   
   const payload = {
     name: instanceName,
