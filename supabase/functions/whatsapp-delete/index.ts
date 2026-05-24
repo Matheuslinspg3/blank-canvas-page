@@ -20,7 +20,7 @@ serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return new Response('Unauthorized', { status: 401 })
 
-    const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', user.id).single()
+    const { data: profile } = await supabase.from('profiles').select('organization_id').eq('user_id', user.id).maybeSingle()
     if (!profile?.organization_id) return new Response('No Org', { status: 400 })
 
     const { data: connection } = await supabase

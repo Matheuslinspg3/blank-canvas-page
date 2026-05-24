@@ -28,7 +28,7 @@ serve(async (req) => {
       })
     }
 
-    const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', user.id).single()
+    const { data: profile } = await supabase.from('profiles').select('organization_id').eq('user_id', user.id).maybeSingle()
     if (!profile?.organization_id) {
       return new Response(JSON.stringify({ ok: false, code: 'NO_ORG', message: 'Organização não encontrada' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
