@@ -215,13 +215,20 @@ export default function MeuWhatsApp() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center space-y-8">
-            <div className="relative group">
-              <div className="text-5xl font-mono font-bold tracking-[0.5em] bg-muted px-8 py-6 rounded-lg border">
+            <div className="relative group w-full max-w-sm">
+              <div className={`text-3xl md:text-5xl font-mono font-bold tracking-[0.2em] md:tracking-[0.5em] bg-muted px-4 md:px-8 py-6 rounded-lg border text-center ${!connection?.pairing_code && "opacity-50"}`}>
                 {connection?.pairing_code || "-------"}
               </div>
               {isConnecting && (
-                <div className="absolute inset-0 bg-muted/80 flex items-center justify-center rounded-lg">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <div className="absolute inset-0 bg-muted/80 flex flex-col items-center justify-center rounded-lg animate-in fade-in">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+                  <span className="text-xs font-medium text-primary">Gerando novo código...</span>
+                </div>
+              )}
+              {status === "pairing_pending" && !connection?.pairing_code && !isConnecting && (
+                <div className="absolute inset-0 bg-destructive/5 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-destructive/20 text-center p-4">
+                  <p className="text-sm font-semibold text-destructive">Falha ao gerar código</p>
+                  <Button variant="link" size="sm" onClick={() => handleConnect("pairing")} className="text-xs h-auto p-0">Tentar novamente</Button>
                 </div>
               )}
             </div>
