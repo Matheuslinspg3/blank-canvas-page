@@ -76,10 +76,6 @@ const _RDStation = lazy(() => lazyRetry(() => import("./pages/RDStation")));
 const MetaAdDetail = lazy(() => lazyRetry(() => import("./pages/ads/MetaAdDetail")));
 const Owners = lazy(() => lazyRetry(() => import("./pages/Owners")));
 const Inbox = lazy(() => lazyRetry(() => import("./pages/Inbox")));
-const MyWhatsAppChannel = lazy(() => lazyRetry(() => import("./pages/whatsapp/MyWhatsAppChannel")));
-const BrokerChat = lazy(() => lazyRetry(() => import("./pages/whatsapp/BrokerChat")));
-const TeamChannels = lazy(() => lazyRetry(() => import("./pages/whatsapp/TeamChannels")));
-const BrokerAutomationStatus = lazy(() => lazyRetry(() => import("./pages/whatsapp/BrokerAutomationStatus")));
 
 const _GeradorAnuncios = lazy(() => lazyRetry(() => import("./pages/GeradorAnuncios")));
 const PublicPropertyBySlug = lazy(() => lazyRetry(() => import("./pages/PublicPropertyBySlug")));
@@ -191,10 +187,9 @@ const App = () => (
                         <Route path="/marketplace/:id" element={<MarketplacePropertyDetails />} />
                         <Route path="/crm" element={<CRM />} />
                         <Route path="/inbox" element={<Inbox />} />
-                        <Route path="/whatsapp/meu-canal" element={<MyWhatsAppChannel />} />
-                        <Route path="/whatsapp/meu-canal/chat" element={<BrokerChat />} />
-                        <Route path="/whatsapp/canais-equipe" element={<TeamChannels />} />
-                        <Route path="/whatsapp/automacoes" element={<BrokerAutomationStatus />} />
+                        {/* Redirecionamentos de WhatsApp para Automações ou Dashboard */}
+                        <Route path="/whatsapp/*" element={<Navigate to="/automacoes" replace />} />
+                        
                         <Route path="/contratos" element={<Navigate to="/financeiro?tab=contracts" replace />} />
                         <Route path="/financeiro" element={<Financial />} />
                         <Route path="/correspondente" element={<CorrespondenteBancario />} />
