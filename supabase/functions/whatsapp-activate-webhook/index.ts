@@ -236,11 +236,42 @@ Deno.serve(async (req) => {
     let finalConnected = false;
 
     if (phoneNumber && !finalPairing) {
-        const connRes = await provider.pair(instanceName, phoneNumber);
-        if (!connRes.ok) {
-           throw new AppError("EVO_GO_PAIRING_FAILED", "Falha ao gerar código de pareamento.", 502, dRef);
-        }
+        let connRes = await provider.pair(instanceName, phoneNumber);
         finalPairing = extractPairingCode(connRes.data);
+
+        // Fallback: recriar instância e tentar novamente
+        if (!finalPairing) {
+          console.log(`[${dRef}] Pairing indisponível. Recriando instância e tentando novamente...`);
+          try { await provider.logout(instanceName); } catch { /* ignore */ }
+          try { await provider.delete(instanceName); } catch { /* ignore */ }
+          await delay(800);
+
+          const recreateRes = await provider.createInstance(instanceName);
+          if (recreateRes.ok || extractPairingCode(recreateRes.data)) {
+            await provider.setWebhook(instanceName, WEBHOOK_URL, WHATSAPP_AGENT_SECRET).catch(() => null);
+            instanceToken = recreateRes.data?.hash?.apikey ?? recreateRes.data?.token ?? recreateRes.data?.apikey ?? instanceToken;
+            finalPairing = extractPairingCode(recreateRes.data);
+
+            if (!finalPairing) {
+              await delay(500);
+              connRes = await provider.pair(instanceName, phoneNumber);
+              finalPairing = extractPairingCode(connRes.data);
+            }
+          }
+
+          if (!finalPairing) {
+            await auditLog(sb, orgId, "activate_webhook_pairing_unavailable", user.id, {
+              instanceName, debug_ref: dRef, provider: EVOLUTION_PROVIDER,
+            });
+            return jsonResponse({
+              ok: false,
+              code: "EVO_GO_PAIRING_FAILED",
+              message: "Não foi possível gerar o código de pareamento. Tente novamente em alguns segundos ou use o QR Code.",
+              debug_ref: dRef,
+              recoverable: true,
+            });
+          }
+        }
     } else if (!phoneNumber && !finalQr) {
         const connRes = await provider.getQr(instanceName);
         finalQr = extractQrBase64(connRes.data);
