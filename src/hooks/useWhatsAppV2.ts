@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { sendWhatsAppWebhook, buildWhatsAppPayload } from "@/services/whatsapp/webhookService";
 
 export type WhatsAppStatus = 
   | "not_configured" 
@@ -54,51 +55,58 @@ export function useWhatsAppV2() {
 
   const connectMutation = useMutation({
     mutationFn: async ({ mode, phoneNumber }: { mode: "qr" | "pairing", phoneNumber?: string }) => {
-      console.log(`[WhatsAppV2] Connecting mode=${mode} phone=${phoneNumber}`);
-      const { data, error } = await supabase.functions.invoke("whatsapp-connect", {
-        body: { mode, phone_number: phoneNumber }
-      });
+      const { data: organization } = await supabase
+        .from("organizations")
+        .select("id, name")
+        .eq("id", profile?.organization_id)
+        .maybeSingle();
+
+      const payload = buildWhatsAppPayload(
+        connectionData?.status === "disconnected" || connectionData?.status === "error" ? "reconnect" : "create",
+        "broker_whatsapp",
+        { user, profile, organization, brokerId: profile?.id }
+      );
+
+      const result = await sendWhatsAppWebhook(payload);
       
-      if (error) {
-        console.error("[WhatsAppV2] Invocation error:", error);
-        throw error;
+      if (!result.ok) {
+        throw new Error(result.error);
       }
       
-      if (!data.ok) {
-        console.error("[WhatsAppV2] Function returned error:", data);
-        const error = new Error(data.message || "Erro ao conectar") as WhatsAppError;
-        error.code = data.code;
-        error.debug_ref = data.debug_ref;
-        throw error;
-      }
-      
-      return data;
+      return result.data;
     },
     onSuccess: (data) => {
-      // Update cache immediately for better UX
-      queryClient.setQueryData(["whatsapp-connection-v2"], {
-        ok: true,
-        status: data.status,
-        connection: data.connection
-      });
-      // Still invalidate to ensure we have the absolute latest from status check
+      if (data?.message) {
+        toast.success(data.message);
+      }
       queryClient.invalidateQueries({ queryKey: ["whatsapp-connection-v2"] });
     },
-    onError: (err: WhatsAppError) => {
-      const msg = err.debug_ref ? `${err.message} (${err.debug_ref})` : err.message;
-      toast.error(msg || "Falha ao iniciar conexão");
+    onError: (err: Error) => {
+      toast.error(err.message || "Falha ao iniciar conexão via Webhook");
     }
   });
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("whatsapp-delete");
-      if (error) throw error;
-      return data;
+      const { data: organization } = await supabase
+        .from("organizations")
+        .select("id, name")
+        .eq("id", profile?.organization_id)
+        .maybeSingle();
+
+      const payload = buildWhatsAppPayload(
+        "disconnect",
+        "broker_whatsapp",
+        { user, profile, organization, brokerId: profile?.id }
+      );
+
+      const result = await sendWhatsAppWebhook(payload);
+      if (!result.ok) throw new Error(result.error);
+      return result.data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.setQueryData(["whatsapp-connection-v2"], { ok: true, status: "not_configured" });
-      toast.success("Integração removida com sucesso");
+      toast.success(data?.message || "Solicitação de remoção enviada");
     },
     onError: (err: Error) => {
       toast.error(err.message || "Falha ao remover integração");
