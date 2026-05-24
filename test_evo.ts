@@ -14,6 +14,5 @@ async function test(label: string, payload: any) {
 }
 
 const instanceName = "test-" + Math.random().toString(36).substring(2, 7);
-await test("Minimal instanceName", { instanceName });
-await test("Minimal name", { name: instanceName + "-n" });
-await test("Minimal both", { instanceName: instanceName + "-b", name: instanceName + "-b" });
+await test("name + WHATSAPP-BAILEYS", { name: instanceName, integration: "WHATSAPP-BAILEYS" });
+await test("instanceName + name + WHATSAPP-BAILEYS", { instanceName, name: instanceName, integration: "WHATSAPP-BAILEYS" });
