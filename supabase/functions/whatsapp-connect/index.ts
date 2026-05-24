@@ -137,9 +137,13 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       ok: true,
       status,
-      qrCode,
-      pairingCode,
+      qr_code: qrCode,
+      pairing_code: pairingCode,
       connection: {
+        ...connection,
+        status,
+        qr_code: qrCode,
+        pairing_code: pairingCode,
         instance_name: instanceName,
         provider: providerType
       }
