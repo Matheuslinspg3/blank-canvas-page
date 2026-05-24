@@ -10,12 +10,7 @@ async function test(label: string, payload: any) {
   });
   const raw = await res.text();
   console.log(`Status: ${res.status}`);
-  console.log(`Response: ${raw.substring(0, 1000)}`);
+  console.log(`Response: ${raw.substring(0, 500)}`);
 }
 
-const instanceName = "test-" + Math.random().toString(36).substring(2, 7);
-await test("instanceName + token + integration", { 
-  instanceName, 
-  token: "1234567890", 
-  integration: "WHATSAPP-BAILEYS" 
-});
+await test("No instanceName, just integration", { integration: "WHATSAPP-BAILEYS" });
