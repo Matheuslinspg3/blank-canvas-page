@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import * as Sentry from "@sentry/react";
+import { sendWhatsAppWebhook, buildWhatsAppPayload } from "@/services/whatsapp/webhookService";
 
 export interface WhatsAppError {
   ok: false;
@@ -113,42 +114,58 @@ export function useWhatsAppInstance() {
   const disconnectMutation = useMutation({
     mutationKey: ["whatsapp-instance-disconnect", orgId],
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("whatsapp-instance", {
-        body: { action: "disconnect" },
-      });
-      if (error) throw await handleFunctionError(error as SupabaseFunctionError, "whatsapp-instance", "disconnect", orgId);
-      if (data?.ok === false) throw data;
-      return data;
+      const { data: user } = await supabase.auth.getUser();
+      const { data: organization } = await supabase
+        .from("organizations")
+        .select("id, name")
+        .eq("id", orgId)
+        .maybeSingle();
+
+      const payload = buildWhatsAppPayload(
+        "disconnect",
+        "ai_agent",
+        { user: user?.user, profile, organization }
+      );
+
+      const result = await sendWhatsAppWebhook(payload);
+      if (!result.ok) throw new Error(result.error);
+      return result.data;
     },
-    onSuccess: () => {
-      toast.success("WhatsApp desconectado");
+    onSuccess: (data) => {
+      toast.success(data?.message || "WhatsApp desconectado");
       invalidate();
     },
     onError: (err: any) => {
-      if (err.ok === false) {
-        toast.error("Erro ao desconectar", { description: err.message });
-      }
+      toast.error("Erro ao desconectar", { description: err.message });
     },
   });
 
   const deleteMutation = useMutation({
     mutationKey: ["whatsapp-instance-delete", orgId],
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("whatsapp-instance", {
-        body: { action: "delete" },
-      });
-      if (error) throw await handleFunctionError(error as SupabaseFunctionError, "whatsapp-instance", "delete", orgId);
-      if (data?.ok === false) throw data;
-      return data;
+      const { data: user } = await supabase.auth.getUser();
+      const { data: organization } = await supabase
+        .from("organizations")
+        .select("id, name")
+        .eq("id", orgId)
+        .maybeSingle();
+
+      const payload = buildWhatsAppPayload(
+        "disconnect",
+        "ai_agent",
+        { user: user?.user, profile, organization }
+      );
+
+      const result = await sendWhatsAppWebhook(payload);
+      if (!result.ok) throw new Error(result.error);
+      return result.data;
     },
-    onSuccess: () => {
-      toast.success("Integração WhatsApp removida");
+    onSuccess: (data) => {
+      toast.success(data?.message || "Integração WhatsApp removida");
       invalidate();
     },
     onError: (err: any) => {
-       if (err.ok === false) {
-        toast.error("Erro ao remover", { description: err.message });
-      }
+      toast.error("Erro ao remover", { description: err.message });
     },
   });
 
