@@ -1,20 +1,20 @@
 const baseUrl = Deno.env.get("EVOLUTION_API_URL")?.replace(/\/$/, "");
 const apiKey = Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
 
-async function test() {
-  const instanceName = "test-name-only";
-  await fetch(`${baseUrl}/instance/create`, {
+async function test(label: string, payload: any) {
+  console.log(`\n--- ${label} ---`);
+  const res = await fetch(`${baseUrl}/instance/create`, {
     method: "POST",
     headers: { "Content-Type": "application/json", apikey: apiKey },
-    body: JSON.stringify({ name: instanceName, integration: "WHATSAPP-BAILEYS" }),
+    body: JSON.stringify(payload),
   });
-  
-  const res = await fetch(`${baseUrl}/instance/fetchInstances`, {
-    method: "GET",
-    headers: { apikey: apiKey },
-  });
-  const data = await res.json();
-  console.log(JSON.stringify(data, null, 2));
+  const raw = await res.text();
+  console.log(`Status: ${res.status}`);
+  console.log(`Response: ${raw.substring(0, 500)}`);
 }
 
-await test();
+const instanceName = "test" + Math.random().toString(36).substring(2, 7);
+await test("Nested instance object", { 
+  instance: { instanceName }, 
+  integration: "WHATSAPP-BAILEYS" 
+});
