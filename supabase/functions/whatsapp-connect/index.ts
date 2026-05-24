@@ -119,8 +119,20 @@ serve(async (req) => {
     } else {
       const connectRes = await provider.connectInstance(instanceName)
       qrCode = extractQrBase64(connectRes.data)
-      if (!qrCode && classifyConnectionStatus(connectRes.raw) === 'connected') {
-        status = 'connected'
+      if (!qrCode) {
+        const remoteStatus = classifyConnectionStatus(connectRes.raw)
+        if (remoteStatus === 'connected') {
+          status = 'connected'
+        } else {
+          // If not connected and no QR, it's an error state
+          return new Response(JSON.stringify({
+            ok: false,
+            code: 'WHATSAPP_QR_NOT_AVAILABLE',
+            message: 'Não foi possível obter o QR Code do servidor. Tente novamente em alguns instantes.',
+            debug_ref: `ERR-${crypto.randomUUID().split('-')[0].toUpperCase()}`,
+            recoverable: true
+          }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
       }
     }
 
