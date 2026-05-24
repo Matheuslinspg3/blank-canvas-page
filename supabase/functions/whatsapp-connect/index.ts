@@ -58,7 +58,7 @@ serve(async (req) => {
       .from('whatsapp_connections')
       .select('*')
       .eq('organization_id', profile.organization_id)
-      .single()
+      .maybeSingle()
 
     if (!connection) {
       const { data: newConn, error: createError } = await supabase
