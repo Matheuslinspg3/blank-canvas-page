@@ -25,13 +25,15 @@ serve(async (req) => {
     const body = await req.json();
 
     // Support both direct fields and Evolution API webhook payload format
-    const instanceName = body.instance_name || body.instance;
+    const instanceName = body.instance_name || body.instance || body.instanceName || body.data?.instance || body.data?.instanceName;
     if (!instanceName) {
+      console.warn("Webhook received without instance_name:", JSON.stringify(body).substring(0, 300));
       return new Response(JSON.stringify({ error: "instance_name is required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
 
     // Parse messages — support single message or array
     const messages: Array<{
