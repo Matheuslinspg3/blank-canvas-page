@@ -25,6 +25,11 @@ export interface WhatsAppConnection {
   provider: string;
 }
 
+export interface WhatsAppError extends Error {
+  code?: string;
+  debug_ref?: string;
+}
+
 export function useWhatsAppV2() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
