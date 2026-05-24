@@ -207,14 +207,15 @@ Deno.serve(async (req) => {
         if (isConflict) {
           return jsonResponse({
             ok: false,
-            code: "EVOLUTION_INSTANCE_CONFLICT",
+            code: "EVO_GO_INSTANCE_CONFLICT",
             message: "A Evolution API retornou um erro interno de sessão. Tente remover a conexão local e iniciar uma nova.",
             debug_ref: dRef,
             recoverable: true
           });
         }
-        throw new AppError("EVOLUTION_CREATE_FAILED", "Falha ao criar instância na Evolution.", 502, dRef);
+        throw new AppError("EVO_GO_INSTANCE_CREATE_FAILED", "Falha ao criar instância na Evolution.", 502, dRef);
       }
+
     }
 
     let finalQr = initialQr;
@@ -222,11 +223,18 @@ Deno.serve(async (req) => {
 
     if (phoneNumber && !finalPairing) {
         const connRes = await provider.pair(instanceName, phoneNumber);
+        if (!connRes.ok) {
+           throw new AppError("EVO_GO_PAIRING_FAILED", "Falha ao gerar código de pareamento.", 502, dRef);
+        }
         finalPairing = extractPairingCode(connRes.data);
     } else if (!phoneNumber && !finalQr) {
         const connRes = await provider.getQr(instanceName);
+        if (!connRes.ok) {
+           throw new AppError("EVO_GO_QR_NOT_AVAILABLE", "Não foi possível gerar o QR Code agora.", 502, dRef);
+        }
         finalQr = extractQrBase64(connRes.data);
     }
+
 
 
     const status = (finalQr || finalPairing) ? "connecting" : "provisioning";
@@ -271,9 +279,10 @@ Deno.serve(async (req) => {
     // Para erros inesperados, retornamos 200 com ok: false para evitar o overlay de erro do preview
     return jsonResponse({
       ok: false,
-      code: "INTERNAL_ERROR",
+      code: "EVO_GO_BAD_REQUEST",
       message: "Ocorreu um erro interno ao processar a requisição.",
       debug_ref: dRef
     });
+
   }
 });

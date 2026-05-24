@@ -118,15 +118,20 @@ export class EvolutionProvider {
 
   async getStatus(instanceName: string) {
     if (this.config.provider === "evolution_go") {
+      // In Go, status is GET /instance/status?name=... or GET /instance/status/:name
       return await this.request("GET", `/instance/status?name=${instanceName}`);
     } else {
       return await this.request("GET", `/instance/connectionState/${instanceName}`);
     }
   }
 
+
   async logout(instanceName: string) {
     if (this.config.provider === "evolution_go") {
-      return await this.request("DELETE", `/instance/logout?name=${instanceName}`);
+      // In Go, logout is usually POST /instance/logout
+      return await this.request("POST", "/instance/logout", {
+        name: instanceName
+      });
     } else {
       return await this.request("DELETE", `/instance/logout/${instanceName}`);
     }
@@ -134,14 +139,14 @@ export class EvolutionProvider {
 
   async delete(instanceName: string) {
     if (this.config.provider === "evolution_go") {
-      // The user said /instance/delete/:instanceId but usually it's name or ?name=
-      // If it's really :instanceId we might need to find the ID first.
-      // But let's try ?name= first as it's common in Evolution Go.
+      // In Go, delete is DELETE /instance/delete?name=... or DELETE /instance/delete/ID
+      // Common pattern is ?name=
       return await this.request("DELETE", `/instance/delete?name=${instanceName}`);
     } else {
       return await this.request("DELETE", `/instance/delete/${instanceName}`);
     }
   }
+
 
   async setWebhook(instanceName: string, url: string, secret: string) {
     if (this.config.provider === "evolution_go") {

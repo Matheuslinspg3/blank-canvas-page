@@ -130,7 +130,7 @@ export function WhatsAppIntegrationCard() {
 
           setActivationError({ code, message, debug_ref });
           
-          if (code !== "EVOLUTION_INSTANCE_CONFLICT") {
+          if (code !== "EVO_GO_INSTANCE_CONFLICT") {
             toast.error(message, { description: debug_ref });
           }
           return;
@@ -251,7 +251,7 @@ export function WhatsAppIntegrationCard() {
           </div>
         ) : (
           <>
-            {activationError?.code === "EVOLUTION_INSTANCE_CONFLICT" && (
+            {activationError?.code === "EVO_GO_INSTANCE_CONFLICT" && (
               <div className="p-4 border border-destructive/20 bg-destructive/5 rounded-lg text-sm text-destructive animate-in fade-in slide-in-from-top-1">
                 <p className="font-bold flex items-center gap-2 mb-1 text-base">
                   <XCircle className="h-5 w-5" /> Conflito na Evolution API
