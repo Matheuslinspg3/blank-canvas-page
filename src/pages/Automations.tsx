@@ -16,6 +16,8 @@ import { useAutomations } from "@/hooks/useAutomations";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { WhatsAppStatusBanner } from "@/components/automations/WhatsAppStatusBanner";
+
 
 export default function Automations() {
   const {
@@ -111,6 +113,8 @@ export default function Automations() {
       />
 
       <div className="relative flex-1 p-4 sm:p-6 space-y-6">
+        <WhatsAppStatusBanner />
+
         {showWizard && (
           <div className="mb-6">
             <AutomationWizard

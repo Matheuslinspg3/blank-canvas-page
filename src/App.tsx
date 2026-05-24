@@ -87,6 +87,8 @@ const EmailTemplates = lazy(() => lazyRetry(() => import("./pages/EmailTemplates
 const Plans = lazy(() => lazyRetry(() => import("./pages/Plans")));
 const MyPlan = lazy(() => lazyRetry(() => import("./pages/MyPlan")));
 const CorrespondenteBancario = lazy(() => lazyRetry(() => import("./pages/CorrespondenteBancario")));
+const MeuWhatsApp = lazy(() => lazyRetry(() => import("./pages/MeuWhatsApp")));
+
 const MetricsDashboard = lazy(() => lazyRetry(() => import("./pages/MetricsDashboard")));
 const Onboarding = lazy(() => lazyRetry(() => import("./pages/app/Onboarding")));
 const AppAuth = lazy(() => lazyRetry(() => import("./pages/app/AppAuth")));
@@ -188,7 +190,9 @@ const App = () => (
                         <Route path="/crm" element={<CRM />} />
                         
                         {/* Redirecionamentos de WhatsApp para Automações ou Dashboard */}
-                        <Route path="/whatsapp/*" element={<Navigate to="/automacoes" replace />} />
+                        <Route path="/meu-whatsapp" element={<MeuWhatsApp />} />
+                        <Route path="/whatsapp/*" element={<Navigate to="/meu-whatsapp" replace />} />
+
                         
                         <Route path="/contratos" element={<Navigate to="/financeiro?tab=contracts" replace />} />
                         <Route path="/financeiro" element={<Financial />} />

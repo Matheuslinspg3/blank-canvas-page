@@ -16,6 +16,8 @@ import {
   Zap,
   UserCog,
   Megaphone,
+  Phone,
+
   Search,
   CreditCard,
   Landmark,
@@ -212,6 +214,8 @@ export function AppSidebar() {
                   renderMenuItem({ title: "Meu Site", url: "/site", icon: Globe })}
                 {renderMenuItem({ title: "Administração", url: "/administracao", icon: UserCog })}
                 {renderMenuItem({ title: "Integrações", url: "/integracoes", icon: Plug })}
+                {renderMenuItem({ title: "Meu WhatsApp", url: "/meu-whatsapp", icon: Phone })}
+
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

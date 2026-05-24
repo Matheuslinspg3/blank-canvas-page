@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserRoles } from "@/hooks/useUserRole";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
-import { Building2, User, Bell, Users, Palette, Sun, Moon, Monitor, Megaphone, CreditCard, History, MessageSquare, Bug, Loader2, Crown } from "lucide-react";
+import { Building2, User, Bell, Users, Palette, Sun, Moon, Monitor, Megaphone, CreditCard, History, MessageSquare, Bug, Loader2, Crown, Phone, ArrowRight } from "lucide-react";
 import { SupportTicketDialog } from "@/components/settings/SupportTicketDialog";
 import { UserTicketsSection } from "@/components/settings/UserTicketsSection";
 import { PlatformInviteSection } from "@/components/settings/PlatformInviteSection";
@@ -72,6 +72,8 @@ export default function Settings() {
                 <TabsTrigger value="billing" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><CreditCard className="h-4 w-4 shrink-0" /><span>Assinatura</span></TabsTrigger>
               )}
               <TabsTrigger value="support" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><MessageSquare className="h-4 w-4 shrink-0" /><span>Suporte</span></TabsTrigger>
+              <TabsTrigger value="whatsapp" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><Phone className="h-4 w-4 shrink-0" /><span>WhatsApp</span></TabsTrigger>
+
             </TabsList>
           </div>
 
@@ -151,6 +153,26 @@ export default function Settings() {
               <UserTicketsSection />
             </div>
           </TabsContent>
+
+          <TabsContent value="whatsapp">
+            <div className="grid gap-6 max-w-4xl">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Phone className="h-5 w-5" />Integração WhatsApp</CardTitle>
+                  <CardDescription>Configure sua conexão para automações e CRM.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="rounded-md border p-4 bg-muted/30">
+                    <p className="text-sm">A nova integração de WhatsApp v2 agora possui uma página dedicada para melhor gerenciamento.</p>
+                    <Button variant="default" className="mt-4" onClick={() => window.location.href = "/meu-whatsapp"}>
+                      Ir para Meu WhatsApp <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
 
         </Tabs>
       </div>
