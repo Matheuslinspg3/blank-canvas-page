@@ -14,13 +14,18 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
+    const authClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
     )
+    // Service-role client for DB writes (bypasses RLS); auth is validated above.
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const { data: { user }, error: authError } = await authClient.auth.getUser()
     if (authError || !user) {
       return new Response(JSON.stringify({ ok: false, code: 'UNAUTHORIZED', message: 'Não autorizado' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -53,7 +58,7 @@ serve(async (req) => {
       .from('whatsapp_connections')
       .select('*')
       .eq('organization_id', profile.organization_id)
-      .single()
+      .maybeSingle()
 
     if (!connection) {
       const { data: newConn, error: createError } = await supabase
