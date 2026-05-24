@@ -83,7 +83,7 @@ export function useWhatsAppV2() {
       // Still invalidate to ensure we have the absolute latest from status check
       queryClient.invalidateQueries({ queryKey: ["whatsapp-connection-v2"] });
     },
-    onError: (err: any) => {
+    onError: (err: WhatsAppError) => {
       const msg = err.debug_ref ? `${err.message} (${err.debug_ref})` : err.message;
       toast.error(msg || "Falha ao iniciar conexão");
     }
