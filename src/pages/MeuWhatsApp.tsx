@@ -70,14 +70,14 @@ export default function MeuWhatsApp() {
           
           <CardContent className="flex flex-col items-center">
             {connectError && (
-              <Alert variant="destructive" className="mb-6 max-w-sm">
+              <Alert variant="destructive" className="mb-6 max-w-sm animate-in zoom-in-95">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Erro na conexão</AlertTitle>
+                <AlertTitle>Falha na operação</AlertTitle>
                 <AlertDescription className="text-xs break-all">
-                  {connectError.message || "Erro desconhecido"}
+                  <p className="font-medium">{connectError.message || "Não foi possível iniciar a conexão"}</p>
                   {connectError.debug_ref && (
-                    <div className="mt-1 font-mono font-bold text-[10px] uppercase">
-                      Ref: {connectError.debug_ref}
+                    <div className="mt-2 flex items-center gap-1.5 font-mono font-bold text-[9px] uppercase bg-destructive/10 p-1 rounded w-fit">
+                      ID: {connectError.debug_ref}
                     </div>
                   )}
                 </AlertDescription>
