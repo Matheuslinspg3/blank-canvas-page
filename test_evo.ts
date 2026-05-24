@@ -77,12 +77,24 @@ await testCreate({
   integration: "WHATSAPP-BAILEYS"
 }, "name in body, instanceName in URL", `${baseUrl}/instance/create?instanceName=${instanceName}-9`);
 
-// 10. Trying 'instance' object
+// 11. instanceName in path
 await testCreate({
-  instance: {
-    instanceName: instanceName + "-10",
-    integration: "WHATSAPP-BAILEYS"
-  }
-}, "Nested in 'instance' object");
+  integration: "WHATSAPP-BAILEYS",
+  qrcode: true
+}, "instanceName in path", `${baseUrl}/instance/create/${instanceName}-11`);
+
+// 12. instanceName in path AND body
+await testCreate({
+  instanceName: instanceName + "-12",
+  integration: "WHATSAPP-BAILEYS",
+  qrcode: true
+}, "instanceName in path AND body", `${baseUrl}/instance/create/${instanceName}-12`);
+
+// 13. Very minimal body
+await testCreate({
+  instanceName: instanceName + "-13",
+  integration: "WHATSAPP-BAILEYS"
+}, "Very minimal body");
+
 
 
