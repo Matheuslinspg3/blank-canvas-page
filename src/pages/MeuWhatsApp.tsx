@@ -41,7 +41,7 @@ export default function MeuWhatsApp() {
 
   return (
     <div className="container max-w-4xl py-6 md:py-10 space-y-6 animate-in fade-in duration-500 overflow-x-hidden">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Meu WhatsApp v2</h1>
           <p className="text-muted-foreground mt-1">
@@ -49,7 +49,13 @@ export default function MeuWhatsApp() {
           </p>
         </div>
         {status !== "not_configured" && (
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => refetch()} 
+            disabled={isLoading}
+            className="w-full md:w-auto"
+          >
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
             Verificar status
           </Button>
@@ -150,7 +156,7 @@ export default function MeuWhatsApp() {
         </Card>
       )}
 
-      {(status === "qr_pending" || status === "provisioning") && (
+      {(status === "qr_pending" || status === "provisioning" || status === "connecting") && (
         <Card className="border-primary/50">
           <CardHeader className="text-center">
             <CardTitle>Escaneie o QR Code</CardTitle>
@@ -304,7 +310,7 @@ export default function MeuWhatsApp() {
         </Card>
       )}
 
-      {(status === "disconnected" || status === "error") && (
+      {(status === "disconnected" || status === "error" || status === "unknown") && (
         <Alert variant="destructive" className="bg-destructive/5 border-destructive/20">
           <AlertCircle className="h-5 w-5" />
           <AlertTitle className="text-lg">Conexão interrompida</AlertTitle>
@@ -322,6 +328,18 @@ export default function MeuWhatsApp() {
             </div>
           </AlertDescription>
         </Alert>
+      )}
+
+      {status === "deleting" && (
+        <Card className="border-destructive/20 bg-destructive/5 animate-pulse">
+          <CardContent className="py-10 flex flex-col items-center justify-center space-y-4">
+            <Loader2 className="h-10 w-10 animate-spin text-destructive" />
+            <div className="text-center">
+              <h3 className="text-lg font-bold">Removendo Conexão</h3>
+              <p className="text-sm text-muted-foreground">Aguarde enquanto limpamos sua sessão no servidor...</p>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
