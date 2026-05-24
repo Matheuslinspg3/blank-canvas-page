@@ -66,9 +66,17 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const EVOLUTION_API_URL = (Deno.env.get("EVOLUTION_API_URL") ?? "").replace(/\/$/, "");
+    const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
     const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
+    const EVOLUTION_PROVIDER = (Deno.env.get("EVOLUTION_PROVIDER") || "evolution_node") as "evolution_node" | "evolution_go";
+
     if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) throw new Error("Evolution API not configured");
+
+    const provider = new EvolutionProvider({
+      baseUrl: EVOLUTION_API_URL,
+      apiKey: EVOLUTION_API_KEY,
+      provider: EVOLUTION_PROVIDER,
+    });
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -115,20 +123,19 @@ serve(async (req) => {
       let phone = channel.phone_number;
 
       try {
-        const evoRes = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${channel.instance_name}`, {
-          headers: { apikey: EVOLUTION_API_KEY },
-        });
-        const evoRaw = await evoRes.text();
-        const evoData = parseJsonSafely(evoRaw);
+        const evoRes = await provider.getStatus(channel.instance_name);
+        const evoRaw = evoRes.raw;
+        const evoData = evoRes.data;
 
         if (evoRes.ok) {
-          const evoStatus = classifyConnectionStatus(evoRaw, evoData?.state, evoData?.instance?.state);
+          const evoStatus = classifyConnectionStatus(evoRaw, evoData?.state, evoData?.instance?.state, evoData?.status);
           if (evoStatus !== "unknown") newStatus = evoStatus;
           phone = extractPhoneNumber(evoData) ?? phone;
         }
       } catch (e) {
         console.warn("Evolution status check failed:", e);
       }
+
 
       const updatePayload: Record<string, unknown> = { status: newStatus };
       if (newStatus === "connected" || newStatus === "disconnected") updatePayload.qr_code = null;
