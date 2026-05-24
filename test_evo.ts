@@ -14,7 +14,4 @@ async function test(label: string, payload: any) {
 }
 
 const instanceName = "test-" + Math.random().toString(36).substring(2, 7);
-await test("integration: WHATSAPP", { instanceName, integration: "WHATSAPP" });
-await test("integration: BAILEYS", { instanceName, integration: "BAILEYS" });
-await test("integration: CODECHAT", { instanceName, integration: "CODECHAT" });
-await test("No integration", { instanceName });
+await test("id", { id: instanceName, integration: "WHATSAPP-BAILEYS" });
