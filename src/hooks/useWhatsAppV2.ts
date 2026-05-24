@@ -99,7 +99,7 @@ export function useWhatsAppV2() {
       queryClient.setQueryData(["whatsapp-connection-v2"], { ok: true, status: "not_configured" });
       toast.success("Integração removida com sucesso");
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(err.message || "Falha ao remover integração");
     }
   });
@@ -108,10 +108,10 @@ export function useWhatsAppV2() {
     connection: connectionData?.connection,
     status: connectionData?.status || "not_configured",
     isLoading: isLoading && !connectionData,
-    error: error || connectMutation.error,
+    error: (error || connectMutation.error) as WhatsAppError | null,
     connect: connectMutation.mutate,
     isConnecting: connectMutation.isPending,
-    connectError: connectMutation.error as any,
+    connectError: connectMutation.error as WhatsAppError | null,
     resetConnect: connectMutation.reset,
     deleteConnection: deleteMutation.mutate,
     isDeleting: deleteMutation.isPending,
