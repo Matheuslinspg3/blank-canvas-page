@@ -54,7 +54,15 @@ serve(async (req) => {
   try {
     const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
     const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
+    const EVOLUTION_PROVIDER = (Deno.env.get("EVOLUTION_PROVIDER") || "evolution_node") as "evolution_node" | "evolution_go";
+    
     if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) throw new AppError("MISSING_EVOLUTION_CONFIG", "Evolution API not configured", 422);
+
+    const provider = new EvolutionProvider({
+      baseUrl: EVOLUTION_API_URL,
+      apiKey: EVOLUTION_API_KEY,
+      provider: EVOLUTION_PROVIDER,
+    });
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -79,7 +87,6 @@ serve(async (req) => {
 
     const orgId = profile.organization_id;
     const { action } = await req.json();
-    const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
 
     // ── STATUS ──
     if (action === "status") {
@@ -97,19 +104,16 @@ serve(async (req) => {
       let phone = config.phone_number;
 
       try {
-        const evoRes = await fetch(`${baseUrl}/instance/connectionState/${config.instance_name}`, {
-          method: "GET",
-          headers: { apikey: EVOLUTION_API_KEY },
-        });
-        const evoRaw = await evoRes.text();
-        const evoData = parseJsonSafely(evoRaw);
+        const evoRes = await provider.getStatus(config.instance_name);
+        const evoRaw = evoRes.raw;
+        const evoData = evoRes.data;
 
         if (evoRes.ok) {
-          evoStatus = classifyConnectionStatus(evoRaw, evoData?.state, evoData?.instance?.state);
+          evoStatus = classifyConnectionStatus(evoRaw, evoData?.state, evoData?.instance?.state, evoData?.status);
           phone = extractPhoneNumber(evoData) ?? phone;
         }
       } catch (e) {
-        console.warn("Evolution connectionState failed:", e);
+        console.warn("Evolution getStatus failed:", e);
       }
 
       let newStatus = normalizePersistedStatus(config.status);
@@ -139,10 +143,7 @@ serve(async (req) => {
         .maybeSingle();
 
       if (config?.instance_name) {
-        await fetch(`${baseUrl}/instance/logout/${config.instance_name}`, {
-          method: "DELETE",
-          headers: { apikey: EVOLUTION_API_KEY },
-        }).catch(() => null);
+        await provider.logout(config.instance_name).catch(() => null);
 
         await supabaseClient
           .from("whatsapp_agent_config")
@@ -162,10 +163,7 @@ serve(async (req) => {
         .maybeSingle();
 
       if (config?.instance_name) {
-        await fetch(`${baseUrl}/instance/delete/${config.instance_name}`, {
-          method: "DELETE",
-          headers: { apikey: EVOLUTION_API_KEY },
-        }).catch(() => null);
+        await provider.delete(config.instance_name).catch(() => null);
 
         await supabaseClient
           .from("whatsapp_agent_config")
@@ -181,6 +179,7 @@ serve(async (req) => {
 
       return jsonResponse({ ok: true, deleted: true });
     }
+
 
     throw new AppError("INVALID_ACTION", "Invalid action", 400);
 
