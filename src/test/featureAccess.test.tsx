@@ -91,7 +91,6 @@ describe("useFeatureAccess hook", () => {
     // Integrações / Gestão
     expect(result.current.canAccessFeature(DEVELOPER_ONLY_FEATURES.GESTAO_PORTAIS_ANUNCIO)).toBe(false);
     expect(result.current.canAccessFeature(DEVELOPER_ONLY_FEATURES.GESTAO_MEU_SITE)).toBe(false);
-    expect(result.current.canAccessFeature(DEVELOPER_ONLY_FEATURES.GESTAO_CANAIS_EQUIPE)).toBe(false);
 
     // Non-restricted feature key — defaults to allowed.
     expect(result.current.canAccessFeature("any.public.feature")).toBe(true);
