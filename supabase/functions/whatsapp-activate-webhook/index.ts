@@ -177,10 +177,13 @@ Deno.serve(async (req) => {
 
 
     let phoneNumber: string | null = null;
+    let forceNewInstance = false;
     try {
       const body = await req.json();
       phoneNumber = body?.phone_number ?? null;
+      forceNewInstance = !!body?.force_new_instance;
     } catch { /* QR mode */ }
+
 
     console.log(`[${dRef}] Preflight: Fetching instances for ${instanceName}`);
     let instanceExists = false;
