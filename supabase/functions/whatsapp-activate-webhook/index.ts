@@ -235,10 +235,31 @@ Deno.serve(async (req) => {
         finalPairing = extractPairingCode(connRes.data);
     } else if (!phoneNumber && !finalQr) {
         const connRes = await provider.getQr(instanceName);
-        if (!connRes.ok) {
-           throw new AppError("EVO_GO_QR_NOT_AVAILABLE", "Não foi possível gerar o QR Code agora.", 502, dRef);
-        }
         finalQr = extractQrBase64(connRes.data);
+
+        // Fallback: instância existe mas QR não disponível → recriar
+        if (!finalQr) {
+          console.log(`[${dRef}] QR indisponível para instância existente. Recriando...`);
+          try { await provider.logout(instanceName); } catch { /* ignore */ }
+          try { await provider.delete(instanceName); } catch { /* ignore */ }
+          await delay(800);
+
+          const recreateRes = await provider.createInstance(instanceName);
+          if (recreateRes.ok || extractQrBase64(recreateRes.data)) {
+            await provider.setWebhook(instanceName, WEBHOOK_URL, WHATSAPP_AGENT_SECRET).catch(() => null);
+            finalQr = extractQrBase64(recreateRes.data);
+            instanceToken = recreateRes.data?.hash?.apikey ?? recreateRes.data?.token ?? recreateRes.data?.apikey ?? instanceToken;
+
+            if (!finalQr) {
+              const retryQr = await provider.getQr(instanceName);
+              finalQr = extractQrBase64(retryQr.data);
+            }
+          }
+
+          if (!finalQr) {
+            throw new AppError("EVO_GO_QR_NOT_AVAILABLE", "Não foi possível gerar o QR Code. Tente remover a conexão e ativar novamente.", 502, dRef);
+          }
+        }
     }
 
 
