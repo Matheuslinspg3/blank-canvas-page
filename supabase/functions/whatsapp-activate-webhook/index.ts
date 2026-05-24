@@ -172,10 +172,11 @@ Deno.serve(async (req) => {
       ? existingConfig.instance_name.trim()
       : baseInstanceName;
 
-    // Defensive validation
-    if (!instanceName || typeof instanceName !== "string" || !instanceName.trim() || instanceName === "undefined") {
-      throw new AppError("INVALID_INSTANCE_NAME", "Nome da instância inválido ou ausente.", 400, dRef);
+    // Defensive validation BEFORE any EvoAPI call
+    if (!instanceName || typeof instanceName !== "string" || !instanceName.trim() || instanceName.includes("undefined") || instanceName.length < 3) {
+      throw new AppError("INVALID_INSTANCE_NAME", `Nome da instância inválido: ${String(instanceName)}`, 400, dRef);
     }
+
     instanceName = instanceName.trim();
 
 
