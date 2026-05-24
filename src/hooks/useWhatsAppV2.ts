@@ -33,7 +33,7 @@ export interface WhatsAppError extends Error {
 }
 
 export function useWhatsAppV2() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const queryClient = useQueryClient();
 
   const { data: connectionData, isLoading, error, refetch } = useQuery({
