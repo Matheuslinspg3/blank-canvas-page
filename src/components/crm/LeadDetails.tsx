@@ -62,8 +62,6 @@ import { LeadDocumentsTab } from './LeadDocumentsTab';
 import { useActivityLogger } from '@/hooks/useActivityLogger';
 import { ScheduleVisitDialog } from '@/components/visits/ScheduleVisitDialog';
 import { LeadVisitsSection } from '@/components/visits/LeadVisitsSection';
-import { useLeadFollowUpStatus } from '@/hooks/whatsapp/useLeadFollowUpStatus';
-import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 
 interface LeadDetailsProps {
