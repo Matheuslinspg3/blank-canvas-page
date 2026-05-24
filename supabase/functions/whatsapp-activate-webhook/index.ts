@@ -234,8 +234,9 @@ Deno.serve(async (req) => {
       }
 
       const tryCreate = async (name: string) => {
-        return await createEvolutionInstance(baseUrl, EVOLUTION_API_KEY, name, WEBHOOK_URL, WHATSAPP_AGENT_SECRET);
+        return await createEvolutionInstance(baseUrl, EVOLUTION_API_KEY, name, WEBHOOK_URL, WHATSAPP_AGENT_SECRET, dRef);
       };
+
 
 
       const cleanupOrphan = async (name: string) => {
