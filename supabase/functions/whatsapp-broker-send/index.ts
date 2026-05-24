@@ -142,33 +142,40 @@ serve(async (req) => {
       ? contactNameRow.push_name.trim()
       : null;
 
-    let evoEndpoint: string;
-    let evoBody: Record<string, unknown>;
+    const remoteJidClean = remoteJid.split("@")[0];
+    let evoRes: any;
 
     if (type === "media" && mediaUrl) {
-      evoEndpoint = `${EVOLUTION_API_URL}/message/sendMedia/${channel.instance_name}`;
-      evoBody = {
-        number: remoteJid,
-        mediatype: mediaType ?? "image",
-        media: mediaUrl,
-        caption: message,
-      };
+        // Fallback for media in broker send
+        const baseUrl = EVOLUTION_API_URL!.replace(/\/$/, "");
+        const endpoint = EVOLUTION_PROVIDER === "evolution_go" 
+            ? `${baseUrl}/send/media`
+            : `${baseUrl}/message/sendMedia/${channel.instance_name}`;
+        
+        const res = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY! },
+            body: JSON.stringify({
+                number: remoteJid,
+                mediatype: mediaType ?? "image",
+                media: mediaUrl,
+                caption: message,
+                name: EVOLUTION_PROVIDER === "evolution_go" ? channel.instance_name : undefined
+            }),
+        });
+        const raw = await res.text();
+        evoRes = { ok: res.ok, status: res.status, data: parseJsonSafely(raw), raw };
     } else {
-      evoEndpoint = `${EVOLUTION_API_URL}/message/sendText/${channel.instance_name}`;
-      evoBody = { number: remoteJid, text: message };
+        evoRes = await provider.sendText(channel.instance_name, remoteJid, message);
     }
 
-    const evoRes = await fetch(evoEndpoint, {
-      method: "POST",
-      headers: { apikey: EVOLUTION_API_KEY, "Content-Type": "application/json" },
-      body: JSON.stringify(evoBody),
-    });
-
-    const evoData = await evoRes.json();
     if (!evoRes.ok) {
-      console.error("[broker-send] Evolution error:", evoData);
+      console.error("[broker-send] Evolution error:", evoRes.data);
       throw new Error("Falha ao enviar mensagem pelo Evolution API");
     }
+
+    const evoData = evoRes.data;
+
 
     const messageId = evoData?.key?.id ?? evoData?.id ?? crypto.randomUUID();
 
