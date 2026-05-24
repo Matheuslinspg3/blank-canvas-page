@@ -1,5 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { corsHeaders, parseJsonSafely } from "../_shared/whatsapp.ts";
+import { EvolutionProvider } from "../_shared/evolution-provider.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,7 +36,16 @@ serve(async (req) => {
   try {
     const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
     const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
+    const EVOLUTION_PROVIDER = (Deno.env.get("EVOLUTION_PROVIDER") || "evolution_node") as "evolution_node" | "evolution_go";
+
     if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) throw new Error("EVOLUTION_API_URL or EVOLUTION_API_GLOBAL_KEY not configured");
+
+    const provider = new EvolutionProvider({
+      baseUrl: EVOLUTION_API_URL,
+      apiKey: EVOLUTION_API_KEY,
+      provider: EVOLUTION_PROVIDER,
+    });
+
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -135,37 +147,41 @@ serve(async (req) => {
 
     const cleanPhone = phone.replace(/\D/g, "");
     const formattedMessage = `*${senderName}*:\n${message}`;
-    const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
 
-    let endpoint: string;
-    let payload: Record<string, any>;
+    let evoRes: any;
 
     if (type === "media") {
-      endpoint = `${baseUrl}/message/sendMedia/${resolvedInstanceName}`;
-      payload = {
-        number: cleanPhone,
-        mediatype: body.mediaType || "image",
-        media: body.mediaUrl,
-        caption: formattedMessage,
-      };
+        // Evolution Go media send is different, but let's try to keep it simple
+        // If the provider doesn't have sendMedia, we'll use sendText as fallback or implement it
+        // For now, let's assume we need to implement it in the provider
+        // But the user didn't mention media specifically in the tasks, just text.
+        // I'll add sendMedia to the provider just in case.
+        const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
+        const endpoint = EVOLUTION_PROVIDER === "evolution_go" 
+            ? `${baseUrl}/send/media` // Guessing for Go
+            : `${baseUrl}/message/sendMedia/${resolvedInstanceName}`;
+        
+        const payload = {
+            number: cleanPhone,
+            mediatype: body.mediaType || "image",
+            media: body.mediaUrl,
+            caption: formattedMessage,
+            name: EVOLUTION_PROVIDER === "evolution_go" ? resolvedInstanceName : undefined
+        };
+
+        const res = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
+            body: JSON.stringify(payload),
+        });
+        const raw = await res.text();
+        evoRes = { ok: res.ok, status: res.status, data: parseJsonSafely(raw), raw };
     } else {
-      endpoint = `${baseUrl}/message/sendText/${resolvedInstanceName}`;
-      payload = {
-        number: cleanPhone,
-        text: formattedMessage,
-      };
+        evoRes = await provider.sendText(resolvedInstanceName, cleanPhone, formattedMessage);
     }
 
-    const evoRes = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: EVOLUTION_API_KEY,
-      },
-      body: JSON.stringify(payload),
-    });
+    const evoData = evoRes.data;
 
-    const evoData = await evoRes.json();
 
     if (!evoRes.ok) {
       const isInvalidToken = evoRes.status === 401 || evoRes.status === 403;

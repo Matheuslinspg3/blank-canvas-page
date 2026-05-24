@@ -1,19 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-/**
- * whatsapp-broker-send
- *
- * Sends messages via broker's individual WhatsApp channel.
- * Resolves instance from broker_whatsapp_channels.
- * Persists outbound message with channel_type='broker'.
- */
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { corsHeaders } from "../_shared/whatsapp.ts";
+import { EvolutionProvider } from "../_shared/evolution-provider.ts";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -21,13 +9,23 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const EVOLUTION_API_URL = (Deno.env.get("EVOLUTION_API_URL") ?? "").replace(/\/$/, "");
+    const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
     const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
+    const EVOLUTION_PROVIDER = (Deno.env.get("EVOLUTION_PROVIDER") || "evolution_node") as "evolution_node" | "evolution_go";
+
     if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) throw new Error("Evolution API not configured");
+
+    const provider = new EvolutionProvider({
+      baseUrl: EVOLUTION_API_URL,
+      apiKey: EVOLUTION_API_KEY,
+      provider: EVOLUTION_PROVIDER,
+    });
+
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -144,33 +142,40 @@ serve(async (req) => {
       ? contactNameRow.push_name.trim()
       : null;
 
-    let evoEndpoint: string;
-    let evoBody: Record<string, unknown>;
+    const remoteJidClean = remoteJid.split("@")[0];
+    let evoRes: any;
 
     if (type === "media" && mediaUrl) {
-      evoEndpoint = `${EVOLUTION_API_URL}/message/sendMedia/${channel.instance_name}`;
-      evoBody = {
-        number: remoteJid,
-        mediatype: mediaType ?? "image",
-        media: mediaUrl,
-        caption: message,
-      };
+        // Fallback for media in broker send
+        const baseUrl = EVOLUTION_API_URL!.replace(/\/$/, "");
+        const endpoint = EVOLUTION_PROVIDER === "evolution_go" 
+            ? `${baseUrl}/send/media`
+            : `${baseUrl}/message/sendMedia/${channel.instance_name}`;
+        
+        const res = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY! },
+            body: JSON.stringify({
+                number: remoteJid,
+                mediatype: mediaType ?? "image",
+                media: mediaUrl,
+                caption: message,
+                name: EVOLUTION_PROVIDER === "evolution_go" ? channel.instance_name : undefined
+            }),
+        });
+        const raw = await res.text();
+        evoRes = { ok: res.ok, status: res.status, data: parseJsonSafely(raw), raw };
     } else {
-      evoEndpoint = `${EVOLUTION_API_URL}/message/sendText/${channel.instance_name}`;
-      evoBody = { number: remoteJid, text: message };
+        evoRes = await provider.sendText(channel.instance_name, remoteJid, message);
     }
 
-    const evoRes = await fetch(evoEndpoint, {
-      method: "POST",
-      headers: { apikey: EVOLUTION_API_KEY, "Content-Type": "application/json" },
-      body: JSON.stringify(evoBody),
-    });
-
-    const evoData = await evoRes.json();
     if (!evoRes.ok) {
-      console.error("[broker-send] Evolution error:", evoData);
+      console.error("[broker-send] Evolution error:", evoRes.data);
       throw new Error("Falha ao enviar mensagem pelo Evolution API");
     }
+
+    const evoData = evoRes.data;
+
 
     const messageId = evoData?.key?.id ?? evoData?.id ?? crypto.randomUUID();
 

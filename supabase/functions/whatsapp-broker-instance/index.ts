@@ -9,6 +9,8 @@ import {
   extractPairingCode,
   safePreview
 } from "../_shared/whatsapp.ts";
+import { EvolutionProvider } from "../_shared/evolution-provider.ts";
+
 
 const captureWhatsAppException = async (error: unknown, context: Record<string, unknown> = {}) => {
   try {
@@ -64,9 +66,17 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const EVOLUTION_API_URL = (Deno.env.get("EVOLUTION_API_URL") ?? "").replace(/\/$/, "");
+    const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
     const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
+    const EVOLUTION_PROVIDER = (Deno.env.get("EVOLUTION_PROVIDER") || "evolution_node") as "evolution_node" | "evolution_go";
+
     if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) throw new Error("Evolution API not configured");
+
+    const provider = new EvolutionProvider({
+      baseUrl: EVOLUTION_API_URL,
+      apiKey: EVOLUTION_API_KEY,
+      provider: EVOLUTION_PROVIDER,
+    });
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -113,20 +123,19 @@ serve(async (req) => {
       let phone = channel.phone_number;
 
       try {
-        const evoRes = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${channel.instance_name}`, {
-          headers: { apikey: EVOLUTION_API_KEY },
-        });
-        const evoRaw = await evoRes.text();
-        const evoData = parseJsonSafely(evoRaw);
+        const evoRes = await provider.getStatus(channel.instance_name);
+        const evoRaw = evoRes.raw;
+        const evoData = evoRes.data;
 
         if (evoRes.ok) {
-          const evoStatus = classifyConnectionStatus(evoRaw, evoData?.state, evoData?.instance?.state);
+          const evoStatus = classifyConnectionStatus(evoRaw, evoData?.state, evoData?.instance?.state, evoData?.status);
           if (evoStatus !== "unknown") newStatus = evoStatus;
           phone = extractPhoneNumber(evoData) ?? phone;
         }
       } catch (e) {
         console.warn("Evolution status check failed:", e);
       }
+
 
       const updatePayload: Record<string, unknown> = { status: newStatus };
       if (newStatus === "connected" || newStatus === "disconnected") updatePayload.qr_code = null;
@@ -176,14 +185,11 @@ serve(async (req) => {
       let token = channel?.instance_token ?? null;
 
       try {
-        const fetchRes = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances`, {
-          method: "GET",
-          headers: { apikey: EVOLUTION_API_KEY },
-        });
-        const fetchRaw = await fetchRes.text();
-        const fetchData = parseJsonSafely(fetchRaw);
+        const fetchRes = await provider.fetchInstances();
+        const fetchRaw = fetchRes.raw;
+        const fetchData = fetchRes.data;
         if (fetchRes.ok) {
-          const list = Array.isArray(fetchData) ? fetchData : Array.isArray(fetchData?.instances) ? fetchData.instances : [];
+          const list = Array.isArray(fetchData) ? fetchData : Array.isArray(fetchData?.instances) ? fetchData.instances : (Array.isArray(fetchData?.data) ? fetchData.data : []);
           const existingEvo = list.find((i: any) => (i?.name ?? i?.instanceName ?? i?.instance?.instanceName) === instanceName);
           if (existingEvo) {
             instanceExists = true;
@@ -195,27 +201,9 @@ serve(async (req) => {
       }
 
       if (!instanceExists) {
-        const createBody: Record<string, unknown> = {
-          name: instanceName,
-
-          integration: "WHATSAPP-BAILEYS",
-          qrcode: !usePairing,
-          webhook: {
-            url: webhookUrl,
-            enabled: true,
-            events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "QRCODE_UPDATED"],
-            webhook_by_events: false,
-          },
-        };
-        if (usePairing) createBody.number = rawPhone;
-
-        const createRes = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
-          method: "POST",
-          headers: { apikey: EVOLUTION_API_KEY, "Content-Type": "application/json" },
-          body: JSON.stringify(createBody),
-        });
-        const createRaw = await createRes.text();
-        const createData = parseJsonSafely(createRaw);
+        const createRes = await provider.createInstance(instanceName);
+        const createRaw = createRes.raw;
+        const createData = createRes.data;
 
         if (!createRes.ok) {
           if (!/already in use|already exists|em uso|já existe/i.test(createRaw)) {
@@ -227,18 +215,22 @@ serve(async (req) => {
         }
 
         token = createData?.hash?.apikey || createData?.token || createData?.instance?.token || token;
+        
+        // Configurar webhook logo após criar
+        if (createRes.ok) {
+            await provider.setWebhook(instanceName, webhookUrl, Deno.env.get("WHATSAPP_AGENT_SECRET") || "");
+        }
       }
 
-      const connRes = await fetch(
-        usePairing
-          ? `${EVOLUTION_API_URL}/instance/connect/${instanceName}?number=${rawPhone}`
-          : `${EVOLUTION_API_URL}/instance/connect/${instanceName}`,
-        { method: "GET", headers: { apikey: EVOLUTION_API_KEY } },
-      );
-      const connRaw = await connRes.text();
-      const connData = parseJsonSafely(connRaw);
+      const connRes = usePairing 
+        ? await provider.pair(instanceName, rawPhone)
+        : await provider.getQr(instanceName);
+
+      const connRaw = connRes.raw;
+      const connData = connRes.data;
       const pairingCode = extractPairingCode(connData);
       const qrCode = extractQrBase64(connData);
+
 
       const stateText = classifyConnectionStatus(connRaw, connData?.instance?.state, connData?.state);
       const status = stateText === "connected" ? "connected" : "connecting";
@@ -265,19 +257,10 @@ serve(async (req) => {
       const channel = await getBrokerChannel(body.targetUserId);
       if (!channel) return json({ status: "disconnected" });
 
-      // Check permission: own channel or admin
       if (channel.user_id !== userId && !isAdmin) return json({ error: "Sem permissão" }, 403);
 
       if (channel.instance_name) {
-        try {
-          const res = await fetch(`${EVOLUTION_API_URL}/instance/logout/${channel.instance_name}`, {
-            method: "DELETE",
-            headers: { apikey: EVOLUTION_API_KEY },
-          });
-          await res.text();
-        } catch (e) {
-          console.warn("Evolution logout failed:", e);
-        }
+        await provider.logout(channel.instance_name).catch(() => null);
       }
 
       await sb.from("broker_whatsapp_channels").update({ status: "disconnected", qr_code: null }).eq("id", channel.id);
@@ -292,15 +275,7 @@ serve(async (req) => {
       if (channel.user_id !== userId && !isAdmin) return json({ error: "Sem permissão" }, 403);
 
       if (channel.instance_name) {
-        try {
-          const res = await fetch(`${EVOLUTION_API_URL}/instance/delete/${channel.instance_name}`, {
-            method: "DELETE",
-            headers: { apikey: EVOLUTION_API_KEY },
-          });
-          await res.text();
-        } catch (e) {
-          console.warn("Evolution delete failed:", e);
-        }
+        await provider.delete(channel.instance_name).catch(() => null);
       }
 
       await sb.from("broker_whatsapp_channels").update({
@@ -314,6 +289,7 @@ serve(async (req) => {
 
       return json({ deleted: true });
     }
+
 
     return json({ error: "Invalid action. Supported: status, connect, disconnect, delete" }, 400);
   } catch (err: unknown) {
