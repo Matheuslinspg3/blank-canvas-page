@@ -10,6 +10,8 @@ import {
   errorResponse,
   AppError
 } from "../_shared/whatsapp.ts";
+import { EvolutionProvider } from "../_shared/evolution-provider.ts";
+
 
 const normalizePersistedStatus = (
   value: unknown,
