@@ -154,21 +154,29 @@ export default function MeuWhatsApp() {
           </CardHeader>
           <CardContent className="flex flex-col items-center space-y-6">
             {connection?.qr_code ? (
-              <div className="bg-white p-4 rounded-xl border shadow-sm relative group">
+              <div className="bg-white p-4 rounded-xl border shadow-sm relative group overflow-hidden">
                 <img 
                   src={connection.qr_code.startsWith('data:') ? connection.qr_code : `data:image/png;base64,${connection.qr_code}`} 
                   alt="WhatsApp QR Code" 
-                  className="w-64 h-64" 
+                  className="w-full max-w-[256px] h-auto aspect-square mx-auto" 
                 />
                 {isConnecting && (
-                  <div className="absolute inset-0 bg-white/80 flex items-center justify-center animate-in fade-in">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <div className="absolute inset-0 bg-white/80 flex flex-col items-center justify-center animate-in fade-in">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+                    <span className="text-xs font-medium text-primary">Atualizando QR...</span>
                   </div>
                 )}
               </div>
+            ) : status === "qr_pending" && !isConnecting ? (
+              <div className="w-full max-w-[256px] aspect-square bg-destructive/5 rounded-xl border-2 border-dashed border-destructive/20 flex flex-col items-center justify-center p-6 text-center">
+                <XCircle className="h-10 w-10 text-destructive mb-3 opacity-60" />
+                <p className="text-sm font-semibold text-destructive mb-1">QR Code indisponível</p>
+                <p className="text-[10px] text-muted-foreground">O servidor não retornou a imagem. Tente gerar novamente.</p>
+              </div>
             ) : (
-              <div className="w-64 h-64 bg-muted animate-pulse rounded-xl flex items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <div className="w-full max-w-[256px] aspect-square bg-muted animate-pulse rounded-xl flex flex-col items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-2" />
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Gerando QR...</span>
               </div>
             )}
             <div className="flex flex-col items-center space-y-4 w-full">
