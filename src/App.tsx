@@ -75,7 +75,7 @@ const Anuncios = lazy(() => lazyRetry(() => import("./pages/Anuncios")));
 const _RDStation = lazy(() => lazyRetry(() => import("./pages/RDStation")));
 const MetaAdDetail = lazy(() => lazyRetry(() => import("./pages/ads/MetaAdDetail")));
 const Owners = lazy(() => lazyRetry(() => import("./pages/Owners")));
-const Inbox = lazy(() => lazyRetry(() => import("./pages/Inbox")));
+
 
 const _GeradorAnuncios = lazy(() => lazyRetry(() => import("./pages/GeradorAnuncios")));
 const PublicPropertyBySlug = lazy(() => lazyRetry(() => import("./pages/PublicPropertyBySlug")));
