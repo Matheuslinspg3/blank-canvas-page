@@ -1,277 +1,75 @@
-import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Home, Users, Calendar, Menu, DollarSign, Store, Megaphone, Settings, Plug, UserCog, X, Building2, Zap, Terminal, ChevronDown, CreditCard, Landmark, Globe, Smartphone } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useState, useEffect } from "react";
-import { useNotifications } from "@/hooks/useNotifications";
-import { useUserRoles } from "@/hooks/useUserRole";
+import { NavLink } from "react-router-dom";
+import { 
+  LayoutDashboard, 
+  Home, 
+  Megaphone, 
+  Settings, 
+  Users,
+  Building2,
+  Zap,
+  DollarSign
+} from "lucide-react";
+import { useLocation } from "react-router-dom";
+import { useAdLeadsCount } from "@/hooks/useAdLeads";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useUserRoles } from "@/hooks/useUserRole";
 import { useAuth } from "@/contexts/AuthContext";
 import { getSidebarVisibilityFlags } from "@/config/featureAccess";
 
-const primaryItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
-  { icon: Home, label: "Imóveis", path: "/imoveis" },
-  { icon: Users, label: "CRM", path: "/crm" },
-  { icon: Calendar, label: "Agenda", path: "/agenda" },
-];
-
-interface MoreItem {
-  icon: typeof Home;
-  label: string;
-  path: string;
-  adminOnly?: boolean;
-  developerOnly?: boolean;
-  featureKey?: string;
-}
-
-interface MenuGroup {
-  title: string;
-  items: MoreItem[];
-}
-
-const menuGroups: MenuGroup[] = [
-  {
-    title: "Menu",
-    items: [
-      { icon: Store, label: "Marketplace", path: "/marketplace" },
-      { icon: Smartphone, label: "Meu WhatsApp", path: "/whatsapp/meu-canal", featureKey: "has_whatsapp" },
-      { icon: DollarSign, label: "Financeiro", path: "/financeiro" },
-      { icon: Landmark, label: "Correspondente", path: "/correspondente" },
-      { icon: Megaphone, label: "Marketing", path: "/marketing" },
-      { icon: Building2, label: "Proprietários", path: "/proprietarios" },
-      { icon: Zap, label: "Automações", path: "/automacoes", featureKey: "has_automations" },
-    ],
-  },
-  {
-    title: "Gestão",
-    items: [
-      { icon: Globe, label: "Meu Site", path: "/site", featureKey: "has_brand_settings" },
-      { icon: Smartphone, label: "Canais da Equipe", path: "/whatsapp/canais-equipe", featureKey: "has_whatsapp" },
-      { icon: UserCog, label: "Administração", path: "/administracao", adminOnly: true },
-      { icon: Plug, label: "Integrações", path: "/integracoes", adminOnly: true },
-    ],
-  },
-  {
-    title: "Sistema",
-    items: [
-      { icon: CreditCard, label: "Planos", path: "/planos" },
-      { icon: Settings, label: "Configurações", path: "/configuracoes" },
-      { icon: Terminal, label: "Developer", path: "/developer", developerOnly: true },
-    ],
-  },
-];
-
 export function MobileBottomNav() {
   const location = useLocation();
-  const navigate = useNavigate();
+  const { data: adLeadsCount = 0 } = useAdLeadsCount();
+  const { hasFeature, loadingSub } = useSubscription();
+  const { isDeveloper, isLoading: loadingRoles } = useUserRoles();
   const { user, loading: loadingAuth } = useAuth();
-  const { isAdminOrAbove, isDeveloper, isLoading: loadingRoles } = useUserRoles();
-  const { hasFeature, loadingSub: loadingSubscription } = useSubscription();
+  
+  const currentPath = location.pathname;
 
-  const { showWhatsApp, showAutomations, showBrandSettings } = getSidebarVisibilityFlags({
+  const { showAutomations } = getSidebarVisibilityFlags({
     isDeveloper,
     hasFeature,
     isLoadingAuth: loadingAuth,
     isLoadingRoles: loadingRoles,
-    isLoadingSubscription: loadingSubscription,
+    isLoadingSubscription: loadingSub,
     hasAuthenticatedUser: !!user,
   });
 
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
-
-  // Close sheet on route change
-  useEffect(() => {
-    setIsSheetOpen(false);
-  }, [location.pathname]);
-
-  // Prevent body scroll when sheet is open
-  useEffect(() => {
-    if (isSheetOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => { document.body.style.overflow = ""; };
-  }, [isSheetOpen]);
-
-  const isActive = (path: string) =>
-    location.pathname === path || location.pathname.startsWith(`${path}/`);
-
-  const allItems = menuGroups.flatMap(g => g.items);
-  const isMoreActive = allItems.some(item => isActive(item.path));
-
-  const filterItems = (items: MoreItem[]) =>
-    items.filter(item => {
-      if (item.adminOnly && !isAdminOrAbove) return false;
-      if (item.developerOnly && !isDeveloper) return false;
-      if (item.featureKey === "has_whatsapp" && !showWhatsApp) return false;
-      if (item.featureKey === "has_automations" && !showAutomations) return false;
-      if (item.featureKey === "has_brand_settings" && !showBrandSettings) return false;
-      if (item.featureKey && !item.featureKey.includes("has_") && !hasFeature(item.featureKey) && !isDeveloper) return false;
-      return true;
-    });
-
-  const toggleGroup = (title: string) => {
-    setCollapsedGroups(prev => ({ ...prev, [title]: !prev[title] }));
-  };
-
-  const filteredGroups = menuGroups
-    .map(g => ({ ...g, items: filterItems(g.items) }))
-    .filter(g => g.items.length > 0);
+  const items = [
+    { label: "Home", icon: LayoutDashboard, path: "/dashboard" },
+    { label: "Imóveis", icon: Home, path: "/imoveis" },
+    { label: "CRM", icon: Users, path: "/crm" },
+    { label: "Marketing", icon: Megaphone, path: "/marketing", badge: adLeadsCount > 0 ? adLeadsCount : null },
+    ...(showAutomations ? [{ label: "Automações", icon: Zap, path: "/automacoes" }] : []),
+    { label: "Menu", icon: Settings, path: "/configuracoes" },
+  ];
 
   return (
-    <>
-      {/* Bottom Sheet Overlay */}
-      {isSheetOpen && (
-        <div
-          className="fixed inset-0 z-50 md:hidden backdrop-enter"
-          onClick={() => setIsSheetOpen(false)}
-        >
-          {/* Scrim */}
-          <div className="absolute inset-0 bg-background/60 backdrop-blur-sm" />
-
-          {/* Sheet */}
-          <div
-            className="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl border-t border-border/50 shadow-2xl slide-up-enter safe-area-bottom max-h-[70vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Handle */}
-            <div className="flex justify-center pt-3 pb-1 shrink-0">
-              <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
-            </div>
-
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-2 shrink-0">
-              <p className="text-sm font-semibold text-foreground">Menu</p>
-              <button
-                onClick={() => setIsSheetOpen(false)}
-                className="p-2 rounded-full hover:bg-muted active:scale-90 touch-manipulation"
-                aria-label="Fechar"
-              >
-                <X className="h-4 w-4 text-muted-foreground" />
-              </button>
-            </div>
-
-            {/* Grouped items */}
-            <div className="overflow-y-auto px-3 pb-6 pt-1 space-y-1">
-              {filteredGroups.map((group) => {
-                const isCollapsed = collapsedGroups[group.title] ?? false;
-                return (
-                  <div key={group.title}>
-                    <button
-                      onClick={() => toggleGroup(group.title)}
-                      className="flex items-center justify-between w-full px-2 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider"
-                    >
-                      {group.title}
-                      <ChevronDown className={cn(
-                        "h-3.5 w-3.5 transition-transform duration-200",
-                        isCollapsed && "-rotate-90"
-                      )} />
-                    </button>
-                    {!isCollapsed && (
-                      <div className="grid grid-cols-4 gap-1">
-                        {group.items.map((item) => {
-                          const Icon = item.icon;
-                          const active = isActive(item.path);
-                          return (
-                            <button
-                              key={item.path}
-                              onClick={() => {
-                                navigate(item.path);
-                                setIsSheetOpen(false);
-                              }}
-                              className={cn(
-                                "flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl",
-                                "active:scale-90 touch-manipulation transition-all duration-150",
-                                active
-                                  ? "bg-primary/10 text-primary"
-                                  : "text-muted-foreground hover:bg-muted"
-                              )}
-                            >
-                              <Icon className="h-5 w-5" />
-                              <span className="text-[10px] font-medium leading-tight text-center">{item.label}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Bottom Nav Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-background/95 backdrop-blur-lg border-t border-border/50 safe-area-bottom slide-up-enter">
-        <div className="flex items-center justify-around h-[68px] px-1">
-          {primaryItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.path);
-
-            return (
-              <button
-                key={item.label}
-                onClick={() => navigate(item.path)}
-                className={cn(
-                  "relative flex flex-col items-center justify-center gap-1 min-w-[60px] min-h-[48px] px-2 py-2 rounded-xl",
-                  "transition-all duration-200 ease-out-expo",
-                  "active:scale-90 touch-manipulation",
-                  active
-                    ? "text-primary"
-                    : "text-muted-foreground"
-                )}
-                aria-label={item.label}
-                aria-current={active ? "page" : undefined}
-              >
-                <Icon className={cn(
-                  "h-[22px] w-[22px] transition-all duration-200",
-                  active && "stroke-[2.5px]"
-                )} />
-                <span className={cn(
-                  "text-[10px] leading-none transition-all",
-                  active ? "font-bold" : "font-medium"
-                )}>
-                  {item.label}
+    <nav className="fixed bottom-0 left-0 right-0 z-50 h-16 bg-background/80 backdrop-blur-md border-t border-sidebar-border/30 px-2 lg:hidden">
+      <div className="flex h-full items-center justify-around max-w-md mx-auto">
+        {items.map((item) => {
+          const isActive = currentPath === item.path;
+          return (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={`flex flex-col items-center justify-center gap-1 transition-colors relative min-w-[64px] ${
+                isActive ? "text-primary" : "text-muted-foreground"
+              }`}
+            >
+              <item.icon className="h-5 w-5" />
+              <span className="text-[10px] font-medium">{item.label}</span>
+              {item.badge && (
+                <span className="absolute -top-1 right-2 bg-destructive text-destructive-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                  {item.badge}
                 </span>
-                {active && (
-                  <div className="absolute bottom-1 w-5 h-0.5 rounded-full bg-primary scale-pop" />
-                )}
-              </button>
-            );
-          })}
-
-          {/* More Button */}
-          <button
-            onClick={() => setIsSheetOpen(true)}
-            className={cn(
-              "relative flex flex-col items-center justify-center gap-1 min-w-[60px] min-h-[48px] px-2 py-2 rounded-xl",
-              "transition-all duration-200 ease-out-expo",
-              "active:scale-90 touch-manipulation",
-              isMoreActive || isSheetOpen
-                ? "text-primary"
-                : "text-muted-foreground"
-            )}
-            aria-label="Menu"
-          >
-            <Menu className={cn(
-              "h-[22px] w-[22px] transition-all duration-200",
-              (isMoreActive || isSheetOpen) && "stroke-[2.5px]"
-            )} />
-            <span className={cn(
-              "text-[10px] leading-none",
-              (isMoreActive || isSheetOpen) ? "font-bold" : "font-medium"
-            )}>
-              Mais
-            </span>
-            {isMoreActive && !isSheetOpen && (
-              <div className="absolute bottom-1 w-5 h-0.5 rounded-full bg-primary scale-pop" />
-            )}
-          </button>
-        </div>
-      </nav>
-    </>
+              )}
+              {isActive && (
+                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full" />
+              )}
+            </NavLink>
+          );
+        })}
+      </div>
+    </nav>
   );
 }
