@@ -279,9 +279,10 @@ Deno.serve(async (req) => {
     // Para erros inesperados, retornamos 200 com ok: false para evitar o overlay de erro do preview
     return jsonResponse({
       ok: false,
-      code: "INTERNAL_ERROR",
+      code: "EVO_GO_BAD_REQUEST",
       message: "Ocorreu um erro interno ao processar a requisição.",
       debug_ref: dRef
     });
+
   }
 });
