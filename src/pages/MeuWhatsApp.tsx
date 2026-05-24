@@ -204,19 +204,35 @@ export default function MeuWhatsApp() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center space-y-8">
-            <div className="text-5xl font-mono font-bold tracking-[0.5em] bg-muted px-8 py-6 rounded-lg border">
-              {connection?.pairing_code || "-------"}
+            <div className="relative group">
+              <div className="text-5xl font-mono font-bold tracking-[0.5em] bg-muted px-8 py-6 rounded-lg border">
+                {connection?.pairing_code || "-------"}
+              </div>
+              {isConnecting && (
+                <div className="absolute inset-0 bg-muted/80 flex items-center justify-center rounded-lg">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              )}
             </div>
-            <div className="flex flex-col items-center space-y-4">
-              <span className="text-sm font-medium flex items-center">
+            <div className="flex flex-col items-center space-y-4 w-full">
+              {connectError && (
+                <Alert variant="destructive" className="max-w-xs py-2">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-[10px] break-all">
+                    {connectError.message} (Ref: {connectError.debug_ref})
+                  </AlertDescription>
+                </Alert>
+              )}
+              <span className="text-sm font-medium flex items-center text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin mr-2" />
                 Aguardando confirmação no celular...
               </span>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => handleConnect("pairing")} disabled={isConnecting}>
+                  {isConnecting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                   Gerar novo código
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => deleteConnection()} className="text-destructive">
+                <Button variant="ghost" size="sm" onClick={() => deleteConnection()} className="text-destructive" disabled={isDeleting}>
                   Cancelar
                 </Button>
               </div>
