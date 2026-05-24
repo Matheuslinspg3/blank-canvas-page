@@ -6,8 +6,10 @@ import {
   extractQrBase64, 
   jsonResponse,
   errorResponse,
-  AppError
+  AppError,
+  safePreview
 } from "../_shared/whatsapp.ts";
+import { EvolutionProvider } from "../_shared/evolution-provider.ts";
 
 const buildDebugRef = () => `ERR-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
 
@@ -40,77 +42,6 @@ const findEvolutionInstance = (list: any[], instanceName: string) => {
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const createEvolutionInstance = async (
-  baseUrl: string,
-  apiKey: string,
-  instanceName: string,
-  webhookUrl: string,
-  webhookSecret: string,
-  dRef: string,
-) => {
-  // Evolution API v2.4.0 uses 'name' as the primary field for creation.
-  // 'instanceName' is often marked as @Exclude() in the DTO, causing "protected field" warnings.
-  const token = crypto.randomUUID().replace(/-/g, "");
-  
-  const payload = {
-    name: instanceName,
-    token: token,
-    integration: "WHATSAPP-BAILEYS",
-    qrcode: true,
-    syncFullHistory: false,
-  };
-
-  try {
-    console.log(`[${dRef}] POST to ${baseUrl}/instance/create with payload keys: ${Object.keys(payload).join(", ")}`);
-    
-    const res = await fetch(`${baseUrl}/instance/create`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: apiKey },
-      body: JSON.stringify(payload),
-    });
-    
-    const status = res.status;
-    const raw = await res.text();
-    const data = parseJsonSafely(raw);
-    
-    console.log(`[${dRef}] Create response status: ${status}. Body preview: ${safePreview(raw, 300)}`);
-
-    const finalToken = data?.hash?.apikey ?? data?.token ?? data?.apikey ?? data?.instance?.apikey ?? null;
-    const qrBase64 = extractQrBase64(data);
-    const pairingCode = extractPairingCode(data);
-    
-    // If successful or has connection data
-    if (res.ok || qrBase64 || pairingCode) {
-      console.log(`[${dRef}] Instance created or connection data found, configuring webhook...`);
-      await configureEvolutionWebhook(baseUrl, apiKey, instanceName, webhookUrl, webhookSecret);
-    }
-    
-    return { res, raw, token: finalToken || token, qrBase64, pairingCode };
-  } catch (e) {
-    console.error(`[${dRef}] createEvolutionInstance unexpected error:`, e);
-    return { res: { ok: false, status: 500 }, raw: String(e), token: null, qrBase64: null, pairingCode: null };
-  }
-};
-
-
-const configureEvolutionWebhook = (
-  baseUrl: string,
-  apiKey: string,
-  instanceName: string,
-  webhookUrl: string,
-  webhookSecret: string,
-) => fetch(`${baseUrl}/webhook/set/${instanceName}`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json", apikey: apiKey },
-  body: JSON.stringify({
-    url: webhookUrl,
-    enabled: true,
-    byEvents: false,
-    base64: true,
-    headers: { "x-webhook-secret": webhookSecret },
-    events: ["MESSAGES_UPSERT"],
-  }),
-});
 
 const auditLog = async (sb: any, orgId: string, action: string, actorId: string | null, details: Record<string, any> = {}) => {
   try {
