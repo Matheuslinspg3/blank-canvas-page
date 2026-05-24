@@ -43,6 +43,9 @@ const findEvolutionInstance = (list: any[], instanceName: string) => {
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const isInstanceConflict = (raw: string | null | undefined) =>
+  /prisma|integrationSession|findFirst|already in use|already exists|instance already exists/i.test(String(raw || ""));
+
 
 const auditLog = async (sb: any, orgId: string, action: string, actorId: string | null, details: Record<string, any> = {}) => {
   try {
@@ -190,9 +193,8 @@ Deno.serve(async (req) => {
 
       let createAttempt = await tryCreate(instanceName);
 
-      if (!createAttempt.res.ok && (createAttempt.res.status === 400 || createAttempt.res.status === 403 || createAttempt.res.status === 409)) {
-        const isConflict = /prisma|integrationSession|findFirst|already in use|already exists/i.test(createAttempt.raw);
-        if (isConflict) {
+      if (!createAttempt.res.ok && isInstanceConflict(createAttempt.raw)) {
+        if (createAttempt.res.status === 400 || createAttempt.res.status === 403 || createAttempt.res.status === 409) {
           await cleanupOrphan(instanceName);
           createAttempt = await tryCreate(instanceName);
 
@@ -211,22 +213,20 @@ Deno.serve(async (req) => {
         initialPairing = createAttempt.pairingCode;
       } else {
         console.error(`[${dRef}] createInstance failed status=${createAttempt.res.status} raw=${createAttempt.raw?.slice(0, 800)}`);
-        const isConflict = /prisma|integrationSession|findFirst/i.test(createAttempt.raw);
-        if (isConflict) {
-          return jsonResponse({
-            ok: false,
-            code: "EVO_GO_INSTANCE_CONFLICT",
-            message: "A Evolution API retornou um erro interno de sessão. Tente remover a conexão local e iniciar uma nova.",
-            debug_ref: dRef,
-            recoverable: true
+        if (isInstanceConflict(createAttempt.raw)) {
+          console.log(`[${dRef}] Create returned conflict; adopting existing Evolution instance ${instanceName}.`);
+          instanceExists = true;
+          await provider.setWebhook(instanceName, WEBHOOK_URL, WHATSAPP_AGENT_SECRET).catch((e) => {
+            console.warn(`[${dRef}] Failed to set webhook while adopting existing instance:`, e);
           });
+        } else {
+          throw new AppError(
+            "EVO_GO_INSTANCE_CREATE_FAILED",
+            `Falha ao criar instância na Evolution (status ${createAttempt.res.status}). ${String(createAttempt.raw || "").slice(0, 200)}`,
+            502,
+            dRef,
+          );
         }
-        throw new AppError(
-          "EVO_GO_INSTANCE_CREATE_FAILED",
-          `Falha ao criar instância na Evolution (status ${createAttempt.res.status}). ${String(createAttempt.raw || "").slice(0, 200)}`,
-          502,
-          dRef,
-        );
       }
 
     }
