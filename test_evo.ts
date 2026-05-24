@@ -2,9 +2,11 @@ const baseUrl = Deno.env.get("EVOLUTION_API_URL")?.replace(/\/$/, "");
 const apiKey = Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
 
 async function test() {
-  const instanceName = "test" + Math.random().toString(36).substring(2, 7);
+  const instanceName = "lovabletest";
+  const token = crypto.randomUUID();
   const payload = { 
     instanceName, 
+    token,
     integration: "WHATSAPP-BAILEYS"
   };
   
