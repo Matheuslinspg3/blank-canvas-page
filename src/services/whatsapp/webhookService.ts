@@ -29,7 +29,7 @@ export interface WhatsAppWebhookResponse {
 /** @deprecated Use whatsapp-n8n-controller edge function. */
 export async function sendWhatsAppWebhook(_payload: any): Promise<WhatsAppWebhookResponse> {
   console.warn("[WhatsAppWebhook] deprecated. Use whatsapp-n8n-controller.");
-  return { ok: false, error: "Deprecated. Use useWhatsAppV2." };
+  return { ok: false, message: "Deprecated. Use useWhatsAppV2." };
 }
 
 /** @deprecated */
