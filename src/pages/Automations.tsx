@@ -137,82 +137,15 @@ export default function Automations() {
         )}
 
         {!showWizard && !selectedAutomation && (
-          <Tabs defaultValue="automations" className="space-y-4">
+          <Tabs defaultValue="whatsapp-agent" className="space-y-4">
             <TabsList className="bg-muted/50 overflow-x-auto flex-nowrap w-full">
-              <TabsTrigger value="automations" className="gap-1.5 shrink-0">
-                <Zap className="h-3.5 w-3.5" /> Automações
-              </TabsTrigger>
-              <TabsTrigger value="templates" className="gap-1.5 shrink-0">
-                <LayoutTemplate className="h-3.5 w-3.5" /> Templates
-              </TabsTrigger>
-              <TabsTrigger value="logs" className="gap-1.5 shrink-0">
-                <History className="h-3.5 w-3.5" /> Logs
-              </TabsTrigger>
               <TabsTrigger value="whatsapp-agent" className="gap-1.5 shrink-0">
                 <MessageCircle className="h-3.5 w-3.5" /> Agente de IA (WhatsApp)
               </TabsTrigger>
-              <TabsTrigger value="retell-voice" className="gap-1.5 shrink-0">
-                <Phone className="h-3.5 w-3.5" /> Voz (Retell)
-              </TabsTrigger>
-              <TabsTrigger value="score" className="gap-1.5 shrink-0">
-                <BarChart3 className="h-3.5 w-3.5" /> Score
-              </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="automations" className="space-y-6">
-              <AutomationDashboard stats={stats} />
-              {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <AutomationList
-                  automations={automations}
-                  plan={plan}
-                  onToggle={toggleAutomation}
-                  onDelete={(id) => {
-                    deleteAutomation(id);
-                    toast({ title: "Automação excluída" });
-                  }}
-                  onDuplicate={(id) => {
-                    duplicateAutomation(id);
-                    toast({ title: "Automação duplicada" });
-                  }}
-                  onViewStats={setSelectedAutomationId}
-                />
-              )}
-            </TabsContent>
-
-            <TabsContent value="templates">
-              <AutomationTemplates
-                onUseTemplate={(templateId) => {
-                  handleCreate();
-                  toast({ title: "Template selecionado", description: "Configure os detalhes da automação." });
-                }}
-                currentPlan={plan}
-              />
-            </TabsContent>
-
-            <TabsContent value="logs">
-              {logsLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <AutomationExecutionLog logs={executionLogs} />
-              )}
-            </TabsContent>
-
-            <TabsContent value="whatsapp-agent" className="max-w-2xl">
+            <TabsContent value="whatsapp-agent" className="max-w-2xl animate-in fade-in slide-in-from-bottom-2 duration-500">
               <WhatsAppAgentConnection />
-            </TabsContent>
-
-            <TabsContent value="score">
-              <LeadScoreConfig />
-            </TabsContent>
-
-            <TabsContent value="retell-voice">
-              <RetellVoicePanel />
             </TabsContent>
           </Tabs>
         )}
