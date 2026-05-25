@@ -85,7 +85,7 @@ export function buildWhatsAppPayload(
     phoneNumber?: string;
   }
 ): WhatsAppWebhookPayload {
-  const { user, profile, organization, brokerId } = context;
+  const { user, profile, organization, brokerId, phoneNumber } = context;
 
   return {
     action,
