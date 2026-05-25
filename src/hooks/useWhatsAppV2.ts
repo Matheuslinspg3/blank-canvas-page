@@ -32,7 +32,20 @@ export interface WhatsAppError extends Error {
   debug_ref?: string;
 }
 
+export const normalizeQrCode = (qr: string | null | undefined): string | null => {
+  if (!qr) return null;
+  const t = qr.trim();
+  if (t.startsWith("data:image") || t.startsWith("http")) return t;
+  // Check if it's likely a base64 string
+  // Base64 for a QR code is usually quite long and has no spaces
+  if (t.length > 50 && !t.includes(" ") && !t.includes(":") && !t.includes("/")) {
+    return `data:image/png;base64,${t.replace(/[\n\r]/g, '')}`;
+  }
+  return t;
+};
+
 export function useWhatsAppV2() {
+
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -128,16 +141,30 @@ export function useWhatsAppV2() {
     }
   });
 
-  return {
-    connection: connectionData?.connection || (connectionData ? {
+  const connection = useMemo(() => {
+    if (!connectionData) return undefined;
+    
+    if (connectionData.connection) {
+      return {
+        ...connectionData.connection,
+        qr_code: normalizeQrCode(connectionData.connection.qr_code)
+      };
+    }
+    
+    return {
       id: "n8n",
       status: (connectionData as any).status || "unknown",
       instance_name: "n8n",
       phone_number: (connectionData as any).phoneNumber || null,
-      qr_code: (connectionData as any).qrCode || null,
+      qr_code: normalizeQrCode((connectionData as any).qrCode),
       pairing_code: (connectionData as any).pairingCode || null,
       provider: "n8n_evolution_go"
-    } : undefined),
+    };
+  }, [connectionData]);
+
+  return {
+    connection,
+
     status: (connectionData?.status as WhatsAppStatus) || "not_configured",
     isLoading: isLoading && !connectionData,
     error: (error || connectMutation.error) as WhatsAppError | null,
