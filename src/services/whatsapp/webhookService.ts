@@ -12,6 +12,7 @@ export interface WhatsAppWebhookPayload {
   userId?: string;
   userName?: string;
   userEmail?: string;
+  phoneNumber?: string;
   brokerId?: string;
   timestamp: string;
   environment?: string;
@@ -81,9 +82,10 @@ export function buildWhatsAppPayload(
     profile: any;
     organization?: any;
     brokerId?: string;
+    phoneNumber?: string;
   }
 ): WhatsAppWebhookPayload {
-  const { user, profile, organization, brokerId } = context;
+  const { user, profile, organization, brokerId, phoneNumber } = context;
 
   return {
     action,
@@ -95,6 +97,7 @@ export function buildWhatsAppPayload(
     userName: profile?.full_name || user?.user_metadata?.full_name,
     userEmail: user?.email,
     brokerId,
+    phoneNumber,
     timestamp: new Date().toISOString(),
     environment: import.meta.env.MODE,
   };

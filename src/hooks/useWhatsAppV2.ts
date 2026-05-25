@@ -64,7 +64,7 @@ export function useWhatsAppV2() {
       const payload = buildWhatsAppPayload(
         connectionData?.status === "disconnected" || connectionData?.status === "error" ? "reconnect" : "create",
         "broker_whatsapp",
-        { user, profile, organization, brokerId: profile?.id }
+        { user, profile, organization, brokerId: profile?.id, phoneNumber }
       );
 
       const result = await sendWhatsAppWebhook(payload);
