@@ -126,6 +126,7 @@ serve(async (req) => {
 
     if (!n8nResponse.ok) {
       const errorText = await n8nResponse.text()
+      console.error(`[${debugRef}] n8n error (${n8nResponse.status}):`, errorText)
       throw new Error(`n8n error (${n8nResponse.status}): ${errorText}`)
     }
 
