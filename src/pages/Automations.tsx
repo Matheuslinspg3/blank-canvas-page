@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Zap, BarChart3, History, LayoutTemplate, UserCheck, Loader2, Phone } from "lucide-react";
+import { Plus, Zap, BarChart3, History, LayoutTemplate, Loader2, Phone, MessageCircle } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,7 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { WhatsAppStatusBanner } from "@/components/automations/WhatsAppStatusBanner";
-
+import { WhatsAppIntegrationCard } from "@/components/integrations/WhatsAppIntegrationCard";
 
 export default function Automations() {
   const {
@@ -147,11 +147,14 @@ export default function Automations() {
               <TabsTrigger value="logs" className="gap-1.5 shrink-0">
                 <History className="h-3.5 w-3.5" /> Logs
               </TabsTrigger>
-              <TabsTrigger value="score" className="gap-1.5 shrink-0">
-                <BarChart3 className="h-3.5 w-3.5" /> Score
+              <TabsTrigger value="whatsapp-agent" className="gap-1.5 shrink-0">
+                <MessageCircle className="h-3.5 w-3.5" /> Agente de IA (WhatsApp)
               </TabsTrigger>
               <TabsTrigger value="retell-voice" className="gap-1.5 shrink-0">
                 <Phone className="h-3.5 w-3.5" /> Voz (Retell)
+              </TabsTrigger>
+              <TabsTrigger value="score" className="gap-1.5 shrink-0">
+                <BarChart3 className="h-3.5 w-3.5" /> Score
               </TabsTrigger>
             </TabsList>
 
@@ -197,6 +200,10 @@ export default function Automations() {
               ) : (
                 <AutomationExecutionLog logs={executionLogs} />
               )}
+            </TabsContent>
+
+            <TabsContent value="whatsapp-agent" className="max-w-2xl">
+              <WhatsAppIntegrationCard />
             </TabsContent>
 
             <TabsContent value="score">
