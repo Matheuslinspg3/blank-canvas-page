@@ -82,6 +82,11 @@ export function WhatsAppIntegrationCard() {
   }, [handleConnected, stopStatusPolling]);
 
   const handleActivate = async (phoneNumber?: string, forceNewInstance = false) => {
+    if (!phoneNumber && !phoneInput) {
+      toast.error("Por favor, informe seu número de celular.");
+      return;
+    }
+    
     if (isActivating) return;
     
     setIsActivating(true);
