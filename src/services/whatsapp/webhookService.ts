@@ -12,6 +12,7 @@ export interface WhatsAppWebhookPayload {
   userId?: string;
   userName?: string;
   userEmail?: string;
+  phoneNumber?: string;
   brokerId?: string;
   timestamp: string;
   environment?: string;
