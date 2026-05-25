@@ -32,6 +32,27 @@ export interface WhatsAppError extends Error {
   debug_ref?: string;
 }
 
+export const normalizeQrCode = (qr: string | null | undefined): string | null => {
+  if (!qr) return null;
+  const t = qr.trim();
+  
+  if (t.startsWith("data:image") || t.startsWith("http")) {
+    return t;
+  }
+  
+  // If it's a long string without spaces, it's likely a base64 image without prefix
+  if (t.length > 300 && !t.includes(" ") && !t.includes(":")) {
+    return `data:image/png;base64,${t.replace(/[\n\r]/g, '')}`;
+  }
+  
+  // If it's a short string, it might be the raw QR content (e.g. from some APIs)
+  if (t.length > 0 && t.length < 500) {
+    return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(t)}`;
+  }
+  
+  return t;
+};
+
 export function useWhatsAppV2() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -67,7 +88,6 @@ export function useWhatsAppV2() {
       } catch (err: any) {
         console.error("Error fetching whatsapp status:", err);
         Sentry.captureException(err, { tags: { function: "whatsapp-n8n-controller", action: "status" } });
-        // Instead of returning unknown, we rethrow so the query error state is set
         throw err;
       }
     },
@@ -128,16 +148,29 @@ export function useWhatsAppV2() {
     }
   });
 
-  return {
-    connection: connectionData?.connection || (connectionData ? {
+  const connection = useMemo(() => {
+    if (!connectionData) return undefined;
+    
+    if (connectionData.connection) {
+      return {
+        ...connectionData.connection,
+        qr_code: normalizeQrCode(connectionData.connection.qr_code)
+      };
+    }
+    
+    return {
       id: "n8n",
       status: (connectionData as any).status || "unknown",
       instance_name: "n8n",
       phone_number: (connectionData as any).phoneNumber || null,
-      qr_code: (connectionData as any).qrCode || null,
+      qr_code: normalizeQrCode((connectionData as any).qrCode),
       pairing_code: (connectionData as any).pairingCode || null,
       provider: "n8n_evolution_go"
-    } : undefined),
+    };
+  }, [connectionData]);
+
+  return {
+    connection,
     status: (connectionData?.status as WhatsAppStatus) || "not_configured",
     isLoading: isLoading && !connectionData,
     error: (error || connectMutation.error) as WhatsAppError | null,
