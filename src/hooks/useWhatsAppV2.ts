@@ -3,7 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { sendWhatsAppWebhook, buildWhatsAppPayload } from "@/services/whatsapp/webhookService";
 
 export type WhatsAppStatus = 
   | "not_configured" 
@@ -39,9 +38,19 @@ export function useWhatsAppV2() {
   const { data: connectionData, isLoading, error, refetch } = useQuery({
     queryKey: ["whatsapp-connection-v2"],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("whatsapp-status");
+      const { data, error } = await supabase.functions.invoke("whatsapp-n8n-controller", {
+        body: { action: "status" }
+      });
       if (error) throw error;
-      return data as { ok: boolean; status: WhatsAppStatus; connection?: WhatsAppConnection };
+      return data as { 
+        ok: boolean; 
+        status: WhatsAppStatus; 
+        connected: boolean;
+        phoneNumber: string;
+        qrCode?: string;
+        pairingCode?: string;
+        connection?: WhatsAppConnection;
+      };
     },
     enabled: !!user,
     refetchInterval: (query) => {
@@ -55,25 +64,20 @@ export function useWhatsAppV2() {
 
   const connectMutation = useMutation({
     mutationFn: async ({ mode, phoneNumber }: { mode: "qr" | "pairing", phoneNumber?: string }) => {
-      const { data: organization } = await supabase
-        .from("organizations")
-        .select("id, name")
-        .eq("id", profile?.organization_id)
-        .maybeSingle();
-
-      const payload = buildWhatsAppPayload(
-        connectionData?.status === "disconnected" || connectionData?.status === "error" ? "reconnect" : "create",
-        "broker_whatsapp",
-        { user, profile, organization, brokerId: profile?.id, phoneNumber }
-      );
-
-      const result = await sendWhatsAppWebhook(payload);
+      const action = connectionData?.status === "disconnected" || connectionData?.status === "error" ? "reconnect" : "create";
       
-      if (!result.ok) {
-        throw new Error(result.error);
-      }
+      const { data, error } = await supabase.functions.invoke("whatsapp-n8n-controller", {
+        body: { 
+          action,
+          mode,
+          phoneNumber: phoneNumber?.replace(/\D/g, '')
+        }
+      });
+
+      if (error) throw error;
+      if (!data.ok) throw new Error(data.message || "Erro ao conectar");
       
-      return result;
+      return data;
     },
     onSuccess: (result) => {
       if (result.ok && result.message) {
@@ -88,9 +92,8 @@ export function useWhatsAppV2() {
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      // For local deletion, we might just clear state or call a disconnect action if n8n supports it
       const { data, error } = await supabase.functions.invoke("whatsapp-n8n-controller", {
-        body: { action: "disconnect" } // Assuming n8n might handle this or we just clear local
+        body: { action: "disconnect" }
       });
       
       if (error) throw error;
@@ -111,8 +114,8 @@ export function useWhatsAppV2() {
       status: connectionData.status,
       instance_name: "n8n",
       phone_number: connectionData.phoneNumber,
-      qr_code: connectionData.qrCode,
-      pairing_code: connectionData.pairingCode,
+      qr_code: connectionData.qrCode || null,
+      pairing_code: connectionData.pairingCode || null,
       provider: "n8n_evolution_go"
     } : undefined),
     status: connectionData?.status || "not_configured",
