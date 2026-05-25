@@ -46,11 +46,15 @@ serve(async (req) => {
       })
     }
 
-    const { data: profile } = await adminClient
+    const { data: profile, error: profileError } = await adminClient
       .from('profiles')
-      .select('id, full_name, name, organization_id')
-      .eq('user_id', user.id)
+      .select('id, full_name, organization_id')
+      .or(`user_id.eq.${user.id},id.eq.${user.id}`)
       .maybeSingle()
+
+    if (profileError) {
+      console.error(`[${debugRef}] Profile lookup error:`, profileError)
+    }
 
     if (!profile?.organization_id) {
       return new Response(JSON.stringify({ 
