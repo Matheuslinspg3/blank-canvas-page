@@ -58,6 +58,7 @@ const Financial = lazy(() => lazyRetry(() => import("./pages/Financial"), { modu
 const Schedule = lazy(() => lazyRetry(() => import("./pages/Schedule")));
 const Settings = lazy(() => lazyRetry(() => import("./pages/Settings")));
 const AdminAudit = lazy(() => lazyRetry(() => import("./pages/admin/AdminAudit")));
+const MetaWebhookStatus = lazy(() => lazyRetry(() => import("./pages/admin/MetaWebhookStatus")));
 const DeveloperDashboard = lazy(() => lazyRetry(() => import("./pages/developer/DeveloperDashboard")));
 const ImportPendencies = lazy(() => lazyRetry(() => import("./pages/ImportPendencies")));
 const Integrations = lazy(() => lazyRetry(() => import("./pages/Integrations")));
