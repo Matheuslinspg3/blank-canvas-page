@@ -130,7 +130,7 @@ serve(async (req) => {
     }
 
     const n8nData = await n8nResponse.json()
-    console.log(`[whatsapp-n8n-controller] n8n response received`)
+    console.log(`[whatsapp-n8n-controller] n8n response received:`, JSON.stringify(n8nData))
 
     // Normalize response from n8n
     console.log(`[whatsapp-n8n-controller] n8n raw response keys: ${Object.keys(n8nData).join(', ')}`)
