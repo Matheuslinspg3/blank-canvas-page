@@ -25,9 +25,13 @@ export default function MeuWhatsApp() {
   const [phoneNumber, setPhoneNumber] = useState("");
 
   const handleConnect = (mode: "qr" | "pairing") => {
+    if (!phoneNumber) {
+      toast.error("Por favor, informe seu número de celular.");
+      return;
+    }
     // Reset any previous errors before trying again
     resetConnect();
-    connect({ mode, phoneNumber: mode === "pairing" ? phoneNumber : undefined });
+    connect({ mode, phoneNumber });
   };
 
   if (isLoading && !connection) {
