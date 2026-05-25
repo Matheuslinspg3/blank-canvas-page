@@ -13,11 +13,12 @@ import { AutomationTemplates } from "@/components/automations/AutomationTemplate
 import { LeadScoreConfig } from "@/components/automations/LeadScoreConfig";
 import { RetellVoicePanel } from "@/components/automations/retell/RetellVoicePanel";
 import { useAutomations } from "@/hooks/useAutomations";
+import { useWhatsAppV2 } from "@/hooks/useWhatsAppV2";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { WhatsAppStatusBanner } from "@/components/automations/WhatsAppStatusBanner";
-import { WhatsAppIntegrationCard } from "@/components/integrations/WhatsAppIntegrationCard";
+import { WhatsAppAgentConnection } from "@/components/automations/WhatsAppAgentConnection";
 
 export default function Automations() {
   const {
@@ -203,7 +204,7 @@ export default function Automations() {
             </TabsContent>
 
             <TabsContent value="whatsapp-agent" className="max-w-2xl">
-              <WhatsAppIntegrationCard />
+              <WhatsAppAgentConnection />
             </TabsContent>
 
             <TabsContent value="score">
