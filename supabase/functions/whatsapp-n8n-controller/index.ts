@@ -135,13 +135,33 @@ serve(async (req) => {
     // Normalize response from n8n
     console.log(`[whatsapp-n8n-controller] n8n raw response keys: ${Object.keys(n8nData).join(', ')}`)
     
-    let qrCode = n8nData.Qrcode || n8nData.qrcode || n8nData.qrCode || n8nData.qr_code || n8nData.base64 || ""
-    let pairingCode = n8nData.PairingCode || n8nData.pairingCode || n8nData.pairing_code || n8nData.code || ""
+    // Look for QR code in common fields, handling nested objects if necessary
+    let qrCode = ""
+    const possibleQrKeys = ['Qrcode', 'qrcode', 'qrCode', 'qr_code', 'base64', 'qr', 'code']
     
-    // If qrCode is an object, try to extract string
-    if (qrCode && typeof qrCode === 'object') {
-      console.log(`[whatsapp-n8n-controller] qrCode is an object, keys: ${Object.keys(qrCode).join(', ')}`)
-      qrCode = qrCode.base64 || qrCode.qrcode || qrCode.qr || qrCode.code || JSON.stringify(qrCode)
+    for (const key of possibleQrKeys) {
+      if (n8nData[key]) {
+        if (typeof n8nData[key] === 'string') {
+          qrCode = n8nData[key]
+          break
+        } else if (typeof n8nData[key] === 'object' && n8nData[key] !== null) {
+          // Try common subkeys in nested objects
+          qrCode = n8nData[key].base64 || n8nData[key].qrcode || n8nData[key].qr || n8nData[key].code || ""
+          if (qrCode) break
+        }
+      }
+    }
+
+    // Look for pairing code
+    let pairingCode = ""
+    const possiblePairingKeys = ['PairingCode', 'pairingCode', 'pairing_code', 'code']
+    for (const key of possiblePairingKeys) {
+       // Skip if we already used 'code' for QR
+       if (key === 'code' && qrCode && qrCode.length > 20) continue
+       if (n8nData[key] && typeof n8nData[key] === 'string') {
+         pairingCode = n8nData[key]
+         break
+       }
     }
 
     // Normalize connected status
