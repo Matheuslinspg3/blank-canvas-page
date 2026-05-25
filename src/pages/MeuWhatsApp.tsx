@@ -172,10 +172,11 @@ export default function MeuWhatsApp() {
             {connection?.qr_code ? (
               <div className="bg-white p-4 rounded-xl border shadow-sm relative group overflow-hidden">
                 <img 
-                  src={connection.qr_code.startsWith('data:') ? connection.qr_code : `data:image/png;base64,${connection.qr_code}`} 
+                  src={connection.qr_code} 
                   alt="WhatsApp QR Code" 
                   className="w-full max-w-[256px] h-auto aspect-square mx-auto" 
                 />
+
                 {isConnecting && (
                   <div className="absolute inset-0 bg-white/80 flex flex-col items-center justify-center animate-in fade-in">
                     <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
