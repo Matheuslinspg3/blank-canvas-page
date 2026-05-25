@@ -51,7 +51,7 @@ export function WhatsAppAgentConnection() {
       toast.error("Por favor, informe um número de celular válido com DDD.");
       return;
     }
-    connect({ mode: connectionMode, phoneNumber: phoneInput });
+    connect({ mode: "qr", phoneNumber: phoneInput });
   };
 
   const displayedQr = connection?.qr_code;
