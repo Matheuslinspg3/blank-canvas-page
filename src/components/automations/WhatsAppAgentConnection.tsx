@@ -147,63 +147,50 @@ export function WhatsAppAgentConnection() {
               </div>
             )}
 
-            <Tabs value={connectionMode} onValueChange={(v) => setConnectionMode(v as any)} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="qr" className="gap-2" disabled={isConnecting}><QrCode className="h-4 w-4" /> QR Code</TabsTrigger>
-                <TabsTrigger value="pairing" className="gap-2" disabled={isConnecting}><Hash className="h-4 w-4" /> Código de Pareamento</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="qr" className="space-y-4 pt-4">
-                {displayedQr ? (
-                  <div className="flex flex-col items-center gap-4 py-2 bg-muted/30 rounded-lg">
-                    <div className="p-3 border-2 border-primary/20 rounded-xl bg-white shadow-inner">
-                      <img src={displayedQr} alt="WhatsApp QR Code" className="h-48 w-48" />
+            {!displayedQr && !connection?.pairing_code ? (
+              <Button 
+                className="w-full" 
+                onClick={handleActivate} 
+                disabled={isConnecting || phoneInput.length < 10}
+              >
+                {isConnecting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Smartphone className="h-4 w-4 mr-2" />}
+                Gerar QR Code e Código de Pareamento
+              </Button>
+            ) : (
+              <div className="space-y-4">
+                {displayedQr && (
+                  <div className="flex flex-col items-center gap-3 py-3 bg-muted/30 rounded-lg">
+                    <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                      <QrCode className="h-3 w-3" /> Escaneie o QR Code
                     </div>
-                    <p className="text-xs text-center text-muted-foreground px-4">
-                      Abra o WhatsApp no seu celular {'>'} Configurações {'>'} Dispositivos Conectados {'>'} Conectar um Dispositivo
+                    <div className="p-3 border-2 border-primary/20 rounded-xl bg-white shadow-inner">
+                      <img src={displayedQr} alt="WhatsApp QR Code" className="h-44 w-44" />
+                    </div>
+                    <p className="text-[10px] text-center text-muted-foreground px-4">
+                      WhatsApp {'>'} Configurações {'>'} Dispositivos Conectados {'>'} Conectar um Dispositivo
                     </p>
-                    <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isConnecting}>
-                      <RefreshCw className="h-3 w-3 mr-2" /> Atualizar QR Code
-                    </Button>
                   </div>
-                ) : (
-                  <Button 
-                    className="w-full" 
-                    onClick={handleActivate} 
-                    disabled={isConnecting || !phoneInput}
-                  >
-                    {isConnecting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Smartphone className="h-4 w-4 mr-2" />}
-                    Gerar QR Code para Conectar
-                  </Button>
                 )}
-              </TabsContent>
 
-              <TabsContent value="pairing" className="space-y-4 pt-4">
-                {connection?.pairing_code ? (
-                  <div className="flex flex-col items-center gap-4 py-4 bg-muted/30 rounded-lg">
-                    <p className="text-sm font-medium">Código de Pareamento:</p>
-                    <div className="text-4xl font-mono font-bold tracking-[0.2em] p-6 border-2 border-primary/20 rounded-xl bg-white shadow-inner text-primary">
+                {connection?.pairing_code && (
+                  <div className="flex flex-col items-center gap-3 py-4 bg-muted/30 rounded-lg">
+                    <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                      <Hash className="h-3 w-3" /> Ou use o Código de Pareamento
+                    </div>
+                    <div className="text-3xl font-mono font-bold tracking-[0.2em] px-5 py-3 border-2 border-primary/20 rounded-xl bg-white shadow-inner text-primary">
                       {connection.pairing_code}
                     </div>
-                    <p className="text-xs text-center text-muted-foreground px-4">
-                      Abra o WhatsApp {'>'} Configurações {'>'} Dispositivos Conectados {'>'} Conectar com número de telefone
+                    <p className="text-[10px] text-center text-muted-foreground px-4">
+                      WhatsApp {'>'} Dispositivos Conectados {'>'} Conectar com número de telefone
                     </p>
-                    <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
-                      <RefreshCw className="h-3 w-3 mr-2" /> Verificar Status
-                    </Button>
                   </div>
-                ) : (
-                  <Button 
-                    className="w-full" 
-                    onClick={handleActivate} 
-                    disabled={isConnecting || phoneInput.length < 10}
-                  >
-                    {isConnecting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Hash className="h-4 w-4 mr-2" />}
-                    Gerar Código de Pareamento
-                  </Button>
                 )}
-              </TabsContent>
-            </Tabs>
+
+                <Button variant="outline" size="sm" className="w-full" onClick={() => refetch()} disabled={isLoading || isConnecting}>
+                  <RefreshCw className="h-3 w-3 mr-2" /> Atualizar / Verificar Status
+                </Button>
+              </div>
+            )}
 
             {(displayedQr || connection?.pairing_code) && (
               <Button 
