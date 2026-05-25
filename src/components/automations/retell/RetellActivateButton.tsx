@@ -6,42 +6,34 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import { sendWhatsAppWebhook, buildWhatsAppPayload } from "@/services/whatsapp/webhookService";
 
 export function RetellActivateButton() {
   const [loading, setLoading] = useState(false);
   const queryClient = useQueryClient();
-  const { user, profile } = useAuth();
 
   const handleActivate = async () => {
     setLoading(true);
     try {
-      const { data: organization } = await supabase
-        .from("organizations")
-        .select("id, name")
-        .eq("id", profile?.organization_id)
-        .maybeSingle();
+      const { data, error } = await supabase.functions.invoke("whatsapp-n8n-controller", {
+        body: { 
+          action: "create",
+          source: "retell_activation"
+        }
+      });
 
-      const payload = buildWhatsAppPayload(
-        "create",
-        "ai_agent",
-        { user, profile, organization }
-      );
+      if (error) throw error;
+      if (!data.ok) throw new Error(data.message || "Erro ao ativar Agente");
 
-      const result = await sendWhatsAppWebhook(payload);
-
-      if (!result.ok) {
-        throw new Error(result.error);
-      }
-
-      toast.success(result.message || "Solicitação de ativação enviada!");
+      toast.success(data.message || "Solicitação de ativação enviada via Webhook!");
       queryClient.invalidateQueries({ queryKey: ["retell-agent-config"] });
     } catch (err: any) {
-      toast.error("Erro ao ativar Sofia: " + (err.message ?? String(err)));
+      console.error("Error activating Retell agent:", err);
+      toast.error("Erro ao ativar Agente: " + (err.message ?? String(err)));
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <Card className="border-primary/30 bg-primary/5">

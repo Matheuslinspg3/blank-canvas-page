@@ -33,7 +33,7 @@ export interface WhatsAppError extends Error {
 }
 
 export function useWhatsAppV2() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const { data: connectionData, isLoading, error, refetch } = useQuery({
@@ -43,7 +43,16 @@ export function useWhatsAppV2() {
         const { data, error } = await supabase.functions.invoke("whatsapp-n8n-controller", {
           body: { action: "status" }
         });
-        if (error) throw error;
+        
+        if (error) {
+          console.error("Supabase function error:", error);
+          throw error;
+        }
+
+        if (data && data.ok === false) {
+          throw data;
+        }
+
         return data as { 
           ok: boolean; 
           status: WhatsAppStatus; 
@@ -52,14 +61,18 @@ export function useWhatsAppV2() {
           qrCode?: string;
           pairingCode?: string;
           connection?: WhatsAppConnection;
+          debug_ref?: string;
+          message?: string;
         };
       } catch (err: any) {
         console.error("Error fetching whatsapp status:", err);
         Sentry.captureException(err, { tags: { function: "whatsapp-n8n-controller", action: "status" } });
-        return { ok: false, status: "unknown" as WhatsAppStatus, connected: false, phoneNumber: "" };
+        // Instead of returning unknown, we rethrow so the query error state is set
+        throw err;
       }
     },
     enabled: !!user,
+    retry: 1,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       if (status === "qr_pending" || status === "pairing_pending" || status === "provisioning" || status === "connecting") {
