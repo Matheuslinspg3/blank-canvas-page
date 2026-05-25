@@ -126,11 +126,12 @@ serve(async (req) => {
 
     if (!n8nResponse.ok) {
       const errorText = await n8nResponse.text()
+      console.error(`[${debugRef}] n8n error (${n8nResponse.status}):`, errorText)
       throw new Error(`n8n error (${n8nResponse.status}): ${errorText}`)
     }
 
     const n8nData = await n8nResponse.json()
-    console.log(`[whatsapp-n8n-controller] n8n response received`)
+    console.log(`[whatsapp-n8n-controller] n8n response received:`, JSON.stringify(n8nData))
 
     // Normalize response from n8n
     console.log(`[whatsapp-n8n-controller] n8n raw response keys: ${Object.keys(n8nData).join(', ')}`)
