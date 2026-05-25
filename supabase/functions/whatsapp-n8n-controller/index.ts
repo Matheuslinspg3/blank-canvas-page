@@ -133,17 +133,26 @@ serve(async (req) => {
     console.log(`[whatsapp-n8n-controller] n8n response received`)
 
     // Normalize response from n8n
-    const pairingCode = n8nData.PairingCode || n8nData.pairingCode || n8nData.pairing_code || n8nData.code || ""
-    const qrCode = n8nData.Qrcode || n8nData.qrcode || n8nData.qrCode || n8nData.qr_code || ""
+    console.log(`[whatsapp-n8n-controller] n8n raw response keys: ${Object.keys(n8nData).join(', ')}`)
     
+    let qrCode = n8nData.Qrcode || n8nData.qrcode || n8nData.qrCode || n8nData.qr_code || n8nData.base64 || ""
+    let pairingCode = n8nData.PairingCode || n8nData.pairingCode || n8nData.pairing_code || n8nData.code || ""
+    
+    // If qrCode is an object, try to extract string
+    if (qrCode && typeof qrCode === 'object') {
+      console.log(`[whatsapp-n8n-controller] qrCode is an object, keys: ${Object.keys(qrCode).join(', ')}`)
+      qrCode = qrCode.base64 || qrCode.qrcode || qrCode.qr || qrCode.code || JSON.stringify(qrCode)
+    }
+
     // Normalize connected status
     let isConnected = false
-    if (n8nData.connected === true || n8nData.status === "connected" || n8nData.state === "connected") {
+    if (n8nData.connected === true || n8nData.status === "connected" || n8nData.state === "connected" || n8nData.data?.status === "connected") {
       isConnected = true
     }
 
     // Normalize phone number from status response
     let normalizedPhone = n8nData.phoneNumber || n8nData.phone_number || n8nData.jid || (n8nData.data && n8nData.data.jid) || ""
+
     if (normalizedPhone && typeof normalizedPhone === 'string' && normalizedPhone.includes('@')) {
       normalizedPhone = normalizedPhone.split('@')[0]
     }
