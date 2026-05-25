@@ -35,14 +35,24 @@ export interface WhatsAppError extends Error {
 export const normalizeQrCode = (qr: string | null | undefined): string | null => {
   if (!qr) return null;
   const t = qr.trim();
+  
+  // If it's already a data URI or URL, use it
   if (t.startsWith("data:image") || t.startsWith("http")) return t;
-  // Check if it's likely a base64 string
-  // Base64 for a QR code is usually quite long and has no spaces
-  if (t.length > 50 && !t.includes(" ") && !t.includes(":") && !t.includes("/")) {
+  
+  // If it's a long string without spaces, it's likely a base64 image without prefix
+  if (t.length > 500 && !t.includes(" ") && !t.includes(":")) {
     return `data:image/png;base64,${t.replace(/[\n\r]/g, '')}`;
   }
+  
+  // If it's a short string, it might be the raw QR content (e.g. from some APIs)
+  // In this case, we use a public QR code generator API
+  if (t.length > 0 && t.length < 500) {
+    return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(t)}`;
+  }
+  
   return t;
 };
+
 
 export function useWhatsAppV2() {
 
