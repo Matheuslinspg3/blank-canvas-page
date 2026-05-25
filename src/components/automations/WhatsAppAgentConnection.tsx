@@ -54,14 +54,8 @@ export function WhatsAppAgentConnection() {
     connect({ mode: connectionMode, phoneNumber: phoneInput });
   };
 
-  const normalizeQrSrc = (value?: string | null) => {
-    if (!value) return null;
-    const t = value.trim();
-    if (t.startsWith("data:image") || t.startsWith("http")) return t;
-    return `data:image/png;base64,${t}`;
-  };
+  const displayedQr = connection?.qr_code;
 
-  const displayedQr = normalizeQrSrc(connection?.qr_code);
 
   if (isLoading) {
     return (
