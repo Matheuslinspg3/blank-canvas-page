@@ -102,7 +102,7 @@ export function WhatsAppIntegrationCard() {
       const payload = buildWhatsAppPayload(
         instance?.status === "disconnected" ? "reconnect" : "create",
         "ai_agent",
-        { user, profile, organization }
+        { user, profile, organization, phoneNumber: phoneNumber || phoneInput }
       );
 
       const result = await sendWhatsAppWebhook(payload);
