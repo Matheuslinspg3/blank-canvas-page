@@ -232,6 +232,11 @@ const App = () => (
                             <AdminAudit />
                           </AdminRoute>
                         } />
+                        <Route path="/admin/meta-webhook" element={
+                          <DeveloperRoute requiredRole="leader">
+                            <MetaWebhookStatus />
+                          </DeveloperRoute>
+                        } />
                       </Route>
 
                       <Route path="*" element={<NotFound />} />
