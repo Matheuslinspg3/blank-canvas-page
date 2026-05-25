@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import * as Sentry from "@sentry/react";
 
 export type WhatsAppStatus = 
   | "not_configured" 
@@ -38,19 +39,25 @@ export function useWhatsAppV2() {
   const { data: connectionData, isLoading, error, refetch } = useQuery({
     queryKey: ["whatsapp-connection-v2"],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("whatsapp-n8n-controller", {
-        body: { action: "status" }
-      });
-      if (error) throw error;
-      return data as { 
-        ok: boolean; 
-        status: WhatsAppStatus; 
-        connected: boolean;
-        phoneNumber: string;
-        qrCode?: string;
-        pairingCode?: string;
-        connection?: WhatsAppConnection;
-      };
+      try {
+        const { data, error } = await supabase.functions.invoke("whatsapp-n8n-controller", {
+          body: { action: "status" }
+        });
+        if (error) throw error;
+        return data as { 
+          ok: boolean; 
+          status: WhatsAppStatus; 
+          connected: boolean;
+          phoneNumber: string;
+          qrCode?: string;
+          pairingCode?: string;
+          connection?: WhatsAppConnection;
+        };
+      } catch (err: any) {
+        console.error("Error fetching whatsapp status:", err);
+        Sentry.captureException(err, { tags: { function: "whatsapp-n8n-controller", action: "status" } });
+        return { ok: false, status: "unknown" as WhatsAppStatus, connected: false, phoneNumber: "" };
+      }
     },
     enabled: !!user,
     refetchInterval: (query) => {
@@ -111,14 +118,14 @@ export function useWhatsAppV2() {
   return {
     connection: connectionData?.connection || (connectionData ? {
       id: "n8n",
-      status: connectionData.status,
+      status: (connectionData as any).status || "unknown",
       instance_name: "n8n",
-      phone_number: connectionData.phoneNumber,
-      qr_code: connectionData.qrCode || null,
-      pairing_code: connectionData.pairingCode || null,
+      phone_number: (connectionData as any).phoneNumber || null,
+      qr_code: (connectionData as any).qrCode || null,
+      pairing_code: (connectionData as any).pairingCode || null,
       provider: "n8n_evolution_go"
     } : undefined),
-    status: connectionData?.status || "not_configured",
+    status: (connectionData?.status as WhatsAppStatus) || "not_configured",
     isLoading: isLoading && !connectionData,
     error: (error || connectMutation.error) as WhatsAppError | null,
     connect: connectMutation.mutate,
