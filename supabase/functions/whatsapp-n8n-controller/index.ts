@@ -7,6 +7,70 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
+const normalizeN8nPayload = (payload: any): any => {
+  if (Array.isArray(payload)) {
+    return payload.find((item) => item && typeof item === 'object') ?? payload[0] ?? {}
+  }
+  return payload ?? {}
+}
+
+const findStringByKeys = (payload: any, keys: string[], maxDepth = 5): string => {
+  if (!payload || maxDepth < 0) return ""
+
+  if (Array.isArray(payload)) {
+    for (const item of payload) {
+      const found = findStringByKeys(item, keys, maxDepth - 1)
+      if (found) return found
+    }
+    return ""
+  }
+
+  if (typeof payload !== 'object') return ""
+
+  const normalizedKeys = keys.map((key) => key.toLowerCase())
+
+  for (const [key, value] of Object.entries(payload)) {
+    if (normalizedKeys.includes(key.toLowerCase())) {
+      if (typeof value === 'string' && value.trim()) return value.trim()
+      if (value && typeof value === 'object') {
+        const nested = findStringByKeys(value, ['base64', 'qrcode', 'qrCode', 'qr_code', 'qr', 'code'], maxDepth - 1)
+        if (nested) return nested
+      }
+    }
+  }
+
+  for (const value of Object.values(payload)) {
+    const found = findStringByKeys(value, keys, maxDepth - 1)
+    if (found) return found
+  }
+
+  return ""
+}
+
+const extractQrCode = (payload: any): string => {
+  const directQr = findStringByKeys(payload, ['Qrcode', 'qrcode', 'qrCode', 'qr_code', 'base64', 'qr'])
+  if (directQr) return directQr
+
+  const longCode = findStringByKeys(payload, ['code'])
+  if (longCode.length > 100 || longCode.startsWith('data:image')) return longCode
+
+  return ""
+}
+
+const extractPairingCode = (payload: any, qrCode: string): string => {
+  const code = findStringByKeys(payload, ['PairingCode', 'pairingCode', 'pairing_code', 'code'])
+  if (!code || code === qrCode || code.startsWith('data:image') || code.length > 32) return ""
+  return code
+}
+
+const findConnected = (payload: any): boolean => {
+  const normalized = normalizeN8nPayload(payload)
+  return normalized.connected === true ||
+    normalized.status === "connected" ||
+    normalized.state === "connected" ||
+    normalized.data?.status === "connected"
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -130,46 +194,21 @@ serve(async (req) => {
       throw new Error(`n8n error (${n8nResponse.status}): ${errorText}`)
     }
 
-    const n8nData = await n8nResponse.json()
-    console.log(`[whatsapp-n8n-controller] n8n response received:`, JSON.stringify(n8nData))
+    const n8nRawData = await n8nResponse.json()
+    const n8nData = normalizeN8nPayload(n8nRawData)
+    console.log(`[whatsapp-n8n-controller] n8n response received:`, JSON.stringify(n8nRawData))
 
     // Normalize response from n8n
     console.log(`[whatsapp-n8n-controller] n8n raw response keys: ${Object.keys(n8nData).join(', ')}`)
     
     // Look for QR code in common fields, handling nested objects if necessary
-    let qrCode = ""
-    const possibleQrKeys = ['Qrcode', 'qrcode', 'qrCode', 'qr_code', 'base64', 'qr', 'code']
-    
-    for (const key of possibleQrKeys) {
-      if (n8nData[key]) {
-        if (typeof n8nData[key] === 'string') {
-          qrCode = n8nData[key]
-          break
-        } else if (typeof n8nData[key] === 'object' && n8nData[key] !== null) {
-          // Try common subkeys in nested objects
-          qrCode = n8nData[key].base64 || n8nData[key].qrcode || n8nData[key].qr || n8nData[key].code || ""
-          if (qrCode) break
-        }
-      }
-    }
+    let qrCode = extractQrCode(n8nRawData)
 
     // Look for pairing code
-    let pairingCode = ""
-    const possiblePairingKeys = ['PairingCode', 'pairingCode', 'pairing_code', 'code']
-    for (const key of possiblePairingKeys) {
-       // Skip if we already used 'code' for QR
-       if (key === 'code' && qrCode && qrCode.length > 20) continue
-       if (n8nData[key] && typeof n8nData[key] === 'string') {
-         pairingCode = n8nData[key]
-         break
-       }
-    }
+    let pairingCode = extractPairingCode(n8nRawData, qrCode)
 
     // Normalize connected status
-    let isConnected = false
-    if (n8nData.connected === true || n8nData.status === "connected" || n8nData.state === "connected" || n8nData.data?.status === "connected") {
-      isConnected = true
-    }
+    let isConnected = findConnected(n8nRawData)
 
     // Normalize phone number from status response
     let normalizedPhone = n8nData.phoneNumber || n8nData.phone_number || n8nData.jid || (n8nData.data && n8nData.data.jid) || ""
@@ -193,16 +232,22 @@ serve(async (req) => {
     // Save/Update local state
     const { data: existingConn } = await adminClient
       .from('whatsapp_connections')
-      .select('id')
+      .select('id, status, qr_code, pairing_code, phone_number')
       .eq('organization_id', profile.organization_id)
       .maybeSingle()
+
+    if (action === 'status' && !isConnected && !qrCode && !pairingCode && existingConn && ['qr_pending', 'pairing_pending', 'provisioning', 'connecting'].includes(existingConn.status)) {
+      qrCode = existingConn.qr_code || ""
+      pairingCode = existingConn.pairing_code || ""
+      status = existingConn.status || status
+    }
 
     const connectionPayload = {
       organization_id: profile.organization_id,
       provider: 'n8n_evolution_go',
       instance_name: profile.organization_id,
       status: status,
-      phone_number: normalizedPhone || phoneNumberOnlyDigits,
+      phone_number: normalizedPhone || phoneNumberOnlyDigits || existingConn?.phone_number || "",
       qr_code: qrCode,
       pairing_code: pairingCode,
       last_checked_at: new Date().toISOString(),
