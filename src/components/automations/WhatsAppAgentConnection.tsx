@@ -35,7 +35,7 @@ export function WhatsAppAgentConnection() {
   
   const { profile } = useAuth();
   const [phoneInput, setPhoneInput] = useState("");
-  const [connectionMode, setConnectionMode] = useState<"qr" | "pairing">("qr");
+  
 
   // Format phone number for display
   const formatPhone = (value: string) => {
