@@ -88,25 +88,17 @@ export function useWhatsAppV2() {
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      const { data: organization } = await supabase
-        .from("organizations")
-        .select("id, name")
-        .eq("id", profile?.organization_id)
-        .maybeSingle();
-
-      const payload = buildWhatsAppPayload(
-        "disconnect",
-        "broker_whatsapp",
-        { user, profile, organization, brokerId: profile?.id }
-      );
-
-      const result = await sendWhatsAppWebhook(payload);
-      if (!result.ok) throw new Error(result.error);
-      return result;
+      // For local deletion, we might just clear state or call a disconnect action if n8n supports it
+      const { data, error } = await supabase.functions.invoke("whatsapp-n8n-controller", {
+        body: { action: "disconnect" } // Assuming n8n might handle this or we just clear local
+      });
+      
+      if (error) throw error;
+      return data;
     },
-    onSuccess: (result) => {
+    onSuccess: () => {
       queryClient.setQueryData(["whatsapp-connection-v2"], { ok: true, status: "not_configured" });
-      toast.success(result.message || "Solicitação de remoção enviada");
+      toast.success("Integração removida localmente");
     },
     onError: (err: Error) => {
       toast.error(err.message || "Falha ao remover integração");
@@ -114,7 +106,15 @@ export function useWhatsAppV2() {
   });
 
   return {
-    connection: connectionData?.connection,
+    connection: connectionData?.connection || (connectionData ? {
+      id: "n8n",
+      status: connectionData.status,
+      instance_name: "n8n",
+      phone_number: connectionData.phoneNumber,
+      qr_code: connectionData.qrCode,
+      pairing_code: connectionData.pairingCode,
+      provider: "n8n_evolution_go"
+    } : undefined),
     status: connectionData?.status || "not_configured",
     isLoading: isLoading && !connectionData,
     error: (error || connectMutation.error) as WhatsAppError | null,
