@@ -97,6 +97,19 @@ export default function MeuWhatsApp() {
               </Alert>
             )}
 
+            <div className="w-full max-w-sm space-y-4 mb-6">
+              <div className="space-y-2">
+                <Label htmlFor="phone">Número com DDI (Ex: 5511999999999)</Label>
+                <Input 
+                  id="phone" 
+                  placeholder="5511999999999" 
+                  value={phoneNumber} 
+                  onChange={(e) => setPhoneNumber(e.target.value)} 
+                  disabled={isConnecting}
+                />
+              </div>
+            </div>
+
             <Tabs defaultValue="qr" className="w-full max-w-sm" onValueChange={() => resetConnect()}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="qr" disabled={isConnecting}>QR Code</TabsTrigger>
@@ -107,7 +120,7 @@ export default function MeuWhatsApp() {
                   className="w-full relative h-12" 
                   size="lg" 
                   onClick={() => handleConnect("qr")} 
-                  disabled={isConnecting}
+                  disabled={isConnecting || !phoneNumber}
                 >
                   {isConnecting ? (
                     <>
@@ -122,17 +135,7 @@ export default function MeuWhatsApp() {
                   )}
                 </Button>
               </TabsContent>
-              <TabsContent value="pairing" className="mt-6 space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Número com DDI (Ex: 5511999999999)</Label>
-                  <Input 
-                    id="phone" 
-                    placeholder="5511999999999" 
-                    value={phoneNumber} 
-                    onChange={(e) => setPhoneNumber(e.target.value)} 
-                    disabled={isConnecting}
-                  />
-                </div>
+              <TabsContent value="pairing" className="mt-6">
                 <Button 
                   className="w-full h-12" 
                   size="lg" 
