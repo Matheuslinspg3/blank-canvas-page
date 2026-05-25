@@ -97,6 +97,7 @@ export function buildWhatsAppPayload(
     userName: profile?.full_name || user?.user_metadata?.full_name,
     userEmail: user?.email,
     brokerId,
+    phoneNumber,
     timestamp: new Date().toISOString(),
     environment: import.meta.env.MODE,
   };
