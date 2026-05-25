@@ -82,7 +82,8 @@ export function WhatsAppIntegrationCard() {
   }, [handleConnected, stopStatusPolling]);
 
   const handleActivate = async (phoneNumber?: string, forceNewInstance = false) => {
-    if (!phoneNumber && !phoneInput) {
+    const finalPhone = phoneNumber || phoneInput;
+    if (!finalPhone) {
       toast.error("Por favor, informe seu número de celular.");
       return;
     }
@@ -102,7 +103,7 @@ export function WhatsAppIntegrationCard() {
       const payload = buildWhatsAppPayload(
         instance?.status === "disconnected" ? "reconnect" : "create",
         "ai_agent",
-        { user, profile, organization, phoneNumber: phoneNumber || phoneInput }
+        { user, profile, organization, phoneNumber: finalPhone }
       );
 
       const result = await sendWhatsAppWebhook(payload);
@@ -244,7 +245,7 @@ export function WhatsAppIntegrationCard() {
                     variant="outline" 
                     size="sm" 
                     className="border-destructive/20 text-destructive hover:bg-destructive/10" 
-                    onClick={() => handleActivate()} 
+                    onClick={() => handleActivate(phoneInput)} 
                     disabled={isActivating}
                   >
                     {isActivating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
@@ -267,7 +268,7 @@ export function WhatsAppIntegrationCard() {
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={() => handleActivate(undefined, true)}
+                    onClick={() => handleActivate(phoneInput, true)}
                     disabled={isActivating}
                   >
                     {isActivating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
@@ -288,10 +289,22 @@ export function WhatsAppIntegrationCard() {
               </div>
             )}
 
+            {!displayedQr && !pairingCode && (
+              <div className="space-y-2 mb-4 animate-in fade-in">
+                <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1 tracking-wider">Número de Celular</label>
+                <Input 
+                    placeholder="+55 (11) 99999-9999" 
+                    value={formatPhone(phoneInput)} 
+                    onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, ""))}
+                    disabled={isActivating}
+                />
+              </div>
+            )}
+
             <Tabs value={connectionMode} onValueChange={(v) => setConnectionMode(v as any)} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="qr" className="gap-2"><QrCode className="h-4 w-4" /> QR Code</TabsTrigger>
-                <TabsTrigger value="pairing" className="gap-2"><Hash className="h-4 w-4" /> Código</TabsTrigger>
+                <TabsTrigger value="qr" className="gap-2" disabled={isActivating}><QrCode className="h-4 w-4" /> QR Code</TabsTrigger>
+                <TabsTrigger value="pairing" className="gap-2" disabled={isActivating}><Hash className="h-4 w-4" /> Código</TabsTrigger>
               </TabsList>
               
               <TabsContent value="qr" className="space-y-4 pt-4">
@@ -300,14 +313,14 @@ export function WhatsAppIntegrationCard() {
                     <div className="p-2 border rounded-lg bg-white">
                       <img src={displayedQr} alt="WhatsApp QR Code" className="h-48 w-48" />
                     </div>
-                    <Button variant="outline" onClick={() => handleActivate()} disabled={isActivating}>
-                      {isActivating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                    <Button variant="outline" onClick={() => handleActivate(phoneInput)} disabled={isActivating}>
+                      {isActivating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                       Atualizar QR Code
                     </Button>
                   </div>
                 ) : (
-                  <Button className="w-full" onClick={() => handleActivate()} disabled={isActivating}>
-                    {isActivating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Smartphone className="h-4 w-4 mr-2" />}
+                  <Button className="w-full" onClick={() => handleActivate(phoneInput)} disabled={isActivating || !phoneInput}>
+                    {isActivating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4 mr-2" />}
                     {isActuallyProvisioned ? "Reconectar via QR" : "Conectar WhatsApp"}
                   </Button>
                 )}
@@ -326,17 +339,10 @@ export function WhatsAppIntegrationCard() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    <Input 
-                        placeholder="+55 (11) 99999-9999" 
-                        value={formatPhone(phoneInput)} 
-                        onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, ""))}
-                    />
-                    <Button className="w-full" onClick={() => handleActivate(phoneInput)} disabled={isActivating || phoneInput.length < 10}>
-                      {isActivating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Hash className="h-4 w-4 mr-2" />}
-                      Gerar Código
-                    </Button>
-                  </div>
+                  <Button className="w-full" onClick={() => handleActivate(phoneInput)} disabled={isActivating || phoneInput.length < 10}>
+                    {isActivating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Hash className="h-4 w-4 mr-2" />}
+                    Gerar Código
+                  </Button>
                 )}
               </TabsContent>
             </Tabs>
