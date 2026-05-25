@@ -36,17 +36,23 @@ export const normalizeQrCode = (qr: string | null | undefined): string | null =>
   if (!qr) return null;
   const t = qr.trim();
   
+  // If it's already a complete data URI or URL, keep it
   if (t.startsWith("data:image") || t.startsWith("http")) {
     return t;
   }
   
-  // If it's a long string without spaces, it's likely a base64 image without prefix
-  if (t.length > 300 && !t.includes(" ") && !t.includes(":")) {
-    return `data:image/png;base64,${t.replace(/[\n\r]/g, '')}`;
+  // Check if it's base64 (removes whitespace)
+  const cleanBase64 = t.replace(/[\n\r\s]/g, '');
+  
+  // If it's a long string likely to be base64 PNG
+  if (cleanBase64.length > 100) {
+    // Basic heuristic to detect if it's a base64 string
+    // n8n often sends PNG base64
+    return `data:image/png;base64,${cleanBase64}`;
   }
   
-  // If it's a short string, it might be the raw QR content (e.g. from some APIs)
-  if (t.length > 0 && t.length < 500) {
+  // If it's a raw QR text (like a URI), generate an image for it
+  if (t.length > 0) {
     return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(t)}`;
   }
   
