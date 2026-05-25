@@ -102,14 +102,18 @@ serve(async (req) => {
 
     // Decide which webhook to call
     let n8nUrl = ""
-    if (['create', 'connect', 'qr', 'pairing', 'reconnect'].includes(action)) {
+    const createActions = ['create', 'connect', 'qr', 'pairing', 'reconnect']
+    const statusActions = ['status', 'check_connected', 'verify_connection']
+
+    if (createActions.includes(action)) {
       n8nUrl = Deno.env.get('N8N_WHATSAPP_CREATE_WEBHOOK_URL') || ""
-    } else if (['status', 'check_connected', 'verify_connection'].includes(action)) {
+    } else if (statusActions.includes(action)) {
       n8nUrl = Deno.env.get('N8N_WHATSAPP_STATUS_WEBHOOK_URL') || ""
     }
 
     if (!n8nUrl) {
-      throw new Error(`Webhook URL not configured for action: ${action}`)
+      console.error(`[${debugRef}] Webhook URL not configured for action: ${action}. Checked ENV variables.`)
+      throw new Error(`Configuração do webhook n8n ausente para a ação: ${action}`)
     }
 
     console.log(`[whatsapp-n8n-controller] Calling n8n: ${n8nUrl} with action ${action}`)
