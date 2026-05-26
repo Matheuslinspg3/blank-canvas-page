@@ -72,7 +72,10 @@ serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, serviceKey);
 
-    const { invite_id, email, password, full_name, company_name, phone, account_type, document, invite_signature } = await req.json();
+    const { invite_id, email, password, full_name, company_name, phone, account_type, document, invite_signature, attribution } = await req.json();
+    const attributionCtx = attribution && typeof attribution === "object" && Object.keys(attribution).length
+      ? { ...attribution, captured_at: new Date().toISOString() }
+      : null;
 
     if (!invite_id || !email || !password || !full_name || !company_name) {
       return new Response(JSON.stringify({ error: "Campos obrigatórios faltando" }), {
@@ -184,6 +187,7 @@ serve(async (req) => {
         document: document || null,
         account_type: account_type || "imobiliaria",
         company_name,
+        ...(attributionCtx || {}),
       },
     });
 
@@ -213,6 +217,7 @@ serve(async (req) => {
         trial_started_at: now.toISOString(),
         trial_ends_at: trialEnds.toISOString(),
         is_active: true,
+        attribution_context: attributionCtx,
       })
       .select()
       .single();
@@ -235,11 +240,13 @@ serve(async (req) => {
       await adminClient.from("profiles").update({
         organization_id: org.id, full_name, phone: phone || null,
         onboarding_completed: true, email_verified: true,
+        attribution_context: attributionCtx,
       }).eq("user_id", userId);
     } else {
       await adminClient.from("profiles").insert({
         user_id: userId, organization_id: org.id, full_name,
         phone: phone || null, onboarding_completed: true, email_verified: true,
+        attribution_context: attributionCtx,
       });
     }
 
@@ -271,6 +278,7 @@ serve(async (req) => {
       trial_end: trialEnds.toISOString(),
       current_period_start: now.toISOString(),
       current_period_end: trialEnds.toISOString(),
+      attribution_context: attributionCtx,
     });
 
     if (subError) {

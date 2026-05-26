@@ -11,6 +11,9 @@ import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toastError";
+import { useAttribution, getAttribution } from "@/hooks/useAttribution";
+import { firePlatformAlert } from "@/lib/alerts";
+import { trackPixelEvent } from "@/lib/metaPixel";
 import { z } from "zod";
 
 const signupSchema = z.object({
@@ -27,6 +30,7 @@ export default function PlatformSignup() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [inviteValid, setInviteValid] = useState<boolean | null>(null);
+  useAttribution();
   const [inviteName, setInviteName] = useState<string | null>(null);
   const [emailLocked, setEmailLocked] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -83,8 +87,9 @@ export default function PlatformSignup() {
 
     setIsLoading(true);
     try {
+      const attribution = getAttribution();
       const { data, error } = await supabase.functions.invoke("platform-signup", {
-        body: { invite_id: id, ...form },
+        body: { invite_id: id, ...form, attribution },
       });
 
       if (error || data?.error) {
@@ -92,6 +97,15 @@ export default function PlatformSignup() {
         setIsLoading(false);
         return;
       }
+
+      firePlatformAlert('signup', {
+        name: form.full_name,
+        email: form.email,
+        phone: form.phone,
+        company_name: form.company_name,
+        selected_plan: 'invite',
+      }, attribution);
+      trackPixelEvent('CompleteRegistration', { content_name: 'Platform Signup (Invite)' });
 
       setSuccess(true);
     } catch {

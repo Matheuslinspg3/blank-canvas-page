@@ -5506,6 +5506,7 @@ export type Database = {
           address_state: string | null
           address_street: string | null
           address_zipcode: string | null
+          attribution_context: Json | null
           cnpj: string | null
           created_at: string
           created_by: string | null
@@ -5534,6 +5535,7 @@ export type Database = {
           address_state?: string | null
           address_street?: string | null
           address_zipcode?: string | null
+          attribution_context?: Json | null
           cnpj?: string | null
           created_at?: string
           created_by?: string | null
@@ -5562,6 +5564,7 @@ export type Database = {
           address_state?: string | null
           address_street?: string | null
           address_zipcode?: string | null
+          attribution_context?: Json | null
           cnpj?: string | null
           created_at?: string
           created_by?: string | null
@@ -6001,6 +6004,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          attribution_context: Json | null
           avatar_url: string | null
           created_at: string
           creci: string | null
@@ -6020,6 +6024,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          attribution_context?: Json | null
           avatar_url?: string | null
           created_at?: string
           creci?: string | null
@@ -6039,6 +6044,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          attribution_context?: Json | null
           avatar_url?: string | null
           created_at?: string
           creci?: string | null
