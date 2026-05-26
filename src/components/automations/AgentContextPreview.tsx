@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Eye, RefreshCw, Wallet, MapPin, Building2, Mic2, MessageCircle, Bot, FileText } from "lucide-react";
+import { Loader2, Eye, RefreshCw, Wallet, MapPin, Building2, Mic2, MessageCircle, Bot, FileText, Search } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface AgentContext {
@@ -17,7 +17,7 @@ interface AgentContext {
   voice_config: { enabled: boolean; percentage: number; voice_id: string; tts_endpoint: string };
   composed_system_prompt: string;
   neighborhoods: Record<string, string[]>;
-  properties: { enabled: boolean; items: any[]; total: number };
+  properties: { enabled: boolean; items: any[]; total: number; returned?: number; preview_limit?: number; access_mode?: string; search_tool?: string };
   credits: { has_credits: boolean; balance_brl: number; friendly_message: string | null };
   welcome: { message: string | null; media_url: string | null; media_type: string | null; delay_seconds: number; reason: string };
 }
@@ -90,7 +90,7 @@ export function AgentContextPreview() {
           <StatCard icon={<Bot className="h-3.5 w-3.5" />} label="Modelo IA" value={`${data.ai_config?.provider}/${data.ai_config?.model}`} />
           <StatCard icon={<Wallet className="h-3.5 w-3.5" />} label="Créditos" value={`R$ ${(data.credits?.balance_brl ?? 0).toFixed(2)}`} highlight={data.credits?.has_credits ? "success" : "danger"} />
           <StatCard icon={<MapPin className="h-3.5 w-3.5" />} label="Bairros" value={String(neighborhoodEntries.length)} />
-          <StatCard icon={<Building2 className="h-3.5 w-3.5" />} label="Imóveis" value={String(data.properties?.total ?? 0)} highlight={data.properties?.enabled ? "success" : "muted"} />
+          <StatCard icon={<Building2 className="h-3.5 w-3.5" />} label="Imóveis ativos" value={String(data.properties?.total ?? 0)} highlight={data.properties?.enabled ? "success" : "muted"} />
         </div>
 
         <Accordion type="multiple" className="border-t pt-2">
@@ -154,9 +154,15 @@ export function AgentContextPreview() {
           {/* Catálogo */}
           <AccordionItem value="properties">
             <AccordionTrigger className="text-sm">
-              <div className="flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" /> Catálogo enviado ({data.properties?.total ?? 0})</div>
+              <div className="flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" /> Amostra do catálogo ({data.properties?.returned ?? propertyItems.length}/{data.properties?.total ?? 0})</div>
             </AccordionTrigger>
             <AccordionContent>
+              <div className="mb-2 flex items-start gap-2 rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
+                <Search className="mt-0.5 h-3.5 w-3.5 text-primary" />
+                <span>
+                  Esta lista é só uma prévia rápida enviada no contexto do node IDENTIDADE. A IA consulta o catálogo completo sob demanda pela tool {data.properties?.search_tool || "whatsapp-agent-properties"}, aplicando filtros de bairro, tipo, valor e transação.
+                </span>
+              </div>
               <ScrollArea className="h-72 rounded-md border">
                 <table className="w-full text-[11px]">
                   <thead className="sticky top-0 bg-muted/70 backdrop-blur">
@@ -202,7 +208,7 @@ export function AgentContextPreview() {
 
 function StatCard({ icon, label, value, highlight }: { icon: React.ReactNode; label: string; value: string; highlight?: "success" | "danger" | "muted" }) {
   const colorClass =
-    highlight === "success" ? "border-emerald-500/30 bg-emerald-500/5"
+    highlight === "success" ? "border-primary/30 bg-primary/5"
     : highlight === "danger" ? "border-destructive/30 bg-destructive/5"
     : highlight === "muted" ? "border-muted bg-muted/30"
     : "border-border";
