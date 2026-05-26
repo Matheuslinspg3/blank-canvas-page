@@ -89,6 +89,7 @@ const Plans = lazy(() => lazyRetry(() => import("./pages/Plans")));
 const MyPlan = lazy(() => lazyRetry(() => import("./pages/MyPlan")));
 const CorrespondenteBancario = lazy(() => lazyRetry(() => import("./pages/CorrespondenteBancario")));
 const MeuWhatsApp = lazy(() => lazyRetry(() => import("./pages/MeuWhatsApp")));
+const WhatsAppChat = lazy(() => lazyRetry(() => import("./pages/WhatsAppChat")));
 
 const MetricsDashboard = lazy(() => lazyRetry(() => import("./pages/MetricsDashboard")));
 const Onboarding = lazy(() => lazyRetry(() => import("./pages/app/Onboarding")));
