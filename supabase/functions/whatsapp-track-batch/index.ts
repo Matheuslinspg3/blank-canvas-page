@@ -64,14 +64,38 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Resolve org
+    // Resolve org — accept either the real instance_name OR a bare organization_id (UUID).
+    // The N8N "ENVIAR-TRACK-BATCH" node was sending the organization_id as instance_name,
+    // which caused 404 "Instance not found" on every batch. Try both lookups.
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let orgId: string | null = null;
+
     const { data: instance } = await supabase
       .from("whatsapp_instances")
       .select("organization_id")
       .eq("instance_name", instance_name)
       .maybeSingle();
+    orgId = instance?.organization_id || null;
 
-    const orgId = instance?.organization_id || null;
+    // Fallback 1: instance_name is actually a UUID → treat as organization_id
+    if (!orgId && UUID_RE.test(instance_name)) {
+      const { data: byOrg } = await supabase
+        .from("whatsapp_instances")
+        .select("organization_id")
+        .eq("organization_id", instance_name)
+        .maybeSingle();
+      orgId = byOrg?.organization_id || (UUID_RE.test(instance_name) ? instance_name : null);
+    }
+
+    // Fallback 2: try suffix match (instance_name ends with the UUID we received)
+    if (!orgId) {
+      const { data: bySuffix } = await supabase
+        .from("whatsapp_instances")
+        .select("organization_id")
+        .ilike("instance_name", `%${instance_name}`)
+        .maybeSingle();
+      orgId = bySuffix?.organization_id || null;
+    }
 
     if (!orgId) {
       return new Response(
