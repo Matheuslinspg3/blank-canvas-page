@@ -417,8 +417,25 @@ async function syncOrgLeads(
 
           if (upsertError) {
             totalSkipped++;
+            await supabase.from("ad_webhook_logs").insert({
+              organization_id: orgId,
+              provider: "meta",
+              external_lead_id: lead.id,
+              payload: { ...lead, _source: "auto_sync", form_name: form.name, page_name: page.name },
+              status: "error",
+              error_message: upsertError.message,
+            });
             continue;
           }
+
+          // Log sync-imported lead so it appears in "Logs de Sincronização"
+          await supabase.from("ad_webhook_logs").insert({
+            organization_id: orgId,
+            provider: "meta",
+            external_lead_id: lead.id,
+            payload: { ...lead, _source: "auto_sync", form_name: form.name, page_name: page.name },
+            status: "processed",
+          });
 
           totalSynced++;
           
