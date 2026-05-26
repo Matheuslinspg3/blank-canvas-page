@@ -23,7 +23,7 @@ interface AgentContext {
 }
 
 export function AgentContextPreview() {
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   const orgId = profile?.organization_id;
 
   const { data, isLoading, isFetching, refetch, error } = useQuery({
@@ -32,11 +32,12 @@ export function AgentContextPreview() {
       if (!orgId) return null;
       const { data, error } = await supabase.functions.invoke("whatsapp-agent-config", {
         body: { organization_id: orgId },
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
       });
       if (error) throw error;
       return data as AgentContext;
     },
-    enabled: !!orgId,
+    enabled: !!orgId && !!session?.access_token,
     staleTime: 30000,
   });
 
