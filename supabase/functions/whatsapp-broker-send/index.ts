@@ -14,11 +14,11 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
-    const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
-    const EVOLUTION_PROVIDER = (Deno.env.get("EVOLUTION_PROVIDER") || "evolution_node") as "evolution_node" | "evolution_go";
+    const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_GO_URL") || Deno.env.get("EVOLUTION_API_URL");
+    const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_GO_TOKEN") || Deno.env.get("EVOLUTION_API_GLOBAL_KEY") || "";
+    const EVOLUTION_PROVIDER = (Deno.env.get("EVOLUTION_PROVIDER") || "evolution_go") as "evolution_node" | "evolution_go";
 
-    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) throw new Error("Evolution API not configured");
+    if (!EVOLUTION_API_URL) throw new Error("Evolution API not configured");
 
     const provider = new EvolutionProvider({
       baseUrl: EVOLUTION_API_URL,
@@ -146,25 +146,12 @@ serve(async (req) => {
     let evoRes: any;
 
     if (type === "media" && mediaUrl) {
-        // Fallback for media in broker send
-        const baseUrl = EVOLUTION_API_URL!.replace(/\/$/, "");
-        const endpoint = EVOLUTION_PROVIDER === "evolution_go" 
-            ? `${baseUrl}/send/media`
-            : `${baseUrl}/message/sendMedia/${channel.instance_name}`;
-        
-        const res = await fetch(endpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY! },
-            body: JSON.stringify({
-                number: remoteJid,
-                mediatype: mediaType ?? "image",
-                media: mediaUrl,
-                caption: message,
-                name: EVOLUTION_PROVIDER === "evolution_go" ? channel.instance_name : undefined
-            }),
+        evoRes = await provider.sendMedia(channel.instance_name, {
+          number: remoteJid,
+          url: mediaUrl,
+          type: (mediaType ?? "image") as any,
+          caption: message,
         });
-        const raw = await res.text();
-        evoRes = { ok: res.ok, status: res.status, data: parseJsonSafely(raw), raw };
     } else {
         evoRes = await provider.sendText(channel.instance_name, remoteJid, message);
     }

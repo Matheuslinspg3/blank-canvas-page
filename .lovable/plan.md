@@ -1,68 +1,63 @@
-# Plano: Recarga de Créditos via PIX (aprovação manual)
+## Objetivo
+Trocar todas as chamadas HTTP da antiga Evolution API (Node) pela Evolution GO. Os secrets `EVOLUTION_GO_URL` e `EVOLUTION_GO_TOKEN` já existem. O `EVOLUTION_PROVIDER` será forçado para `evolution_go` como padrão.
 
-## 1. Correção do erro 401 (whatsapp-agent-config)
-Antes de tudo, corrigir o erro atual:
-- Garantir que o frontend (`AgentContextPreview.tsx`) envie sempre `Authorization: Bearer <access_token>` explicitamente
-- Reforçar na edge function o padrão de 2 clients (userClient com header do usuário + adminClient com service role)
-- Logar motivo exato do 401 (token ausente, token inválido, sem organization)
+## Convenção EvoGo (confirmada por você)
+- Base URL: `EVOLUTION_GO_URL`
+- Autenticação: header `Instance-Id: <instanceId>` (o próprio InstanceId autentica). Token global (`EVOLUTION_GO_TOKEN`) é enviado como `Authorization: Bearer …` quando presente.
+- Sem `instanceName` na URL — a instância vai no header.
+- Endpoints novos:
+  - `POST /send/text` — body `{ number, text, delay?, quoted?, mentionedJid? }`
+  - `POST /send/media` — body `{ number, url, type: "image"|"video"|"document", caption?, filename?, delay? }`
+  - `POST /send/sticker`, `POST /send/contact`, `POST /send/location`, `POST /send/link`
+  - Áudio: `POST /send/media` com `type: "audio"` (whatsmeow não tem endpoint dedicado de PTT — usaremos media/audio)
+  - `POST /instance/create`, `POST /instance/connect`, `GET /instance/qr`, `GET /instance/status`, `DELETE /instance/logout`, `DELETE /instance/delete/{id}`, `POST /instance/pair`
+  - `POST /message/downloadimage` (substitui o download de mídia antigo)
 
-## 2. Banco de Dados
-Criar tabela **`credit_recharge_requests`** com:
-- `organization_id`, `user_id` (solicitante)
-- `amount_brl` (valor que a pessoa diz que pagou)
-- `pix_key` (fixo: 13996666432)
-- `receipt_url` (comprovante enviado, opcional — só email basta inicialmente)
-- `status`: `pending` | `approved` | `rejected`
-- `approved_by`, `approved_at`, `rejection_reason`
-- `credits_granted` (quanto foi liberado em BRL após aprovação)
+## Mudanças
 
-RLS:
-- Usuário vê/cria apenas suas próprias solicitações da sua org
-- Developers veem todas
+### 1. `_shared/evolution-provider.ts` (core)
+- Reescrever o branch `evolution_go`:
+  - `request()` injeta `Instance-Id` header em todas as chamadas que precisam de instância (todas exceto `/instance/all` e `/instance/create`).
+  - Remover header `apikey`; usar `Authorization: Bearer ${token}` se `EVOLUTION_GO_TOKEN` estiver setado.
+  - Novos métodos: `sendMedia(instance, { number, url, type, caption?, filename?, delay? })`, `sendAudio(instance, { number, url })`, `downloadMedia(instance, payload)`.
+  - Ajustar `sendText` para o novo body (sem `name`).
+  - `setWebhook`: novo endpoint EvoGo (validar pela doc — manter fallback se 404).
 
-Trigger: ao mudar status para `approved`, somar `credits_granted` no saldo da organização (tabela de créditos existente — `automation_credits` ou equivalente).
+### 2. Edge functions migradas para usar exclusivamente o provider
+Todas deixam de ler `EVOLUTION_API_URL/EVOLUTION_API_GLOBAL_KEY` e passam a usar o helper:
+- `whatsapp-send` (sendText + sendMedia)
+- `whatsapp-send-media`
+- `whatsapp-send-audio`
+- `whatsapp-send-property-photos` (loop de `sendMedia`)
+- `whatsapp-broker-send` (sendText + sendMedia)
+- `whatsapp-download-media`
+- `whatsapp-activate-webhook`
+- `whatsapp-instance`, `whatsapp-broker-instance`
+- `whatsapp-polling-status`, `whatsapp-refresh-qrcode`
+- `whatsapp-broker-followup-executor`, `whatsapp-broker-webhook`
+- `whatsapp-transfer-broker`
 
-## 3. Fluxo do Usuário (Recarga)
-Página/modal **"Recarregar Créditos"**:
-1. Mostra QR Code PIX gerado a partir da chave `13996666432`
-2. Mostra a chave copiável
-3. Usuário informa o valor que vai pagar
-4. Botão "Já paguei" → cria registro `pending` em `credit_recharge_requests`
-5. Edge function `notify-recharge-request` envia email para o developer com:
-   - Nome do usuário, organização, valor, data
-   - Link direto para o painel de aprovação
+### 3. Helper centralizado
+Criar `_shared/evo-go-client.ts` (wrapper enxuto sobre `fetch`) para os casos onde o `EvolutionProvider` é overkill (apenas envio direto). Ele exporta `evoGoSend(instanceId, endpoint, body)`.
 
-## 4. Painel do Developer
-Nova rota `/developer/recargas` (apenas role `developer`):
-- Lista de solicitações `pending` em destaque
-- Histórico de aprovadas/rejeitadas
-- Para cada pendente: botões **Aprovar** (com input de valor real em créditos) e **Rejeitar** (com motivo)
-- Ao aprovar: chama edge function que atualiza status e credita o saldo
+### 4. Default provider
+- Definir `EVOLUTION_PROVIDER` default como `"evolution_go"` no código (`Deno.env.get("EVOLUTION_PROVIDER") ?? "evolution_go"`).
+- Manter o branch `evolution_node` no provider apenas como fallback explícito; nenhuma function vai mais ler diretamente as envs antigas.
 
-## 5. Email (notificação)
-Usar **Lovable Emails** (built-in):
-- Setup do domínio de email (se ainda não configurado)
-- Template transacional `recharge-request-received` enviado para email do developer
-- Conteúdo: dados da solicitação + link para o painel
+## Detalhes técnicos
+- `instance_name` no DB passa a guardar o **InstanceId** da EvoGo (a coluna já é genérica). Funções que recebem `instance_name` continuam funcionando — o valor é o ID.
+- Para `sendMedia`, o EvoGo aceita URL pública. Continuamos resolvendo URLs R2/Cloudinary como hoje antes de enviar.
+- Webhook continua chegando em `whatsapp-webhook` — o formato de mensagem do EvoGo é compatível com o whatsmeow (MESSAGES_UPSERT), mas vou validar `event_message` no parsing. Se diferente, ajusto `whatsapp-webhook` num passo seguinte.
+- Em todas as funções, em caso de erro do EvoGo, logar `status + raw` para debug.
 
-## 6. Arquivos a criar/editar
-**Criar:**
-- `supabase/migrations/...` — tabela `credit_recharge_requests` + RLS + trigger de crédito
-- `supabase/functions/notify-recharge-request/index.ts`
-- `supabase/functions/approve-recharge-request/index.ts`
-- `src/pages/RechargeCredits.tsx` (usuário)
-- `src/pages/developer/RechargeApprovals.tsx` (developer)
-- `src/components/credits/PixQRCode.tsx`
-- Template email transacional
+## Fora de escopo (nesta migração)
+- Mudar formato persistido em `whatsapp_messages` (mantém igual).
+- Refatorar n8n workflows — você já está usando o nó `evoGo` nativo no n8n.
+- Migrar `whatsapp-webhook` para novo formato (só ajusto se o webhook do EvoGo divergir do esperado — depende de teste real).
 
-**Editar:**
-- `supabase/functions/whatsapp-agent-config/index.ts` — fix 401
-- `src/components/automations/AgentContextPreview.tsx` — header Authorization explícito
-- `src/components/AppSidebar.tsx` — link "Recargas" (developers) e botão "Recarregar" (usuários)
-- Rotas no `App.tsx`
-
-## Perguntas antes de implementar
-1. **Email do developer** para receber as notificações?
-2. **Conversão valor pago → créditos**: 1 BRL pago = 1 BRL de crédito? Ou aplicar bônus/markup?
-3. **QR Code PIX**: gerar dinâmico com valor (PIX copia-e-cola BR Code) ou apenas QR estático da chave?
-4. **Comprovante**: precisa upload da imagem no sistema ou basta a pessoa enviar pelo email/whatsapp manualmente?
+## Passos
+1. Atualizar `_shared/evolution-provider.ts` (auth + endpoints + novos métodos).
+2. Refatorar `whatsapp-send-media`, `whatsapp-send-audio`, `whatsapp-send-property-photos`, `whatsapp-send`, `whatsapp-broker-send`, `whatsapp-download-media`.
+3. Refatorar restantes (instance/webhook/polling/refresh-qr/followup/transfer-broker).
+4. Setar `EVOLUTION_PROVIDER=evolution_go` como default em todo o código.
+5. Testar com `supabase--curl_edge_functions` no `whatsapp-send-property-photos` (reproduzir o caso N8N do erro original).

@@ -21,12 +21,17 @@ export class EvolutionProvider {
     this.config.baseUrl = this.config.baseUrl.replace(/\/$/, "");
   }
 
-  private async request(method: string, path: string, body?: any): Promise<InstanceResponse> {
+  private async request(method: string, path: string, body?: any, instanceId?: string): Promise<InstanceResponse> {
     const url = `${this.config.baseUrl}${path}`;
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      apikey: this.config.apiKey,
-    };
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+
+    if (this.config.provider === "evolution_go") {
+      // EvoGo (whatsmeow): autenticação por header Instance-Id; token global opcional.
+      if (instanceId) headers["Instance-Id"] = instanceId;
+      if (this.config.apiKey) headers["Authorization"] = `Bearer ${this.config.apiKey}`;
+    } else {
+      headers["apikey"] = this.config.apiKey;
+    }
 
     try {
       const res = await fetch(url, {
@@ -38,12 +43,7 @@ export class EvolutionProvider {
       const raw = await res.text();
       const data = parseJsonSafely(raw);
 
-      return {
-        ok: res.ok,
-        status: res.status,
-        data,
-        raw,
-      };
+      return { ok: res.ok, status: res.status, data, raw };
     } catch (e) {
       return {
         ok: false,
@@ -57,8 +57,7 @@ export class EvolutionProvider {
   async createInstance(name: string, token?: string) {
     const tk = token || crypto.randomUUID().replace(/-/g, "");
     if (this.config.provider === "evolution_go") {
-      // Evolution Go: tenta múltiplas variantes de payload pois builds diferentes
-      // aceitam campos distintos (name/instanceName, qrcode/qrCode, integration opcional)
+      // EvoGo: instância nova ainda não existe, então NÃO mandamos Instance-Id no header.
       const variants: any[] = [
         { name, token: tk, qrcode: true, integration: "WHATSAPP-BAILEYS" },
         { instanceName: name, token: tk, qrcode: true, integration: "WHATSAPP-BAILEYS" },
@@ -71,13 +70,11 @@ export class EvolutionProvider {
         const res = await this.request("POST", "/instance/create", body);
         last = res;
         if (res.ok) return res;
-        // Se já existe, retorna imediatamente para o caller tratar
         if (/already in use|already exists|in use/i.test(res.raw)) return res;
       }
       console.log(`[EvolutionGo] createInstance failed status=${last?.status} raw=${last?.raw?.slice(0, 500)}`);
       return last!;
     } else {
-      // Evolution Node creation
       return await this.request("POST", "/instance/create", {
         name,
         token: tk,
@@ -97,14 +94,14 @@ export class EvolutionProvider {
 
   async connectInstance(instanceName: string, phoneNumber?: string) {
     if (this.config.provider === "evolution_go") {
-      // Evolution Go connect is POST
-      return await this.request("POST", "/instance/connect", {
-        name: instanceName,
-        number: phoneNumber || undefined,
-      });
+      return await this.request(
+        "POST",
+        "/instance/connect",
+        phoneNumber ? { number: phoneNumber } : {},
+        instanceName,
+      );
     } else {
-      // Evolution Node connect is GET
-      const path = phoneNumber 
+      const path = phoneNumber
         ? `/instance/connect/${instanceName}?number=${encodeURIComponent(phoneNumber)}`
         : `/instance/connect/${instanceName}`;
       return await this.request("GET", path);
@@ -113,23 +110,15 @@ export class EvolutionProvider {
 
   async getQr(instanceName: string) {
     if (this.config.provider === "evolution_go") {
-      // Evolution Go: QR é retornado pelo /instance/connect, mas versões/builds
-      // diferentes aceitam nomes de campo distintos no payload.
-      const attempts = [
-        () => this.request("POST", "/instance/connect", { name: instanceName }),
-        () => this.request("POST", "/instance/connect", { instanceName }),
-        () => this.request("POST", "/instance/connect", { instance: instanceName }),
-      ];
-
-      let last: InstanceResponse | null = null;
-      for (const attempt of attempts) {
-        const res = await attempt();
-        last = res;
-        if (res.ok && (extractQrBase64(res.data) || extractPairingCode(res.data) || classifyConnectionStatus(res.raw, res.data?.state, res.data?.status, res.data?.instance?.state) === "connected")) {
-          return res;
-        }
+      // EvoGo: QR é exposto em GET /instance/qr (Instance-Id no header).
+      const res = await this.request("GET", "/instance/qr", undefined, instanceName);
+      if (res.ok && (extractQrBase64(res.data) || extractPairingCode(res.data))) {
+        return res;
       }
-      return last!;
+      // Fallback: alguns builds só geram QR após chamar /instance/connect primeiro.
+      const _connect = await this.request("POST", "/instance/connect", {}, instanceName);
+      void _connect;
+      return await this.request("GET", "/instance/qr", undefined, instanceName);
     } else {
       return await this.request("GET", `/instance/connect/${instanceName}`);
     }
@@ -137,10 +126,7 @@ export class EvolutionProvider {
 
   async pair(instanceName: string, phoneNumber: string) {
     if (this.config.provider === "evolution_go") {
-      return await this.request("POST", "/instance/pair", {
-        name: instanceName,
-        number: phoneNumber,
-      });
+      return await this.request("POST", "/instance/pair", { number: phoneNumber }, instanceName);
     } else {
       return await this.request("GET", `/instance/connect/${instanceName}?number=${encodeURIComponent(phoneNumber)}`);
     }
@@ -148,8 +134,7 @@ export class EvolutionProvider {
 
   async getStatus(instanceName: string) {
     if (this.config.provider === "evolution_go") {
-      // In Go, status is GET /instance/status?name=... or GET /instance/status/:name
-      return await this.request("GET", `/instance/status?name=${instanceName}`);
+      return await this.request("GET", "/instance/status", undefined, instanceName);
     } else {
       return await this.request("GET", `/instance/connectionState/${instanceName}`);
     }
@@ -158,19 +143,7 @@ export class EvolutionProvider {
 
   async logout(instanceName: string) {
     if (this.config.provider === "evolution_go") {
-      const attempts = [
-        () => this.request("POST", "/instance/logout", { name: instanceName }),
-        () => this.request("POST", "/instance/logout", { instanceName }),
-        () => this.request("DELETE", `/instance/logout?name=${encodeURIComponent(instanceName)}`),
-      ];
-
-      let last: InstanceResponse | null = null;
-      for (const attempt of attempts) {
-        const res = await attempt();
-        last = res;
-        if (res.ok || res.status === 404) return res;
-      }
-      return last!;
+      return await this.request("DELETE", "/instance/logout", undefined, instanceName);
     } else {
       return await this.request("DELETE", `/instance/logout/${instanceName}`);
     }
@@ -178,19 +151,7 @@ export class EvolutionProvider {
 
   async delete(instanceName: string) {
     if (this.config.provider === "evolution_go") {
-      const attempts = [
-        () => this.request("DELETE", `/instance/delete?name=${encodeURIComponent(instanceName)}`),
-        () => this.request("DELETE", "/instance/delete", { name: instanceName }),
-        () => this.request("DELETE", "/instance/delete", { instanceName }),
-      ];
-
-      let last: InstanceResponse | null = null;
-      for (const attempt of attempts) {
-        const res = await attempt();
-        last = res;
-        if (res.ok || res.status === 404) return res;
-      }
-      return last!;
+      return await this.request("DELETE", `/instance/delete/${encodeURIComponent(instanceName)}`, undefined, instanceName);
     } else {
       return await this.request("DELETE", `/instance/delete/${instanceName}`);
     }
@@ -199,17 +160,13 @@ export class EvolutionProvider {
 
   async setWebhook(instanceName: string, url: string, secret: string) {
     if (this.config.provider === "evolution_go") {
-      // Evolution Go webhook set
-      // Based on common patterns in Evolution Go: POST /webhook/set
       return await this.request("POST", "/webhook/set", {
-        name: instanceName,
         url,
         enabled: true,
         headers: { "x-webhook-secret": secret },
         events: ["MESSAGES_UPSERT"],
-      });
+      }, instanceName);
     } else {
-      // Evolution Node webhook set
       return await this.request("POST", `/webhook/set/${instanceName}`, {
         url,
         enabled: true,
@@ -222,18 +179,39 @@ export class EvolutionProvider {
   }
 
   async sendText(instanceName: string, number: string, text: string) {
-    // Both usually use /send/text but the payload might differ
     if (this.config.provider === "evolution_go") {
-      return await this.request("POST", "/send/text", {
-        name: instanceName,
-        number,
-        text,
-      });
+      return await this.request("POST", "/send/text", { number, text }, instanceName);
     } else {
-      return await this.request("POST", `/message/sendText/${instanceName}`, {
-        number,
-        text,
+      return await this.request("POST", `/message/sendText/${instanceName}`, { number, text });
+    }
+  }
+
+  async sendMedia(
+    instanceName: string,
+    payload: { number: string; url: string; type?: "image" | "video" | "document" | "audio"; caption?: string; filename?: string; delay?: number },
+  ) {
+    if (this.config.provider === "evolution_go") {
+      const body: any = { number: payload.number, url: payload.url, type: payload.type ?? "image" };
+      if (payload.caption !== undefined) body.caption = payload.caption;
+      if (payload.filename) body.filename = payload.filename;
+      if (payload.delay !== undefined) body.delay = payload.delay;
+      return await this.request("POST", "/send/media", body, instanceName);
+    } else {
+      return await this.request("POST", `/message/sendMedia/${instanceName}`, {
+        number: payload.number,
+        mediatype: payload.type ?? "image",
+        media: payload.url,
+        caption: payload.caption ?? "",
+        fileName: payload.filename,
       });
+    }
+  }
+
+  async sendAudio(instanceName: string, number: string, url: string) {
+    if (this.config.provider === "evolution_go") {
+      return await this.request("POST", "/send/media", { number, url, type: "audio" }, instanceName);
+    } else {
+      return await this.request("POST", `/message/sendWhatsAppAudio/${instanceName}`, { number, audio: url });
     }
   }
 }
