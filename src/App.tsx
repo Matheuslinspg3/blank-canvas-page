@@ -60,6 +60,8 @@ const Settings = lazy(() => lazyRetry(() => import("./pages/Settings")));
 const AdminAudit = lazy(() => lazyRetry(() => import("./pages/admin/AdminAudit")));
 const MetaWebhookStatus = lazy(() => lazyRetry(() => import("./pages/admin/MetaWebhookStatus")));
 const DeveloperDashboard = lazy(() => lazyRetry(() => import("./pages/developer/DeveloperDashboard")));
+const RechargeCredits = lazy(() => lazyRetry(() => import("./pages/RechargeCredits")));
+const RechargeApprovals = lazy(() => lazyRetry(() => import("./pages/developer/RechargeApprovals")));
 const ImportPendencies = lazy(() => lazyRetry(() => import("./pages/ImportPendencies")));
 const Integrations = lazy(() => lazyRetry(() => import("./pages/Integrations")));
 const LandingPage = lazy(() => lazyRetry(() => import("./pages/LandingPage")));
