@@ -361,12 +361,19 @@ serve(async (req) => {
 
     // ── Build final response ──
 
+    const voiceId = config.voice_id ?? "EXAVITQu4vr4xnSDxMaL";
+
     return new Response(JSON.stringify({
+      // Top-level fields consumed directly by N8N IDENTIDADE node
       instance_name: config.instance_name,
+      organization_id: orgId,
+      voice_id: voiceId,
       agent_config: {
         organization_id: orgId,
+        instance_name: config.instance_name,
         agent_name: config.agent_name,
         tone: config.tone,
+        welcome_message: config.welcome_message ?? welcome?.message ?? "",
         away_message: config.away_message,
         working_hours_start: config.working_hours_start,
         working_hours_end: config.working_hours_end,
@@ -380,7 +387,7 @@ serve(async (req) => {
       voice_config: {
         enabled: !!config.voice_enabled,
         percentage: config.voice_percentage ?? 0,
-        voice_id: config.voice_id ?? "EXAVITQu4vr4xnSDxMaL",
+        voice_id: voiceId,
         tts_endpoint: `${Deno.env.get("SUPABASE_URL")}/functions/v1/elevenlabs-tts`,
       },
       composed_system_prompt,
