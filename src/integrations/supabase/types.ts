@@ -2939,7 +2939,10 @@ export type Database = {
           notes: string | null
           organization_id: string
           pix_key: string
+          receipt_mime: string | null
           receipt_path: string | null
+          receipt_size_bytes: number | null
+          receipt_validation: Json | null
           rejection_reason: string | null
           status: string
           updated_at: string
@@ -2955,7 +2958,10 @@ export type Database = {
           notes?: string | null
           organization_id: string
           pix_key?: string
+          receipt_mime?: string | null
           receipt_path?: string | null
+          receipt_size_bytes?: number | null
+          receipt_validation?: Json | null
           rejection_reason?: string | null
           status?: string
           updated_at?: string
@@ -2971,7 +2977,10 @@ export type Database = {
           notes?: string | null
           organization_id?: string
           pix_key?: string
+          receipt_mime?: string | null
           receipt_path?: string | null
+          receipt_size_bytes?: number | null
+          receipt_validation?: Json | null
           rejection_reason?: string | null
           status?: string
           updated_at?: string
@@ -10719,7 +10728,10 @@ export type Database = {
           notes: string | null
           organization_id: string
           pix_key: string
+          receipt_mime: string | null
           receipt_path: string | null
+          receipt_size_bytes: number | null
+          receipt_validation: Json | null
           rejection_reason: string | null
           status: string
           updated_at: string
