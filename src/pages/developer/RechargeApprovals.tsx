@@ -19,6 +19,9 @@ type Request = {
   amount_brl: number;
   pix_key: string;
   receipt_path: string | null;
+  receipt_validation: any | null;
+  receipt_mime: string | null;
+  receipt_size_bytes: number | null;
   notes: string | null;
   status: string;
   credits_granted: number | null;
