@@ -84,17 +84,30 @@ serve(async (req) => {
       config = data;
     }
 
-    if (!config?.instance_name) {
+    if (!config) {
       return new Response(JSON.stringify({
-        error: "Configuração WhatsApp não encontrada",
+        error: "Configuração WhatsApp não encontrada para essa organização/instância",
         debug: { instance_name: instTrim, is_uuid: isUuid },
       }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    if (!config.instance_name) {
+      return new Response(JSON.stringify({
+        error: "WhatsApp ainda não foi conectado. Configure o agente e gere o QR Code antes de enviar fotos.",
+        debug: { organization_id: config.organization_id, status: config.status },
+      }), {
+        status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (config.status !== "connected") {
-      return new Response(JSON.stringify({ error: "WhatsApp desconectado", status: config.status }), {
+      return new Response(JSON.stringify({
+        error: "WhatsApp desconectado. Reconecte a instância antes de enviar fotos.",
+        status: config.status,
+        instance_name: config.instance_name,
+      }), {
         status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
