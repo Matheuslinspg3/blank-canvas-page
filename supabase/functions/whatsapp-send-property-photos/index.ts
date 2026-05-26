@@ -202,10 +202,8 @@ serve(async (req) => {
       }
     }
 
-    // --- Step 2: Send images via Evolution API ---
+    // --- Step 2: Send images via Evolution GO ---
     const cleanPhone = phone.replace(/\D/g, "");
-    const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
-    const endpoint = `${baseUrl}/message/sendMedia/${config.instance_name}`;
     const delayBetween = Math.min(Math.max(Number(delay_ms) || 1500, 500), 5000);
 
     // Flatten all images into a send queue
