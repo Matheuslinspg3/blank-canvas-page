@@ -60,6 +60,8 @@ const Settings = lazy(() => lazyRetry(() => import("./pages/Settings")));
 const AdminAudit = lazy(() => lazyRetry(() => import("./pages/admin/AdminAudit")));
 const MetaWebhookStatus = lazy(() => lazyRetry(() => import("./pages/admin/MetaWebhookStatus")));
 const DeveloperDashboard = lazy(() => lazyRetry(() => import("./pages/developer/DeveloperDashboard")));
+const RechargeCredits = lazy(() => lazyRetry(() => import("./pages/RechargeCredits")));
+const RechargeApprovals = lazy(() => lazyRetry(() => import("./pages/developer/RechargeApprovals")));
 const ImportPendencies = lazy(() => lazyRetry(() => import("./pages/ImportPendencies")));
 const Integrations = lazy(() => lazyRetry(() => import("./pages/Integrations")));
 const LandingPage = lazy(() => lazyRetry(() => import("./pages/LandingPage")));
@@ -221,10 +223,18 @@ const App = () => (
                         <Route path="/rdstation" element={<Navigate to="/marketing?section=rdstation" replace />} />
                         <Route path="/gerador-anuncios" element={<Navigate to="/marketing?section=gerador" replace />} />
                         
+                        {/* Recarga de créditos (usuário) */}
+                        <Route path="/recarregar-creditos" element={<RechargeCredits />} />
+
                         {/* Developer route inside AppLayout */}
                         <Route path="/developer" element={
                           <DeveloperRoute>
                             <DeveloperDashboard />
+                          </DeveloperRoute>
+                        } />
+                        <Route path="/developer/recargas" element={
+                          <DeveloperRoute>
+                            <RechargeApprovals />
                           </DeveloperRoute>
                         } />
                         

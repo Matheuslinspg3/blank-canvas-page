@@ -23,6 +23,7 @@ import {
   Landmark,
   Globe,
   MessageCircle,
+  Wallet,
 } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { NavLink } from "@/components/NavLink";
@@ -231,6 +232,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {isAdminOrAbove && renderMenuItem({ title: "Meu Plano", url: "/meu-plano", icon: CreditCard })}
+              {isAdminOrAbove && renderMenuItem({ title: "Recarregar Créditos", url: "/recarregar-creditos", icon: Wallet })}
               {renderMenuItem({ title: "Configurações", url: "/configuracoes", icon: Settings })}
             </SidebarMenu>
           </SidebarGroupContent>
@@ -244,6 +246,7 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {renderMenuItem({ title: "Developer", url: "/developer", icon: Code, badgeCount: setupPending })}
+                {renderMenuItem({ title: "Recargas PIX", url: "/developer/recargas", icon: Wallet })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

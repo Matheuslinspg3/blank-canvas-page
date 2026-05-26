@@ -2928,6 +2928,57 @@ export type Database = {
           },
         ]
       }
+      credit_recharge_requests: {
+        Row: {
+          amount_brl: number
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          credits_granted: number | null
+          id: string
+          notes: string | null
+          organization_id: string
+          pix_key: string
+          receipt_path: string | null
+          rejection_reason: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_brl: number
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          credits_granted?: number | null
+          id?: string
+          notes?: string | null
+          organization_id: string
+          pix_key?: string
+          receipt_path?: string | null
+          rejection_reason?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_brl?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          credits_granted?: number | null
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          pix_key?: string
+          receipt_path?: string | null
+          rejection_reason?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       crm_import_logs: {
         Row: {
           created_at: string
@@ -10656,6 +10707,31 @@ export type Database = {
         Returns: Json
       }
       ai_listar_opcoes: { Args: { org_id: string }; Returns: Json }
+      approve_recharge_request: {
+        Args: { _credits_brl?: number; _request_id: string }
+        Returns: {
+          amount_brl: number
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          credits_granted: number | null
+          id: string
+          notes: string | null
+          organization_id: string
+          pix_key: string
+          receipt_path: string | null
+          rejection_reason: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "credit_recharge_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       assert_import_run_access: {
         Args: { p_run_id: string; p_user_id: string }
         Returns: boolean
