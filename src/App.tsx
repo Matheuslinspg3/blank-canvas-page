@@ -225,8 +225,18 @@ const App = () => (
                         <Route path="/rdstation" element={<Navigate to="/marketing?section=rdstation" replace />} />
                         <Route path="/gerador-anuncios" element={<Navigate to="/marketing?section=gerador" replace />} />
                         
-                        {/* Recarga de créditos (usuário) */}
-                        <Route path="/recarregar-creditos" element={<RechargeCredits />} />
+                        {/* Recarga de créditos (apenas admin/developer) */}
+                        <Route path="/recarregar-creditos" element={
+                          <AdminOrDeveloperRoute>
+                            <RechargeCredits />
+                          </AdminOrDeveloperRoute>
+                        } />
+                        <Route path="/recarregar-creditos/historico" element={
+                          <AdminOrDeveloperRoute>
+                            <RechargeHistory />
+                          </AdminOrDeveloperRoute>
+                        } />
+
 
                         {/* Developer route inside AppLayout */}
                         <Route path="/developer" element={
