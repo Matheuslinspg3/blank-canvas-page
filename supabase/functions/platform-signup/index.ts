@@ -278,6 +278,7 @@ serve(async (req) => {
       trial_end: trialEnds.toISOString(),
       current_period_start: now.toISOString(),
       current_period_end: trialEnds.toISOString(),
+      attribution_context: attributionCtx,
     });
 
     if (subError) {
