@@ -21,12 +21,17 @@ export class EvolutionProvider {
     this.config.baseUrl = this.config.baseUrl.replace(/\/$/, "");
   }
 
-  private async request(method: string, path: string, body?: any): Promise<InstanceResponse> {
+  private async request(method: string, path: string, body?: any, instanceId?: string): Promise<InstanceResponse> {
     const url = `${this.config.baseUrl}${path}`;
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      apikey: this.config.apiKey,
-    };
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+
+    if (this.config.provider === "evolution_go") {
+      // EvoGo (whatsmeow): autenticação por header Instance-Id; token global opcional.
+      if (instanceId) headers["Instance-Id"] = instanceId;
+      if (this.config.apiKey) headers["Authorization"] = `Bearer ${this.config.apiKey}`;
+    } else {
+      headers["apikey"] = this.config.apiKey;
+    }
 
     try {
       const res = await fetch(url, {
@@ -38,12 +43,7 @@ export class EvolutionProvider {
       const raw = await res.text();
       const data = parseJsonSafely(raw);
 
-      return {
-        ok: res.ok,
-        status: res.status,
-        data,
-        raw,
-      };
+      return { ok: res.ok, status: res.status, data, raw };
     } catch (e) {
       return {
         ok: false,
