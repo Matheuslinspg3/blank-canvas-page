@@ -149,10 +149,12 @@ serve(async (req) => {
     const phoneNumberOnlyDigits = phoneNumber ? phoneNumber.replace(/\D/g, '') : ''
 
     // Payload for n8n
+    // source = 2 → AI Agent (Automações) | source = 1 → Meu WhatsApp (broker individual)
     const n8nPayload = {
       action: action,
       channel: "whatsapp",
-      source: "broker_whatsapp",
+      source: 2,
+      source_label: "ai_agent_automation",
       orgId: profile.organization_id,
       orgName: organization?.name || "N/A",
       userId: user.id,
@@ -273,6 +275,8 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       ok: true,
       provider: "n8n_evolution_go",
+      source: 2,
+      source_label: "ai_agent_automation",
       status: status,
       connected: isConnected,
       phoneNumber: normalizedPhone || (isConnected ? phoneNumberOnlyDigits : ""),

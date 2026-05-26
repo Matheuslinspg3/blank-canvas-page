@@ -245,6 +245,8 @@ serve(async (req) => {
 
       return json({
         status,
+        source: 1,
+        source_label: "broker_personal_whatsapp",
         qr_code: qrCode,
         pairing_code: pairingCode,
         instance_name: instanceName,
