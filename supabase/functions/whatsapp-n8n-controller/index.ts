@@ -171,11 +171,15 @@ serve(async (req) => {
     let n8nUrl = ""
     const createActions = ['create', 'connect', 'qr', 'pairing', 'reconnect']
     const statusActions = ['status', 'check_connected', 'verify_connection']
+    const disconnectActions = ['disconnect', 'logout', 'delete']
 
     if (createActions.includes(action)) {
       n8nUrl = Deno.env.get('N8N_WHATSAPP_CREATE_WEBHOOK_URL') || ""
     } else if (statusActions.includes(action)) {
       n8nUrl = Deno.env.get('N8N_WHATSAPP_STATUS_WEBHOOK_URL') || ""
+    } else if (disconnectActions.includes(action)) {
+      n8nUrl = Deno.env.get('N8N_WHATSAPP_DISCONNECT_WEBHOOK_URL')
+        || "https://n8n.costazul.shop/webhook/2089d8f5-252c-4eb8-9da6-58fbc2694cf72whatsappdesativar"
     }
 
     if (!n8nUrl) {
