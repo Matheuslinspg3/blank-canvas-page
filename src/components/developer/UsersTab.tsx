@@ -222,6 +222,10 @@ export function UsersTab() {
       }
 
       return true;
+    }).sort((a, b) => {
+      const aAt = getAuthUser(a.user_id)?.created_at ?? "";
+      const bAt = getAuthUser(b.user_id)?.created_at ?? "";
+      return bAt.localeCompare(aAt); // mais recente primeiro
     });
   }, [allProfiles, authUsers, organizations, subscriptions, search, filterOrg, filterPlan, filterStatus, filterOnboarding]);
 
