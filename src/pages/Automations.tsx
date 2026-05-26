@@ -36,6 +36,7 @@ export default function Automations() {
   } = useAutomations();
 
   const { profile } = useAuth();
+  const { status: whatsappStatus } = useWhatsAppV2();
   const [showWizard, setShowWizard] = useState(false);
   const [selectedAutomationId, setSelectedAutomationId] = useState<string | null>(null);
   const [executionLogs, setExecutionLogs] = useState<ExecutionLogEntry[]>([]);
