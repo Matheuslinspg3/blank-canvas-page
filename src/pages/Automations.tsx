@@ -20,6 +20,7 @@ import { toast } from "@/hooks/use-toast";
 import { WhatsAppStatusBanner } from "@/components/automations/WhatsAppStatusBanner";
 import { WhatsAppAgentConnection } from "@/components/automations/WhatsAppAgentConnection";
 import { WhatsAppAgentPersonalization } from "@/components/automations/WhatsAppAgentPersonalization";
+import { useWhatsAppV2 } from "@/hooks/useWhatsAppV2";
 
 export default function Automations() {
   const {
