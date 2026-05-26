@@ -20,6 +20,7 @@ import { toast } from "@/hooks/use-toast";
 import { WhatsAppStatusBanner } from "@/components/automations/WhatsAppStatusBanner";
 import { WhatsAppAgentConnection } from "@/components/automations/WhatsAppAgentConnection";
 import { WhatsAppAgentPersonalization } from "@/components/automations/WhatsAppAgentPersonalization";
+import { AgentContextPreview } from "@/components/automations/AgentContextPreview";
 import { WhatsAppChatPanel } from "@/components/whatsapp/WhatsAppChatPanel";
 
 export default function Automations() {
@@ -153,6 +154,7 @@ export default function Automations() {
             <TabsContent value="whatsapp-agent" className="max-w-2xl space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
               <WhatsAppAgentConnection />
               {whatsappStatus === "connected" && <WhatsAppAgentPersonalization />}
+              {whatsappStatus === "connected" && <AgentContextPreview />}
             </TabsContent>
 
             <TabsContent value="chat" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
