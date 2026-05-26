@@ -154,6 +154,7 @@ export default function Automations() {
             <TabsContent value="whatsapp-agent" className="max-w-2xl space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
               <WhatsAppAgentConnection />
               {whatsappStatus === "connected" && <WhatsAppAgentPersonalization />}
+              {whatsappStatus === "connected" && <AgentContextPreview />}
             </TabsContent>
 
             <TabsContent value="chat" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
