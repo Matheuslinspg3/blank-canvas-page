@@ -246,6 +246,7 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {renderMenuItem({ title: "Developer", url: "/developer", icon: Code, badgeCount: setupPending })}
+                {renderMenuItem({ title: "Recargas PIX", url: "/developer/recargas", icon: Wallet })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
