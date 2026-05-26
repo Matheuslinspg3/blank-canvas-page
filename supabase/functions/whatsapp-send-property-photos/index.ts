@@ -257,48 +257,34 @@ serve(async (req) => {
         continue;
       }
 
-      try {
-        const evoRes = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
-          body: JSON.stringify({
-            number: cleanPhone,
-            mediatype: "image",
-            media: item.url,
-            caption: item.caption || "",
-          }),
-        });
+      const evoRes = await evoGoSendMedia(config.instance_name, {
+        number: cleanPhone,
+        url: item.url,
+        type: "image",
+        caption: item.caption || "",
+      });
 
-        if (!evoRes.ok) {
-          const errData = await evoRes.text();
-          console.error(`Send image ${i} failed [${evoRes.status}]: ${errData}`);
-          results.push({ index: i, property_id: item.property_id, success: false, error: `HTTP ${evoRes.status}` });
-        } else {
-          const evoData = await evoRes.json();
-
-          // Persist to whatsapp_messages
-          try {
-            await sb.from("whatsapp_messages").insert({
-              organization_id: orgId,
-              instance_name: config.instance_name,
-              remote_jid: remoteJid,
-              from_me: true,
-              message_text: item.caption || "[Imagem enviada]",
-              message_type: "image",
-              message_id: evoData?.key?.id || null,
-              timestamp: new Date().toISOString(),
-              sender_type: "ai",
-              media_url: item.url,
-            });
-          } catch (persistErr) {
-            console.warn(`Failed to persist image message ${i}:`, persistErr);
-          }
-
-          results.push({ index: i, property_id: item.property_id, success: true });
+      if (!evoRes.ok) {
+        console.error(`Send image ${i} failed [${evoRes.status}]: ${evoRes.raw.slice(0, 300)}`);
+        results.push({ index: i, property_id: item.property_id, success: false, error: `HTTP ${evoRes.status}` });
+      } else {
+        try {
+          await sb.from("whatsapp_messages").insert({
+            organization_id: orgId,
+            instance_name: config.instance_name,
+            remote_jid: remoteJid,
+            from_me: true,
+            message_text: item.caption || "[Imagem enviada]",
+            message_type: "image",
+            message_id: evoGoExtractMessageId(evoRes.data),
+            timestamp: new Date().toISOString(),
+            sender_type: "ai",
+            media_url: item.url,
+          });
+        } catch (persistErr) {
+          console.warn(`Failed to persist image message ${i}:`, persistErr);
         }
-      } catch (fetchErr: any) {
-        console.error(`Send image ${i} fetch error:`, fetchErr);
-        results.push({ index: i, property_id: item.property_id, success: false, error: fetchErr.message });
+        results.push({ index: i, property_id: item.property_id, success: true });
       }
 
       // Delay between sends
