@@ -149,3 +149,6 @@ verify_jwt = false
 
 [functions.meta-resubscribe-leadgen]
 verify_jwt = false
+
+[functions.whatsapp-agent-config]
+verify_jwt = false
