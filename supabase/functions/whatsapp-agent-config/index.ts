@@ -70,11 +70,16 @@ serve(async (req) => {
       }
       // Resolve org via service client (bypass RLS reliably)
       const svc = createServiceClient();
-      const { data: profile } = await svc
+      const { data: profileByUserId } = await svc
         .from("profiles")
         .select("organization_id")
-        .or(`user_id.eq.${userData.user.id},id.eq.${userData.user.id}`)
+        .eq("user_id", userData.user.id)
         .maybeSingle();
+      const profile = profileByUserId ?? (await svc
+        .from("profiles")
+        .select("organization_id")
+        .eq("id", userData.user.id)
+        .maybeSingle()).data;
       if (!profile?.organization_id) {
         return new Response(JSON.stringify({ error: "No organization for user" }), {
           status: 403,
