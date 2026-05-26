@@ -157,31 +157,12 @@ serve(async (req) => {
     let evoRes: any;
 
     if (type === "media") {
-        // Evolution Go media send is different, but let's try to keep it simple
-        // If the provider doesn't have sendMedia, we'll use sendText as fallback or implement it
-        // For now, let's assume we need to implement it in the provider
-        // But the user didn't mention media specifically in the tasks, just text.
-        // I'll add sendMedia to the provider just in case.
-        const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
-        const endpoint = EVOLUTION_PROVIDER === "evolution_go" 
-            ? `${baseUrl}/send/media` // Guessing for Go
-            : `${baseUrl}/message/sendMedia/${resolvedInstanceName}`;
-        
-        const payload = {
-            number: cleanPhone,
-            mediatype: body.mediaType || "image",
-            media: body.mediaUrl,
-            caption: formattedMessage,
-            name: EVOLUTION_PROVIDER === "evolution_go" ? resolvedInstanceName : undefined
-        };
-
-        const res = await fetch(endpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
-            body: JSON.stringify(payload),
+        evoRes = await provider.sendMedia(resolvedInstanceName, {
+          number: cleanPhone,
+          url: body.mediaUrl,
+          type: (body.mediaType || "image") as any,
+          caption: formattedMessage,
         });
-        const raw = await res.text();
-        evoRes = { ok: res.ok, status: res.status, data: parseJsonSafely(raw), raw };
     } else {
         evoRes = await provider.sendText(resolvedInstanceName, cleanPhone, formattedMessage);
     }
