@@ -10868,6 +10868,37 @@ export type Database = {
         Args: { p_mode: string; p_org_id: string }
         Returns: undefined
       }
+      developer_credit_organization: {
+        Args: {
+          _amount_brl: number
+          _description?: string
+          _organization_id: string
+          _type?: string
+        }
+        Returns: {
+          amount_brl: number
+          balance_after: number
+          billed_cost_brl: number | null
+          created_at: string
+          description: string | null
+          id: string
+          metadata: Json | null
+          model: string | null
+          organization_id: string
+          provider: string | null
+          raw_cost_usd: number | null
+          tokens_input: number | null
+          tokens_output: number | null
+          type: string
+          wallet_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "automation_credit_transactions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       dispatch_notification: {
         Args: {
           _entity_id?: string
