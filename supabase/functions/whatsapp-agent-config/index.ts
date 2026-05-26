@@ -382,6 +382,9 @@ serve(async (req) => {
         broker_assignment_mode: config.broker_assignment_mode,
         transfer_phone: config.transfer_phone,
         transfer_message: config.transfer_message,
+        crm_new_lead_stage_id: config.crm_new_lead_stage_id ?? null,
+        crm_qualified_stage_id: config.crm_qualified_stage_id ?? null,
+        crm_auto_advance_on_qualified: config.crm_auto_advance_on_qualified ?? true,
       },
       ai_config: aiConfig,
       voice_config: {
