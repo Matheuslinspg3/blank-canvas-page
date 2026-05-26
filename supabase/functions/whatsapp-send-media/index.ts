@@ -79,10 +79,7 @@ serve(async (req) => {
     }
 
     const cleanPhone = phone.replace(/\D/g, "");
-    const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
-    const endpoint = `${baseUrl}/message/sendMedia/${config.instance_name}`;
     const delayBetween = Math.min(Math.max(Number(delay_ms) || 1500, 500), 5000);
-
     const results: Array<{ index: number; success: boolean; error?: string }> = [];
 
     for (let i = 0; i < images.length; i++) {
@@ -92,55 +89,37 @@ serve(async (req) => {
         continue;
       }
 
-      try {
-        const evoRes = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: EVOLUTION_API_KEY,
-          },
-          body: JSON.stringify({
-            number: cleanPhone,
-            mediatype: "image",
-            media: img.url,
-            caption: img.caption || "",
-          }),
-        });
+      const evoRes = await evoGoSendMedia(config.instance_name, {
+        number: cleanPhone,
+        url: img.url,
+        type: "image",
+        caption: img.caption || "",
+      });
 
-        if (!evoRes.ok) {
-          const errData = await evoRes.text();
-          console.error(`Send image ${i} failed [${evoRes.status}]: ${errData}`);
-          results.push({ index: i, success: false, error: `HTTP ${evoRes.status}` });
-        } else {
-          const evoData = await evoRes.json();
-
-          // Persist to whatsapp_messages
-          try {
-            const remoteJid = cleanPhone.includes("@") ? cleanPhone : `${cleanPhone}@s.whatsapp.net`;
-            await sb.from("whatsapp_messages").insert({
-              organization_id: config.organization_id,
-              instance_name: config.instance_name,
-              remote_jid: remoteJid,
-              from_me: true,
-              message_text: img.caption || "[Imagem enviada]",
-              message_type: "image",
-              message_id: evoData?.key?.id || null,
-              timestamp: new Date().toISOString(),
-              sender_type: "ai",
-              media_url: img.url,
-            });
-          } catch (persistErr) {
-            console.warn(`Failed to persist image message ${i}:`, persistErr);
-          }
-
-          results.push({ index: i, success: true });
+      if (!evoRes.ok) {
+        console.error(`Send image ${i} failed [${evoRes.status}]: ${evoRes.raw.slice(0, 300)}`);
+        results.push({ index: i, success: false, error: `HTTP ${evoRes.status}` });
+      } else {
+        try {
+          const remoteJid = cleanPhone.includes("@") ? cleanPhone : `${cleanPhone}@s.whatsapp.net`;
+          await sb.from("whatsapp_messages").insert({
+            organization_id: config.organization_id,
+            instance_name: config.instance_name,
+            remote_jid: remoteJid,
+            from_me: true,
+            message_text: img.caption || "[Imagem enviada]",
+            message_type: "image",
+            message_id: evoGoExtractMessageId(evoRes.data),
+            timestamp: new Date().toISOString(),
+            sender_type: "ai",
+            media_url: img.url,
+          });
+        } catch (persistErr) {
+          console.warn(`Failed to persist image message ${i}:`, persistErr);
         }
-      } catch (fetchErr: any) {
-        console.error(`Send image ${i} fetch error:`, fetchErr);
-        results.push({ index: i, success: false, error: fetchErr.message });
+        results.push({ index: i, success: true });
       }
 
-      // Delay between sends to avoid rate limiting
       if (i < images.length - 1) {
         await new Promise((r) => setTimeout(r, delayBetween));
       }
