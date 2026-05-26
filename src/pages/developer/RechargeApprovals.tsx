@@ -161,7 +161,29 @@ export default function RechargeApprovals() {
                         </p>
                         {r.notes && <p className="text-xs mt-1 italic">"{r.notes}"</p>}
                         {r.rejection_reason && <p className="text-xs text-destructive mt-1">Motivo: {r.rejection_reason}</p>}
-                      </div>
+                        {r.receipt_validation && (
+                          <div className="mt-2 text-[11px] space-y-0.5">
+                            {r.receipt_validation.extracted?.amount_brl != null && (
+                              <p>
+                                <span className="text-muted-foreground">OCR valor:</span>{" "}
+                                <strong>R$ {Number(r.receipt_validation.extracted.amount_brl).toFixed(2)}</strong>
+                                {r.receipt_validation.extracted.date && ` · ${r.receipt_validation.extracted.date}`}
+                              </p>
+                            )}
+                            {r.receipt_validation.extracted?.pix_key && (
+                              <p className="text-muted-foreground">OCR PIX: {r.receipt_validation.extracted.pix_key}</p>
+                            )}
+                            {r.receipt_validation.warnings?.length > 0 ? (
+                              <ul className="text-amber-600 list-disc list-inside">
+                                {r.receipt_validation.warnings.map((w: string, i: number) => (
+                                  <li key={i}>{w}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-primary">✓ Comprovante validado automaticamente</p>
+                            )}
+                          </div>
+                        )}
                       <div className="flex items-center gap-2">
                         {r.receipt_path && (
                           <Button size="sm" variant="ghost" onClick={() => viewReceipt(r.receipt_path!)}>
