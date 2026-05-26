@@ -22,6 +22,7 @@ import {
   CreditCard,
   Landmark,
   Globe,
+  MessageCircle,
 } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { NavLink } from "@/components/NavLink";
