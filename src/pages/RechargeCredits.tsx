@@ -15,6 +15,8 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 const PIX_KEY = "13996666432";
+const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
+const ALLOWED_RECEIPT_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp", "application/pdf"];
 
 const formSchema = z.object({
   amount: z.number().positive("Informe um valor maior que zero").max(50000, "Valor máximo de R$ 50.000"),
