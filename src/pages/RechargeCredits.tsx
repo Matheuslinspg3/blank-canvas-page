@@ -15,6 +15,8 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 const PIX_KEY = "13996666432";
+const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
+const ALLOWED_RECEIPT_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp", "application/pdf"];
 
 const formSchema = z.object({
   amount: z.number().positive("Informe um valor maior que zero").max(50000, "Valor máximo de R$ 50.000"),
@@ -67,6 +69,20 @@ export default function RechargeCredits() {
       return;
     }
 
+    if (receiptFile) {
+      if (receiptFile.size > MAX_RECEIPT_BYTES) {
+        toast.error("Comprovante muito grande (máx. 5MB)");
+        return;
+      }
+      if (!ALLOWED_RECEIPT_TYPES.includes(receiptFile.type)) {
+        toast.error("Tipo de arquivo não permitido. Envie JPG, PNG, WEBP ou PDF.");
+        return;
+      }
+    } else {
+      toast.error("Anexe o comprovante do PIX");
+      return;
+    }
+
     setSubmitting(true);
     try {
       let receiptPath: string | null = null;
@@ -75,7 +91,7 @@ export default function RechargeCredits() {
         const path = `${user.id}/${Date.now()}.${ext}`;
         const { error: upErr } = await supabase.storage
           .from("recharge-receipts")
-          .upload(path, receiptFile, { upsert: false });
+          .upload(path, receiptFile, { upsert: false, contentType: receiptFile.type });
         if (upErr) throw upErr;
         receiptPath = path;
       }
@@ -93,6 +109,11 @@ export default function RechargeCredits() {
         .select()
         .single();
       if (error) throw error;
+
+      // Análise automática do comprovante (OCR + checagens anti-fraude)
+      supabase.functions
+        .invoke("validate-recharge-receipt", { body: { request_id: inserted.id } })
+        .catch((e) => console.warn("validate-recharge-receipt failed", e));
 
       // Notifica o developer por email (best-effort)
       supabase.functions.invoke("notify-recharge-request", {
@@ -117,10 +138,13 @@ export default function RechargeCredits() {
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold font-display">Recarregar Créditos</h1>
           <p className="text-sm text-muted-foreground">Pague via PIX e envie seu comprovante</p>
         </div>
+        <Button variant="outline" size="sm" onClick={() => navigate("/recarregar-creditos/historico")}>
+          Histórico e auditoria
+        </Button>
       </div>
 
       <Card className="border-primary/20">
@@ -166,16 +190,19 @@ export default function RechargeCredits() {
             </div>
 
             <div>
-              <Label htmlFor="receipt">Comprovante (imagem ou PDF)</Label>
+              <Label htmlFor="receipt">Comprovante (JPG, PNG, WEBP ou PDF)</Label>
               <Input
                 id="receipt"
                 type="file"
-                accept="image/*,application/pdf"
+                accept="image/png,image/jpeg,image/webp,application/pdf"
                 onChange={(e) => setReceiptFile(e.target.files?.[0] ?? null)}
               />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Máx. 5MB. Imagens são analisadas automaticamente (valor, chave PIX, data).
+              </p>
               {receiptFile && (
                 <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                  <Upload className="h-3 w-3" /> {receiptFile.name}
+                  <Upload className="h-3 w-3" /> {receiptFile.name} · {(receiptFile.size / 1024).toFixed(0)} KB
                 </p>
               )}
             </div>

@@ -19,6 +19,7 @@ import { AdminRoute } from "@/components/admin/AdminRoute";
 import { ManagerRoute } from "@/components/admin/ManagerRoute";
 import { DeveloperRoute } from "@/components/developer/DeveloperRoute";
 import { DeveloperOnlyRoute } from "@/components/access/DeveloperOnlyRoute";
+import { AdminOrDeveloperRoute } from "@/components/auth/AdminOrDeveloperRoute";
 import { AppLayout } from "@/components/layouts/AppLayout";
 import { FloatingImportProgress } from "@/components/integrations/FloatingImportProgress";
 import { AppMobileLayout } from "@/components/app/AppMobileLayout";
@@ -61,6 +62,7 @@ const AdminAudit = lazy(() => lazyRetry(() => import("./pages/admin/AdminAudit")
 const MetaWebhookStatus = lazy(() => lazyRetry(() => import("./pages/admin/MetaWebhookStatus")));
 const DeveloperDashboard = lazy(() => lazyRetry(() => import("./pages/developer/DeveloperDashboard")));
 const RechargeCredits = lazy(() => lazyRetry(() => import("./pages/RechargeCredits")));
+const RechargeHistory = lazy(() => lazyRetry(() => import("./pages/RechargeHistory")));
 const RechargeApprovals = lazy(() => lazyRetry(() => import("./pages/developer/RechargeApprovals")));
 const ImportPendencies = lazy(() => lazyRetry(() => import("./pages/ImportPendencies")));
 const Integrations = lazy(() => lazyRetry(() => import("./pages/Integrations")));
@@ -223,8 +225,18 @@ const App = () => (
                         <Route path="/rdstation" element={<Navigate to="/marketing?section=rdstation" replace />} />
                         <Route path="/gerador-anuncios" element={<Navigate to="/marketing?section=gerador" replace />} />
                         
-                        {/* Recarga de créditos (usuário) */}
-                        <Route path="/recarregar-creditos" element={<RechargeCredits />} />
+                        {/* Recarga de créditos (apenas admin/developer) */}
+                        <Route path="/recarregar-creditos" element={
+                          <AdminOrDeveloperRoute>
+                            <RechargeCredits />
+                          </AdminOrDeveloperRoute>
+                        } />
+                        <Route path="/recarregar-creditos/historico" element={
+                          <AdminOrDeveloperRoute>
+                            <RechargeHistory />
+                          </AdminOrDeveloperRoute>
+                        } />
+
 
                         {/* Developer route inside AppLayout */}
                         <Route path="/developer" element={
