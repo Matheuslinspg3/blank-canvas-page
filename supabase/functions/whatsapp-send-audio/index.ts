@@ -67,26 +67,16 @@ serve(async (req) => {
     const audioBuffer = await audioFile.arrayBuffer();
     const audioBase64 = base64Encode(audioBuffer);
 
-    const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
-    const endpoint = `${baseUrl}/message/sendWhatsAppAudio/${config.instance_name}`;
-
-    const evoRes = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: EVOLUTION_API_KEY,
-      },
-      body: JSON.stringify({
-        number: cleanPhone,
-        audio: `data:audio/webm;base64,${audioBase64}`,
-      }),
+    // EvoGo accepts either a public URL or a data URL in `url`.
+    const evoRes = await evoGoSendAudio(config.instance_name, {
+      number: cleanPhone,
+      url: `data:audio/webm;base64,${audioBase64}`,
     });
 
-    const evoData = await evoRes.json();
-
     if (!evoRes.ok) {
-      throw new Error(`Evolution send audio error [${evoRes.status}]: ${JSON.stringify(evoData)}`);
+      throw new Error(`EvoGo send audio error [${evoRes.status}]: ${evoRes.raw.slice(0, 500)}`);
     }
+    const evoData = evoRes.data;
 
     // Persist sent audio message
     try {
