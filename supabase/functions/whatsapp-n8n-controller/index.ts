@@ -205,6 +205,19 @@ serve(async (req) => {
     const n8nData = normalizeN8nPayload(n8nRawData)
     console.log(`[whatsapp-n8n-controller] n8n response received:`, JSON.stringify(n8nRawData))
 
+    // On disconnect, purge all WhatsApp messages for this organization's instance
+    if (disconnectActions.includes(action)) {
+      const { error: delErr, count } = await adminClient
+        .from('whatsapp_messages')
+        .delete({ count: 'exact' })
+        .eq('organization_id', profile.organization_id)
+      if (delErr) {
+        console.error(`[${debugRef}] Failed to purge whatsapp_messages:`, delErr)
+      } else {
+        console.log(`[${debugRef}] Purged ${count ?? 0} whatsapp_messages for org ${profile.organization_id}`)
+      }
+    }
+
     // Normalize response from n8n
     console.log(`[whatsapp-n8n-controller] n8n raw response keys: ${Object.keys(n8nData).join(', ')}`)
     
