@@ -30,6 +30,7 @@ export default function PlatformSignup() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [inviteValid, setInviteValid] = useState<boolean | null>(null);
+  useAttribution();
   const [inviteName, setInviteName] = useState<string | null>(null);
   const [emailLocked, setEmailLocked] = useState(false);
   const [success, setSuccess] = useState(false);
