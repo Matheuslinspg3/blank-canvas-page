@@ -127,9 +127,22 @@ export default function RechargeApprovals() {
   return (
     <div className="container max-w-6xl py-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold font-display">Recargas de Créditos</h1>
-        <p className="text-sm text-muted-foreground">Aprove ou rejeite solicitações de recarga via PIX</p>
+        <h1 className="text-2xl font-bold font-display">Central de Recargas</h1>
+        <p className="text-sm text-muted-foreground">Aprove recargas via PIX e gerencie créditos do agente de IA por organização</p>
       </div>
+
+      <Tabs defaultValue="pix">
+        <TabsList>
+          <TabsTrigger value="pix" className="gap-1">Solicitações PIX</TabsTrigger>
+          <TabsTrigger value="orgs" className="gap-1">Organizações</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="orgs" className="mt-4">
+          <OrgsCreditPanel />
+        </TabsContent>
+
+        <TabsContent value="pix" className="mt-4">
+
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
