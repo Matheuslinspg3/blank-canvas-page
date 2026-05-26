@@ -87,8 +87,9 @@ export default function PlatformSignup() {
 
     setIsLoading(true);
     try {
+      const attribution = getAttribution();
       const { data, error } = await supabase.functions.invoke("platform-signup", {
-        body: { invite_id: id, ...form },
+        body: { invite_id: id, ...form, attribution },
       });
 
       if (error || data?.error) {
@@ -96,6 +97,15 @@ export default function PlatformSignup() {
         setIsLoading(false);
         return;
       }
+
+      firePlatformAlert('signup', {
+        name: form.full_name,
+        email: form.email,
+        phone: form.phone,
+        company_name: form.company_name,
+        selected_plan: 'invite',
+      }, attribution);
+      trackPixelEvent('CompleteRegistration', { content_name: 'Platform Signup (Invite)' });
 
       setSuccess(true);
     } catch {
