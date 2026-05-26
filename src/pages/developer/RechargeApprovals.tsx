@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Loader2, CheckCircle2, XCircle, Clock, FileText, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { OrgsCreditPanel } from "./OrgsCreditPanel";
 
 type Request = {
   id: string;
