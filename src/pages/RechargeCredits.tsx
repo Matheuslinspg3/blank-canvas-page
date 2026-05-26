@@ -69,6 +69,20 @@ export default function RechargeCredits() {
       return;
     }
 
+    if (receiptFile) {
+      if (receiptFile.size > MAX_RECEIPT_BYTES) {
+        toast.error("Comprovante muito grande (máx. 5MB)");
+        return;
+      }
+      if (!ALLOWED_RECEIPT_TYPES.includes(receiptFile.type)) {
+        toast.error("Tipo de arquivo não permitido. Envie JPG, PNG, WEBP ou PDF.");
+        return;
+      }
+    } else {
+      toast.error("Anexe o comprovante do PIX");
+      return;
+    }
+
     setSubmitting(true);
     try {
       let receiptPath: string | null = null;
@@ -77,7 +91,7 @@ export default function RechargeCredits() {
         const path = `${user.id}/${Date.now()}.${ext}`;
         const { error: upErr } = await supabase.storage
           .from("recharge-receipts")
-          .upload(path, receiptFile, { upsert: false });
+          .upload(path, receiptFile, { upsert: false, contentType: receiptFile.type });
         if (upErr) throw upErr;
         receiptPath = path;
       }
@@ -95,6 +109,11 @@ export default function RechargeCredits() {
         .select()
         .single();
       if (error) throw error;
+
+      // Análise automática do comprovante (OCR + checagens anti-fraude)
+      supabase.functions
+        .invoke("validate-recharge-receipt", { body: { request_id: inserted.id } })
+        .catch((e) => console.warn("validate-recharge-receipt failed", e));
 
       // Notifica o developer por email (best-effort)
       supabase.functions.invoke("notify-recharge-request", {
