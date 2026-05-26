@@ -53,31 +53,30 @@ serve(async (req) => {
     // Hybrid auth: webhook secret OR authenticated user (preview from UI)
     if (!hasWebhookAuth) {
       if (!authHeader.startsWith("Bearer ")) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        console.log("[whatsapp-agent-config] Missing Bearer token");
+        return new Response(JSON.stringify({ error: "Unauthorized: missing token" }), {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const token = authHeader.replace("Bearer ", "");
-      const userClient = (await import("https://esm.sh/@supabase/supabase-js@2")).createClient(
-        Deno.env.get("SUPABASE_URL") ?? "",
-        Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-        { global: { headers: { Authorization: `Bearer ${token}` } } },
-      );
-      const { data: { user } } = await userClient.auth.getUser();
-      if (!user) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      const userClient = createUserClient(authHeader);
+      const { data: userData, error: userErr } = await userClient.auth.getUser();
+      if (userErr || !userData?.user) {
+        console.log("[whatsapp-agent-config] getUser failed:", userErr?.message);
+        return new Response(JSON.stringify({ error: "Unauthorized: invalid token", detail: userErr?.message }), {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const { data: profile } = await userClient
+      // Resolve org via service client (bypass RLS reliably)
+      const svc = createServiceClient();
+      const { data: profile } = await svc
         .from("profiles")
         .select("organization_id")
-        .eq("user_id", user.id)
+        .eq("user_id", userData.user.id)
         .maybeSingle();
       if (!profile?.organization_id) {
-        return new Response(JSON.stringify({ error: "No organization" }), {
+        return new Response(JSON.stringify({ error: "No organization for user" }), {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
