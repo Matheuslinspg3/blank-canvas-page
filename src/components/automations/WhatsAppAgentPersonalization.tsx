@@ -9,8 +9,9 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Loader2, Sparkles, Save, X, Plus, Mic, UserRound, CalendarClock, MessageSquare, Clock, Wand2 } from "lucide-react";
+import { Loader2, Sparkles, Save, X, Plus, Mic, UserRound, CalendarClock, MessageSquare, Clock, Wand2, Target } from "lucide-react";
 import { useWhatsAppAgentConfig, type AgentConfig } from "@/hooks/useWhatsAppAgentConfig";
+import { useLeadStages } from "@/hooks/useLeadStages";
 
 const WEEKDAYS = [
   { value: "seg", label: "Seg" },
