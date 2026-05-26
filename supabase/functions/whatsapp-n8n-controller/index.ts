@@ -158,6 +158,7 @@ serve(async (req) => {
       orgId: profile.organization_id,
       orgName: organization?.name || "N/A",
       userId: user.id,
+      requested_by_user_id: user.id,
       userName: profile.full_name || profile.name || user.email,
       userEmail: user.email,
       brokerId: profile.id,
