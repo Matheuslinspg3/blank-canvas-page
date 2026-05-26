@@ -247,6 +247,8 @@ serve(async (req) => {
         status,
         source: 1,
         source_label: "broker_personal_whatsapp",
+        organization_id: orgId,
+        requested_by_user_id: userId,
         qr_code: qrCode,
         pairing_code: pairingCode,
         instance_name: instanceName,
