@@ -15,10 +15,8 @@ serve(async (req) => {
   }
 
   try {
-    const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
-    const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_GLOBAL_KEY");
-    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
-      throw new Error("EVOLUTION_API_URL or EVOLUTION_API_GLOBAL_KEY not configured");
+    if (!EVO_GO_BASE_URL) {
+      throw new Error("EVOLUTION_GO_URL not configured");
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
