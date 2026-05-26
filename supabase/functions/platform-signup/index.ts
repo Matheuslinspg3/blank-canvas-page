@@ -217,6 +217,7 @@ serve(async (req) => {
         trial_started_at: now.toISOString(),
         trial_ends_at: trialEnds.toISOString(),
         is_active: true,
+        attribution_context: attributionCtx,
       })
       .select()
       .single();
