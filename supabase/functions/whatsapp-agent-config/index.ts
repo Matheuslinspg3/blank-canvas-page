@@ -73,7 +73,7 @@ serve(async (req) => {
       const { data: profile } = await svc
         .from("profiles")
         .select("organization_id")
-        .eq("user_id", userData.user.id)
+        .or(`user_id.eq.${userData.user.id},id.eq.${userData.user.id}`)
         .maybeSingle();
       if (!profile?.organization_id) {
         return new Response(JSON.stringify({ error: "No organization for user" }), {
@@ -247,16 +247,20 @@ serve(async (req) => {
     // ── Properties + neighborhoods (existing logic) ──
 
     let properties: any[] = [];
+    let propertiesTotal = 0;
+    const propertiesPreviewLimit = 50;
     const neighborhoods: Record<string, string[]> = {};
 
     if (config.is_property_db_enabled) {
-      const { data: props = [] } = await sb
+      const { data: props = [], count } = await sb
         .from("properties")
-        .select("id, title, property_code, status, transaction_type, sale_price, rent_price, bedrooms, bathrooms, area_total, address_city, address_neighborhood, address_state, property_type_id, featured")
+        .select("id, title, property_code, status, transaction_type, sale_price, rent_price, bedrooms, bathrooms, area_total, address_city, address_neighborhood, address_state, property_type_id, featured", { count: "exact" })
         .eq("organization_id", orgId)
         .eq("status", "disponivel")
         .eq("ai_blacklist", false)
-        .limit(50);
+        .limit(propertiesPreviewLimit);
+
+      propertiesTotal = count ?? (props as any[]).length;
 
       (props as any[]).sort((a, b) => (a.featured ? 0 : 1) - (b.featured ? 0 : 1));
 
@@ -472,7 +476,11 @@ serve(async (req) => {
       properties: {
         enabled: !!config.is_property_db_enabled,
         items: properties,
-        total: properties.length,
+        total: propertiesTotal,
+        returned: properties.length,
+        preview_limit: propertiesPreviewLimit,
+        access_mode: "preview_plus_search_tool",
+        search_tool: "whatsapp-agent-properties",
       },
       credits,
       welcome,
