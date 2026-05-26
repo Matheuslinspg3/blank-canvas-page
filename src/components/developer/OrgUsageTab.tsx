@@ -55,9 +55,9 @@ export function OrgUsageTab() {
   const totalStorageBytes = orgUsage.reduce((sum, o) => sum + (o.storage_bytes || 0), 0);
   const totalImages = orgUsage.reduce((sum, o) => sum + (o.total_images || 0) + (o.total_media || 0), 0);
 
-  const filtered = orgUsage.filter(o => 
-    !search || o.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = orgUsage
+    .filter(o => !search || o.name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
 
   return (
     <div className="space-y-4">
