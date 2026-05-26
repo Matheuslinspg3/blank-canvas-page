@@ -9,8 +9,9 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Loader2, Sparkles, Save, X, Plus, Mic, UserRound, CalendarClock, MessageSquare, Clock, Wand2 } from "lucide-react";
+import { Loader2, Sparkles, Save, X, Plus, Mic, UserRound, CalendarClock, MessageSquare, Clock, Wand2, Target } from "lucide-react";
 import { useWhatsAppAgentConfig, type AgentConfig } from "@/hooks/useWhatsAppAgentConfig";
+import { useLeadStages } from "@/hooks/useLeadStages";
 
 const WEEKDAYS = [
   { value: "seg", label: "Seg" },
@@ -33,6 +34,7 @@ const VOICE_PRESETS = [
 
 export function WhatsAppAgentPersonalization() {
   const { config, isLoading, saveConfig, isSaving } = useWhatsAppAgentConfig();
+  const { leadStages } = useLeadStages();
   const [form, setForm] = useState<Partial<AgentConfig>>({});
   const [newKeyword, setNewKeyword] = useState("");
 
@@ -371,6 +373,71 @@ export function WhatsAppAgentPersonalization() {
                 checked={!!form.welcome_ab_test}
                 onChange={(v) => update("welcome_ab_test", v)}
               />
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* CRM — estágios de funil */}
+          <AccordionItem value="crm">
+            <AccordionTrigger className="text-sm">
+              <div className="flex items-center gap-2"><Target className="h-4 w-4 text-primary" /> CRM — estágios do funil</div>
+            </AccordionTrigger>
+            <AccordionContent className="space-y-4 pt-2">
+              <p className="text-xs text-muted-foreground">
+                Defina em qual estágio o agente deve inserir leads novos e para onde movê-los após qualificação.
+              </p>
+
+              <div className="space-y-2">
+                <Label className="text-xs">Estágio inicial (novos leads)</Label>
+                <Select
+                  value={form.crm_new_lead_stage_id ?? "__auto__"}
+                  onValueChange={(v) => update("crm_new_lead_stage_id", v === "__auto__" ? null : v)}
+                >
+                  <SelectTrigger><SelectValue placeholder="Automático (primeiro estágio)" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__auto__">Automático (primeiro estágio)</SelectItem>
+                    {leadStages.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        <span className="inline-flex items-center gap-2">
+                          <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
+                          {s.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <ToggleRow
+                label="Avançar automaticamente ao qualificar"
+                description="Quando o agente identificar lead qualificado (nome, telefone, interesse claro), move para o estágio abaixo"
+                checked={form.crm_auto_advance_on_qualified !== false}
+                onChange={(v) => update("crm_auto_advance_on_qualified", v)}
+              />
+
+              <div className="space-y-2">
+                <Label className="text-xs">Estágio quando qualificado</Label>
+                <Select
+                  value={form.crm_qualified_stage_id ?? "__none__"}
+                  onValueChange={(v) => update("crm_qualified_stage_id", v === "__none__" ? null : v)}
+                  disabled={form.crm_auto_advance_on_qualified === false}
+                >
+                  <SelectTrigger><SelectValue placeholder="Não definido" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Não mover</SelectItem>
+                    {leadStages.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        <span className="inline-flex items-center gap-2">
+                          <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
+                          {s.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground">
+                  O agente envia <code>qualified: true</code> ao criar/editar o lead para acionar esta regra.
+                </p>
+              </div>
             </AccordionContent>
           </AccordionItem>
 

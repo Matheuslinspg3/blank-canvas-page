@@ -106,6 +106,7 @@ serve(async (req) => {
       interested_property_type,
       preferred_neighborhoods,
       transaction_interest,
+      qualified,
     } = body as any;
 
     if (!instance_name && !jwtOrgId) {
@@ -126,20 +127,30 @@ serve(async (req) => {
 
     // Resolve organization: JWT auth already has orgId, webhook auth resolves from instance
     let orgId = jwtOrgId;
-    if (!orgId && instance_name) {
+    let agentCfg: { crm_new_lead_stage_id: string | null; crm_qualified_stage_id: string | null; crm_auto_advance_on_qualified: boolean } | null = null;
+    if (instance_name) {
       const { data: config, error: configError } = await sb
         .from("whatsapp_agent_config")
-        .select("organization_id")
+        .select("organization_id, crm_new_lead_stage_id, crm_qualified_stage_id, crm_auto_advance_on_qualified")
         .eq("instance_name", instance_name)
         .single();
 
-      if (configError || !config?.organization_id) {
-        return new Response(
-          JSON.stringify({ error: `Instance '${instance_name}' not found` }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
+      if (!orgId) {
+        if (configError || !config?.organization_id) {
+          return new Response(
+            JSON.stringify({ error: `Instance '${instance_name}' not found` }),
+            { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+        orgId = config.organization_id;
       }
-      orgId = config.organization_id;
+      if (config) {
+        agentCfg = {
+          crm_new_lead_stage_id: config.crm_new_lead_stage_id ?? null,
+          crm_qualified_stage_id: config.crm_qualified_stage_id ?? null,
+          crm_auto_advance_on_qualified: config.crm_auto_advance_on_qualified ?? true,
+        };
+      }
     }
 
     // Normalize phone for dedup
@@ -179,6 +190,11 @@ serve(async (req) => {
         ? `${(existingLead as any).notes}\n[WhatsApp] ${notes}`
         : `[WhatsApp] ${notes}`;
 
+      // Auto-advance to qualified stage if flag set
+      if (qualified === true && agentCfg?.crm_auto_advance_on_qualified && agentCfg?.crm_qualified_stage_id) {
+        updates.lead_stage_id = agentCfg.crm_qualified_stage_id;
+      }
+
       if (Object.keys(updates).length > 0) {
         updates.updated_at = new Date().toISOString();
         await sb.from("leads").update(updates).eq("id", existingLead.id);
@@ -195,15 +211,21 @@ serve(async (req) => {
       );
     }
 
-    // Get first lead stage for this org
-    const { data: stages } = await sb
-      .from("lead_stages")
-      .select("id")
-      .eq("organization_id", orgId)
-      .order("order_index", { ascending: true })
-      .limit(1);
-
-    const stageId = stages?.[0]?.id || null;
+    // Resolve initial stage: prefer configured stage, fallback to first by position
+    let stageId: string | null = null;
+    if (qualified === true && agentCfg?.crm_auto_advance_on_qualified && agentCfg?.crm_qualified_stage_id) {
+      stageId = agentCfg.crm_qualified_stage_id;
+    } else if (agentCfg?.crm_new_lead_stage_id) {
+      stageId = agentCfg.crm_new_lead_stage_id;
+    } else {
+      const { data: stages } = await sb
+        .from("lead_stages")
+        .select("id")
+        .eq("organization_id", orgId)
+        .order("position", { ascending: true })
+        .limit(1);
+      stageId = stages?.[0]?.id || null;
+    }
 
     // Get a system user or first admin for created_by
     const { data: members } = await sb

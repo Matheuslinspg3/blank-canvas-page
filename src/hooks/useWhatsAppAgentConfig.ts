@@ -42,6 +42,9 @@ export interface AgentConfig {
   welcome_delay_min: number;
   welcome_delay_max: number;
   welcome_ab_test: boolean;
+  crm_new_lead_stage_id: string | null;
+  crm_qualified_stage_id: string | null;
+  crm_auto_advance_on_qualified: boolean;
 }
 
 const DEFAULTS: Partial<AgentConfig> = {
@@ -73,6 +76,9 @@ const DEFAULTS: Partial<AgentConfig> = {
   welcome_delay_min: 3,
   welcome_delay_max: 8,
   welcome_ab_test: false,
+  crm_new_lead_stage_id: null,
+  crm_qualified_stage_id: null,
+  crm_auto_advance_on_qualified: true,
 };
 
 export function useWhatsAppAgentConfig() {
