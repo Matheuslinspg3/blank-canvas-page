@@ -190,16 +190,19 @@ export default function RechargeCredits() {
             </div>
 
             <div>
-              <Label htmlFor="receipt">Comprovante (imagem ou PDF)</Label>
+              <Label htmlFor="receipt">Comprovante (JPG, PNG, WEBP ou PDF)</Label>
               <Input
                 id="receipt"
                 type="file"
-                accept="image/*,application/pdf"
+                accept="image/png,image/jpeg,image/webp,application/pdf"
                 onChange={(e) => setReceiptFile(e.target.files?.[0] ?? null)}
               />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Máx. 5MB. Imagens são analisadas automaticamente (valor, chave PIX, data).
+              </p>
               {receiptFile && (
                 <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                  <Upload className="h-3 w-3" /> {receiptFile.name}
+                  <Upload className="h-3 w-3" /> {receiptFile.name} · {(receiptFile.size / 1024).toFixed(0)} KB
                 </p>
               )}
             </div>
