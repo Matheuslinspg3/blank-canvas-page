@@ -187,6 +187,7 @@ serve(async (req) => {
         document: document || null,
         account_type: account_type || "imobiliaria",
         company_name,
+        ...(attributionCtx || {}),
       },
     });
 
