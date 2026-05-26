@@ -275,6 +275,8 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       ok: true,
       provider: "n8n_evolution_go",
+      source: 2,
+      source_label: "ai_agent_automation",
       status: status,
       connected: isConnected,
       phoneNumber: normalizedPhone || (isConnected ? phoneNumberOnlyDigits : ""),
