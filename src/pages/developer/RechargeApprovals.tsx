@@ -221,6 +221,9 @@ export default function RechargeApprovals() {
           </Card>
         </TabsContent>
       </Tabs>
+        </TabsContent>
+      </Tabs>
+
 
       {/* Approve dialog */}
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
