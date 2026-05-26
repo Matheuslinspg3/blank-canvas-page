@@ -240,11 +240,13 @@ serve(async (req) => {
       await adminClient.from("profiles").update({
         organization_id: org.id, full_name, phone: phone || null,
         onboarding_completed: true, email_verified: true,
+        attribution_context: attributionCtx,
       }).eq("user_id", userId);
     } else {
       await adminClient.from("profiles").insert({
         user_id: userId, organization_id: org.id, full_name,
         phone: phone || null, onboarding_completed: true, email_verified: true,
+        attribution_context: attributionCtx,
       });
     }
 
