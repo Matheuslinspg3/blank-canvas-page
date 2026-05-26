@@ -106,6 +106,7 @@ serve(async (req) => {
       interested_property_type,
       preferred_neighborhoods,
       transaction_interest,
+      qualified,
     } = body as any;
 
     if (!instance_name && !jwtOrgId) {
