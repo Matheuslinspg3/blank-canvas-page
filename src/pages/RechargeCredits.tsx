@@ -138,10 +138,13 @@ export default function RechargeCredits() {
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold font-display">Recarregar Créditos</h1>
           <p className="text-sm text-muted-foreground">Pague via PIX e envie seu comprovante</p>
         </div>
+        <Button variant="outline" size="sm" onClick={() => navigate("/recarregar-creditos/historico")}>
+          Histórico e auditoria
+        </Button>
       </div>
 
       <Card className="border-primary/20">
