@@ -60,21 +60,41 @@ serve(async (req) => {
 
     const sb = createServiceClient();
 
-    // --- Resolve instance config ---
-    const { data: config } = await sb
-      .from("whatsapp_agent_config")
-      .select("organization_id, instance_name, status")
-      .eq("instance_name", instance_name)
-      .maybeSingle();
+    // --- Resolve instance config (accept instance_name OR organization_id UUID) ---
+    const instTrim = String(instance_name).trim();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(instTrim);
+
+    let config: any = null;
+    // Try by instance_name first
+    {
+      const { data } = await sb
+        .from("whatsapp_agent_config")
+        .select("organization_id, instance_name, status")
+        .eq("instance_name", instTrim)
+        .maybeSingle();
+      config = data;
+    }
+    // Fallback by organization_id if UUID
+    if (!config && isUuid) {
+      const { data } = await sb
+        .from("whatsapp_agent_config")
+        .select("organization_id, instance_name, status")
+        .eq("organization_id", instTrim)
+        .maybeSingle();
+      config = data;
+    }
 
     if (!config?.instance_name) {
-      return new Response(JSON.stringify({ error: "Configuração WhatsApp não encontrada" }), {
+      return new Response(JSON.stringify({
+        error: "Configuração WhatsApp não encontrada",
+        debug: { instance_name: instTrim, is_uuid: isUuid },
+      }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     if (config.status !== "connected") {
-      return new Response(JSON.stringify({ error: "WhatsApp desconectado" }), {
+      return new Response(JSON.stringify({ error: "WhatsApp desconectado", status: config.status }), {
         status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
