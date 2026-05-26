@@ -190,6 +190,11 @@ serve(async (req) => {
         ? `${(existingLead as any).notes}\n[WhatsApp] ${notes}`
         : `[WhatsApp] ${notes}`;
 
+      // Auto-advance to qualified stage if flag set
+      if (qualified === true && agentCfg?.crm_auto_advance_on_qualified && agentCfg?.crm_qualified_stage_id) {
+        updates.lead_stage_id = agentCfg.crm_qualified_stage_id;
+      }
+
       if (Object.keys(updates).length > 0) {
         updates.updated_at = new Date().toISOString();
         await sb.from("leads").update(updates).eq("id", existingLead.id);
@@ -206,15 +211,21 @@ serve(async (req) => {
       );
     }
 
-    // Get first lead stage for this org
-    const { data: stages } = await sb
-      .from("lead_stages")
-      .select("id")
-      .eq("organization_id", orgId)
-      .order("order_index", { ascending: true })
-      .limit(1);
-
-    const stageId = stages?.[0]?.id || null;
+    // Resolve initial stage: prefer configured stage, fallback to first by position
+    let stageId: string | null = null;
+    if (qualified === true && agentCfg?.crm_auto_advance_on_qualified && agentCfg?.crm_qualified_stage_id) {
+      stageId = agentCfg.crm_qualified_stage_id;
+    } else if (agentCfg?.crm_new_lead_stage_id) {
+      stageId = agentCfg.crm_new_lead_stage_id;
+    } else {
+      const { data: stages } = await sb
+        .from("lead_stages")
+        .select("id")
+        .eq("organization_id", orgId)
+        .order("position", { ascending: true })
+        .limit(1);
+      stageId = stages?.[0]?.id || null;
+    }
 
     // Get a system user or first admin for created_by
     const { data: members } = await sb
