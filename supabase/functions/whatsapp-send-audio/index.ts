@@ -81,7 +81,7 @@ serve(async (req) => {
     // Persist sent audio message
     try {
       const remoteJid = `${cleanPhone}@s.whatsapp.net`;
-      const sentMessageId = evoData?.key?.id || evoData?.messageId || null;
+      const sentMessageId = evoGoExtractMessageId(evoData);
       await supabaseClient.from("whatsapp_messages").insert({
         organization_id: orgId,
         instance_name: config.instance_name,
