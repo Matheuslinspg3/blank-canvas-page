@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { WhatsAppStatusBanner } from "@/components/automations/WhatsAppStatusBanner";
 import { WhatsAppAgentConnection } from "@/components/automations/WhatsAppAgentConnection";
+import { WhatsAppAgentPersonalization } from "@/components/automations/WhatsAppAgentPersonalization";
 
 export default function Automations() {
   const {
@@ -35,6 +36,7 @@ export default function Automations() {
   } = useAutomations();
 
   const { profile } = useAuth();
+  const { status: whatsappStatus } = useWhatsAppV2();
   const [showWizard, setShowWizard] = useState(false);
   const [selectedAutomationId, setSelectedAutomationId] = useState<string | null>(null);
   const [executionLogs, setExecutionLogs] = useState<ExecutionLogEntry[]>([]);
@@ -144,8 +146,9 @@ export default function Automations() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="whatsapp-agent" className="max-w-2xl animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <TabsContent value="whatsapp-agent" className="max-w-2xl space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
               <WhatsAppAgentConnection />
+              {whatsappStatus === "connected" && <WhatsAppAgentPersonalization />}
             </TabsContent>
           </Tabs>
         )}
