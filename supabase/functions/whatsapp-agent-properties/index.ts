@@ -64,25 +64,62 @@ serve(async (req) => {
 
     const sb = createServiceClient();
 
+    console.log("[whatsapp-agent-properties] lookup", { organization_id, instance_name });
+
+    const orgIdRaw = typeof organization_id === "string" ? organization_id.trim() : organization_id;
+    const instRaw = typeof instance_name === "string" ? instance_name.trim() : instance_name;
+    const isUuid = (v: any) => typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+
     let config: any = null;
-    if (organization_id) {
+    if (orgIdRaw) {
       const { data } = await sb
         .from("whatsapp_agent_config")
         .select("organization_id, is_property_db_enabled")
-        .eq("organization_id", organization_id)
-        .maybeSingle();
-      config = data;
-    } else {
-      const { data } = await sb
-        .from("whatsapp_agent_config")
-        .select("organization_id, is_property_db_enabled")
-        .eq("instance_name", instance_name)
+        .eq("organization_id", orgIdRaw)
         .maybeSingle();
       config = data;
     }
+    if (!config && instRaw) {
+      const { data } = await sb
+        .from("whatsapp_agent_config")
+        .select("organization_id, is_property_db_enabled")
+        .eq("instance_name", instRaw)
+        .maybeSingle();
+      config = data;
+      // Fallback: instance_name may carry an org UUID (legacy n8n payloads)
+      if (!config && isUuid(instRaw)) {
+        const { data: data2 } = await sb
+          .from("whatsapp_agent_config")
+          .select("organization_id, is_property_db_enabled")
+          .eq("organization_id", instRaw)
+          .maybeSingle();
+        config = data2;
+      }
+    }
+
+    // Last-resort fallback: if we have a valid org UUID but no config row,
+    // verify org exists and proceed with defaults (property DB enabled).
+    if (!config) {
+      const candidateOrg = isUuid(orgIdRaw) ? orgIdRaw : (isUuid(instRaw) ? instRaw : null);
+      if (candidateOrg) {
+        const { data: org } = await sb
+          .from("organizations")
+          .select("id")
+          .eq("id", candidateOrg)
+          .maybeSingle();
+        if (org) {
+          console.log("[whatsapp-agent-properties] no config row; using defaults for org", candidateOrg);
+          config = { organization_id: candidateOrg, is_property_db_enabled: true };
+        }
+      }
+    }
 
     if (!config) {
-      return new Response(JSON.stringify({ error: "Configuração não encontrada" }), {
+      console.warn("[whatsapp-agent-properties] config not found", { organization_id: orgIdRaw, instance_name: instRaw });
+      return new Response(JSON.stringify({
+        error: "Configuração não encontrada",
+        debug: { organization_id: orgIdRaw ?? null, instance_name: instRaw ?? null },
+      }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
