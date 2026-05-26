@@ -34,6 +34,7 @@ const VOICE_PRESETS = [
 
 export function WhatsAppAgentPersonalization() {
   const { config, isLoading, saveConfig, isSaving } = useWhatsAppAgentConfig();
+  const { leadStages } = useLeadStages();
   const [form, setForm] = useState<Partial<AgentConfig>>({});
   const [newKeyword, setNewKeyword] = useState("");
 
