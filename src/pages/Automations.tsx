@@ -145,8 +145,9 @@ export default function Automations() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="whatsapp-agent" className="max-w-2xl animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <TabsContent value="whatsapp-agent" className="max-w-2xl space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
               <WhatsAppAgentConnection />
+              <WhatsAppAgentConnectedPersonalization />
             </TabsContent>
           </Tabs>
         )}
