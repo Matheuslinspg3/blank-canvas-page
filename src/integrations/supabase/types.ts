@@ -9114,6 +9114,9 @@ export type Database = {
           cache_updated_at: string | null
           cached_bairros: Json | null
           cached_property_types: Json | null
+          crm_auto_advance_on_qualified: boolean
+          crm_new_lead_stage_id: string | null
+          crm_qualified_stage_id: string | null
           followup_ai_prompt: string
           followup_business_hours: Json
           followup_enabled: boolean
@@ -9170,6 +9173,9 @@ export type Database = {
           cache_updated_at?: string | null
           cached_bairros?: Json | null
           cached_property_types?: Json | null
+          crm_auto_advance_on_qualified?: boolean
+          crm_new_lead_stage_id?: string | null
+          crm_qualified_stage_id?: string | null
           followup_ai_prompt?: string
           followup_business_hours?: Json
           followup_enabled?: boolean
@@ -9226,6 +9232,9 @@ export type Database = {
           cache_updated_at?: string | null
           cached_bairros?: Json | null
           cached_property_types?: Json | null
+          crm_auto_advance_on_qualified?: boolean
+          crm_new_lead_stage_id?: string | null
+          crm_qualified_stage_id?: string | null
           followup_ai_prompt?: string
           followup_business_hours?: Json
           followup_enabled?: boolean
@@ -9270,6 +9279,20 @@ export type Database = {
           working_hours_start?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "whatsapp_agent_config_crm_new_lead_stage_id_fkey"
+            columns: ["crm_new_lead_stage_id"]
+            isOneToOne: false
+            referencedRelation: "lead_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_agent_config_crm_qualified_stage_id_fkey"
+            columns: ["crm_qualified_stage_id"]
+            isOneToOne: false
+            referencedRelation: "lead_stages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "whatsapp_agent_config_organization_id_fkey"
             columns: ["organization_id"]
