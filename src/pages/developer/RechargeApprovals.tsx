@@ -184,7 +184,9 @@ export default function RechargeApprovals() {
                             )}
                           </div>
                         )}
+                      </div>
                       <div className="flex items-center gap-2">
+
                         {r.receipt_path && (
                           <Button size="sm" variant="ghost" onClick={() => viewReceipt(r.receipt_path!)}>
                             <FileText className="h-4 w-4 mr-1" /> Comprovante
