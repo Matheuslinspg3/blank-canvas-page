@@ -231,6 +231,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {isAdminOrAbove && renderMenuItem({ title: "Meu Plano", url: "/meu-plano", icon: CreditCard })}
+              {isAdminOrAbove && renderMenuItem({ title: "Recarregar Créditos", url: "/recarregar-creditos", icon: Wallet })}
               {renderMenuItem({ title: "Configurações", url: "/configuracoes", icon: Settings })}
             </SidebarMenu>
           </SidebarGroupContent>
