@@ -64,6 +64,8 @@ serve(async (req) => {
     const sb = createServiceClient();
 
     let config: any = null;
+    const normalizedInstanceName = typeof instance_name === "string" ? instance_name.trim() : "";
+
     if (organization_id) {
       const { data } = await sb
         .from("whatsapp_agent_config")
@@ -71,13 +73,53 @@ serve(async (req) => {
         .eq("organization_id", organization_id)
         .maybeSingle();
       config = data;
-    } else {
+    } else if (normalizedInstanceName) {
       const { data } = await sb
         .from("whatsapp_agent_config")
         .select("*")
-        .eq("instance_name", instance_name)
+        .eq("instance_name", normalizedInstanceName)
         .maybeSingle();
       config = data;
+
+      if (!config) {
+        let connectionOrgId: string | null = null;
+        const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalizedInstanceName);
+
+        const { data: byInstanceName } = await sb
+          .from("whatsapp_connections")
+          .select("organization_id")
+          .eq("instance_name", normalizedInstanceName)
+          .maybeSingle();
+        connectionOrgId = byInstanceName?.organization_id ?? null;
+
+        if (!connectionOrgId) {
+          const { data: byProviderInstanceId } = await sb
+            .from("whatsapp_connections")
+            .select("organization_id")
+            .eq("provider_instance_id", normalizedInstanceName)
+            .maybeSingle();
+          connectionOrgId = byProviderInstanceId?.organization_id ?? null;
+        }
+
+        if (!connectionOrgId && uuidLike) {
+          const { data: byConnectionId } = await sb
+            .from("whatsapp_connections")
+            .select("organization_id")
+            .eq("id", normalizedInstanceName)
+            .maybeSingle();
+          connectionOrgId = byConnectionId?.organization_id ?? null;
+        }
+
+        const resolvedOrgId = connectionOrgId ?? (uuidLike ? normalizedInstanceName : null);
+        if (resolvedOrgId) {
+          const { data: orgConfig } = await sb
+            .from("whatsapp_agent_config")
+            .select("*")
+            .eq("organization_id", resolvedOrgId)
+            .maybeSingle();
+          config = orgConfig;
+        }
+      }
     }
 
     if (!config) {
