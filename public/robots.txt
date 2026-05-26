@@ -76,4 +76,4 @@ Disallow: /auth
 Disallow: /convite/
 Disallow: /cadastro/
 
-Sitemap: https://habitae1.lovable.app/sitemap.xml
+Sitemap: https://portadocorretor.com.br/sitemap.xml

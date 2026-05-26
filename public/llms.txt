@@ -1,0 +1,15 @@
+# Porta do Corretor
+
+> CRM, gestão de leads, anúncios e site builder para corretores de imóveis que querem vender mais.
+
+Porta do Corretor é uma plataforma SaaS multi-tenant para imobiliárias e corretores autônomos no Brasil. Integra CRM, automações de WhatsApp com IA, sincronização de leads do Meta Ads, marketplace de imóveis, contratos digitais e vitrines white-label personalizáveis.
+
+## Pages
+
+- [Home](/): Visão geral da plataforma e principais funcionalidades.
+- [Instalar PWA](/instalar): Como instalar o aplicativo no celular ou desktop.
+- [Política de Privacidade](/privacidade): Termos de uso de dados e LGPD.
+
+## Optional
+
+- [Imóveis públicos](/imovel/): Landing pages individuais de imóveis publicados pelas imobiliárias.
