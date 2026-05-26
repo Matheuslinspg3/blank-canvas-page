@@ -33,12 +33,8 @@ serve(async (req) => {
 
   try {
     const requestSecret = req.headers.get("X-Webhook-Secret");
-    if (!WEBHOOK_SECRET || requestSecret !== WEBHOOK_SECRET) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const authHeader = req.headers.get("Authorization") || "";
+    const hasWebhookAuth = WEBHOOK_SECRET && requestSecret === WEBHOOK_SECRET;
 
     let body: Record<string, unknown> = {};
     try {
@@ -52,7 +48,44 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const { organization_id, instance_name, phone, contact_name, is_lead, campaign_tag } = body as any;
+    let { organization_id, instance_name, phone, contact_name, is_lead, campaign_tag } = body as any;
+
+    // Hybrid auth: webhook secret OR authenticated user (preview from UI)
+    if (!hasWebhookAuth) {
+      if (!authHeader.startsWith("Bearer ")) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const token = authHeader.replace("Bearer ", "");
+      const userClient = (await import("https://esm.sh/@supabase/supabase-js@2")).createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+        { global: { headers: { Authorization: `Bearer ${token}` } } },
+      );
+      const { data: { user } } = await userClient.auth.getUser();
+      if (!user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { data: profile } = await userClient
+        .from("profiles")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (!profile?.organization_id) {
+        return new Response(JSON.stringify({ error: "No organization" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      // Force org isolation - user can only preview their own org
+      organization_id = profile.organization_id;
+      instance_name = null;
+    }
 
     if (!organization_id && !instance_name) {
       return new Response(JSON.stringify({ error: "organization_id ou instance_name obrigatório" }), {
