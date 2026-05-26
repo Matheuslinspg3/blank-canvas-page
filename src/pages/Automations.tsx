@@ -20,6 +20,7 @@ import { toast } from "@/hooks/use-toast";
 import { WhatsAppStatusBanner } from "@/components/automations/WhatsAppStatusBanner";
 import { WhatsAppAgentConnection } from "@/components/automations/WhatsAppAgentConnection";
 import { WhatsAppAgentPersonalization } from "@/components/automations/WhatsAppAgentPersonalization";
+import { WhatsAppChatPanel } from "@/components/whatsapp/WhatsAppChatPanel";
 
 export default function Automations() {
   const {
@@ -144,11 +145,18 @@ export default function Automations() {
               <TabsTrigger value="whatsapp-agent" className="gap-1.5 shrink-0">
                 <MessageCircle className="h-3.5 w-3.5" /> Agente de IA (WhatsApp)
               </TabsTrigger>
+              <TabsTrigger value="chat" className="gap-1.5 shrink-0">
+                <MessageCircle className="h-3.5 w-3.5" /> Chat
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="whatsapp-agent" className="max-w-2xl space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
               <WhatsAppAgentConnection />
               {whatsappStatus === "connected" && <WhatsAppAgentPersonalization />}
+            </TabsContent>
+
+            <TabsContent value="chat" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <WhatsAppChatPanel heightClass="h-[calc(100vh-260px)]" />
             </TabsContent>
           </Tabs>
         )}

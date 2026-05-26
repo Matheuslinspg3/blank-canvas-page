@@ -217,7 +217,7 @@ export function AppSidebar() {
                 {renderMenuItem({ title: "Administração", url: "/administracao", icon: UserCog })}
                 {renderMenuItem({ title: "Integrações", url: "/integracoes", icon: Plug })}
                 {renderMenuItem({ title: "Meu WhatsApp", url: "/meu-whatsapp", icon: Phone })}
-                {renderMenuItem({ title: "Conversas WhatsApp", url: "/conversas-whatsapp", icon: MessageCircle })}
+
 
               </SidebarMenu>
             </SidebarGroupContent>
