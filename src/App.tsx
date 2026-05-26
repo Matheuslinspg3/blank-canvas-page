@@ -193,6 +193,7 @@ const App = () => (
                         
                         {/* Redirecionamentos de WhatsApp para Automações ou Dashboard */}
                         <Route path="/meu-whatsapp" element={<MeuWhatsApp />} />
+                        <Route path="/conversas-whatsapp" element={<WhatsAppChat />} />
                         <Route path="/whatsapp/*" element={<Navigate to="/meu-whatsapp" replace />} />
 
                         
