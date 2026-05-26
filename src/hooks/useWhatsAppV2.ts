@@ -104,8 +104,10 @@ export function useWhatsAppV2() {
       if (status === "qr_pending" || status === "pairing_pending" || status === "provisioning" || status === "connecting") {
         return 5000;
       }
-      return false;
-    }
+      // Poll every 15s for both connected (detect drops) and disconnected (detect external pairing)
+      return 15000;
+    },
+    refetchIntervalInBackground: false,
   });
 
   const connectMutation = useMutation({
