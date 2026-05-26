@@ -22,7 +22,7 @@ export default function MeuWhatsApp() {
     deleteConnection, 
     isDeleting, 
     refetch 
-  } = useWhatsAppV2();
+  } = useBrokerWhatsApp();
   const [phoneNumber, setPhoneNumber] = useState("");
 
   const handleConnect = (mode: "qr" | "pairing") => {
