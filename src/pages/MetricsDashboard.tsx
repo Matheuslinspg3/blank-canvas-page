@@ -64,7 +64,7 @@ export default function MetricsDashboard() {
   return (
     <>
       <Helmet>
-        <title>Métricas do Sistema | Habitaê</title>
+        <title>Métricas do Sistema | Porta do Corretor</title>
         <meta name="description" content="Painel administrativo de métricas e performance." />
       </Helmet>
 

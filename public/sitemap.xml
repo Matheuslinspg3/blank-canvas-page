@@ -15,5 +15,10 @@
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
-  <!-- Property landing pages (/imovel/:id) are dynamic and should be generated server-side in the future -->
+  <!--
+    Routes intentionally excluded from the sitemap (also disallowed in robots.txt):
+    - /auth, /cadastro, /reset-password, /convite/:id : authentication flows, not indexable
+    - /manutencao : maintenance page, not meant for crawlers
+    - /imovel/:id : dynamic property landing pages, generated server-side per tenant
+  -->
 </urlset>
