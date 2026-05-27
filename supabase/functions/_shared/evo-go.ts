@@ -12,13 +12,18 @@
  *      POST /message/downloadimage  { messageId, ... }
  */
 
-const RAW_URL = (Deno.env.get("EVOLUTION_GO_URL") ?? Deno.env.get("EVOLUTION_API_URL") ?? "").trim();
+const GO_URL = (Deno.env.get("EVOLUTION_GO_URL") ?? "").trim();
+const FALLBACK_URL = (Deno.env.get("EVOLUTION_API_URL") ?? "").trim();
+const RAW_URL = GO_URL || FALLBACK_URL;
 const GO_TOKEN = (Deno.env.get("EVOLUTION_GO_TOKEN") ?? "").trim();
 const GLOBAL_KEY = (Deno.env.get("EVOLUTION_API_GLOBAL_KEY") ?? "").trim();
 const TOKEN = GO_TOKEN || GLOBAL_KEY;
 
 export const EVO_GO_BASE_URL = RAW_URL.replace(/\/$/, "");
 export const EVO_GO_TOKEN = TOKEN;
+export const EVO_GO_USING_FALLBACK = !GO_URL && !!FALLBACK_URL;
+
+console.log(`[evo-go] init: using ${GO_URL ? "EVOLUTION_GO_URL" : (FALLBACK_URL ? "EVOLUTION_API_URL fallback" : "NONE")}=${EVO_GO_BASE_URL} go_token=${GO_TOKEN ? "set" : "missing"} global_key=${GLOBAL_KEY ? "set" : "missing"}`);
 
 export interface EvoGoResponse {
   ok: boolean;
