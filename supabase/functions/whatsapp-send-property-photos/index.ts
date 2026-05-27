@@ -64,23 +64,46 @@ serve(async (req) => {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(instTrim);
 
     let config: any = null;
-    // Try by instance_name first
+
+    // 1) whatsapp_agent_config by instance_name
     {
       const { data } = await sb
         .from("whatsapp_agent_config")
         .select("organization_id, instance_name, status")
         .eq("instance_name", instTrim)
         .maybeSingle();
-      config = data;
+      if (data) config = data;
     }
-    // Fallback by organization_id if UUID
+    // 2) whatsapp_agent_config by organization_id (UUID)
     if (!config && isUuid) {
       const { data } = await sb
         .from("whatsapp_agent_config")
         .select("organization_id, instance_name, status")
         .eq("organization_id", instTrim)
         .maybeSingle();
-      config = data;
+      if (data) config = data;
+    }
+    // 3) whatsapp_connections by instance_name
+    if (!config || !config.instance_name) {
+      const { data } = await sb
+        .from("whatsapp_connections")
+        .select("organization_id, instance_name, status")
+        .eq("instance_name", instTrim)
+        .maybeSingle();
+      if (data) config = { ...(config || {}), ...data };
+    }
+    // 4) whatsapp_connections by organization_id (UUID) — pick the connected one if any
+    if ((!config || !config.instance_name) && isUuid) {
+      const { data } = await sb
+        .from("whatsapp_connections")
+        .select("organization_id, instance_name, status")
+        .eq("organization_id", instTrim)
+        .order("status", { ascending: true }) // 'connected' < others alphabetically isn't reliable; we'll prefer connected below
+        .limit(10);
+      const list = data || [];
+      const connected = list.find((r: any) => r.status === "connected");
+      const chosen = connected || list[0];
+      if (chosen) config = { ...(config || {}), ...chosen };
     }
 
     if (!config) {
