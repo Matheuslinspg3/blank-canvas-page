@@ -221,6 +221,7 @@ export function useWhatsAppChat() {
 
   return {
     conversations,
+    totalCostUsd,
     selectedJid,
     setSelectedJid,
     selectedMessages,
@@ -228,5 +229,6 @@ export function useWhatsAppChat() {
     sendToPhone,
     isSending: sendMutation.isPending,
     isLoading,
+
   };
 }
