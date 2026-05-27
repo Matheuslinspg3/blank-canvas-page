@@ -9,7 +9,8 @@ serve(async (req) => {
   const method = (url.searchParams.get("method") || "GET").toUpperCase();
   const headerMode = url.searchParams.get("hmode") || "bearer-instance-token";
 
-  const headers: Record<string, string> = { "Content-Type": "application/json", "Instance-Id": instanceId };
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (url.searchParams.get("with_instance_id") === "1") headers["Instance-Id"] = instanceId;
   if (headerMode === "bearer-instance-token") headers["Authorization"] = `Bearer ${token}`;
   if (headerMode === "apikey-instance-token") headers["apikey"] = token;
   if (headerMode === "token-header") headers["token"] = token;
