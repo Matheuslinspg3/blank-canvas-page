@@ -92,20 +92,36 @@ export function useWhatsAppChat() {
         if (!brokerPhones.includes(last8)) continue;
       }
 
+      const cost = Number(msg.estimated_cost_usd || 0);
       const existing = map.get(msg.remote_jid);
-      if (!existing || msg.timestamp > existing.last_timestamp) {
+      if (!existing) {
         map.set(msg.remote_jid, {
           remote_jid: msg.remote_jid,
           last_message: msg.message_text,
           last_timestamp: msg.timestamp,
           unread_count: 0,
+          message_count: 1,
+          total_cost_usd: cost,
         });
+      } else {
+        existing.message_count += 1;
+        existing.total_cost_usd += cost;
+        if (msg.timestamp > existing.last_timestamp) {
+          existing.last_message = msg.message_text;
+          existing.last_timestamp = msg.timestamp;
+        }
       }
     }
     return Array.from(map.values()).sort(
       (a, b) => new Date(b.last_timestamp).getTime() - new Date(a.last_timestamp).getTime()
     );
   }, [allMessages, isAdminOrAbove, rolesLoading, brokerPhones]);
+
+  const totalCostUsd = useMemo(
+    () => conversations.reduce((sum, c) => sum + c.total_cost_usd, 0),
+    [conversations],
+  );
+
 
   // Messages for selected conversation
   const selectedMessages = selectedJid
