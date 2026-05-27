@@ -229,3 +229,6 @@ verify_jwt = false
 verify_jwt = false
 
 
+
+[functions._debug-evo-go]
+verify_jwt = false
