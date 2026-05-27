@@ -13,7 +13,9 @@
  */
 
 const RAW_URL = (Deno.env.get("EVOLUTION_GO_URL") ?? Deno.env.get("EVOLUTION_API_URL") ?? "").trim();
-const TOKEN = (Deno.env.get("EVOLUTION_GO_TOKEN") ?? Deno.env.get("EVOLUTION_API_GLOBAL_KEY") ?? "").trim();
+const GO_TOKEN = (Deno.env.get("EVOLUTION_GO_TOKEN") ?? "").trim();
+const GLOBAL_KEY = (Deno.env.get("EVOLUTION_API_GLOBAL_KEY") ?? "").trim();
+const TOKEN = GO_TOKEN || GLOBAL_KEY;
 
 export const EVO_GO_BASE_URL = RAW_URL.replace(/\/$/, "");
 export const EVO_GO_TOKEN = TOKEN;
@@ -25,11 +27,32 @@ export interface EvoGoResponse {
   raw: string;
 }
 
-function buildHeaders(instanceId?: string): Record<string, string> {
+function baseHeaders(instanceId?: string): Record<string, string> {
   const h: Record<string, string> = { "Content-Type": "application/json" };
   if (instanceId) h["Instance-Id"] = instanceId;
-  if (TOKEN) h["Authorization"] = `Bearer ${TOKEN}`;
   return h;
+}
+
+function buildHeaderCandidates(instanceId?: string): Record<string, string>[] {
+  const candidates: Record<string, string>[] = [];
+  const seen = new Set<string>();
+  const add = (headers: Record<string, string>) => {
+    const key = JSON.stringify(Object.entries(headers).sort());
+    if (!seen.has(key)) {
+      seen.add(key);
+      candidates.push(headers);
+    }
+  };
+
+  for (const token of [GO_TOKEN, GLOBAL_KEY].filter(Boolean)) {
+    add({ ...baseHeaders(instanceId), Authorization: `Bearer ${token}` });
+  }
+  for (const token of [GLOBAL_KEY, GO_TOKEN].filter(Boolean)) {
+    add({ ...baseHeaders(instanceId), apikey: token });
+  }
+  add(baseHeaders(instanceId));
+
+  return candidates;
 }
 
 export async function evoGoRequest(
@@ -47,15 +70,22 @@ export async function evoGoRequest(
   }
   const url = `${EVO_GO_BASE_URL}${path}`;
   try {
-    const res = await fetch(url, {
-      method,
-      headers: buildHeaders(opts.instanceId),
-      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
-    });
-    const raw = await res.text();
-    let data: any = null;
-    try { data = raw ? JSON.parse(raw) : null; } catch { data = raw; }
-    return { ok: res.ok, status: res.status, data, raw };
+    let last: EvoGoResponse | null = null;
+    for (const headers of buildHeaderCandidates(opts.instanceId)) {
+      const res = await fetch(url, {
+        method,
+        headers,
+        body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+      });
+      const raw = await res.text();
+      let data: any = null;
+      try { data = raw ? JSON.parse(raw) : null; } catch { data = raw; }
+      last = { ok: res.ok, status: res.status, data, raw };
+
+      if (res.ok || ![401, 403].includes(res.status)) return last;
+      console.warn(`[evo-go] auth attempt failed status=${res.status}; trying fallback credentials/header`);
+    }
+    return last!;
   } catch (e: any) {
     return { ok: false, status: 500, data: { message: String(e) }, raw: String(e) };
   }
