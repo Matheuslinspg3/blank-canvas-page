@@ -27,7 +27,13 @@ export interface ChatConversation {
   last_message: string | null;
   last_timestamp: string;
   unread_count: number;
+  message_count: number;
+  total_cost_usd: number;
 }
+
+/** Taxa de conversão USD→BRL para exibição estimada de custos. */
+export const USD_TO_BRL = 5.5;
+
 
 export function useWhatsAppChat() {
   const { user, profile } = useAuth();
