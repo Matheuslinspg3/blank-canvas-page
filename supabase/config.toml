@@ -152,3 +152,7 @@ verify_jwt = false
 
 [functions.whatsapp-agent-config]
 verify_jwt = false
+
+[functions.whatsapp-delete-conversation]
+verify_jwt = false
+
