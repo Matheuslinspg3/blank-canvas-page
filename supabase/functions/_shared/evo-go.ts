@@ -74,6 +74,7 @@ export async function evoGoRequest(
     };
   }
   const url = `${EVO_GO_BASE_URL}${path}`;
+  console.log(`[evo-go] ${method} ${url} instanceId=${opts.instanceId ?? "none"}`);
   try {
     let last: EvoGoResponse | null = null;
     for (const headers of buildHeaderCandidates(opts.instanceId)) {
