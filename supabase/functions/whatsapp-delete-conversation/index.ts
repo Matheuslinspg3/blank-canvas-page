@@ -25,36 +25,60 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return json({ ok: false, error: "Missing Authorization" }, 401);
-
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
     const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const WEBHOOK_SECRET = Deno.env.get("WHATSAPP_AGENT_SECRET");
 
-    const userClient = createClient(SUPABASE_URL, ANON, {
-      global: { headers: { Authorization: authHeader } },
-    });
     const admin = createClient(SUPABASE_URL, SERVICE);
-
-    const { data: { user }, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !user) return json({ ok: false, error: "Unauthorized" }, 401);
-
-    const { data: profile } = await admin
-      .from("profiles")
-      .select("organization_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (!profile?.organization_id) return json({ ok: false, error: "No organization" }, 400);
-    const orgId = profile.organization_id as string;
 
     const body = await req.json().catch(() => ({}));
     const instance_name: string | undefined = body.instance_name?.trim();
     const number: string | undefined = body.number || body.phone || body.remote_jid;
+    let orgId: string | null = body.organization_id || null;
+
+    // Auth: webhook-secret (server-to-server) OR user JWT
+    const reqSecret = req.headers.get("x-webhook-secret") || req.headers.get("X-Webhook-Secret");
+    const authHeader = req.headers.get("Authorization");
+
+    if (WEBHOOK_SECRET && reqSecret && reqSecret === WEBHOOK_SECRET) {
+      // server-to-server: organization_id must come from body OR be resolved via instance_name
+      if (!orgId && instance_name) {
+        const { data: conn } = await admin
+          .from("whatsapp_connections")
+          .select("organization_id")
+          .eq("instance_name", instance_name)
+          .maybeSingle();
+        orgId = conn?.organization_id ?? null;
+        if (!orgId) {
+          const { data: agent } = await admin
+            .from("whatsapp_agent_config")
+            .select("organization_id")
+            .eq("instance_name", instance_name)
+            .maybeSingle();
+          orgId = agent?.organization_id ?? null;
+        }
+      }
+      if (!orgId) return json({ ok: false, error: "organization_id não pôde ser resolvido" }, 400);
+    } else {
+      if (!authHeader) return json({ ok: false, error: "Missing Authorization or X-Webhook-Secret" }, 401);
+      const userClient = createClient(SUPABASE_URL, ANON, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user }, error: userErr } = await userClient.auth.getUser();
+      if (userErr || !user) return json({ ok: false, error: "Unauthorized" }, 401);
+      const { data: profile } = await admin
+        .from("profiles")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (!profile?.organization_id) return json({ ok: false, error: "No organization" }, 400);
+      orgId = profile.organization_id as string;
+    }
 
     if (!instance_name) return json({ ok: false, error: "instance_name é obrigatório" }, 400);
     if (!number) return json({ ok: false, error: "number é obrigatório" }, 400);
+
 
     const { digits, jid } = normalizeNumber(number);
     if (!digits || digits.length < 8) return json({ ok: false, error: "Número inválido" }, 400);
