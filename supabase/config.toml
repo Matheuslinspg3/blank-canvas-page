@@ -156,3 +156,76 @@ verify_jwt = false
 [functions.whatsapp-delete-conversation]
 verify_jwt = false
 
+[functions.external-listings-sync]
+verify_jwt = false
+
+[functions.extract-pdf-links]
+verify_jwt = false
+
+[functions.pdf-job-complete]
+verify_jwt = false
+
+[functions.retell-trigger-outbound-call]
+verify_jwt = false
+
+[functions.voice-call-queue-worker]
+verify_jwt = false
+
+[functions.whatsapp-activate-webhook]
+verify_jwt = false
+
+[functions.whatsapp-agent-properties]
+verify_jwt = false
+
+[functions.whatsapp-broker-instance]
+verify_jwt = false
+
+[functions.whatsapp-create-lead]
+verify_jwt = false
+
+[functions.whatsapp-deduct-credits]
+verify_jwt = false
+
+[functions.whatsapp-download-media]
+verify_jwt = false
+
+[functions.whatsapp-followup-auto-enqueue]
+verify_jwt = false
+
+[functions.whatsapp-followup-batch]
+verify_jwt = false
+
+[functions.whatsapp-followup-update]
+verify_jwt = false
+
+[functions.whatsapp-get-welcome]
+verify_jwt = false
+
+[functions.whatsapp-lead-lookup]
+verify_jwt = false
+
+[functions.whatsapp-lead-update]
+verify_jwt = false
+
+[functions.whatsapp-persist-message]
+verify_jwt = false
+
+[functions.whatsapp-property-images]
+verify_jwt = false
+
+[functions.whatsapp-send-media]
+verify_jwt = false
+
+[functions.whatsapp-send-property-photos]
+verify_jwt = false
+
+[functions.whatsapp-track-batch]
+verify_jwt = false
+
+[functions.whatsapp-track-usage]
+verify_jwt = false
+
+[functions.whatsapp-transfer-broker]
+verify_jwt = false
+
+
