@@ -88,9 +88,13 @@ export async function evoGoRequest(
       try { data = raw ? JSON.parse(raw) : null; } catch { data = raw; }
       last = { ok: res.ok, status: res.status, data, raw };
 
-      if (res.ok || ![401, 403].includes(res.status)) return last;
-      console.warn(`[evo-go] auth attempt failed status=${res.status}; trying fallback credentials/header`);
+      if (res.ok || ![401, 403].includes(res.status)) {
+        if (!res.ok) console.warn(`[evo-go] non-ok status=${res.status} raw=${raw.slice(0,300)}`);
+        return last;
+      }
+      console.warn(`[evo-go] auth attempt failed status=${res.status} raw=${raw.slice(0,200)}; trying fallback`);
     }
+    console.error(`[evo-go] all auth attempts failed final status=${last?.status} raw=${last?.raw?.slice(0,300)}`);
     return last!;
   } catch (e: any) {
     return { ok: false, status: 500, data: { message: String(e) }, raw: String(e) };
