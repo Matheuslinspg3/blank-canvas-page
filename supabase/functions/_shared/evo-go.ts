@@ -49,13 +49,31 @@ function buildHeaderCandidates(instanceId?: string): Record<string, string>[] {
     }
   };
 
-  for (const token of [GO_TOKEN, GLOBAL_KEY].filter(Boolean)) {
+  const tokens = [GO_TOKEN, GLOBAL_KEY].filter(Boolean);
+
+  for (const token of tokens) {
+    // Standard Evolution API (Node/Go)
     add({ ...baseHeaders(instanceId), Authorization: `Bearer ${token}` });
-  }
-  for (const token of [GLOBAL_KEY, GO_TOKEN].filter(Boolean)) {
     add({ ...baseHeaders(instanceId), apikey: token });
+    
+    // Wuzapi / Legacy Go variations
+    add({ ...baseHeaders(instanceId), token: token });
+    add({ ...baseHeaders(instanceId), "X-Instance-Token": token });
+    
+    // Variation: instance instead of Instance-Id
+    if (instanceId) {
+      const baseAlt = { "Content-Type": "application/json", instance: instanceId };
+      add({ ...baseAlt, Authorization: `Bearer ${token}` });
+      add({ ...baseAlt, apikey: token });
+      add({ ...baseAlt, token: token });
+    }
   }
-  add(baseHeaders(instanceId));
+
+  // Last resort: just the instance ID as auth (some Go versions do this)
+  if (instanceId) {
+    add({ "Content-Type": "application/json", "Instance-Id": instanceId });
+    add({ "Content-Type": "application/json", token: instanceId });
+  }
 
   return candidates;
 }
