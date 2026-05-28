@@ -132,20 +132,39 @@ export async function evoGoSendMedia(
   instanceId: string,
   payload: EvoMediaPayload,
 ): Promise<EvoGoResponse> {
-  const body: any = {
+  // Candidate 1: Evolution Go (whatsmeow/wuzapi) format
+  const bodyGo: any = {
     number: payload.number,
     url: payload.url,
     type: payload.type ?? "image",
+    caption: payload.caption || "",
   };
-  if (payload.caption !== undefined) body.caption = payload.caption;
-  if (payload.filename) body.filename = payload.filename;
-  if (payload.delay !== undefined) body.delay = payload.delay;
-  if (payload.mentionedJid?.length) body.mentionedJid = payload.mentionedJid;
-  if (payload.mentionAll) body.mentionAll = true;
-  let res = await evoGoRequest("POST", "/send/media", { instanceId, body });
-  if (!res.ok && (res.status === 404 || res.status === 401)) {
-    console.log(`[evo-go] /send/media returned ${res.status}, trying /message/sendMedia/${instanceId}`);
-    res = await evoGoRequest("POST", `/message/sendMedia/${instanceId}`, { instanceId, body });
+  if (payload.filename) bodyGo.filename = payload.filename;
+  if (payload.delay !== undefined) bodyGo.delay = payload.delay;
+
+  // Candidate 2: Evolution API v2 format
+  const bodyV2: any = {
+    number: payload.number,
+    mediatype: payload.type ?? "image",
+    media: payload.url,
+    caption: payload.caption || "",
+  };
+
+  // Try Evolution Go paths first
+  let res = await evoGoRequest("POST", "/send/media", { instanceId, body: bodyGo });
+  
+  // If not found or unauthorized, try Evolution API v2 paths
+  if (!res.ok && (res.status === 404 || res.status === 401 || res.status === 405)) {
+    console.log(`[evo-go] /send/media failed (${res.status}), trying v2 paths`);
+    
+    // Try /message/sendMedia/{instance}
+    res = await evoGoRequest("POST", `/message/sendMedia/${instanceId}`, { instanceId, body: bodyV2 });
+    
+    // If still failing, try /message/image/{instance} (some versions use this for images)
+    if (!res.ok && (payload.type === "image" || !payload.type) && (res.status === 404 || res.status === 405)) {
+      console.log(`[evo-go] /message/sendMedia failed, trying /message/image/${instanceId}`);
+      res = await evoGoRequest("POST", `/message/image/${instanceId}`, { instanceId, body: bodyV2 });
+    }
   }
   return res;
 }
