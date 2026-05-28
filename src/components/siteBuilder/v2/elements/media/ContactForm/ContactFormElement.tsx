@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { getAttribution } from '@/hooks/useAttribution';
 
 export function ContactFormElement({ element, isEditing }: { element: Element; isEditing?: boolean }) {
   const { heading, fields, submitLabel } = element.props;
@@ -51,6 +52,7 @@ export function ContactFormElement({ element, isEditing }: { element: Element; i
       }
 
       if (orgId) {
+        const attribution = getAttribution();
         // Use edge function to create lead as anonymous visitor
         await supabase.functions.invoke('create-site-lead', {
           body: {
@@ -59,6 +61,7 @@ export function ContactFormElement({ element, isEditing }: { element: Element; i
             email: form.email || null,
             phone: form.phone || null,
             message: form.message || null,
+            attribution: attribution,
           },
         });
       }
