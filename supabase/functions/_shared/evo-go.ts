@@ -116,7 +116,22 @@ export async function evoGoRequest(
         return last;
       }
 
-      console.warn(`[evo-go] attempt failed status=${res.status} auth=${authType} hasInst=${hasInst} raw=${raw.slice(0, 200)}; trying next candidate`);
+      // If headers fail with 401, try query param as fallback for this specific token
+      if (res.status === 401 && tokenValue) {
+        const separator = url.includes("?") ? "&" : "?";
+        const urlWithQuery = `${url}${separator}token=${tokenValue}`;
+        const resQuery = await fetch(urlWithQuery, {
+          method,
+          headers: { "Content-Type": "application/json", "Instance-Id": opts.instanceId || "" },
+          body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+        });
+        if (resQuery.ok) {
+           const qRaw = await resQuery.text();
+           return { ok: true, status: resQuery.status, data: qRaw ? JSON.parse(qRaw) : null, raw: qRaw };
+        }
+      }
+
+      console.warn(`[evo-go] attempt failed status=${res.status} auth=${authType} hasInst=${!!headers["Instance-Id"]} raw=${raw.slice(0, 200)}; trying next candidate`);
     }
 
     console.error(`[evo-go] all auth attempts failed for ${method} ${url}. final status=${last?.status} raw=${last?.raw?.slice(0, 300)}`);
