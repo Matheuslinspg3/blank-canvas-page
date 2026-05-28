@@ -292,6 +292,29 @@ serve(async (req) => {
       );
     }
 
+    // Trigger platform alert
+    if (newLead) {
+      try {
+        await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/platform-alerts`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            type: "lead",
+            data: {
+              ...newLead,
+              organization_id: orgId
+            },
+            attribution: attribution || {}
+          }),
+        });
+      } catch (alertErr) {
+        console.warn("Failed to trigger platform alert:", alertErr);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
