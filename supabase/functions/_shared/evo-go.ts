@@ -1,29 +1,30 @@
 /**
- * Evolution GO (EvoGo / whatsmeow) HTTP client.
+ * Evolution GO (whatsmeow) HTTP client.
  *
- * Convenção da API EvoGo:
- *  - Base URL: EVOLUTION_GO_URL
- *  - Autenticação: header `Instance-Id: <instanceId>` (o próprio InstanceId autoriza).
- *    Quando EVOLUTION_GO_TOKEN está setado, também enviamos `Authorization: Bearer <token>`.
- *  - Instância NÃO vai mais no path. Vai no header `Instance-Id`.
- *  - Endpoints principais:
- *      POST /send/text     { number, text, delay?, quoted?, mentionedJid? }
- *      POST /send/media    { number, url, type: "image"|"video"|"document"|"audio", caption?, filename?, delay? }
- *      POST /message/downloadimage  { messageId, ... }
+ * Auth contract (verified against evolution-foundation/evolution-go source):
+ *   - Header: `apikey: <token>` (lowercase)
+ *   - For /send/*, /chat/*, /group/*, /user/*, /message/* the token must be the
+ *     INSTANCE token (looked up by the server via GetInstanceByToken).
+ *   - For /instance/all, /instance/create the token must be the GLOBAL_API_KEY.
+ *
+ * Endpoints:
+ *   POST /send/text     { number, text, ... }
+ *   POST /send/media    { number, url, type, caption?, ... }
+ *   GET  /instance/all  (admin)
  */
+
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const GO_URL = (Deno.env.get("EVOLUTION_GO_URL") ?? "").trim();
 const FALLBACK_URL = (Deno.env.get("EVOLUTION_API_URL") ?? "").trim();
 const RAW_URL = GO_URL || FALLBACK_URL;
 const GO_TOKEN = (Deno.env.get("EVOLUTION_GO_TOKEN") ?? "").trim();
-const GLOBAL_KEY = (Deno.env.get("EVOLUTION_API_GLOBAL_KEY") ?? "").trim();
-const TOKEN = GO_TOKEN || GLOBAL_KEY;
+const GLOBAL_KEY_ENV = (Deno.env.get("EVOLUTION_API_GLOBAL_KEY") ?? "").trim();
 
 export const EVO_GO_BASE_URL = RAW_URL.replace(/\/$/, "");
-export const EVO_GO_TOKEN = TOKEN;
-export const EVO_GO_USING_FALLBACK = !GO_URL && !!FALLBACK_URL;
+export const EVO_GO_GLOBAL_KEY = GO_TOKEN || GLOBAL_KEY_ENV;
 
-console.log(`[evo-go] init: using ${GO_URL ? "EVOLUTION_GO_URL" : (FALLBACK_URL ? "EVOLUTION_API_URL fallback" : "NONE")}=${EVO_GO_BASE_URL} go_token=${GO_TOKEN ? "set" : "missing"} global_key=${GLOBAL_KEY ? "set" : "missing"}`);
+console.log(`[evo-go] init: base=${EVO_GO_BASE_URL} global_key=${EVO_GO_GLOBAL_KEY ? `set(${EVO_GO_GLOBAL_KEY.slice(0,5)}...)` : "missing"}`);
 
 export interface EvoGoResponse {
   ok: boolean;
@@ -32,118 +33,46 @@ export interface EvoGoResponse {
   raw: string;
 }
 
-function baseHeaders(instanceId?: string): Record<string, string> {
-  const h: Record<string, string> = { "Content-Type": "application/json" };
-  if (instanceId) h["Instance-Id"] = instanceId;
-  return h;
-}
-
-function buildHeaderCandidates(instanceId?: string): Record<string, string>[] {
-  const candidates: Record<string, string>[] = [];
-  const seen = new Set<string>();
-  const add = (headers: Record<string, string>) => {
-    const key = JSON.stringify(Object.entries(headers).sort());
-    if (!seen.has(key)) {
-      seen.add(key);
-      candidates.push(headers);
-    }
-  };
-
-  const tokens = [GO_TOKEN, GLOBAL_KEY].filter(Boolean);
-
-  for (const token of tokens) {
-    // Standard Evolution API (Node/Go)
-    add({ ...baseHeaders(instanceId), Authorization: `Bearer ${token}` });
-    add({ ...baseHeaders(instanceId), apikey: token });
-    
-    // Wuzapi / Legacy Go variations
-    add({ ...baseHeaders(instanceId), token: token });
-    add({ ...baseHeaders(instanceId), "X-Instance-Token": token });
-    
-    // Variation: instance instead of Instance-Id
-    if (instanceId) {
-      const baseAlt = { "Content-Type": "application/json", instance: instanceId };
-      add({ ...baseAlt, Authorization: `Bearer ${token}` });
-      add({ ...baseAlt, apikey: token });
-      add({ ...baseAlt, token: token });
-    }
-  }
-
-  // Last resort: just the instance ID as auth (some Go versions do this)
-  if (instanceId) {
-    add({ "Content-Type": "application/json", "Instance-Id": instanceId });
-    add({ "Content-Type": "application/json", token: instanceId });
-  }
-
-  return candidates;
-}
-
 export async function evoGoRequest(
   method: string,
   path: string,
-  opts: { instanceId?: string; body?: any } = {},
+  opts: { apikey?: string; body?: any } = {},
 ): Promise<EvoGoResponse> {
   if (!EVO_GO_BASE_URL) {
-    return {
-      ok: false,
-      status: 500,
-      data: { message: "EVOLUTION_GO_URL not configured" },
-      raw: "EVOLUTION_GO_URL not configured",
-    };
+    return { ok: false, status: 500, data: { message: "EVOLUTION_GO_URL not configured" }, raw: "EVOLUTION_GO_URL not configured" };
   }
   const url = `${EVO_GO_BASE_URL}${path}`;
-  console.log(`[evo-go] ${method} ${url} instanceId=${opts.instanceId ?? "none"}`);
+  const apikey = (opts.apikey ?? "").trim();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (apikey) headers["apikey"] = apikey;
+
+  console.log(`[evo-go] ${method} ${url} apikey=${apikey ? apikey.slice(0,5) + "..." : "none"}`);
+
   try {
-    let last: EvoGoResponse | null = null;
-    const candidates = buildHeaderCandidates(opts.instanceId);
-    
-    for (const headers of candidates) {
-      const authType = headers["Authorization"] ? "Bearer" : (headers["apikey"] ? "apikey" : (headers["token"] ? "token" : "none"));
-      const tokenValue = headers["Authorization"]?.replace("Bearer ", "") || headers["apikey"] || headers["token"];
-      const hasInst = !!headers["Instance-Id"] || !!headers["instance"];
-      
-      console.log(`[evo-go] Attempting with auth=${authType} token=${tokenValue ? tokenValue.slice(0, 5) + "..." : "none"} hasInst=${hasInst}`);
-      
-      const res = await fetch(url, {
-        method,
-        headers,
-        body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
-      });
-      const raw = await res.text();
-      let data: any = null;
-      try { data = raw ? JSON.parse(raw) : null; } catch { data = raw; }
-      last = { ok: res.ok, status: res.status, data, raw };
-
-      if (res.ok) {
-        return last;
-      }
-
-      // If headers fail with 401, try query param as fallback for this specific token
-      if (res.status === 401 && tokenValue) {
-        const separator = url.includes("?") ? "&" : "?";
-        const urlWithQuery = `${url}${separator}token=${tokenValue}`;
-        const resQuery = await fetch(urlWithQuery, {
-          method,
-          headers: { "Content-Type": "application/json", "Instance-Id": opts.instanceId || "" },
-          body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
-        });
-        if (resQuery.ok) {
-           const qRaw = await resQuery.text();
-           return { ok: true, status: resQuery.status, data: qRaw ? JSON.parse(qRaw) : null, raw: qRaw };
-        }
-      }
-
-      console.warn(`[evo-go] attempt failed status=${res.status} auth=${authType} hasInst=${!!headers["Instance-Id"]} raw=${raw.slice(0, 200)}; trying next candidate`);
+    const res = await fetch(url, {
+      method,
+      headers,
+      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+    });
+    const raw = await res.text();
+    let data: any = null;
+    try { data = raw ? JSON.parse(raw) : null; } catch { data = raw; }
+    if (!res.ok) {
+      console.warn(`[evo-go] ${method} ${path} -> ${res.status}: ${raw.slice(0, 200)}`);
     }
-
-    console.error(`[evo-go] all auth attempts failed for ${method} ${url}. final status=${last?.status} raw=${last?.raw?.slice(0, 300)}`);
-    return last!;
+    return { ok: res.ok, status: res.status, data, raw };
   } catch (e: any) {
     return { ok: false, status: 500, data: { message: String(e) }, raw: String(e) };
   }
 }
 
-/* ------- High-level helpers ------- */
+/* ---- Admin helpers (use global key) ---- */
+
+export async function evoGoListInstances(): Promise<EvoGoResponse> {
+  return evoGoRequest("GET", "/instance/all", { apikey: EVO_GO_GLOBAL_KEY });
+}
+
+/* ---- High-level send helpers (use instance token) ---- */
 
 export interface EvoMediaPayload {
   number: string;
@@ -157,190 +86,209 @@ export interface EvoMediaPayload {
 }
 
 export async function evoGoSendText(
-  instanceId: string,
+  instanceToken: string,
   payload: { number: string; text: string; delay?: number; mentionedJid?: string[] },
 ): Promise<EvoGoResponse> {
-  // 1. Try Evolution Go path first
-  let res = await evoGoRequest("POST", "/send/text", { instanceId, body: payload });
-  
-  if (!res.ok && (res.status === 404 || res.status === 405)) {
-    console.log(`[evo-go] /send/text not found, trying /api/send/text`);
-    res = await evoGoRequest("POST", "/api/send/text", { instanceId, body: payload });
-  }
-
-  if (!res.ok && (res.status === 404 || res.status === 401 || res.status === 405)) {
-    console.log(`[evo-go] standard paths failed (${res.status}), trying v2 paths`);
-    
-    // Try Evolution API v2 standard path
-    res = await evoGoRequest("POST", `/message/sendText/${instanceId}`, { instanceId, body: payload });
-  }
-  return res;
+  return evoGoRequest("POST", "/send/text", { apikey: instanceToken, body: payload });
 }
 
 export async function evoGoSendMedia(
-  instanceId: string,
+  instanceToken: string,
   payload: EvoMediaPayload,
 ): Promise<EvoGoResponse> {
-  // Candidate 1: Evolution Go (whatsmeow/wuzapi) format
-  const bodyGo: any = {
+  const body: any = {
     number: payload.number,
     url: payload.url,
     type: payload.type ?? "image",
     caption: payload.caption || "",
   };
-  if (payload.filename) bodyGo.filename = payload.filename;
-  if (payload.delay !== undefined) bodyGo.delay = payload.delay;
-
-  // Candidate 2: Evolution API v2 format (Flat)
-  const bodyV2: any = {
-    number: payload.number,
-    mediatype: payload.type ?? "image",
-    media: payload.url,
-    caption: payload.caption || "",
-  };
-
-  // Candidate 3: Evolution API v2 format (Nested mediaMessage)
-  const bodyV2Nested: any = {
-    number: payload.number,
-    mediaMessage: {
-      mediatype: payload.type ?? "image",
-      media: payload.url,
-      caption: payload.caption || "",
-    }
-  };
-
-  // 1. Try Evolution Go (whatsmeow)
-  let res = await evoGoRequest("POST", "/send/media", { instanceId, body: bodyGo });
-  
-  if (!res.ok && (res.status === 404 || res.status === 405)) {
-    console.log(`[evo-go] /send/media not found, trying /api/send/media`);
-    res = await evoGoRequest("POST", "/api/send/media", { instanceId, body: bodyGo });
-  }
-
-  if (res.ok) return res;
-
-  // 2. Try Evolution API v2 standard path (/message/sendMedia)
-  if (!res.ok && (res.status === 404 || res.status === 401 || res.status === 405)) {
-    console.log(`[evo-go] trying /message/sendMedia`);
-    res = await evoGoRequest("POST", `/message/sendMedia/${instanceId}`, { instanceId, body: bodyV2 });
-    if (!res.ok && res.status === 400) {
-      res = await evoGoRequest("POST", `/message/sendMedia/${instanceId}`, { instanceId, body: bodyV2Nested });
-    }
-    if (res.ok) return res;
-  }
-
-
-  // 3. Try Evolution API v2 legacy image path (/message/image)
-  if (!res.ok && (payload.type === "image" || !payload.type) && (res.status === 404 || res.status === 405)) {
-    console.log(`[evo-go] trying /message/image`);
-    res = await evoGoRequest("POST", `/message/image/${instanceId}`, { instanceId, body: bodyV2 });
-    if (res.ok) return res;
-  }
-
-  // 4. Try Evolution API v2 legacy media path (/message/media)
-  if (!res.ok && (res.status === 404 || res.status === 405)) {
-    console.log(`[evo-go] trying /message/media`);
-    res = await evoGoRequest("POST", `/message/media/${instanceId}`, { instanceId, body: bodyV2 });
-  }
-
-  return res;
+  if (payload.filename) body.filename = payload.filename;
+  if (payload.delay !== undefined) body.delay = payload.delay;
+  if (payload.mentionedJid) body.mentionedJid = payload.mentionedJid;
+  if (payload.mentionAll) body.mentionAll = payload.mentionAll;
+  return evoGoRequest("POST", "/send/media", { apikey: instanceToken, body });
 }
 
 export async function evoGoSendAudio(
-  instanceId: string,
+  instanceToken: string,
   payload: { number: string; url: string; delay?: number },
 ): Promise<EvoGoResponse> {
-  return evoGoSendMedia(instanceId, { ...payload, type: "audio" });
+  return evoGoSendMedia(instanceToken, { ...payload, type: "audio" });
 }
 
 export async function evoGoDownloadImage(
-  instanceId: string,
+  instanceToken: string,
   body: Record<string, any>,
 ): Promise<EvoGoResponse> {
-  return evoGoRequest("POST", "/message/downloadimage", { instanceId, body });
+  return evoGoRequest("POST", "/message/downloadimage", { apikey: instanceToken, body });
 }
 
-/** Extracts the message id from common EvoGo response shapes. */
 export function evoGoExtractMessageId(data: any): string | null {
-  return (
-    data?.key?.id ??
-    data?.messageId ??
-    data?.id ??
-    data?.message?.id ??
-    null
-  );
+  return data?.key?.id ?? data?.messageId ?? data?.id ?? data?.message?.id ?? null;
 }
+
+/* ---- Config resolution ---- */
 
 export interface EvoInstanceConfig {
   organization_id: string;
   instance_name: string;
+  instance_token: string;
   status: string;
 }
 
 /**
- * Resolves instance configuration from various sources:
- * 1. whatsapp_agent_config (instance_name or organization_id)
- * 2. whatsapp_connections (instance_name or organization_id)
+ * Resolve the active Evolution GO instance for an org/instance identifier.
+ *
+ * Strategy:
+ *   1. Look up `whatsapp_instances` (source of truth: holds instance_token).
+ *   2. If token still missing/stale, refresh from /instance/all (admin) and
+ *      upsert back into the DB.
  */
 export async function resolveEvoConfig(
   sb: SupabaseClient,
-  identifier: string
+  identifier: string,
 ): Promise<EvoInstanceConfig | null> {
-  const instTrim = identifier.trim();
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(instTrim);
+  const idTrim = (identifier ?? "").trim();
+  if (!idTrim) return null;
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idTrim);
 
-  let config: any = null;
-
-  // 1) whatsapp_agent_config by instance_name
+  // 1) whatsapp_instances by instance_name
+  let inst: any = null;
   {
     const { data } = await sb
-      .from("whatsapp_agent_config")
-      .select("organization_id, instance_name, status")
-      .eq("instance_name", instTrim)
+      .from("whatsapp_instances")
+      .select("organization_id, instance_name, instance_token, status")
+      .eq("instance_name", idTrim)
       .maybeSingle();
-    if (data) config = data;
+    if (data) inst = data;
   }
 
-  // 2) whatsapp_agent_config by organization_id (UUID)
-  if (!config && isUuid) {
+  // 2) whatsapp_instances by organization_id (preferring connected)
+  if (!inst && isUuid) {
     const { data } = await sb
-      .from("whatsapp_agent_config")
-      .select("organization_id, instance_name, status")
-      .eq("organization_id", instTrim)
-      .maybeSingle();
-    if (data) config = data;
-  }
-
-  // 3) whatsapp_connections by instance_name
-  if (!config || !config.instance_name) {
-    const { data } = await sb
-      .from("whatsapp_connections")
-      .select("organization_id, instance_name, status")
-      .eq("instance_name", instTrim)
-      .maybeSingle();
-    if (data) config = { ...(config || {}), ...data };
-  }
-
-  // 4) whatsapp_connections by organization_id (UUID)
-  if ((!config || !config.instance_name) && isUuid) {
-    const { data } = await sb
-      .from("whatsapp_connections")
-      .select("organization_id, instance_name, status")
-      .eq("organization_id", instTrim)
-      .order("status", { ascending: true }) // connected usually < others
+      .from("whatsapp_instances")
+      .select("organization_id, instance_name, instance_token, status")
+      .eq("organization_id", idTrim)
+      .order("status", { ascending: true })
       .limit(10);
-    
     const list = data || [];
-    const connected = list.find((r: any) => r.status === "connected");
-    const chosen = connected || list[0];
-    if (chosen) config = { ...(config || {}), ...chosen };
+    inst = list.find((r: any) => r.status === "connected") || list[0] || null;
   }
 
-  if (!config?.instance_name) return null;
+  // 3) Fallback: legacy whatsapp_agent_config / whatsapp_connections (no token)
+  let orgId = inst?.organization_id ?? null;
+  let instanceName = inst?.instance_name ?? null;
+  let status = inst?.status ?? null;
+
+  if (!instanceName) {
+    const { data: cfg } = await sb
+      .from("whatsapp_agent_config")
+      .select("organization_id, instance_name, instance_token, status")
+      .or(`instance_name.eq.${idTrim}${isUuid ? `,organization_id.eq.${idTrim}` : ""}`)
+      .maybeSingle();
+    if (cfg) {
+      orgId = orgId || cfg.organization_id;
+      instanceName = instanceName || cfg.instance_name;
+      status = status || cfg.status;
+      if (cfg.instance_token && !inst?.instance_token) {
+        inst = { ...(inst || {}), instance_token: cfg.instance_token };
+      }
+    }
+  }
+
+  if (!instanceName) {
+    const { data: conn } = await sb
+      .from("whatsapp_connections")
+      .select("organization_id, instance_name, status")
+      .or(`instance_name.eq.${idTrim}${isUuid ? `,organization_id.eq.${idTrim}` : ""}`)
+      .order("status", { ascending: true })
+      .limit(5);
+    const list = conn || [];
+    const chosen = list.find((r: any) => r.status === "connected") || list[0];
+    if (chosen) {
+      orgId = orgId || chosen.organization_id;
+      instanceName = instanceName || chosen.instance_name;
+      status = status || chosen.status;
+    }
+  }
+
+  if (!orgId) return null;
+
+  let token: string | null = inst?.instance_token ?? null;
+
+  // 4) If no token (or instanceName), refresh from server using global key
+  if (!token || !instanceName) {
+    const refreshed = await refreshInstancesForOrg(sb, orgId);
+    if (refreshed) {
+      // Prefer the instance matching identifier; else connected; else first
+      const match =
+        refreshed.find((r) => r.instance_name === idTrim) ||
+        refreshed.find((r) => r.status === "connected") ||
+        refreshed[0];
+      if (match) {
+        instanceName = match.instance_name;
+        token = match.instance_token;
+        status = match.status || status;
+      }
+    }
+  }
+
+  if (!instanceName || !token) return null;
 
   return {
-    organization_id: config.organization_id,
-    instance_name: config.instance_name,
-    status: config.status
+    organization_id: orgId,
+    instance_name: instanceName,
+    instance_token: token,
+    status: status || "unknown",
   };
+}
+
+/**
+ * Calls /instance/all with the GLOBAL_API_KEY, filters instances belonging to
+ * the given organization (by name prefix/suffix containing the org UUID), and
+ * upserts them into whatsapp_instances. Returns the matching rows.
+ */
+export async function refreshInstancesForOrg(
+  sb: SupabaseClient,
+  orgId: string,
+): Promise<Array<{ instance_name: string; instance_token: string; status: string }> | null> {
+  if (!EVO_GO_GLOBAL_KEY) {
+    console.warn("[evo-go] refreshInstancesForOrg: no global key configured");
+    return null;
+  }
+  const res = await evoGoListInstances();
+  if (!res.ok) {
+    console.warn(`[evo-go] /instance/all failed: ${res.status} ${res.raw.slice(0, 200)}`);
+    return null;
+  }
+  // Server returns either {instances:[...]} or [...]
+  const rawList: any[] = Array.isArray(res.data) ? res.data : (res.data?.instances ?? res.data?.data ?? []);
+  const all = rawList.map((i: any) => ({
+    instance_name: i.name || i.instanceName || i.instance_name || i.id,
+    instance_token: i.token || i.apikey || i.instance_token,
+    status: i.status || i.connection || (i.connected ? "connected" : "disconnected"),
+    phone_number: i.phone || i.number || i.phoneNumber || null,
+  })).filter((x) => x.instance_name && x.instance_token);
+
+  // Match instances belonging to this org (name contains orgId or matches DB rows)
+  const orgInstances = all.filter((x) => x.instance_name.includes(orgId));
+
+  // Upsert into whatsapp_instances
+  for (const inst of orgInstances) {
+    await sb
+      .from("whatsapp_instances")
+      .upsert(
+        {
+          organization_id: orgId,
+          instance_name: inst.instance_name,
+          instance_token: inst.instance_token,
+          status: inst.status,
+          phone_number: inst.phone_number,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "instance_name" },
+      );
+  }
+
+  return orgInstances.length ? orgInstances : null;
 }

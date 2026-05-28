@@ -71,19 +71,11 @@ serve(async (req) => {
       });
     }
 
-    if (!config) {
-      return new Response(JSON.stringify({
-        error: "Configuração WhatsApp não encontrada para essa organização/instância",
-        debug: { instance_name: instTrim, is_uuid: isUuid },
-      }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
-    if (!config.instance_name) {
+    if (!config.instance_name || !config.instance_token) {
       return new Response(JSON.stringify({
         error: "WhatsApp ainda não foi conectado. Configure o agente e gere o QR Code antes de enviar fotos.",
-        debug: { organization_id: config.organization_id, status: config.status },
+        debug: { organization_id: config.organization_id, status: config.status, has_token: !!config.instance_token },
       }), {
         status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -245,7 +237,7 @@ serve(async (req) => {
         continue;
       }
 
-      const evoRes = await evoGoSendMedia(config.instance_name, {
+      const evoRes = await evoGoSendMedia(config.instance_token, {
         number: cleanPhone,
         url: item.url,
         type: "image",
