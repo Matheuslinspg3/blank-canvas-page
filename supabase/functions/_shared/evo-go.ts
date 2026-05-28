@@ -78,6 +78,9 @@ export async function evoGoRequest(
   try {
     let last: EvoGoResponse | null = null;
     for (const headers of buildHeaderCandidates(opts.instanceId)) {
+      const authType = headers["Authorization"] ? "Bearer" : (headers["apikey"] ? "apikey" : "none");
+      const hasInst = !!headers["Instance-Id"];
+      
       const res = await fetch(url, {
         method,
         headers,
@@ -92,7 +95,7 @@ export async function evoGoRequest(
         return last;
       }
 
-      console.warn(`[evo-go] attempt failed status=${res.status} raw=${raw.slice(0, 200)}; trying next candidate`);
+      console.warn(`[evo-go] attempt failed status=${res.status} auth=${authType} hasInst=${hasInst} raw=${raw.slice(0, 200)}; trying next candidate`);
     }
 
     console.error(`[evo-go] all auth attempts failed for ${method} ${url}. final status=${last?.status} raw=${last?.raw?.slice(0, 300)}`);
@@ -132,20 +135,53 @@ export async function evoGoSendMedia(
   instanceId: string,
   payload: EvoMediaPayload,
 ): Promise<EvoGoResponse> {
-  const body: any = {
+  // Candidate 1: Evolution Go (whatsmeow/wuzapi) format
+  const bodyGo: any = {
     number: payload.number,
     url: payload.url,
     type: payload.type ?? "image",
+    caption: payload.caption || "",
   };
-  if (payload.caption !== undefined) body.caption = payload.caption;
-  if (payload.filename) body.filename = payload.filename;
-  if (payload.delay !== undefined) body.delay = payload.delay;
-  if (payload.mentionedJid?.length) body.mentionedJid = payload.mentionedJid;
-  if (payload.mentionAll) body.mentionAll = true;
-  let res = await evoGoRequest("POST", "/send/media", { instanceId, body });
-  if (!res.ok && (res.status === 404 || res.status === 401)) {
-    console.log(`[evo-go] /send/media returned ${res.status}, trying /message/sendMedia/${instanceId}`);
-    res = await evoGoRequest("POST", `/message/sendMedia/${instanceId}`, { instanceId, body });
+  if (payload.filename) bodyGo.filename = payload.filename;
+  if (payload.delay !== undefined) bodyGo.delay = payload.delay;
+
+  // Candidate 2: Evolution API v2 format (Flat)
+  const bodyV2: any = {
+    number: payload.number,
+    mediatype: payload.type ?? "image",
+    media: payload.url,
+    caption: payload.caption || "",
+  };
+
+  // Candidate 3: Evolution API v2 format (Nested mediaMessage)
+  const bodyV2Nested: any = {
+    number: payload.number,
+    mediaMessage: {
+      mediatype: payload.type ?? "image",
+      media: payload.url,
+      caption: payload.caption || "",
+    }
+  };
+
+  // Try Evolution Go paths first
+  let res = await evoGoRequest("POST", "/send/media", { instanceId, body: bodyGo });
+  
+  // If not found or unauthorized, try Evolution API v2 paths
+  if (!res.ok && (res.status === 404 || res.status === 401 || res.status === 405)) {
+    console.log(`[evo-go] /send/media failed (${res.status}), trying v2 paths`);
+    
+    // Try /message/sendMedia/{instance} with both flat and nested bodies
+    res = await evoGoRequest("POST", `/message/sendMedia/${instanceId}`, { instanceId, body: bodyV2 });
+    if (!res.ok && res.status === 400) {
+      console.log(`[evo-go] /message/sendMedia returned 400, trying nested mediaMessage`);
+      res = await evoGoRequest("POST", `/message/sendMedia/${instanceId}`, { instanceId, body: bodyV2Nested });
+    }
+    
+    // If still failing with 404, try /message/image/{instance} (standard for some v2 versions)
+    if (!res.ok && (payload.type === "image" || !payload.type) && (res.status === 404 || res.status === 405)) {
+      console.log(`[evo-go] trying /message/image/${instanceId}`);
+      res = await evoGoRequest("POST", `/message/image/${instanceId}`, { instanceId, body: bodyV2 });
+    }
   }
   return res;
 }
