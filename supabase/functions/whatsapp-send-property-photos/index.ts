@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { createServiceClient } from "../_shared/auth.ts";
-import { evoGoSendMedia, evoGoExtractMessageId, EVO_GO_BASE_URL } from "../_shared/evo-go.ts";
+import { evoGoSendMedia, evoGoExtractMessageId, EVO_GO_BASE_URL, resolveEvoConfig } from "../_shared/evo-go.ts";
 
 const WEBHOOK_SECRET = Deno.env.get("WHATSAPP_AGENT_SECRET");
 
@@ -59,51 +59,16 @@ serve(async (req) => {
 
     const sb = createServiceClient();
 
-    // --- Resolve instance config (accept instance_name OR organization_id UUID) ---
-    const instTrim = String(instance_name).trim();
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(instTrim);
+    // --- Resolve instance config ---
+    const config = await resolveEvoConfig(sb, instance_name);
 
-    let config: any = null;
-
-    // 1) whatsapp_agent_config by instance_name
-    {
-      const { data } = await sb
-        .from("whatsapp_agent_config")
-        .select("organization_id, instance_name, status")
-        .eq("instance_name", instTrim)
-        .maybeSingle();
-      if (data) config = data;
-    }
-    // 2) whatsapp_agent_config by organization_id (UUID)
-    if (!config && isUuid) {
-      const { data } = await sb
-        .from("whatsapp_agent_config")
-        .select("organization_id, instance_name, status")
-        .eq("organization_id", instTrim)
-        .maybeSingle();
-      if (data) config = data;
-    }
-    // 3) whatsapp_connections by instance_name
-    if (!config || !config.instance_name) {
-      const { data } = await sb
-        .from("whatsapp_connections")
-        .select("organization_id, instance_name, status")
-        .eq("instance_name", instTrim)
-        .maybeSingle();
-      if (data) config = { ...(config || {}), ...data };
-    }
-    // 4) whatsapp_connections by organization_id (UUID) — pick the connected one if any
-    if ((!config || !config.instance_name) && isUuid) {
-      const { data } = await sb
-        .from("whatsapp_connections")
-        .select("organization_id, instance_name, status")
-        .eq("organization_id", instTrim)
-        .order("status", { ascending: true }) // 'connected' < others alphabetically isn't reliable; we'll prefer connected below
-        .limit(10);
-      const list = data || [];
-      const connected = list.find((r: any) => r.status === "connected");
-      const chosen = connected || list[0];
-      if (chosen) config = { ...(config || {}), ...chosen };
+    if (!config) {
+      return new Response(JSON.stringify({
+        error: "Configuração WhatsApp não encontrada para essa organização/instância",
+        debug: { instance_name },
+      }), {
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     if (!config) {

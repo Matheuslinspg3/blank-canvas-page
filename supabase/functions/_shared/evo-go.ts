@@ -88,15 +88,14 @@ export async function evoGoRequest(
       try { data = raw ? JSON.parse(raw) : null; } catch { data = raw; }
       last = { ok: res.ok, status: res.status, data, raw };
 
-      if (!res.ok) {
-        console.warn(`[evo-go] Error Response: status=${res.status} body=${raw.slice(0, 500)}`);
-      }
-        if (!res.ok) console.warn(`[evo-go] non-ok status=${res.status} raw=${raw.slice(0,500)}`);
+      if (res.ok) {
         return last;
       }
-      console.warn(`[evo-go] attempt failed status=${res.status} raw=${raw.slice(0,200)}; trying next candidate/path`);
+
+      console.warn(`[evo-go] attempt failed status=${res.status} raw=${raw.slice(0, 200)}; trying next candidate`);
     }
-    console.error(`[evo-go] all auth attempts failed final status=${last?.status} raw=${last?.raw?.slice(0,300)}`);
+
+    console.error(`[evo-go] all auth attempts failed for ${method} ${url}. final status=${last?.status} raw=${last?.raw?.slice(0, 300)}`);
     return last!;
   } catch (e: any) {
     return { ok: false, status: 500, data: { message: String(e) }, raw: String(e) };
@@ -121,10 +120,10 @@ export async function evoGoSendText(
   payload: { number: string; text: string; delay?: number; mentionedJid?: string[] },
 ): Promise<EvoGoResponse> {
   // Try both Evolution Go (whatsmeow) and Evolution API (Node.js) v2 paths
-  const res = await evoGoRequest("POST", "/send/text", { instanceId, body: payload });
-  if (res.status === 404) {
-    console.log(`[evo-go] /send/text returned 404, trying /message/sendText/${instanceId}`);
-    return evoGoRequest("POST", `/message/sendText/${instanceId}`, { instanceId, body: payload });
+  let res = await evoGoRequest("POST", "/send/text", { instanceId, body: payload });
+  if (!res.ok && (res.status === 404 || res.status === 401)) {
+    console.log(`[evo-go] /send/text returned ${res.status}, trying /message/sendText/${instanceId}`);
+    res = await evoGoRequest("POST", `/message/sendText/${instanceId}`, { instanceId, body: payload });
   }
   return res;
 }
@@ -143,10 +142,10 @@ export async function evoGoSendMedia(
   if (payload.delay !== undefined) body.delay = payload.delay;
   if (payload.mentionedJid?.length) body.mentionedJid = payload.mentionedJid;
   if (payload.mentionAll) body.mentionAll = true;
-  const res = await evoGoRequest("POST", "/send/media", { instanceId, body });
-  if (res.status === 404) {
-    console.log(`[evo-go] /send/media returned 404, trying /message/sendMedia/${instanceId}`);
-    return evoGoRequest("POST", `/message/sendMedia/${instanceId}`, { instanceId, body });
+  let res = await evoGoRequest("POST", "/send/media", { instanceId, body });
+  if (!res.ok && (res.status === 404 || res.status === 401)) {
+    console.log(`[evo-go] /send/media returned ${res.status}, trying /message/sendMedia/${instanceId}`);
+    res = await evoGoRequest("POST", `/message/sendMedia/${instanceId}`, { instanceId, body });
   }
   return res;
 }
@@ -174,4 +173,78 @@ export function evoGoExtractMessageId(data: any): string | null {
     data?.message?.id ??
     null
   );
+}
+
+export interface EvoInstanceConfig {
+  organization_id: string;
+  instance_name: string;
+  status: string;
+}
+
+/**
+ * Resolves instance configuration from various sources:
+ * 1. whatsapp_agent_config (instance_name or organization_id)
+ * 2. whatsapp_connections (instance_name or organization_id)
+ */
+export async function resolveEvoConfig(
+  sb: SupabaseClient,
+  identifier: string
+): Promise<EvoInstanceConfig | null> {
+  const instTrim = identifier.trim();
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(instTrim);
+
+  let config: any = null;
+
+  // 1) whatsapp_agent_config by instance_name
+  {
+    const { data } = await sb
+      .from("whatsapp_agent_config")
+      .select("organization_id, instance_name, status")
+      .eq("instance_name", instTrim)
+      .maybeSingle();
+    if (data) config = data;
+  }
+
+  // 2) whatsapp_agent_config by organization_id (UUID)
+  if (!config && isUuid) {
+    const { data } = await sb
+      .from("whatsapp_agent_config")
+      .select("organization_id, instance_name, status")
+      .eq("organization_id", instTrim)
+      .maybeSingle();
+    if (data) config = data;
+  }
+
+  // 3) whatsapp_connections by instance_name
+  if (!config || !config.instance_name) {
+    const { data } = await sb
+      .from("whatsapp_connections")
+      .select("organization_id, instance_name, status")
+      .eq("instance_name", instTrim)
+      .maybeSingle();
+    if (data) config = { ...(config || {}), ...data };
+  }
+
+  // 4) whatsapp_connections by organization_id (UUID)
+  if ((!config || !config.instance_name) && isUuid) {
+    const { data } = await sb
+      .from("whatsapp_connections")
+      .select("organization_id, instance_name, status")
+      .eq("organization_id", instTrim)
+      .order("status", { ascending: true }) // connected usually < others
+      .limit(10);
+    
+    const list = data || [];
+    const connected = list.find((r: any) => r.status === "connected");
+    const chosen = connected || list[0];
+    if (chosen) config = { ...(config || {}), ...chosen };
+  }
+
+  if (!config?.instance_name) return null;
+
+  return {
+    organization_id: config.organization_id,
+    instance_name: config.instance_name,
+    status: config.status
+  };
 }

@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { createServiceClient } from "../_shared/auth.ts";
-import { evoGoSendMedia, evoGoExtractMessageId, EVO_GO_BASE_URL } from "../_shared/evo-go.ts";
+import { evoGoSendMedia, evoGoExtractMessageId, EVO_GO_BASE_URL, resolveEvoConfig } from "../_shared/evo-go.ts";
 
 const WEBHOOK_SECRET = Deno.env.get("WHATSAPP_AGENT_SECRET");
 
@@ -49,22 +49,7 @@ serve(async (req) => {
     const sb = createServiceClient();
 
     // Resolve instance config
-    let config: any = null;
-    if (instance_name) {
-      const { data } = await sb
-        .from("whatsapp_agent_config")
-        .select("organization_id, instance_name, status")
-        .eq("instance_name", instance_name)
-        .maybeSingle();
-      config = data;
-    } else if (organization_id) {
-      const { data } = await sb
-        .from("whatsapp_agent_config")
-        .select("organization_id, instance_name, status")
-        .eq("organization_id", organization_id)
-        .maybeSingle();
-      config = data;
-    }
+    const config = await resolveEvoConfig(sb, instance_name || organization_id);
 
     if (!config?.instance_name) {
       return new Response(JSON.stringify({ error: "Configuração WhatsApp não encontrada" }), {
