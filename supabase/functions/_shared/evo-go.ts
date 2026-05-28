@@ -145,12 +145,22 @@ export async function evoGoSendMedia(
   if (payload.filename) bodyGo.filename = payload.filename;
   if (payload.delay !== undefined) bodyGo.delay = payload.delay;
 
-  // Candidate 2: Evolution API v2 format
+  // Candidate 2: Evolution API v2 format (Flat)
   const bodyV2: any = {
     number: payload.number,
     mediatype: payload.type ?? "image",
     media: payload.url,
     caption: payload.caption || "",
+  };
+
+  // Candidate 3: Evolution API v2 format (Nested mediaMessage)
+  const bodyV2Nested: any = {
+    number: payload.number,
+    mediaMessage: {
+      mediatype: payload.type ?? "image",
+      media: payload.url,
+      caption: payload.caption || "",
+    }
   };
 
   // Try Evolution Go paths first
@@ -160,12 +170,16 @@ export async function evoGoSendMedia(
   if (!res.ok && (res.status === 404 || res.status === 401 || res.status === 405)) {
     console.log(`[evo-go] /send/media failed (${res.status}), trying v2 paths`);
     
-    // Try /message/sendMedia/{instance}
+    // Try /message/sendMedia/{instance} with both flat and nested bodies
     res = await evoGoRequest("POST", `/message/sendMedia/${instanceId}`, { instanceId, body: bodyV2 });
+    if (!res.ok && res.status === 400) {
+      console.log(`[evo-go] /message/sendMedia returned 400, trying nested mediaMessage`);
+      res = await evoGoRequest("POST", `/message/sendMedia/${instanceId}`, { instanceId, body: bodyV2Nested });
+    }
     
-    // If still failing, try /message/image/{instance} (some versions use this for images)
+    // If still failing with 404, try /message/image/{instance} (standard for some v2 versions)
     if (!res.ok && (payload.type === "image" || !payload.type) && (res.status === 404 || res.status === 405)) {
-      console.log(`[evo-go] /message/sendMedia failed, trying /message/image/${instanceId}`);
+      console.log(`[evo-go] trying /message/image/${instanceId}`);
       res = await evoGoRequest("POST", `/message/image/${instanceId}`, { instanceId, body: bodyV2 });
     }
   }
