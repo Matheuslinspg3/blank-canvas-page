@@ -88,7 +88,9 @@ export async function evoGoRequest(
       try { data = raw ? JSON.parse(raw) : null; } catch { data = raw; }
       last = { ok: res.ok, status: res.status, data, raw };
 
-      if (res.ok || ![401, 403, 404].includes(res.status)) {
+      if (!res.ok) {
+        console.warn(`[evo-go] Error Response: status=${res.status} body=${raw.slice(0, 500)}`);
+      }
         if (!res.ok) console.warn(`[evo-go] non-ok status=${res.status} raw=${raw.slice(0,500)}`);
         return last;
       }
