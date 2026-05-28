@@ -88,11 +88,13 @@ export async function evoGoRequest(
       try { data = raw ? JSON.parse(raw) : null; } catch { data = raw; }
       last = { ok: res.ok, status: res.status, data, raw };
 
-      if (res.ok || ![401, 403].includes(res.status)) {
-        if (!res.ok) console.warn(`[evo-go] non-ok status=${res.status} raw=${raw.slice(0,300)}`);
+      if (!res.ok) {
+        console.warn(`[evo-go] Error Response: status=${res.status} body=${raw.slice(0, 500)}`);
+      }
+        if (!res.ok) console.warn(`[evo-go] non-ok status=${res.status} raw=${raw.slice(0,500)}`);
         return last;
       }
-      console.warn(`[evo-go] auth attempt failed status=${res.status} raw=${raw.slice(0,200)}; trying fallback`);
+      console.warn(`[evo-go] attempt failed status=${res.status} raw=${raw.slice(0,200)}; trying next candidate/path`);
     }
     console.error(`[evo-go] all auth attempts failed final status=${last?.status} raw=${last?.raw?.slice(0,300)}`);
     return last!;
@@ -118,7 +120,13 @@ export async function evoGoSendText(
   instanceId: string,
   payload: { number: string; text: string; delay?: number; mentionedJid?: string[] },
 ): Promise<EvoGoResponse> {
-  return evoGoRequest("POST", "/send/text", { instanceId, body: payload });
+  // Try both Evolution Go (whatsmeow) and Evolution API (Node.js) v2 paths
+  const res = await evoGoRequest("POST", "/send/text", { instanceId, body: payload });
+  if (res.status === 404) {
+    console.log(`[evo-go] /send/text returned 404, trying /message/sendText/${instanceId}`);
+    return evoGoRequest("POST", `/message/sendText/${instanceId}`, { instanceId, body: payload });
+  }
+  return res;
 }
 
 export async function evoGoSendMedia(
@@ -135,7 +143,12 @@ export async function evoGoSendMedia(
   if (payload.delay !== undefined) body.delay = payload.delay;
   if (payload.mentionedJid?.length) body.mentionedJid = payload.mentionedJid;
   if (payload.mentionAll) body.mentionAll = true;
-  return evoGoRequest("POST", "/send/media", { instanceId, body });
+  const res = await evoGoRequest("POST", "/send/media", { instanceId, body });
+  if (res.status === 404) {
+    console.log(`[evo-go] /send/media returned 404, trying /message/sendMedia/${instanceId}`);
+    return evoGoRequest("POST", `/message/sendMedia/${instanceId}`, { instanceId, body });
+  }
+  return res;
 }
 
 export async function evoGoSendAudio(
