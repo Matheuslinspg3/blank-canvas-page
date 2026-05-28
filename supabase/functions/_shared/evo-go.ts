@@ -88,11 +88,11 @@ export async function evoGoRequest(
       try { data = raw ? JSON.parse(raw) : null; } catch { data = raw; }
       last = { ok: res.ok, status: res.status, data, raw };
 
-      if (res.ok || ![401, 403].includes(res.status)) {
-        if (!res.ok) console.warn(`[evo-go] non-ok status=${res.status} raw=${raw.slice(0,300)}`);
+      if (res.ok || ![401, 403, 404].includes(res.status)) {
+        if (!res.ok) console.warn(`[evo-go] non-ok status=${res.status} raw=${raw.slice(0,500)}`);
         return last;
       }
-      console.warn(`[evo-go] auth attempt failed status=${res.status} raw=${raw.slice(0,200)}; trying fallback`);
+      console.warn(`[evo-go] attempt failed status=${res.status} raw=${raw.slice(0,200)}; trying next candidate/path`);
     }
     console.error(`[evo-go] all auth attempts failed final status=${last?.status} raw=${last?.raw?.slice(0,300)}`);
     return last!;
