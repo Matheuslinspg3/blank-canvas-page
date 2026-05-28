@@ -151,6 +151,21 @@ export async function resolveEvoConfig(
   if (!idTrim) return null;
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idTrim);
 
+  // Evolution GO's live instance list is the source of truth. Some DB rows can
+  // remain connected with old instance names/tokens after reconnects.
+  if (isUuid) {
+    const live = await refreshInstancesForOrg(sb, idTrim);
+    const connected = live?.find((r) => r.status === "connected") || live?.[0];
+    if (connected?.instance_name && connected?.instance_token) {
+      return {
+        organization_id: idTrim,
+        instance_name: connected.instance_name,
+        instance_token: connected.instance_token,
+        status: connected.status || "connected",
+      };
+    }
+  }
+
   // 1) whatsapp_instances by instance_name
   let inst: any = null;
   {
