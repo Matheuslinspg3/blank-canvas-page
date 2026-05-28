@@ -118,7 +118,13 @@ export async function evoGoSendText(
   instanceId: string,
   payload: { number: string; text: string; delay?: number; mentionedJid?: string[] },
 ): Promise<EvoGoResponse> {
-  return evoGoRequest("POST", "/send/text", { instanceId, body: payload });
+  // Try both Evolution Go (whatsmeow) and Evolution API (Node.js) v2 paths
+  const res = await evoGoRequest("POST", "/send/text", { instanceId, body: payload });
+  if (res.status === 404) {
+    console.log(`[evo-go] /send/text returned 404, trying /message/sendText/${instanceId}`);
+    return evoGoRequest("POST", `/message/sendText/${instanceId}`, { instanceId, body: payload });
+  }
+  return res;
 }
 
 export async function evoGoSendMedia(
@@ -135,7 +141,12 @@ export async function evoGoSendMedia(
   if (payload.delay !== undefined) body.delay = payload.delay;
   if (payload.mentionedJid?.length) body.mentionedJid = payload.mentionedJid;
   if (payload.mentionAll) body.mentionAll = true;
-  return evoGoRequest("POST", "/send/media", { instanceId, body });
+  const res = await evoGoRequest("POST", "/send/media", { instanceId, body });
+  if (res.status === 404) {
+    console.log(`[evo-go] /send/media returned 404, trying /message/sendMedia/${instanceId}`);
+    return evoGoRequest("POST", `/message/sendMedia/${instanceId}`, { instanceId, body });
+  }
+  return res;
 }
 
 export async function evoGoSendAudio(
