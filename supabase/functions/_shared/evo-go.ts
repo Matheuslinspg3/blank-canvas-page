@@ -78,6 +78,9 @@ export async function evoGoRequest(
   try {
     let last: EvoGoResponse | null = null;
     for (const headers of buildHeaderCandidates(opts.instanceId)) {
+      const authType = headers["Authorization"] ? "Bearer" : (headers["apikey"] ? "apikey" : "none");
+      const hasInst = !!headers["Instance-Id"];
+      
       const res = await fetch(url, {
         method,
         headers,
