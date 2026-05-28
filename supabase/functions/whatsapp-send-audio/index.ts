@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
-import { evoGoSendAudio, evoGoExtractMessageId, EVO_GO_BASE_URL } from "../_shared/evo-go.ts";
+import { evoGoSendAudio, evoGoExtractMessageId, EVO_GO_BASE_URL, resolveEvoConfig } from "../_shared/evo-go.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -42,15 +42,14 @@ serve(async (req) => {
 
     const orgId = profile.organization_id;
 
-    const { data: config } = await supabaseClient
-      .from("whatsapp_agent_config")
-      .select("instance_name, status")
-      .eq("organization_id", orgId)
-      .single();
+    const config = await resolveEvoConfig(supabaseClient, orgId);
 
-    if (!config?.instance_name || config.status !== "connected") {
+    if (!config || config.status !== "connected") {
       return new Response(
-        JSON.stringify({ error: "WhatsApp não conectado." }),
+        JSON.stringify({ 
+          error: "WhatsApp não conectado.", 
+          debug: { orgId, instance: config?.instance_name, status: config?.status } 
+        }),
         { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
