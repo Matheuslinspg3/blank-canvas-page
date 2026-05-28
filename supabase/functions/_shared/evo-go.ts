@@ -95,7 +95,7 @@ export async function evoGoRequest(
         return last;
       }
 
-      console.warn(`[evo-go] attempt failed status=${res.status} raw=${raw.slice(0, 200)}; trying next candidate`);
+      console.warn(`[evo-go] attempt failed status=${res.status} auth=${authType} hasInst=${hasInst} raw=${raw.slice(0, 200)}; trying next candidate`);
     }
 
     console.error(`[evo-go] all auth attempts failed for ${method} ${url}. final status=${last?.status} raw=${last?.raw?.slice(0, 300)}`);
