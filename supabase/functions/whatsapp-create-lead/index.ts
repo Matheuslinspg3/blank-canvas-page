@@ -107,6 +107,7 @@ serve(async (req) => {
       preferred_neighborhoods,
       transaction_interest,
       qualified,
+      attribution,
     } = body as any;
 
     if (!instance_name && !jwtOrgId) {
@@ -275,9 +276,12 @@ serve(async (req) => {
         interested_property_type_ids: propertyTypeIds,
         preferred_neighborhoods: preferred_neighborhoods || [],
         transaction_interest: transaction_interest || null,
+        attribution_context: attribution || {},
+        traffic_source: attribution?.utm_source || attribution?.utm_campaign || null,
+        conversion_identifier: attribution?.utm_content || attribution?.utm_term || null,
         consent_voice_call: resolveVoiceConsent({ source: source || "whatsapp", explicit: null, hasPhone: !!phone }),
       })
-      .select("id")
+      .select("*")
       .single();
 
     if (insertError) {
