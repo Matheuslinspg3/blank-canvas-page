@@ -86,13 +86,15 @@ export interface EvoMediaPayload {
 
 export async function evoGoSendText(
   instanceId: string,
+  instanceToken: string,
   payload: { number: string; text: string; delay?: number; mentionedJid?: string[] },
 ): Promise<EvoGoResponse> {
-  return evoGoRequest("POST", "/send/text", { apikey: EVO_GO_GLOBAL_KEY, instanceId, body: payload });
+  return evoGoRequest("POST", "/send/text", { apikey: instanceToken, instanceId, body: payload });
 }
 
 export async function evoGoSendMedia(
   instanceId: string,
+  instanceToken: string,
   payload: EvoMediaPayload,
 ): Promise<EvoGoResponse> {
   const body: any = {
@@ -105,14 +107,15 @@ export async function evoGoSendMedia(
   if (payload.delay !== undefined) body.delay = payload.delay;
   if (payload.mentionedJid) body.mentionedJid = payload.mentionedJid;
   if (payload.mentionAll) body.mentionAll = payload.mentionAll;
-  return evoGoRequest("POST", "/send/media", { apikey: EVO_GO_GLOBAL_KEY, instanceId, body });
+  return evoGoRequest("POST", "/send/media", { apikey: instanceToken, instanceId, body });
 }
 
 export async function evoGoSendAudio(
   instanceId: string,
+  instanceToken: string,
   payload: { number: string; url: string; delay?: number },
 ): Promise<EvoGoResponse> {
-  return evoGoSendMedia(instanceId, { ...payload, type: "audio" });
+  return evoGoSendMedia(instanceId, instanceToken, { ...payload, type: "audio" });
 }
 
 export async function evoGoDownloadImage(
