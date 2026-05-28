@@ -237,7 +237,7 @@ serve(async (req) => {
         continue;
       }
 
-      const evoRes = await evoGoSendMedia(config.instance_token, {
+      const evoRes = await evoGoSendMedia(config.instance_name, {
         number: cleanPhone,
         url: item.url,
         type: "image",
