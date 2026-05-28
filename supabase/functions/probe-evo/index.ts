@@ -5,11 +5,11 @@ const GLOBAL_KEY = Deno.env.get("EVOLUTION_API_GLOBAL_KEY") || Deno.env.get("EVO
 
 serve(async (req) => {
   const testPaths = [
-    "/instance/fetchInstances",
-    "/instance/all",
-    "/routes",
-    "/docs",
-    "/swagger/index.html"
+    "/swagger/doc.json",
+    "/swagger.json",
+    "/doc.json",
+    "/info",
+    "/version"
   ];
   
   const results = [];
