@@ -174,3 +174,77 @@ export function evoGoExtractMessageId(data: any): string | null {
     null
   );
 }
+
+export interface EvoInstanceConfig {
+  organization_id: string;
+  instance_name: string;
+  status: string;
+}
+
+/**
+ * Resolves instance configuration from various sources:
+ * 1. whatsapp_agent_config (instance_name or organization_id)
+ * 2. whatsapp_connections (instance_name or organization_id)
+ */
+export async function resolveEvoConfig(
+  sb: SupabaseClient,
+  identifier: string
+): Promise<EvoInstanceConfig | null> {
+  const instTrim = identifier.trim();
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(instTrim);
+
+  let config: any = null;
+
+  // 1) whatsapp_agent_config by instance_name
+  {
+    const { data } = await sb
+      .from("whatsapp_agent_config")
+      .select("organization_id, instance_name, status")
+      .eq("instance_name", instTrim)
+      .maybeSingle();
+    if (data) config = data;
+  }
+
+  // 2) whatsapp_agent_config by organization_id (UUID)
+  if (!config && isUuid) {
+    const { data } = await sb
+      .from("whatsapp_agent_config")
+      .select("organization_id, instance_name, status")
+      .eq("organization_id", instTrim)
+      .maybeSingle();
+    if (data) config = data;
+  }
+
+  // 3) whatsapp_connections by instance_name
+  if (!config || !config.instance_name) {
+    const { data } = await sb
+      .from("whatsapp_connections")
+      .select("organization_id, instance_name, status")
+      .eq("instance_name", instTrim)
+      .maybeSingle();
+    if (data) config = { ...(config || {}), ...data };
+  }
+
+  // 4) whatsapp_connections by organization_id (UUID)
+  if ((!config || !config.instance_name) && isUuid) {
+    const { data } = await sb
+      .from("whatsapp_connections")
+      .select("organization_id, instance_name, status")
+      .eq("organization_id", instTrim)
+      .order("status", { ascending: true }) // connected usually < others
+      .limit(10);
+    
+    const list = data || [];
+    const connected = list.find((r: any) => r.status === "connected");
+    const chosen = connected || list[0];
+    if (chosen) config = { ...(config || {}), ...chosen };
+  }
+
+  if (!config?.instance_name) return null;
+
+  return {
+    organization_id: config.organization_id,
+    instance_name: config.instance_name,
+    status: config.status
+  };
+}
