@@ -26,9 +26,9 @@ export class EvolutionProvider {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
 
     if (this.config.provider === "evolution_go") {
-      // EvoGo (whatsmeow): autenticação por header Instance-Id; token global opcional.
-      if (instanceId) headers["Instance-Id"] = instanceId;
-      if (this.config.apiKey) headers["Authorization"] = `Bearer ${this.config.apiKey}`;
+      // Evolution GO: apikey global + instanceId nos endpoints de instância.
+      if (this.config.apiKey) headers["apikey"] = this.config.apiKey;
+      if (instanceId) headers["instanceId"] = instanceId;
     } else {
       headers["apikey"] = this.config.apiKey;
     }
