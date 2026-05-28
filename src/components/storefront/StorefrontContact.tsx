@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { getAttribution } from "@/hooks/useAttribution";
 import { Send, Loader2 } from "lucide-react";
 import type { StorefrontOrg, StorefrontWebsite } from "@/hooks/useStorefront";
 
@@ -29,6 +30,7 @@ export function StorefrontContact({ org, website, primaryColor }: Props) {
 
     setSending(true);
     try {
+      const attribution = getAttribution();
       // Insert into leads table via edge function for proper org association
       const { error } = await supabase.functions.invoke("website-lead", {
         body: {
@@ -38,6 +40,7 @@ export function StorefrontContact({ org, website, primaryColor }: Props) {
           phone: phone.trim() || null,
           message: message.trim() || null,
           source: "website",
+          attribution: attribution,
         },
       });
       if (error) throw error;
