@@ -122,10 +122,13 @@ export async function evoGoSendText(
   instanceId: string,
   payload: { number: string; text: string; delay?: number; mentionedJid?: string[] },
 ): Promise<EvoGoResponse> {
-  // Try both Evolution Go (whatsmeow) and Evolution API (Node.js) v2 paths
+  // Try Evolution Go path first
   let res = await evoGoRequest("POST", "/send/text", { instanceId, body: payload });
-  if (!res.ok && (res.status === 404 || res.status === 401)) {
-    console.log(`[evo-go] /send/text returned ${res.status}, trying /message/sendText/${instanceId}`);
+  
+  if (!res.ok && (res.status === 404 || res.status === 401 || res.status === 405)) {
+    console.log(`[evo-go] /send/text failed (${res.status}), trying v2 paths`);
+    
+    // Try Evolution API v2 standard path
     res = await evoGoRequest("POST", `/message/sendText/${instanceId}`, { instanceId, body: payload });
   }
   return res;
@@ -163,26 +166,33 @@ export async function evoGoSendMedia(
     }
   };
 
-  // Try Evolution Go paths first
+  // 1. Try Evolution Go (whatsmeow)
   let res = await evoGoRequest("POST", "/send/media", { instanceId, body: bodyGo });
-  
-  // If not found or unauthorized, try Evolution API v2 paths
+  if (res.ok) return res;
+
+  // 2. Try Evolution API v2 standard path (/message/sendMedia)
   if (!res.ok && (res.status === 404 || res.status === 401 || res.status === 405)) {
-    console.log(`[evo-go] /send/media failed (${res.status}), trying v2 paths`);
-    
-    // Try /message/sendMedia/{instance} with both flat and nested bodies
+    console.log(`[evo-go] /send/media failed (${res.status}), trying /message/sendMedia`);
     res = await evoGoRequest("POST", `/message/sendMedia/${instanceId}`, { instanceId, body: bodyV2 });
     if (!res.ok && res.status === 400) {
-      console.log(`[evo-go] /message/sendMedia returned 400, trying nested mediaMessage`);
       res = await evoGoRequest("POST", `/message/sendMedia/${instanceId}`, { instanceId, body: bodyV2Nested });
     }
-    
-    // If still failing with 404, try /message/image/{instance} (standard for some v2 versions)
-    if (!res.ok && (payload.type === "image" || !payload.type) && (res.status === 404 || res.status === 405)) {
-      console.log(`[evo-go] trying /message/image/${instanceId}`);
-      res = await evoGoRequest("POST", `/message/image/${instanceId}`, { instanceId, body: bodyV2 });
-    }
+    if (res.ok) return res;
   }
+
+  // 3. Try Evolution API v2 legacy image path (/message/image)
+  if (!res.ok && (payload.type === "image" || !payload.type) && (res.status === 404 || res.status === 405)) {
+    console.log(`[evo-go] trying /message/image`);
+    res = await evoGoRequest("POST", `/message/image/${instanceId}`, { instanceId, body: bodyV2 });
+    if (res.ok) return res;
+  }
+
+  // 4. Try Evolution API v2 legacy media path (/message/media)
+  if (!res.ok && (res.status === 404 || res.status === 405)) {
+    console.log(`[evo-go] trying /message/media`);
+    res = await evoGoRequest("POST", `/message/media/${instanceId}`, { instanceId, body: bodyV2 });
+  }
+
   return res;
 }
 
