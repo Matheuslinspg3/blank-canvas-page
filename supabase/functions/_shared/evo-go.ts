@@ -95,10 +95,13 @@ export async function evoGoRequest(
   console.log(`[evo-go] ${method} ${url} instanceId=${opts.instanceId ?? "none"}`);
   try {
     let last: EvoGoResponse | null = null;
-    for (const headers of buildHeaderCandidates(opts.instanceId)) {
-      const authType = headers["Authorization"] ? "Bearer" : (headers["apikey"] ? "apikey" : "none");
-      const hasInst = !!headers["Instance-Id"];
+    const candidates = buildHeaderCandidates(opts.instanceId);
+    
+    for (const headers of candidates) {
+      const authType = headers["Authorization"] ? "Bearer" : (headers["apikey"] ? "apikey" : (headers["token"] ? "token" : "none"));
+      const tokenValue = headers["Authorization"]?.replace("Bearer ", "") || headers["apikey"] || headers["token"];
       
+      // Try with headers
       const res = await fetch(url, {
         method,
         headers,
