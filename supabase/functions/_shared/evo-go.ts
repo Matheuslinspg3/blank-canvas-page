@@ -49,13 +49,31 @@ function buildHeaderCandidates(instanceId?: string): Record<string, string>[] {
     }
   };
 
-  for (const token of [GO_TOKEN, GLOBAL_KEY].filter(Boolean)) {
+  const tokens = [GO_TOKEN, GLOBAL_KEY].filter(Boolean);
+
+  for (const token of tokens) {
+    // Standard Evolution API (Node/Go)
     add({ ...baseHeaders(instanceId), Authorization: `Bearer ${token}` });
-  }
-  for (const token of [GLOBAL_KEY, GO_TOKEN].filter(Boolean)) {
     add({ ...baseHeaders(instanceId), apikey: token });
+    
+    // Wuzapi / Legacy Go variations
+    add({ ...baseHeaders(instanceId), token: token });
+    add({ ...baseHeaders(instanceId), "X-Instance-Token": token });
+    
+    // Variation: instance instead of Instance-Id
+    if (instanceId) {
+      const baseAlt = { "Content-Type": "application/json", instance: instanceId };
+      add({ ...baseAlt, Authorization: `Bearer ${token}` });
+      add({ ...baseAlt, apikey: token });
+      add({ ...baseAlt, token: token });
+    }
   }
-  add(baseHeaders(instanceId));
+
+  // Last resort: just the instance ID as auth (some Go versions do this)
+  if (instanceId) {
+    add({ "Content-Type": "application/json", "Instance-Id": instanceId });
+    add({ "Content-Type": "application/json", token: instanceId });
+  }
 
   return candidates;
 }
@@ -77,9 +95,14 @@ export async function evoGoRequest(
   console.log(`[evo-go] ${method} ${url} instanceId=${opts.instanceId ?? "none"}`);
   try {
     let last: EvoGoResponse | null = null;
-    for (const headers of buildHeaderCandidates(opts.instanceId)) {
-      const authType = headers["Authorization"] ? "Bearer" : (headers["apikey"] ? "apikey" : "none");
-      const hasInst = !!headers["Instance-Id"];
+    const candidates = buildHeaderCandidates(opts.instanceId);
+    
+    for (const headers of candidates) {
+      const authType = headers["Authorization"] ? "Bearer" : (headers["apikey"] ? "apikey" : (headers["token"] ? "token" : "none"));
+      const tokenValue = headers["Authorization"]?.replace("Bearer ", "") || headers["apikey"] || headers["token"];
+      const hasInst = !!headers["Instance-Id"] || !!headers["instance"];
+      
+      console.log(`[evo-go] Attempting with auth=${authType} token=${tokenValue ? tokenValue.slice(0, 5) + "..." : "none"} hasInst=${hasInst}`);
       
       const res = await fetch(url, {
         method,
@@ -95,7 +118,22 @@ export async function evoGoRequest(
         return last;
       }
 
-      console.warn(`[evo-go] attempt failed status=${res.status} auth=${authType} hasInst=${hasInst} raw=${raw.slice(0, 200)}; trying next candidate`);
+      // If headers fail with 401, try query param as fallback for this specific token
+      if (res.status === 401 && tokenValue) {
+        const separator = url.includes("?") ? "&" : "?";
+        const urlWithQuery = `${url}${separator}token=${tokenValue}`;
+        const resQuery = await fetch(urlWithQuery, {
+          method,
+          headers: { "Content-Type": "application/json", "Instance-Id": opts.instanceId || "" },
+          body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+        });
+        if (resQuery.ok) {
+           const qRaw = await resQuery.text();
+           return { ok: true, status: resQuery.status, data: qRaw ? JSON.parse(qRaw) : null, raw: qRaw };
+        }
+      }
+
+      console.warn(`[evo-go] attempt failed status=${res.status} auth=${authType} hasInst=${!!headers["Instance-Id"]} raw=${raw.slice(0, 200)}; trying next candidate`);
     }
 
     console.error(`[evo-go] all auth attempts failed for ${method} ${url}. final status=${last?.status} raw=${last?.raw?.slice(0, 300)}`);
@@ -122,11 +160,16 @@ export async function evoGoSendText(
   instanceId: string,
   payload: { number: string; text: string; delay?: number; mentionedJid?: string[] },
 ): Promise<EvoGoResponse> {
-  // Try Evolution Go path first
+  // 1. Try Evolution Go path first
   let res = await evoGoRequest("POST", "/send/text", { instanceId, body: payload });
   
+  if (!res.ok && (res.status === 404 || res.status === 405)) {
+    console.log(`[evo-go] /send/text not found, trying /api/send/text`);
+    res = await evoGoRequest("POST", "/api/send/text", { instanceId, body: payload });
+  }
+
   if (!res.ok && (res.status === 404 || res.status === 401 || res.status === 405)) {
-    console.log(`[evo-go] /send/text failed (${res.status}), trying v2 paths`);
+    console.log(`[evo-go] standard paths failed (${res.status}), trying v2 paths`);
     
     // Try Evolution API v2 standard path
     res = await evoGoRequest("POST", `/message/sendText/${instanceId}`, { instanceId, body: payload });
@@ -168,17 +211,24 @@ export async function evoGoSendMedia(
 
   // 1. Try Evolution Go (whatsmeow)
   let res = await evoGoRequest("POST", "/send/media", { instanceId, body: bodyGo });
+  
+  if (!res.ok && (res.status === 404 || res.status === 405)) {
+    console.log(`[evo-go] /send/media not found, trying /api/send/media`);
+    res = await evoGoRequest("POST", "/api/send/media", { instanceId, body: bodyGo });
+  }
+
   if (res.ok) return res;
 
   // 2. Try Evolution API v2 standard path (/message/sendMedia)
   if (!res.ok && (res.status === 404 || res.status === 401 || res.status === 405)) {
-    console.log(`[evo-go] /send/media failed (${res.status}), trying /message/sendMedia`);
+    console.log(`[evo-go] trying /message/sendMedia`);
     res = await evoGoRequest("POST", `/message/sendMedia/${instanceId}`, { instanceId, body: bodyV2 });
     if (!res.ok && res.status === 400) {
       res = await evoGoRequest("POST", `/message/sendMedia/${instanceId}`, { instanceId, body: bodyV2Nested });
     }
     if (res.ok) return res;
   }
+
 
   // 3. Try Evolution API v2 legacy image path (/message/image)
   if (!res.ok && (payload.type === "image" || !payload.type) && (res.status === 404 || res.status === 405)) {
