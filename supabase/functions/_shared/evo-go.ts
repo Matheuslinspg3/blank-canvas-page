@@ -100,8 +100,10 @@ export async function evoGoRequest(
     for (const headers of candidates) {
       const authType = headers["Authorization"] ? "Bearer" : (headers["apikey"] ? "apikey" : (headers["token"] ? "token" : "none"));
       const tokenValue = headers["Authorization"]?.replace("Bearer ", "") || headers["apikey"] || headers["token"];
+      const hasInst = !!headers["Instance-Id"] || !!headers["instance"];
       
-      // Try with headers
+      console.log(`[evo-go] Attempting with auth=${authType} token=${tokenValue ? tokenValue.slice(0, 5) + "..." : "none"} hasInst=${hasInst}`);
+      
       const res = await fetch(url, {
         method,
         headers,
