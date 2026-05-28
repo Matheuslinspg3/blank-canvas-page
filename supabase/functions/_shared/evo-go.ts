@@ -209,17 +209,24 @@ export async function evoGoSendMedia(
 
   // 1. Try Evolution Go (whatsmeow)
   let res = await evoGoRequest("POST", "/send/media", { instanceId, body: bodyGo });
+  
+  if (!res.ok && (res.status === 404 || res.status === 405)) {
+    console.log(`[evo-go] /send/media not found, trying /api/send/media`);
+    res = await evoGoRequest("POST", "/api/send/media", { instanceId, body: bodyGo });
+  }
+
   if (res.ok) return res;
 
   // 2. Try Evolution API v2 standard path (/message/sendMedia)
   if (!res.ok && (res.status === 404 || res.status === 401 || res.status === 405)) {
-    console.log(`[evo-go] /send/media failed (${res.status}), trying /message/sendMedia`);
+    console.log(`[evo-go] trying /message/sendMedia`);
     res = await evoGoRequest("POST", `/message/sendMedia/${instanceId}`, { instanceId, body: bodyV2 });
     if (!res.ok && res.status === 400) {
       res = await evoGoRequest("POST", `/message/sendMedia/${instanceId}`, { instanceId, body: bodyV2Nested });
     }
     if (res.ok) return res;
   }
+
 
   // 3. Try Evolution API v2 legacy image path (/message/image)
   if (!res.ok && (payload.type === "image" || !payload.type) && (res.status === 404 || res.status === 405)) {
