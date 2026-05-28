@@ -71,14 +71,6 @@ serve(async (req) => {
       });
     }
 
-    if (!config) {
-      return new Response(JSON.stringify({
-        error: "Configuração WhatsApp não encontrada para essa organização/instância",
-        debug: { instance_name },
-      }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     if (!config.instance_name || !config.instance_token) {
       return new Response(JSON.stringify({
