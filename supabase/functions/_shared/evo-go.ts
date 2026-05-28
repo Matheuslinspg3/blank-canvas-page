@@ -158,11 +158,16 @@ export async function evoGoSendText(
   instanceId: string,
   payload: { number: string; text: string; delay?: number; mentionedJid?: string[] },
 ): Promise<EvoGoResponse> {
-  // Try Evolution Go path first
+  // 1. Try Evolution Go path first
   let res = await evoGoRequest("POST", "/send/text", { instanceId, body: payload });
   
+  if (!res.ok && (res.status === 404 || res.status === 405)) {
+    console.log(`[evo-go] /send/text not found, trying /api/send/text`);
+    res = await evoGoRequest("POST", "/api/send/text", { instanceId, body: payload });
+  }
+
   if (!res.ok && (res.status === 404 || res.status === 401 || res.status === 405)) {
-    console.log(`[evo-go] /send/text failed (${res.status}), trying v2 paths`);
+    console.log(`[evo-go] standard paths failed (${res.status}), trying v2 paths`);
     
     // Try Evolution API v2 standard path
     res = await evoGoRequest("POST", `/message/sendText/${instanceId}`, { instanceId, body: payload });
