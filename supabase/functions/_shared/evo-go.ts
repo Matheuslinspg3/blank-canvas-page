@@ -1,11 +1,9 @@
 /**
  * Evolution GO (whatsmeow) HTTP client.
  *
- * Auth contract (verified against evolution-foundation/evolution-go source):
- *   - Header: `apikey: <token>` (lowercase)
- *   - For /send/*, /chat/*, /group/*, /user/*, /message/* the token must be the
- *     INSTANCE token (looked up by the server via GetInstanceByToken).
- *   - For /instance/all, /instance/create the token must be the GLOBAL_API_KEY.
+ * Auth contract for this Evolution GO install:
+ *   - Admin routes: `apikey: <GLOBAL_API_KEY>`.
+ *   - Send routes: `apikey: <instance token>` + `instanceId: <instance UUID/name>`.
  *
  * Endpoints:
  *   POST /send/text     { number, text, ... }
@@ -36,7 +34,7 @@ export interface EvoGoResponse {
 export async function evoGoRequest(
   method: string,
   path: string,
-  opts: { apikey?: string; body?: any } = {},
+  opts: { apikey?: string; instanceId?: string; body?: any } = {},
 ): Promise<EvoGoResponse> {
   if (!EVO_GO_BASE_URL) {
     return { ok: false, status: 500, data: { message: "EVOLUTION_GO_URL not configured" }, raw: "EVOLUTION_GO_URL not configured" };
@@ -45,8 +43,9 @@ export async function evoGoRequest(
   const apikey = (opts.apikey ?? "").trim();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (apikey) headers["apikey"] = apikey;
+  if (opts.instanceId) headers["instanceId"] = opts.instanceId;
 
-  console.log(`[evo-go] ${method} ${url} apikey=${apikey ? apikey.slice(0,5) + "..." : "none"}`);
+  console.log(`[evo-go] ${method} ${url} apikey=${apikey ? apikey.slice(0,5) + "..." : "none"} instanceId=${opts.instanceId || "none"}`);
 
   try {
     const res = await fetch(url, {
@@ -86,13 +85,15 @@ export interface EvoMediaPayload {
 }
 
 export async function evoGoSendText(
+  instanceId: string,
   instanceToken: string,
   payload: { number: string; text: string; delay?: number; mentionedJid?: string[] },
 ): Promise<EvoGoResponse> {
-  return evoGoRequest("POST", "/send/text", { apikey: instanceToken, body: payload });
+  return evoGoRequest("POST", "/send/text", { apikey: instanceToken, instanceId, body: payload });
 }
 
 export async function evoGoSendMedia(
+  instanceId: string,
   instanceToken: string,
   payload: EvoMediaPayload,
 ): Promise<EvoGoResponse> {
@@ -106,21 +107,22 @@ export async function evoGoSendMedia(
   if (payload.delay !== undefined) body.delay = payload.delay;
   if (payload.mentionedJid) body.mentionedJid = payload.mentionedJid;
   if (payload.mentionAll) body.mentionAll = payload.mentionAll;
-  return evoGoRequest("POST", "/send/media", { apikey: instanceToken, body });
+  return evoGoRequest("POST", "/send/media", { apikey: instanceToken, instanceId, body });
 }
 
 export async function evoGoSendAudio(
+  instanceId: string,
   instanceToken: string,
   payload: { number: string; url: string; delay?: number },
 ): Promise<EvoGoResponse> {
-  return evoGoSendMedia(instanceToken, { ...payload, type: "audio" });
+  return evoGoSendMedia(instanceId, instanceToken, { ...payload, type: "audio" });
 }
 
 export async function evoGoDownloadImage(
-  instanceToken: string,
+  instanceId: string,
   body: Record<string, any>,
 ): Promise<EvoGoResponse> {
-  return evoGoRequest("POST", "/message/downloadimage", { apikey: instanceToken, body });
+  return evoGoRequest("POST", "/message/downloadimage", { apikey: EVO_GO_GLOBAL_KEY, instanceId, body });
 }
 
 export function evoGoExtractMessageId(data: any): string | null {
@@ -151,6 +153,22 @@ export async function resolveEvoConfig(
   const idTrim = (identifier ?? "").trim();
   if (!idTrim) return null;
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idTrim);
+  const embeddedOrgId = idTrim.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0] ?? null;
+
+  // Evolution GO's live instance list is the source of truth. Some DB rows can
+  // remain connected with old instance names/tokens after reconnects.
+  if (embeddedOrgId) {
+    const live = await refreshInstancesForOrg(sb, embeddedOrgId);
+    const connected = live?.find((r) => r.status === "connected") || live?.[0];
+    if (connected?.instance_name && connected?.instance_token) {
+      return {
+        organization_id: embeddedOrgId,
+        instance_name: connected.instance_name,
+        instance_token: connected.instance_token,
+        status: connected.status || "connected",
+      };
+    }
+  }
 
   // 1) whatsapp_instances by instance_name
   let inst: any = null;
