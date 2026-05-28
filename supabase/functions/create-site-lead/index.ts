@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { organization_id, name, email, phone, message, broker_token, property_id, consent_voice_call: explicitConsent } = await req.json();
+    const { organization_id, name, email, phone, message, broker_token, property_id, attribution, consent_voice_call: explicitConsent } = await req.json();
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -91,6 +91,9 @@ Deno.serve(async (req) => {
       organization_id: resolvedOrgId,
       lead_stage_id: stageId,
       created_by: createdBy,
+      attribution_context: attribution || {},
+      traffic_source: attribution?.utm_source || attribution?.utm_campaign || null,
+      conversion_identifier: attribution?.utm_content || attribution?.utm_term || null,
       consent_voice_call: resolveVoiceConsent({
         source: leadSource,
         explicit: typeof explicitConsent === "boolean" ? explicitConsent : null,
@@ -103,9 +106,31 @@ Deno.serve(async (req) => {
     }
     if (property_id) leadPayload.property_id = property_id;
 
-    const { error } = await supabase.from("leads").insert(leadPayload);
-
+    const { data: lead, error } = await supabase.from("leads").insert(leadPayload).select().single();
     if (error) throw error;
+
+    // Trigger platform alert if possible
+    if (lead) {
+      try {
+        await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/platform-alerts`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            type: "lead",
+            data: {
+              ...lead,
+              organization_id: resolvedOrgId
+            },
+            attribution: attribution || {}
+          }),
+        });
+      } catch (alertErr) {
+        console.warn("Failed to trigger platform alert:", alertErr);
+      }
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

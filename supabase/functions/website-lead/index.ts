@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { organizationId, name, email, phone, message, source } = await req.json();
+    const { organizationId, name, email, phone, message, source, attribution } = await req.json();
 
     if (!organizationId || !name) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
     });
 
     // Insert lead
-    const { error } = await supabaseAdmin.from("leads").insert({
+    const { data: lead, error } = await supabaseAdmin.from("leads").insert({
       organization_id: organizationId,
       name: name,
       email: email || null,
@@ -69,9 +69,35 @@ Deno.serve(async (req) => {
       lead_stage_id: stageId,
       created_by: createdBy,
       consent_voice_call,
-    });
+      attribution_context: attribution || {},
+      traffic_source: attribution?.utm_source || attribution?.utm_campaign || null,
+      conversion_identifier: attribution?.utm_content || attribution?.utm_term || null,
+    }).select().single();
 
     if (error) throw error;
+
+    // Trigger platform alert
+    if (lead) {
+      try {
+        await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/platform-alerts`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            type: "lead",
+            data: {
+              ...lead,
+              organization_id: organizationId
+            },
+            attribution: attribution || {}
+          }),
+        });
+      } catch (alertErr) {
+        console.warn("Failed to trigger platform alert:", alertErr);
+      }
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

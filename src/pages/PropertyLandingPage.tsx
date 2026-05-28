@@ -16,6 +16,7 @@ import { proxyDriveImageUrl } from "@/lib/utils";
 import { getImageUrl, type ImageRecord } from "@/lib/imageUrl";
 import { useLandingContent } from "@/hooks/useLandingContent";
 import { useLandingOverrides } from "@/hooks/useLandingOverrides";
+import { getAttribution } from "@/hooks/useAttribution";
 // HabitaeLogo intentionally not imported here — header logo comes from `usePublicBranding`.
 import { usePublicBranding } from "@/hooks/usePublicBranding";
 import { Hash } from "lucide-react";
@@ -421,6 +422,7 @@ export default function PropertyLandingPage(props: PropertyLandingPageProps = {}
     if (!property) return;
     setSubmitting(true);
     try {
+      const attribution = getAttribution();
       await supabase.functions.invoke("create-site-lead", {
         body: {
           name: formData.name,
@@ -429,6 +431,7 @@ export default function PropertyLandingPage(props: PropertyLandingPageProps = {}
           message: formData.message,
           broker_token: brokerToken ?? null,
           property_id: id,
+          attribution: attribution,
         },
       });
       toast({ title: "Mensagem enviada!", description: "Em breve entraremos em contato." });
