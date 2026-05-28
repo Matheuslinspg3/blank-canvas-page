@@ -1,9 +1,9 @@
 /**
  * Evolution GO (whatsmeow) HTTP client.
  *
- * Auth contract (verified against Evolution GO Postman docs):
- *   - Header: `apikey: <GLOBAL_API_KEY>`
- *   - Header: `instanceId: <instance UUID/name>` for routes operating on an instance.
+ * Auth contract for this Evolution GO install:
+ *   - Admin routes: `apikey: <GLOBAL_API_KEY>`.
+ *   - Send routes: `apikey: <instance token>` + `instanceId: <instance UUID/name>`.
  *
  * Endpoints:
  *   POST /send/text     { number, text, ... }
@@ -153,15 +153,16 @@ export async function resolveEvoConfig(
   const idTrim = (identifier ?? "").trim();
   if (!idTrim) return null;
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idTrim);
+  const embeddedOrgId = idTrim.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0] ?? null;
 
   // Evolution GO's live instance list is the source of truth. Some DB rows can
   // remain connected with old instance names/tokens after reconnects.
-  if (isUuid) {
-    const live = await refreshInstancesForOrg(sb, idTrim);
+  if (embeddedOrgId) {
+    const live = await refreshInstancesForOrg(sb, embeddedOrgId);
     const connected = live?.find((r) => r.status === "connected") || live?.[0];
     if (connected?.instance_name && connected?.instance_token) {
       return {
-        organization_id: idTrim,
+        organization_id: embeddedOrgId,
         instance_name: connected.instance_name,
         instance_token: connected.instance_token,
         status: connected.status || "connected",
