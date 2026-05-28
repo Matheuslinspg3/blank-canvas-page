@@ -67,7 +67,7 @@ serve(async (req) => {
     const audioBase64 = base64Encode(audioBuffer);
 
     // EvoGo accepts either a public URL or a data URL in `url`.
-    const evoRes = await evoGoSendAudio(config.instance_name, {
+    const evoRes = await evoGoSendAudio(config.instance_token, {
       number: cleanPhone,
       url: `data:audio/webm;base64,${audioBase64}`,
     });
