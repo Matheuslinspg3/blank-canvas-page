@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDemo } from "@/contexts/DemoContext";
@@ -23,6 +23,17 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { subscription, loadingSub } = useSubscription();
   const location = useLocation();
 
+  // Safety timeout: if loading takes more than 12s, force redirect to /auth
+  const [timedOut, setTimedOut] = useState(false);
+  useEffect(() => {
+    if (!loading && user) {
+      setTimedOut(false);
+      return;
+    }
+    const timer = setTimeout(() => setTimedOut(true), 12000);
+    return () => clearTimeout(timer);
+  }, [loading, user]);
+
   // Session guard - limits to 2 devices per user
   useSessionGuard(user?.id);
 
@@ -32,7 +43,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   // Se não estiver carregando e não tiver usuário, redireciona imediatamente
-  if (!loading && !user) {
+  if ((!loading && !user) || (timedOut && !user)) {
     return <Navigate to="/auth" replace />;
   }
 
