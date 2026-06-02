@@ -89,7 +89,8 @@ export function MaintenanceGuard({ children }: { children: ReactNode }) {
   }, [isMaintenanceMode, maintenanceLoading, authLoading, user, isAdmin, adminLoading, isDemoMode, isPublicRoute, location.pathname, navigate]);
 
   // Show brief loader while checking maintenance status (only on initial load)
-  if (maintenanceLoading && !isPublicRoute) {
+  // For unauthenticated users, skip maintenance check entirely to avoid infinite loading
+  if (maintenanceLoading && !isPublicRoute && !authLoading && user) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
