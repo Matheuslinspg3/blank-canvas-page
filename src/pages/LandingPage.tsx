@@ -167,6 +167,14 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const utmLink = useUtmLink();
 
+  // Timeout: don't let auth loading block the landing page for more than 3s
+  const [authTimedOut, setAuthTimedOut] = useState(false);
+  useEffect(() => {
+    if (!loading) return;
+    const t = setTimeout(() => setAuthTimedOut(true), 3000);
+    return () => clearTimeout(t);
+  }, [loading]);
+
   useEffect(() => {
     if (!loading && session) navigate("/dashboard", { replace: true });
   }, [session, loading, navigate]);
@@ -187,7 +195,8 @@ export default function LandingPage() {
   });
 
   // Show nothing while checking auth, or if logged in
-  if (loading || session) return null;
+  // Show nothing while checking auth, or if logged in (max 3s wait)
+  if ((loading && !authTimedOut) || session) return null;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
