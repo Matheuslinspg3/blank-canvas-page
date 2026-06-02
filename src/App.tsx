@@ -26,6 +26,7 @@ import { AppMobileLayout } from "@/components/app/AppMobileLayout";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import { ClarityProvider } from "@/components/ClarityProvider";
 import { MaintenanceGuard } from "@/components/MaintenanceGuard";
+import { AttributionTracker } from "@/components/AttributionTracker";
 import { Loader2 } from "lucide-react";
 import { lazyRetry } from "@/utils/lazyRetry";
 
@@ -129,6 +130,7 @@ const App = () => (
                   <Sonner />
                   <FloatingImportProgress />
                   <ClarityProvider />
+                  <AttributionTracker />
                   <CookieConsentBanner />
                   <Suspense fallback={<PageLoader />}>
                     <MaintenanceGuard>
