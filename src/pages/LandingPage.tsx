@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useIsMobile } from "@/hooks/use-mobile";
 import portaLogo3D from "@/assets/porta-logo-3d.jpg";
@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isPublicCommercialPlan } from "@/lib/planLimits";
+import { useUtmLink } from "@/hooks/useUtmLink";
 
 /* ─── Helpers ─── */
 const fmt = (value: number | null | undefined) =>
@@ -65,6 +66,7 @@ function HeroSection() {
   const rafRef = useRef<number>(0);
   const [rotateX, setRotateX] = useState(0);
   const [rotateY, setRotateY] = useState(0);
+  const utmLink = useUtmLink();
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -144,7 +146,7 @@ function HeroSection() {
         </p>
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
           <Button variant="gold" size="xl" asChild>
-            <Link to="/auth?tab=cadastro">
+            <Link to={utmLink("/auth?tab=cadastro")}>
               Teste grátis por 15 dias
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
@@ -163,6 +165,7 @@ function HeroSection() {
 export default function LandingPage() {
   const { session, loading } = useAuth();
   const navigate = useNavigate();
+  const utmLink = useUtmLink();
 
   useEffect(() => {
     if (!loading && session) navigate("/dashboard", { replace: true });
@@ -202,7 +205,7 @@ export default function LandingPage() {
               <Link to="/auth">Entrar</Link>
             </Button>
             <Button variant="default" size="sm" asChild>
-              <Link to="/auth?tab=cadastro">Criar conta grátis</Link>
+              <Link to={utmLink("/auth?tab=cadastro")}>Criar conta grátis</Link>
             </Button>
           </div>
         </div>
@@ -345,7 +348,7 @@ export default function LandingPage() {
                         className="w-full"
                         asChild
                       >
-                        <Link to="/auth?tab=cadastro">
+                        <Link to={utmLink("/auth?tab=cadastro")}>
                           {plan.price_monthly === 0 ? "Começar grátis" : "Testar 15 dias grátis"}
                         </Link>
                       </Button>
@@ -425,7 +428,7 @@ export default function LandingPage() {
           className="mt-8 bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg"
           asChild
         >
-          <Link to="/auth?tab=cadastro">
+          <Link to={utmLink("/auth?tab=cadastro")}>
             Criar minha conta grátis <ArrowRight className="ml-2 h-5 w-5" />
           </Link>
         </Button>

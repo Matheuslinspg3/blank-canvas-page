@@ -27,23 +27,24 @@ Deno.serve(async (req) => {
     let html = "";
 
     const attributionHtml = attribution ? `
-      <h3>Rastreabilidade (Marketing)</h3>
-      <ul>
-        <li><b>Origem (utm_source):</b> ${attribution.utm_source || "-"}</li>
-        <li><b>Meio (utm_medium):</b> ${attribution.utm_medium || "-"}</li>
-        <li><b>Campanha (utm_campaign):</b> ${attribution.utm_campaign || "-"}</li>
-        <li><b>Conteúdo (utm_content):</b> ${attribution.utm_content || "-"}</li>
-        <li><b>Termo (utm_term):</b> ${attribution.utm_term || "-"}</li>
-        <li><b>fbclid:</b> ${attribution.fbclid || "-"}</li>
-        <li><b>gclid:</b> ${attribution.gclid || "-"}</li>
-        <li><b>Página de entrada:</b> ${attribution.landing_page || "-"}</li>
-        <li><b>Referrer:</b> ${attribution.referrer || "-"}</li>
-        <li><b>Data da primeira visita:</b> ${attribution.first_seen_at || "-"}</li>
-      </ul>
-    ` : "<p>Sem dados de rastreabilidade.</p>";
+      <h3 style="color:#1a73e8;border-bottom:1px solid #e0e0e0;padding-bottom:8px;">📊 Rastreabilidade (Marketing)</h3>
+      <table style="border-collapse:collapse;width:100%;font-size:14px;">
+        <tr style="background:#f8f9fa;"><td style="padding:6px 10px;font-weight:bold;">Origem (utm_source)</td><td style="padding:6px 10px;">${attribution.utm_source || "(direto)"}</td></tr>
+        <tr><td style="padding:6px 10px;font-weight:bold;">Meio (utm_medium)</td><td style="padding:6px 10px;">${attribution.utm_medium || "-"}</td></tr>
+        <tr style="background:#f8f9fa;"><td style="padding:6px 10px;font-weight:bold;">Campanha (utm_campaign)</td><td style="padding:6px 10px;">${attribution.utm_campaign || "-"}</td></tr>
+        <tr><td style="padding:6px 10px;font-weight:bold;">Conteúdo/Criativo (utm_content)</td><td style="padding:6px 10px;">${attribution.utm_content || "-"}</td></tr>
+        <tr style="background:#f8f9fa;"><td style="padding:6px 10px;font-weight:bold;">Termo/Público (utm_term)</td><td style="padding:6px 10px;">${attribution.utm_term || "-"}</td></tr>
+        <tr><td style="padding:6px 10px;font-weight:bold;">fbclid</td><td style="padding:6px 10px;">${attribution.fbclid || "-"}</td></tr>
+        <tr style="background:#f8f9fa;"><td style="padding:6px 10px;font-weight:bold;">gclid</td><td style="padding:6px 10px;">${attribution.gclid || "-"}</td></tr>
+        <tr><td style="padding:6px 10px;font-weight:bold;">Página de entrada</td><td style="padding:6px 10px;">${attribution.landing_page || "-"}</td></tr>
+        <tr style="background:#f8f9fa;"><td style="padding:6px 10px;font-weight:bold;">Referrer</td><td style="padding:6px 10px;">${attribution.referrer || "-"}</td></tr>
+        <tr><td style="padding:6px 10px;font-weight:bold;">Primeira visita</td><td style="padding:6px 10px;">${attribution.first_seen_at || "-"}</td></tr>
+      </table>
+    ` : "<p><em>Sem dados de rastreabilidade (acesso direto ou UTMs não capturados).</em></p>";
 
     if (type === "signup") {
-      subject = `🚀 Novo Cadastro: ${data.name}`;
+      const source = attribution?.utm_source ? ` [via ${attribution.utm_source}/${attribution.utm_campaign || 'direct'}]` : '';
+      subject = `🚀 Novo Cadastro: ${data.name}${source}`;
       html = `
         <h2>Novo usuário cadastrado na plataforma</h2>
         <ul>
