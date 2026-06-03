@@ -17,6 +17,7 @@ export interface PropertyFilters {
   minBedrooms: number | null;
   neighborhoods: string[];
   cities: string[];
+  streets: string[];
   minArea: number | null;
   minSuites: number | null;
   minParking: number | null;
@@ -45,6 +46,7 @@ export function createDefaultPropertyFilters(): PropertyFilters {
     minBedrooms: null,
     neighborhoods: [],
     cities: [],
+    streets: [],
     minArea: null,
     minSuites: null,
     minParking: null,
@@ -81,6 +83,7 @@ export function usePropertyFilters() {
     minBedrooms: searchParams.get('quartos') ? Number(searchParams.get('quartos')) : null,
     neighborhoods: searchParams.get('bairros') ? searchParams.get('bairros')!.split(',') : [],
     cities: searchParams.get('cidades') ? searchParams.get('cidades')!.split(',') : [],
+    streets: searchParams.get('ruas') ? searchParams.get('ruas')!.split(',') : [],
     minArea: searchParams.get('area') ? Number(searchParams.get('area')) : null,
     minSuites: searchParams.get('suites') ? Number(searchParams.get('suites')) : null,
     minParking: searchParams.get('vagas') ? Number(searchParams.get('vagas')) : null,
@@ -111,6 +114,7 @@ export function usePropertyFilters() {
     if (filters.minBedrooms) params.set('quartos', String(filters.minBedrooms));
     if (filters.neighborhoods.length > 0) params.set('bairros', filters.neighborhoods.join(','));
     if (filters.cities.length > 0) params.set('cidades', filters.cities.join(','));
+    if (filters.streets.length > 0) params.set('ruas', filters.streets.join(','));
     if (filters.minArea) params.set('area', String(filters.minArea));
     if (filters.minSuites) params.set('suites', String(filters.minSuites));
     if (filters.minParking) params.set('vagas', String(filters.minParking));
@@ -228,6 +232,7 @@ export function usePropertyFilters() {
       filters.minBedrooms !== null ||
       filters.neighborhoods.length > 0 ||
       filters.cities.length > 0 ||
+      filters.streets.length > 0 ||
       filters.minArea !== null ||
       filters.minSuites !== null ||
       filters.minParking !== null ||
@@ -256,6 +261,7 @@ export function usePropertyFilters() {
     if (filters.minBedrooms !== null) count++;
     if (filters.neighborhoods.length > 0) count++;
     if (filters.cities.length > 0) count++;
+    if (filters.streets.length > 0) count++;
     if (filters.minArea !== null) count++;
     if (filters.minSuites !== null) count++;
     if (filters.minParking !== null) count++;
