@@ -25,7 +25,7 @@ interface Props {
  * Otherwise render the normal app routes.
  */
 export function TenantRouter({ children }: Props) {
-  const { isExternalDomain, organizationId, isLoading, notFound, error } = useTenantByHostname();
+  const { isExternalDomain, organizationId, isLoading, notFound, error, isTransientError } = useTenantByHostname();
   const { pathname } = useLocation();
 
   // Watchdog: if tenant resolution stays in `isLoading` for too long, allow
@@ -46,11 +46,11 @@ export function TenantRouter({ children }: Props) {
     return <>{children}</>;
   }
 
-  if (isLoading) {
+  if (isLoading || isTransientError) {
     return (
       <div className="flex items-center justify-center min-h-screen flex-col gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        {loadingTimedOut && (
+        {(loadingTimedOut || isTransientError) && (
           <div className="text-center px-4">
             <p className="text-sm text-muted-foreground mb-3">Carregando o site...</p>
             <button
@@ -65,7 +65,7 @@ export function TenantRouter({ children }: Props) {
     );
   }
 
-  if (notFound || error || !organizationId) {
+  if (notFound || (error && !isTransientError) || !organizationId) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
