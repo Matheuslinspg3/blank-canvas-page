@@ -46,7 +46,7 @@ function writeCache(hostname: string, organizationId: string | null) {
   } catch { /* quota / private mode — ignore */ }
 }
 
-const RPC_TIMEOUT_MS = 8_000;
+const RPC_TIMEOUT_MS = 15_000;
 
 /**
  * Resolves the current hostname to an organization_id.
@@ -74,7 +74,9 @@ export function useTenantByHostname() {
     enabled: !!platformSlug,
     staleTime: 30 * 60_000,
     gcTime: 60 * 60_000,
-    retry: 1,
+    retry: (failureCount, err) =>
+      failureCount < 2 &&
+      ((err as Error)?.name === "TimeoutError" || failureCount < 1),
     refetchOnMount: false,
     refetchOnReconnect: false,
     initialData: platformSlug && cached?.organizationId ? cached.organizationId : undefined,
@@ -98,7 +100,9 @@ export function useTenantByHostname() {
     enabled: isCustomDomain,
     staleTime: 30 * 60_000,
     gcTime: 60 * 60_000,
-    retry: 1,
+    retry: (failureCount, err) =>
+      failureCount < 2 &&
+      ((err as Error)?.name === "TimeoutError" || failureCount < 1),
     refetchOnMount: false,
     refetchOnReconnect: false,
     initialData: isCustomDomain && cached?.organizationId ? cached.organizationId : undefined,
@@ -173,11 +177,16 @@ export function useTenantByHostname() {
     });
   }
 
+  const activeError = activeQuery.error ?? null;
+  const isTransientError =
+    !!activeError && (activeError as Error)?.name === "TimeoutError";
+
   return {
     isExternalDomain,
     organizationId: orgId,
     isLoading: (isExternalDomain && activeIsResolving) || isRedirecting,
     notFound: truthfulNotFound,
-    error: activeQuery.error ?? null,
+    error: activeError,
+    isTransientError,
   };
 }
