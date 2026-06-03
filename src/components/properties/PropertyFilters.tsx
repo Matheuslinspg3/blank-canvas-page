@@ -23,6 +23,7 @@ import { PropertyFilters as FiltersType } from '@/hooks/usePropertyFilters';
 import { usePropertyTypes } from '@/hooks/usePropertyTypes';
 import { usePropertyOwners } from '@/hooks/usePropertyOwners';
 import { MultiSelectFilter } from '@/components/ui/multi-select-filter';
+import { StreetAutocompleteFilter } from '@/components/properties/StreetAutocompleteFilter';
 import { formatCurrency } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
@@ -262,7 +263,7 @@ export function PropertyFilters({
             <Separator />
 
             {/* Location */}
-            <Collapsible defaultOpen={filters.cities.length > 0 || filters.neighborhoods.length > 0}>
+            <Collapsible defaultOpen={filters.cities.length > 0 || filters.neighborhoods.length > 0 || filters.streets.length > 0}>
               <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium w-full">
                 <MapPin className="h-4 w-4 text-muted-foreground" /> Localização
                 <ChevronDown className="h-4 w-4 ml-auto" />
@@ -300,6 +301,15 @@ export function PropertyFilters({
                     />
                   </div>
                 )}
+                <div className="space-y-1 relative">
+                  <Label className="text-xs text-muted-foreground">Ruas</Label>
+                  <StreetAutocompleteFilter
+                    value={filters.streets}
+                    onChange={(next) => onUpdateFilter('streets', next)}
+                    cities={filters.cities}
+                    neighborhoods={filters.neighborhoods}
+                  />
+                </div>
               </CollapsibleContent>
             </Collapsible>
 
@@ -506,6 +516,12 @@ export function PropertyFilters({
             <Badge key={n} variant="secondary" className="gap-1">
               {n}
               <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter('neighborhoods', filters.neighborhoods.filter(x => x !== n))} />
+            </Badge>
+          ))}
+          {filters.streets.map(s => (
+            <Badge key={s} variant="secondary" className="gap-1">
+              📍 {s}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter('streets', filters.streets.filter(x => x !== s))} />
             </Badge>
           ))}
           {(filters.minPrice || filters.maxPrice) && (

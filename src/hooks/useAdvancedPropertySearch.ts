@@ -84,6 +84,7 @@ export function useAdvancedPropertySearch(
         p_sort_by: sortBy,
         p_owner_id: filters.ownerId || null,
         p_review_status: filters.reviewStatus && filters.reviewStatus !== 'all' ? filters.reviewStatus : null,
+        p_streets: filters.streets.length > 0 ? filters.streets : null,
       });
 
       if (error) {
