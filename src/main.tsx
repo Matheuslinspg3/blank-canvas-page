@@ -112,6 +112,8 @@ Sentry.init({
     "Failed to fetch",
     "NetworkError",
     "Load failed",
+    // SW load failures in cross-origin iframes (SecurityError / TypeError)
+    "sw.js load failed",
     // Expected product/plan limit errors — handled by controlled toasts.
     "ProductLimitError",
   ],
