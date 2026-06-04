@@ -13,6 +13,8 @@ const CHUNK_ERROR_PATTERNS = [
   // Server returned HTML (SPA fallback) instead of JS — Safari/Chrome variants
   /Unexpected token '<'/i,
   /expected expression, got '<'/i,
+  // Module resolved but default export missing — stale/corrupted chunk returned empty barrel
+  /resolved without a default export/i,
 ];
 
 export function isImportChunkError(error: unknown): boolean {
