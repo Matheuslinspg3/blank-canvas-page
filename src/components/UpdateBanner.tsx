@@ -26,7 +26,11 @@ function UpdateBannerInner() {
   } = useRegisterSW({
     onRegisteredSW(_swUrl, registration) {
       if (registration) {
-        setInterval(() => registration.update(), 30_000);
+        setInterval(() => {
+          registration.update().catch((err) => {
+            console.debug("[SW] periodic update failed:", err);
+          });
+        }, 30_000);
       }
     },
     onRegisterError(error) {
