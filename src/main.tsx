@@ -64,10 +64,30 @@ function setupServiceWorkerUpdateRoutine() {
 
   window.addEventListener("load", async () => {
     const registrations = await navigator.serviceWorker.getRegistrations();
-    registrations.forEach((reg) => {
-      observeRegistration(reg);
-      reg.update().catch(() => {});
-    });
+    for (const reg of registrations) {
+      const scriptUrl = reg.active?.scriptURL ?? reg.installing?.scriptURL ?? reg.waiting?.scriptURL ?? "";
+      const scopePath = new URL(reg.scope).pathname;
+
+      // Unregister orphan root-scope workers that point to a non-existent /sw.js
+      // (leftover from previous PWA plugin deploys)
+      const isOrphanRootWorker =
+        scopePath === "/" &&
+        !scriptUrl.includes("OneSignal") &&
+        (scriptUrl.endsWith("/sw.js") || scriptUrl === "");
+
+      if (isOrphanRootWorker) {
+        reg.unregister().catch(() => {});
+        continue;
+      }
+
+      // Only observe and update registrations that have a live worker
+      if (reg.active || reg.installing || reg.waiting) {
+        observeRegistration(reg);
+        reg.update().catch((err) => {
+          console.debug("[sw-update] failed:", err);
+        });
+      }
+    }
   });
 }
 
