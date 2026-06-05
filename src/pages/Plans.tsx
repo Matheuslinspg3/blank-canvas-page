@@ -53,8 +53,8 @@ interface PlanMeta { icon: React.ElementType; badge?: string; highlighted?: bool
 
 const planMeta: Record<string, PlanMeta> = {
   starter: { icon: Star, badge: "Entrada", ctaLabel: "Selecionar", ctaVariant: "default" },
-  essencial: { icon: Briefcase, badge: "Melhor custo", ctaLabel: "Selecionar", ctaVariant: "default" },
-  profissional: { icon: Crown, badge: "Mais popular", highlighted: true, ctaLabel: "Selecionar", ctaVariant: "default" },
+  essencial: { icon: Crown, badge: "Mais popular", highlighted: true, ctaLabel: "Selecionar", ctaVariant: "default" },
+  profissional: { icon: Briefcase, badge: "Melhor custo", ctaLabel: "Selecionar", ctaVariant: "default" },
   business: { icon: Building2, ctaLabel: "Selecionar", ctaVariant: "default" },
 };
 
@@ -374,7 +374,7 @@ export default function Plans() {
                         key={p.id}
                         className={cn(
                           "text-center p-3 font-medium min-w-[120px]",
-                          p.slug === "profissional" && "bg-primary/5"
+                          p.slug === "essencial" && "bg-primary/5"
                         )}
                       >
                         {p.name}
@@ -398,7 +398,7 @@ export default function Plans() {
                             {mainPlans.map(p => {
                               const f = (p.features as Record<string, any>) || {};
                               const val = f[row.key] ?? (p as Record<string, any>)[row.key];
-                              const isPro = p.slug === "profissional";
+                              const isPro = p.slug === "essencial";
 
                               let display: React.ReactNode;
                               if (row.type === "bool") {
