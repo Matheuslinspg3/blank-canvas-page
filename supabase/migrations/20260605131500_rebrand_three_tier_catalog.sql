@@ -1,29 +1,30 @@
--- Rebrand + reprice public commercial catalog: 4 plans -> 3 tiers.
+-- Rebrand/repricing: consolidate public catalog to 3 tiers (owner-approved).
 --
--- Business decision (owner-approved):
---   Solo (entry)        R$ 99,90   slug: starter
---   Time (mid)          R$ 199,90  slug: profissional
---   Agência (advanced)  R$ 399,90  slug: business
---   essencial -> deactivated (is_active=false), kept in DB for existing subs.
+--   Starter   (entry)  R$  99,90  slug: starter      [keep name]
+--   Essencial (mid)    R$ 189,90  slug: essencial    [keep name, becomes the middle tier]
+--   Imobiliária (adv)  R$ 599,90  slug: business     [keep current display name, price kept]
+--   profissional -> deactivated (is_active=false), preserved for existing subs.
 --
 -- IMPORTANT: slugs are NOT renamed (subscriptions + isPublicCommercialPlan
--- filter depend on them). Only display `name`, prices, limits and features
--- change. This mirrors the existing pattern (business already displays as a
--- different name). The initial access fee is intentionally omitted from the
--- rebuilt `features` objects (also removed by the previous migration).
+-- filter depend on them). Only display name, price, limits and features change.
+-- The site reads subscription_plans dynamically, so it reflects automatically.
 --
--- Non-destructive: no plan rows deleted; no subscriptions touched. Reversible
--- by restoring previous name/price/limits and re-activating essencial.
+-- Design fix: previously Essencial had FEWER properties (50) than Starter (100)
+-- while costing more. As the new sole middle tier, Essencial now inherits the
+-- former Profissional limits (200 imóveis / 600 leads / 200 marketplace / 3 users),
+-- so each step up delivers more. Initial access fee intentionally omitted.
+--
+-- Non-destructive & reversible: no rows deleted, no subscriptions touched.
 
--- 1) Solo (entry) — slug starter
+-- 1) Starter (entry) — R$ 99,90
 UPDATE public.subscription_plans
 SET
-  name = 'Solo',
-  description = 'Para o corretor que trabalha sozinho: imóveis, marketplace, agenda, CRM e financeiro.',
+  name = 'Starter',
+  description = 'Plano de entrada para o corretor: imóveis, marketplace, agenda, CRM e financeiro.',
   price_monthly = 9990,
   price_yearly = 99900,
-  max_own_properties = 150,
-  max_leads = 250,
+  max_own_properties = 100,
+  max_leads = 100,
   max_users = 1,
   marketplace_access = true,
   priority_support = false,
@@ -35,9 +36,9 @@ SET
     'line', 'main',
     'is_purchasable', true,
     'max_users', 1,
-    'max_own_properties', 150,
-    'max_leads', 250,
-    'max_marketplace_properties', 50,
+    'max_own_properties', 100,
+    'max_leads', 100,
+    'max_marketplace_properties', 20,
     'has_schedule', true,
     'has_marketplace_publish', true,
     'has_marketplace_contact', true,
@@ -51,15 +52,15 @@ SET
   updated_at = now()
 WHERE slug = 'starter';
 
--- 2) Time (mid) — slug profissional
+-- 2) Essencial (middle) — R$ 189,90, inherits former Profissional limits
 UPDATE public.subscription_plans
 SET
-  name = 'Time',
-  description = 'Para o corretor com equipe: mais imóveis e leads, importação e CRM com integração.',
-  price_monthly = 19990,
-  price_yearly = 199900,
-  max_own_properties = 500,
-  max_leads = 1000,
+  name = 'Plano Essencial',
+  description = 'Para o corretor em crescimento: 200 imóveis, 600 leads, importação e CRM com integração.',
+  price_monthly = 18990,
+  price_yearly = 189900,
+  max_own_properties = 200,
+  max_leads = 600,
   max_users = 3,
   marketplace_access = true,
   priority_support = false,
@@ -71,8 +72,8 @@ SET
     'line', 'main',
     'is_purchasable', true,
     'max_users', 3,
-    'max_own_properties', 500,
-    'max_leads', 1000,
+    'max_own_properties', 200,
+    'max_leads', 600,
     'max_marketplace_properties', 200,
     'has_schedule', true,
     'has_marketplace_publish', true,
@@ -85,15 +86,15 @@ SET
     'support_level', 'email'
   ),
   updated_at = now()
-WHERE slug = 'profissional';
+WHERE slug = 'essencial';
 
--- 3) Agência (advanced) — slug business
+-- 3) Plano Imobiliária (advanced) — R$ 599,90, unlimited (name + price kept)
 UPDATE public.subscription_plans
 SET
-  name = 'Agência',
+  name = 'Plano Imobiliária',
   description = 'Para a imobiliária completa: imóveis e leads ilimitados, equipe e relatórios.',
-  price_monthly = 39990,
-  price_yearly = 399900,
+  price_monthly = 59990,
+  price_yearly = 599900,
   max_own_properties = -1,
   max_leads = -1,
   max_users = -1,
@@ -123,8 +124,8 @@ SET
   updated_at = now()
 WHERE slug = 'business';
 
--- 4) Retire 'essencial' from the public catalog (kept for existing subscribers).
+-- 4) Retire 'profissional' from the public catalog (kept for existing subscribers).
 UPDATE public.subscription_plans
 SET is_active = false,
     updated_at = now()
-WHERE slug = 'essencial';
+WHERE slug = 'profissional';
