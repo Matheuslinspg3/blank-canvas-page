@@ -81,6 +81,35 @@ const signupSchema = z.object({
 
 const SIGNUP_OTP_LENGTH = 8;
 
+// --- Hardening do prefill via URL ---
+// Os parâmetros vêm de um link gerado pelo agente de IA do WhatsApp, mas a URL
+// é um canal não confiável (pode ser editada/forjada). Sanitizamos antes de usar.
+const PREFILL_MAX_LEN = 120;
+const ACCOUNT_TYPES = ["imobiliaria", "corretor_individual"] as const;
+type AccountType = (typeof ACCOUNT_TYPES)[number];
+
+// Remove caracteres de controle/invisíveis e limita o tamanho.
+const sanitizePrefill = (raw: string | null): string => {
+  if (!raw) return "";
+  // eslint-disable-next-line no-control-regex
+  return raw.replace(/[\u0000-\u001F\u007F-\u009F]/g, "").trim().slice(0, PREFILL_MAX_LEN);
+};
+
+// Whitelist estrita: qualquer valor fora do enum cai no padrão seguro.
+const sanitizeAccountType = (raw: string | null): AccountType =>
+  ACCOUNT_TYPES.includes(raw as AccountType) ? (raw as AccountType) : "imobiliaria";
+
+// Plano: aceita apenas slug simples (a checagem real contra planos ativos
+// continua no submit/back-end). Evita lixo/inputs maliciosos no estado.
+const sanitizePlan = (raw: string | null): string => {
+  const v = sanitizePrefill(raw).toLowerCase();
+  return /^[a-z0-9_-]{1,40}$/.test(v) ? v : "starter";
+};
+
+// Telefone: mantém apenas dígitos e símbolos de formatação usuais.
+const sanitizePhone = (raw: string | null): string =>
+  sanitizePrefill(raw).replace(/[^\d+()\-\s]/g, "");
+
 const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -111,14 +140,14 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
 
   // Signup state
   const [signupForm, setSignupForm] = useState({
-    full_name: searchParams.get("nome") || "",
-    email: searchParams.get("email") || "",
+    full_name: sanitizePrefill(searchParams.get("nome")),
+    email: sanitizePrefill(searchParams.get("email")),
     password: "",
-    company_name: searchParams.get("empresa") || "",
-    phone: searchParams.get("phone") || "",
+    company_name: sanitizePrefill(searchParams.get("empresa")),
+    phone: sanitizePhone(searchParams.get("phone")),
     document: "",
-    account_type: (searchParams.get("tipo") as "imobiliaria" | "corretor_individual") || "imobiliaria",
-    selected_plan: searchParams.get("plan") || "starter",
+    account_type: sanitizeAccountType(searchParams.get("tipo")),
+    selected_plan: sanitizePlan(searchParams.get("plan")),
   });
 
   // Fetch available plans for signup
