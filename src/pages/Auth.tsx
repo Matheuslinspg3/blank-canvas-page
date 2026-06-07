@@ -111,14 +111,14 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
 
   // Signup state
   const [signupForm, setSignupForm] = useState({
-    full_name: "",
-    email: "",
+    full_name: searchParams.get("nome") || "",
+    email: searchParams.get("email") || "",
     password: "",
-    company_name: "",
-    phone: "",
+    company_name: searchParams.get("empresa") || "",
+    phone: searchParams.get("phone") || "",
     document: "",
-    account_type: "imobiliaria" as "imobiliaria" | "corretor_individual",
-    selected_plan: "starter",
+    account_type: (searchParams.get("tipo") as "imobiliaria" | "corretor_individual") || "imobiliaria",
+    selected_plan: searchParams.get("plan") || "starter",
   });
 
   // Fetch available plans for signup
