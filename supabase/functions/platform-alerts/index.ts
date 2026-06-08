@@ -23,6 +23,35 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Service not configured" }), { status: 500 });
     }
 
+    // Desabilitar alertas de leads dos clientes — admin não quer receber esses
+    if (type === "lead") {
+      return new Response(JSON.stringify({ skipped: true, reason: "client_lead_alerts_disabled" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    // Filtrar signups: só envia email quando vier dos anúncios Meta do Porta
+    if (type === "signup") {
+      const metadata = data?.user_metadata || data?.raw_user_meta_data || {};
+      const attr = attribution || {};
+      const utmSource = (attr.utm_source || metadata.utm_source || "").toLowerCase();
+      const utmCampaign = (attr.utm_campaign || metadata.utm_campaign || "").toLowerCase();
+      const landingPage = (attr.landing_page || metadata.landing_page || "").toLowerCase();
+
+      const isFromPortaAds = (
+        utmSource === "meta" ||
+        landingPage.includes("portadocorretor.com.br")
+      );
+
+      if (!isFromPortaAds) {
+        return new Response(JSON.stringify({ skipped: true, reason: "signup_not_from_porta_ads" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+    }
+
     let subject = "";
     let html = "";
 
@@ -53,20 +82,6 @@ Deno.serve(async (req) => {
           <li><b>Telefone:</b> ${data.phone || "-"}</li>
           <li><b>Empresa:</b> ${data.company_name || "-"}</li>
           <li><b>Plano:</b> ${data.selected_plan || "-"}</li>
-          <li><b>Data:</b> ${new Date().toLocaleString("pt-BR")}</li>
-        </ul>
-        ${attributionHtml}
-      `;
-    } else if (type === "lead") {
-      subject = `🎯 Novo Lead Público: ${data.name}`;
-      html = `
-        <h2>Lead captado pelo site/portal</h2>
-        <ul>
-          <li><b>Nome:</b> ${data.name}</li>
-          <li><b>E-mail:</b> ${data.email || "-"}</li>
-          <li><b>Telefone:</b> ${data.phone || "-"}</li>
-          <li><b>Organização ID:</b> ${data.organization_id}</li>
-          <li><b>Origem informada:</b> ${data.source || "-"}</li>
           <li><b>Data:</b> ${new Date().toLocaleString("pt-BR")}</li>
         </ul>
         ${attributionHtml}
