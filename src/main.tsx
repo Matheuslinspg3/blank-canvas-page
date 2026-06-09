@@ -116,6 +116,13 @@ Sentry.init({
     "sw.js load failed",
     // Expected product/plan limit errors — handled by controlled toasts.
     "ProductLimitError",
+    // Service Worker lifecycle errors — transient during deploys, no user impact.
+    // REACT-2W: fetch failure during SW update
+    "Failed to update a ServiceWorker",
+    // REACT-C: SW script error during installation (stale chunks post-deploy)
+    "ServiceWorker script at",
+    // REACT-3Y: workbox-window internal race condition
+    "newestWorker is null",
   ],
   beforeSend(event, hint) {
     const err = hint?.originalException;
