@@ -131,9 +131,12 @@ export function useLeadAssignment() {
       });
     },
     onError: (error) => {
+      const isRoleError = error.message?.includes('not eligible');
       toast({
         title: 'Erro ao atribuir lead',
-        description: error.message,
+        description: isRoleError
+          ? 'Este usu\u00e1rio n\u00e3o tem permiss\u00e3o para ser respons\u00e1vel de leads. Apenas corretores, l\u00edderes e administradores podem receber leads.'
+          : error.message,
         variant: 'destructive',
       });
     },
