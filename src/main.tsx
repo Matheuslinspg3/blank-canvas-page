@@ -129,6 +129,13 @@ Sentry.init({
     // Drop expected business errors (plan limit reached, etc.) — never critical.
     if (isProductLimitError(err)) return null;
     if (isImportChunkError(err)) {
+      // Chunk errors are recoverable: the global handlers call safeReloadOnce(),
+      // which reloads the page onto the freshly deployed assets. They are stale-chunk
+      // post-deploy artifacts, not hard failures — report as warning, not error.
+      event.level = "warning";
+      // Consolidate every chunk-load variant (workbox-window, vendor-*, any hash)
+      // into a single issue so each deploy doesn't spawn a brand-new "Regressed" issue.
+      event.fingerprint = ["chunk-load-error"];
       event.tags = {
         ...event.tags,
         chunk_error: "true",
