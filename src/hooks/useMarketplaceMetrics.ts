@@ -26,17 +26,29 @@ export function useMarketplaceMetrics() {
       if (pubErr) throw pubErr;
       if (!published?.length) return [];
 
-      // Get contact access counts
-      const { data: contacts, error: contactErr } = await supabase
-        .from("marketplace_contact_access")
-        .select("marketplace_property_id, accessed_at")
-        .in("marketplace_property_id", published.map((p) => p.id));
+      // Get contact access counts.
+      // Chunk the `.in()` filter to avoid building a huge querystring that the
+      // server rejects with 400 Bad Request once the org has many published
+      // properties (Sentry JAVASCRIPT-REACT-2G). Mirrors the chunking pattern
+      // already used in usePropertyBulkOps.ts.
+      const propertyIds = published.map((p) => p.id);
+      const CHUNK_SIZE = 50;
+      const contacts: { marketplace_property_id: string; accessed_at: string }[] = [];
 
-      if (contactErr) throw contactErr;
+      for (let i = 0; i < propertyIds.length; i += CHUNK_SIZE) {
+        const chunk = propertyIds.slice(i, i + CHUNK_SIZE);
+        const { data: chunkData, error: contactErr } = await supabase
+          .from("marketplace_contact_access")
+          .select("marketplace_property_id, accessed_at")
+          .in("marketplace_property_id", chunk);
+
+        if (contactErr) throw contactErr;
+        if (chunkData?.length) contacts.push(...chunkData);
+      }
 
       // Aggregate
       const countMap = new Map<string, { count: number; lastAt: string | null }>();
-      (contacts || []).forEach((c) => {
+      contacts.forEach((c) => {
         const existing = countMap.get(c.marketplace_property_id);
         if (existing) {
           existing.count++;
