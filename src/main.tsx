@@ -6,6 +6,7 @@ import { APP_VERSION } from "./config/appVersion";
 import { isImportChunkError, isMimeMismatchError } from "./utils/chunkErrorDetection";
 import { safeReloadOnce } from "./utils/safeReload";
 import { isProductLimitError } from "./lib/planLimits";
+import { isExpectedDbValidationError } from "./utils/expectedDbErrors";
 // Capture beforeinstallprompt globally so it's available even if Install page mounts later
 declare global {
   interface WindowEventMap {
@@ -128,6 +129,9 @@ Sentry.init({
     const err = hint?.originalException;
     // Drop expected business errors (plan limit reached, etc.) — never critical.
     if (isProductLimitError(err)) return null;
+    // Drop expected, user-actionable DB validations (e.g. marketplace publish
+    // requires a primary owner with a valid phone). Already shown via toast.
+    if (isExpectedDbValidationError(err)) return null;
     if (isImportChunkError(err)) {
       // Chunk errors are recoverable: the global handlers call safeReloadOnce(),
       // which reloads the page onto the freshly deployed assets. They are stale-chunk
