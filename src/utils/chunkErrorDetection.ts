@@ -10,6 +10,9 @@ const CHUNK_ERROR_PATTERNS = [
   /ChunkLoadError/i,
   /Loading chunk \d+ failed/i,
   /Loading CSS chunk/i,
+  // Guard message from lazyWithRetry when a failed preload resolves a module
+  // without its default export (stale chunk). Covers both phrasings. (#49)
+  /resolved without (?:a )?default export/i,
   // Server returned HTML (SPA fallback) instead of JS — Safari/Chrome variants
   /Unexpected token '<'/i,
   /expected expression, got '<'/i,

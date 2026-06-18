@@ -41,9 +41,16 @@ export function lazyWithRetry<T extends { default: React.ComponentType<any> }>(
     importFn()
       .then((mod) => {
         if (!mod || typeof mod !== "object" || !("default" in mod) || !(mod as any).default) {
-          throw new Error(
+          // A failed preload can resolve the import with an incomplete module
+          // (no `default`) instead of rejecting — Firefox/Chromium stale-chunk
+          // behaviour. Flag this as a chunk-load failure BY CONSTRUCTION so the
+          // catch below retries + reloads, instead of letting the bespoke message
+          // ("resolved without a default export") escape the string detectors. (#49)
+          const err = new Error(
             `Module "${moduleName ?? "unknown"}" resolved without a default export`,
           );
+          (err as any).isChunkLoadError = true;
+          throw err;
         }
         return mod;
       })
@@ -51,7 +58,10 @@ export function lazyWithRetry<T extends { default: React.ComponentType<any> }>(
         // Within this catch the error always originates from the dynamic import,
         // so a "module resolved to undefined" TypeError (failed preload that did
         // not reject — Firefox/Chromium) is also a stale-chunk failure. (#47)
-        const isChunkErr = isImportChunkError(error) || isModuleUndefinedError(error);
+        const isChunkErr =
+          (error as any)?.isChunkLoadError === true ||
+          isImportChunkError(error) ||
+          isModuleUndefinedError(error);
 
         if (n < retries && isChunkErr) {
           return new Promise<T>((resolve, reject) => {
