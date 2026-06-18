@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/react";
-import { isImportChunkError, isMimeMismatchError } from "./chunkErrorDetection";
+import { isImportChunkError, isMimeMismatchError, isModuleUndefinedError } from "./chunkErrorDetection";
 import { safeReloadOnce } from "./safeReload";
 import { APP_VERSION } from "@/config/appVersion";
 import {
@@ -48,7 +48,10 @@ export function lazyWithRetry<T extends { default: React.ComponentType<any> }>(
         return mod;
       })
       .catch((error: unknown) => {
-        const isChunkErr = isImportChunkError(error);
+        // Within this catch the error always originates from the dynamic import,
+        // so a "module resolved to undefined" TypeError (failed preload that did
+        // not reject — Firefox/Chromium) is also a stale-chunk failure. (#47)
+        const isChunkErr = isImportChunkError(error) || isModuleUndefinedError(error);
 
         if (n < retries && isChunkErr) {
           return new Promise<T>((resolve, reject) => {
@@ -102,5 +105,5 @@ export function lazyWithRetry<T extends { default: React.ComponentType<any> }>(
 }
 
 // Re-export for convenience
-export { isImportChunkError, isMimeMismatchError } from "./chunkErrorDetection";
+export { isImportChunkError, isMimeMismatchError, isModuleUndefinedError } from "./chunkErrorDetection";
 export { safeReloadOnce, hasReloadedThisSession } from "./safeReload";

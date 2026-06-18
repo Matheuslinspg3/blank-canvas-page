@@ -128,7 +128,14 @@ Sentry.init({
     const err = hint?.originalException;
     // Drop expected business errors (plan limit reached, etc.) — never critical.
     if (isProductLimitError(err)) return null;
-    if (isImportChunkError(err)) {
+    // A scoped wrapper (lazyWithRetry) may already have classified this as a
+    // chunk-load failure via an explicit chunk_error tag — including the
+    // "module resolved to undefined" Firefox/Chromium variant (#47) that the
+    // global isImportChunkError() intentionally does NOT match. Honor that tag
+    // here, but never run the broad undefined-detector globally (would misclassify
+    // genuine app-logic TypeErrors).
+    const taggedChunkErr = (event.tags as any)?.chunk_error === "true";
+    if (isImportChunkError(err) || taggedChunkErr) {
       // Chunk errors are recoverable: the global handlers call safeReloadOnce(),
       // which reloads the page onto the freshly deployed assets. They are stale-chunk
       // post-deploy artifacts, not hard failures — report as warning, not error.
