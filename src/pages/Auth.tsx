@@ -91,6 +91,31 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
 
   const initialTab = searchParams.get("tab") === "cadastro" ? "signup" : "login";
   const [activeTab, setActiveTab] = useState<"login" | "signup">(initialTab);
+
+  // Pre-preenchimento do cadastro a partir da URL (links do atendente WhatsApp).
+  // Aceita: nome, email, empresa/company, telefone/phone, tipo, plan.
+  // Normaliza telefone: remove DDI 55 e o sufixo @s.whatsapp.net antes de formatar.
+  const prefillFromUrl = React.useMemo(() => {
+    const dec = (v: string | null) => (v ? decodeURIComponent(v.replace(/\+/g, " ")).trim() : "");
+    const rawPhone = (searchParams.get("phone") || searchParams.get("telefone") || "")
+      .split("@")[0]
+      .replace(/\D/g, "");
+    // tira DDI 55 quando vier 12-13 digitos (55 + DDD + numero)
+    const localPhone = rawPhone.length >= 12 && rawPhone.startsWith("55")
+      ? rawPhone.slice(2)
+      : rawPhone;
+    const tipoRaw = (searchParams.get("tipo") || "").toLowerCase();
+    const account_type = tipoRaw.includes("corretor") ? "corretor_individual" : tipoRaw.includes("imob") ? "imobiliaria" : null;
+    const plan = (searchParams.get("plan") || "").toLowerCase().trim();
+    return {
+      full_name: dec(searchParams.get("nome") || searchParams.get("name")),
+      email: dec(searchParams.get("email")).toLowerCase(),
+      company_name: dec(searchParams.get("empresa") || searchParams.get("company")),
+      phone: localPhone ? formatPhone(localPhone) : "",
+      account_type,
+      selected_plan: plan,
+    };
+  }, [searchParams]);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -111,14 +136,14 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
 
   // Signup state
   const [signupForm, setSignupForm] = useState({
-    full_name: "",
-    email: "",
+    full_name: prefillFromUrl.full_name || "",
+    email: prefillFromUrl.email || "",
     password: "",
-    company_name: "",
-    phone: "",
+    company_name: prefillFromUrl.company_name || "",
+    phone: prefillFromUrl.phone || "",
     document: "",
-    account_type: "imobiliaria" as "imobiliaria" | "corretor_individual",
-    selected_plan: "starter",
+    account_type: (prefillFromUrl.account_type || "imobiliaria") as "imobiliaria" | "corretor_individual",
+    selected_plan: prefillFromUrl.selected_plan || "starter",
   });
 
   // Fetch available plans for signup
@@ -136,6 +161,18 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
       return rows.filter(isPublicCommercialPlan);
     },
   });
+
+  // Se o plano veio na URL mas não existe na lista de planos ativos, cai pro starter.
+  React.useEffect(() => {
+    if (!signupPlans.length) return;
+    setSignupForm((prev) => {
+      if (!prev.selected_plan) return prev;
+      const exists = signupPlans.some((p) => p.slug === prev.selected_plan);
+      if (exists) return prev;
+      const fallback = signupPlans.some((p) => p.slug === "starter") ? "starter" : signupPlans[0].slug;
+      return { ...prev, selected_plan: fallback };
+    });
+  }, [signupPlans]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
