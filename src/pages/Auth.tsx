@@ -134,6 +134,52 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
   const [resendCooldown, setResendCooldown] = useState(0);
   const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // --- Persistência da etapa de verificação de e-mail (OTP) ---
+  // Sem isso, o estado vive só em memória: um refresh ou a troca para o app de
+  // e-mail no mobile (que descarta a aba em background) apaga a tela de código e
+  // o usuário fica preso. Persistimos email + validade em sessionStorage para
+  // restaurar a etapa ao remontar. A senha NUNCA é persistida (risco de XSS).
+  const OTP_FLOW_KEY = "pendingSignupOtp";
+  const OTP_FLOW_TTL_MS = 60 * 60 * 1000; // 1h, alinhado à validade do OTP no Supabase
+
+  const persistOtpFlow = (email: string) => {
+    try {
+      sessionStorage.setItem(
+        OTP_FLOW_KEY,
+        JSON.stringify({ email: email.trim().toLowerCase(), expiresAt: Date.now() + OTP_FLOW_TTL_MS }),
+      );
+    } catch {
+      /* storage indisponível (modo privado/quota): degrada sem quebrar o fluxo */
+    }
+  };
+
+  const clearOtpFlow = () => {
+    try {
+      sessionStorage.removeItem(OTP_FLOW_KEY);
+    } catch {
+      /* noop */
+    }
+  };
+
+  // Restaura a etapa de verificação se a página remontou com um fluxo pendente válido.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(OTP_FLOW_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { email?: string; expiresAt?: number };
+      if (saved?.email && saved.expiresAt && Date.now() < saved.expiresAt) {
+        setPendingEmail(saved.email);
+        setShowEmailVerification(true);
+        setActiveTab("signup");
+      } else {
+        clearOtpFlow();
+      }
+    } catch {
+      clearOtpFlow();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Signup state
   const [signupForm, setSignupForm] = useState({
     full_name: prefillFromUrl.full_name || "",
@@ -259,10 +305,12 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
   };
 
   const openEmailVerificationStep = (email: string, password: string) => {
-    setPendingEmail(email.trim().toLowerCase());
+    const normalized = email.trim().toLowerCase();
+    setPendingEmail(normalized);
     setPendingPassword(password);
     setOtpCode("");
     setShowEmailVerification(true);
+    persistOtpFlow(normalized);
     startResendCooldown();
   };
 
@@ -409,6 +457,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
       });
 
       if (!error) {
+        clearOtpFlow();
         toast({ title: "Bem-vindo!", description: "Email verificado com sucesso!" });
         trackSignupSuccess();
         trackPixelEvent('CompleteRegistration', {
@@ -592,7 +641,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                 <div>
                   <button
                     type="button"
-                    onClick={() => { setShowEmailVerification(false); setOtpCode(""); }}
+                    onClick={() => { setShowEmailVerification(false); setOtpCode(""); clearOtpFlow(); }}
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 mx-auto"
                   >
                     <ArrowLeft className="h-3.5 w-3.5" /> Voltar ao cadastro
