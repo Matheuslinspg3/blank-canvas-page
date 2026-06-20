@@ -81,6 +81,10 @@ export function UsersTab() {
   const [filterOnboarding, setFilterOnboarding] = useState<string>("all");
   const [passwordTarget, setPasswordTarget] = useState<{ userId: string; name: string } | null>(null);
   const [newPassword, setNewPassword] = useState("");
+  // Criação de conta administrativa (Opção B): onboarding sem fricção p/ demo/venda.
+  const [createOpen, setCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newAccount, setNewAccount] = useState({ email: "", password: "", full_name: "", reason: "" });
   const [updatingRoles, setUpdatingRoles] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
 
@@ -354,11 +358,81 @@ export function UsersTab() {
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
+              <Button variant="default" size="sm" onClick={() => setCreateOpen(true)} className="h-8 gap-1.5">
+                <Plus className="h-3.5 w-3.5" />
+                Criar conta
+              </Button>
               <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries()} className="h-8 gap-1.5">
                 <Loader2 className={`h-3.5 w-3.5 ${isLoadingAuth || isLoadingProfiles ? 'animate-spin' : ''}`} />
                 Atualizar
               </Button>
             </div>
+
+            {/* Dialog: criar conta já com e-mail confirmado (Opção B) */}
+            <AlertDialog open={createOpen} onOpenChange={(o) => { if (!o && !creating) { setCreateOpen(false); setNewAccount({ email: "", password: "", full_name: "", reason: "" }); } }}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2"><Plus className="h-4 w-4" /> Criar conta</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Cria uma conta já com o e-mail confirmado — o usuário entra direto, sem precisar verificar e-mail. Ação registrada em auditoria.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="space-y-3 py-2">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">E-mail <span className="text-destructive">*</span></label>
+                    <Input type="email" placeholder="cliente@email.com" value={newAccount.email} onChange={e => setNewAccount(s => ({ ...s, email: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Senha provisória <span className="text-destructive">*</span></label>
+                    <Input type="text" placeholder="Mín. 6 caracteres" value={newAccount.password} onChange={e => setNewAccount(s => ({ ...s, password: e.target.value }))} />
+                    <p className="text-xs text-muted-foreground">Combine com o usuário para ele trocar depois.</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Nome completo</label>
+                    <Input type="text" placeholder="Opcional" value={newAccount.full_name} onChange={e => setNewAccount(s => ({ ...s, full_name: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Motivo</label>
+                    <Input type="text" placeholder="Ex: cliente travado na verificação / demo de venda" value={newAccount.reason} onChange={e => setNewAccount(s => ({ ...s, reason: e.target.value }))} />
+                  </div>
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={creating}>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled={creating || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newAccount.email.trim()) || newAccount.password.length < 6}
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      setCreating(true);
+                      try {
+                        const { data: { session } } = await supabase.auth.getSession();
+                        const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-users`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+                          body: JSON.stringify({
+                            email: newAccount.email.trim(),
+                            password: newAccount.password,
+                            full_name: newAccount.full_name.trim(),
+                            reason: newAccount.reason.trim(),
+                          }),
+                        });
+                        const json = await res.json();
+                        if (!res.ok) throw new Error(json?.error || "Falha ao criar conta");
+                        toast({ title: "Conta criada", description: `${newAccount.email.trim()} já pode entrar (e-mail confirmado).` });
+                        setCreateOpen(false);
+                        setNewAccount({ email: "", password: "", full_name: "", reason: "" });
+                        queryClient.invalidateQueries();
+                      } catch (err) {
+                        toast({ variant: "destructive", title: "Erro", description: err instanceof Error ? err.message : "Falha ao criar conta" });
+                      } finally {
+                        setCreating(false);
+                      }
+                    }}
+                  >
+                    {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Criar conta"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </CardHeader>
       <CardContent className="p-0">

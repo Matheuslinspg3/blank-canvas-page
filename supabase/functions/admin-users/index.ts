@@ -11,7 +11,7 @@ function getCorsHeaders(req: Request) {
   return {
     "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-    "Access-Control-Allow-Methods": "GET, PATCH, DELETE, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
   };
 }
 
@@ -71,6 +71,50 @@ Deno.serve(async (req) => {
       }));
 
       return new Response(JSON.stringify(simplifiedUsers), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (req.method === "POST") {
+      // Cria uma conta já com e-mail confirmado (Opção B): onboarding sem
+      // fricção para demo/venda. Restrito a developer (checado acima) e auditado.
+      const body = await req.json();
+      const rawEmail = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+      const password = typeof body.password === "string" ? body.password : "";
+      const fullName = typeof body.full_name === "string" ? body.full_name.trim() : "";
+      const reason = typeof body.reason === "string" ? body.reason.trim() : "";
+
+      const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail);
+      if (!emailOk) throw new Error("E-mail inválido");
+      if (password.length < 6) throw new Error("Password must be at least 6 characters");
+
+      const { data: created, error: createErr } = await adminClient.auth.admin.createUser({
+        email: rawEmail,
+        password,
+        email_confirm: true,
+        user_metadata: fullName ? { full_name: fullName } : {},
+      });
+      if (createErr) {
+        // Mensagem amigável para e-mail duplicado.
+        if (/already.*registered|already.*exists|duplicate/i.test(createErr.message)) {
+          throw new Error("Já existe uma conta com este e-mail");
+        }
+        throw createErr;
+      }
+
+      // Auditoria (best-effort: não derruba a criação se o log falhar).
+      const newUserId = created.user?.id;
+      if (newUserId) {
+        const { error: auditErr } = await adminClient.from("admin_created_accounts").insert({
+          created_user_id: newUserId,
+          created_user_email: rawEmail,
+          created_by: user.id,
+          reason: reason || null,
+        });
+        if (auditErr) console.error("[admin-users] audit insert failed:", auditErr.message);
+      }
+
+      return new Response(JSON.stringify({ success: true, user_id: newUserId, email: rawEmail }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
