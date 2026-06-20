@@ -81,10 +81,24 @@ export function UsersTab() {
   const [filterOnboarding, setFilterOnboarding] = useState<string>("all");
   const [passwordTarget, setPasswordTarget] = useState<{ userId: string; name: string } | null>(null);
   const [newPassword, setNewPassword] = useState("");
+<<<<<<< Updated upstream
   // Criação de conta administrativa (Opção B): onboarding sem fricção p/ demo/venda.
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newAccount, setNewAccount] = useState({ email: "", password: "", full_name: "", reason: "" });
+=======
+<<<<<<< Updated upstream
+=======
+  // Criação de conta administrativa (Opção B): onboarding sem fricção p/ demo/venda.
+  const [createOpen, setCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const emptyAccount = {
+    email: "", password: "", full_name: "", company_name: "", phone: "", document: "",
+    account_type: "corretor_individual", selected_plan: "starter", subscription_mode: "trial", reason: "",
+  };
+  const [newAccount, setNewAccount] = useState(emptyAccount);
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
   const [updatingRoles, setUpdatingRoles] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
 
@@ -367,6 +381,7 @@ export function UsersTab() {
                 Atualizar
               </Button>
             </div>
+<<<<<<< Updated upstream
 
             {/* Dialog: criar conta já com e-mail confirmado (Opção B) */}
             <AlertDialog open={createOpen} onOpenChange={(o) => { if (!o && !creating) { setCreateOpen(false); setNewAccount({ email: "", password: "", full_name: "", reason: "" }); } }}>
@@ -390,6 +405,83 @@ export function UsersTab() {
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium">Nome completo</label>
                     <Input type="text" placeholder="Opcional" value={newAccount.full_name} onChange={e => setNewAccount(s => ({ ...s, full_name: e.target.value }))} />
+=======
+<<<<<<< Updated upstream
+=======
+
+            {/* Dialog: criar conta completa já com e-mail confirmado (Opção B) */}
+            <AlertDialog open={createOpen} onOpenChange={(o) => { if (!o && !creating) { setCreateOpen(false); setNewAccount(emptyAccount); } }}>
+              <AlertDialogContent className="max-h-[90vh] overflow-y-auto">
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2"><Plus className="h-4 w-4" /> Criar conta</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Cria uma conta completa (organização, plano e acesso) já com o e-mail confirmado — o usuário entra direto, sem verificar e-mail. Ação registrada em auditoria.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="space-y-3 py-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">E-mail <span className="text-destructive">*</span></label>
+                      <Input type="email" placeholder="cliente@email.com" value={newAccount.email} onChange={e => setNewAccount(s => ({ ...s, email: e.target.value }))} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Senha provisória <span className="text-destructive">*</span></label>
+                      <Input type="text" placeholder="Mín. 6 caracteres" value={newAccount.password} onChange={e => setNewAccount(s => ({ ...s, password: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Nome completo <span className="text-destructive">*</span></label>
+                    <Input type="text" placeholder="Nome do responsável" value={newAccount.full_name} onChange={e => setNewAccount(s => ({ ...s, full_name: e.target.value }))} />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Tipo de conta <span className="text-destructive">*</span></label>
+                      <Select value={newAccount.account_type} onValueChange={v => setNewAccount(s => ({ ...s, account_type: v }))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="corretor_individual">Corretor Individual</SelectItem>
+                          <SelectItem value="imobiliaria">Imobiliária</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">{newAccount.account_type === "imobiliaria" ? "Nome da imobiliária" : "Nome do corretor/empresa"} <span className="text-destructive">*</span></label>
+                      <Input type="text" placeholder="Nome que aparece na conta" value={newAccount.company_name} onChange={e => setNewAccount(s => ({ ...s, company_name: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Telefone</label>
+                      <Input type="text" placeholder="Opcional" value={newAccount.phone} onChange={e => setNewAccount(s => ({ ...s, phone: e.target.value }))} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">{newAccount.account_type === "imobiliaria" ? "CNPJ" : "CPF/CNPJ"}</label>
+                      <Input type="text" placeholder="Opcional" value={newAccount.document} onChange={e => setNewAccount(s => ({ ...s, document: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Plano <span className="text-destructive">*</span></label>
+                      <Select value={newAccount.selected_plan} onValueChange={v => setNewAccount(s => ({ ...s, selected_plan: v }))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="starter">Starter — R$ 99,90/mês</SelectItem>
+                          <SelectItem value="essencial">Essencial — R$ 189,90/mês</SelectItem>
+                          <SelectItem value="business">Imobiliária — R$ 599,90/mês</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Assinatura <span className="text-destructive">*</span></label>
+                      <Select value={newAccount.subscription_mode} onValueChange={v => setNewAccount(s => ({ ...s, subscription_mode: v }))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="trial">Trial (15 dias)</SelectItem>
+                          <SelectItem value="active">Ativa (cortesia, sem cobrança)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+>>>>>>> Stashed changes
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium">Motivo</label>
@@ -399,7 +491,15 @@ export function UsersTab() {
                 <AlertDialogFooter>
                   <AlertDialogCancel disabled={creating}>Cancelar</AlertDialogCancel>
                   <AlertDialogAction
+<<<<<<< Updated upstream
                     disabled={creating || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newAccount.email.trim()) || newAccount.password.length < 6}
+=======
+                    disabled={creating
+                      || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newAccount.email.trim())
+                      || newAccount.password.length < 6
+                      || !newAccount.full_name.trim()
+                      || !newAccount.company_name.trim()}
+>>>>>>> Stashed changes
                     onClick={async (e) => {
                       e.preventDefault();
                       setCreating(true);
@@ -412,14 +512,29 @@ export function UsersTab() {
                             email: newAccount.email.trim(),
                             password: newAccount.password,
                             full_name: newAccount.full_name.trim(),
+<<<<<<< Updated upstream
+=======
+                            company_name: newAccount.company_name.trim(),
+                            phone: newAccount.phone.trim(),
+                            document: newAccount.document.trim(),
+                            account_type: newAccount.account_type,
+                            selected_plan: newAccount.selected_plan,
+                            subscription_mode: newAccount.subscription_mode,
+>>>>>>> Stashed changes
                             reason: newAccount.reason.trim(),
                           }),
                         });
                         const json = await res.json();
                         if (!res.ok) throw new Error(json?.error || "Falha ao criar conta");
+<<<<<<< Updated upstream
                         toast({ title: "Conta criada", description: `${newAccount.email.trim()} já pode entrar (e-mail confirmado).` });
                         setCreateOpen(false);
                         setNewAccount({ email: "", password: "", full_name: "", reason: "" });
+=======
+                        toast({ title: "Conta criada", description: `${newAccount.email.trim()} já pode entrar — ${json.plan} / ${json.subscription === "active" ? "ativa" : "trial"}.` });
+                        setCreateOpen(false);
+                        setNewAccount(emptyAccount);
+>>>>>>> Stashed changes
                         queryClient.invalidateQueries();
                       } catch (err) {
                         toast({ variant: "destructive", title: "Erro", description: err instanceof Error ? err.message : "Falha ao criar conta" });
@@ -433,6 +548,10 @@ export function UsersTab() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
           </div>
         </CardHeader>
       <CardContent className="p-0">
