@@ -180,6 +180,50 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // --- Recuperação por link do e-mail ---
+  // O template de e-mail pode incluir um link que abre a tela de verificação já
+  // preenchida: /auth?verify=1&email=...&otp=12345678 (ou ?code=...). Lemos os
+  // params, abrimos a etapa de OTP e preenchemos o código — mas NÃO submetemos
+  // automaticamente (scanners de e-mail/antivírus costumam pré-clicar links, o
+  // que invalidaria o código). Depois limpamos os params sensíveis da URL para
+  // o código não ficar exposto no histórico/endereço.
+  useEffect(() => {
+    const wantsVerify = searchParams.get("verify") === "1" || searchParams.has("otp") || searchParams.has("code");
+    if (!wantsVerify) return;
+
+    const emailParam = (searchParams.get("email") || "").trim().toLowerCase();
+    const otpParam = (searchParams.get("otp") || searchParams.get("code") || "").replace(/\D/g, "").slice(0, SIGNUP_OTP_LENGTH);
+
+    if (emailParam) {
+      setPendingEmail(emailParam);
+      setShowEmailVerification(true);
+      setActiveTab("signup");
+      persistOtpFlow(emailParam);
+    }
+    if (otpParam) setOtpCode(otpParam);
+
+    // Remove os params sensíveis (otp/code/email/verify) da URL, preservando os demais.
+    const next = new URLSearchParams(searchParams);
+    ["otp", "code", "email", "verify"].forEach((k) => next.delete(k));
+    const qs = next.toString();
+    navigate({ pathname: "/auth", search: qs ? `?${qs}` : "" }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Abre a tela de verificação a partir de um e-mail conhecido, sem exigir
+  // refazer o cadastro. Usado pelo atalho "Já tenho um código" no login/cadastro.
+  // Não persiste/usa senha — apenas o e-mail, que é o necessário para verifyOtp.
+  const openVerificationForEmail = (email: string) => {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) return;
+    setPendingEmail(normalized);
+    setPendingPassword("");
+    setOtpCode("");
+    setShowEmailVerification(true);
+    persistOtpFlow(normalized);
+    startResendCooldown();
+  };
+
   // Signup state
   const [signupForm, setSignupForm] = useState({
     full_name: prefillFromUrl.full_name || "",
@@ -711,7 +755,21 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                 {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
               </div>
 
-              <div className="flex justify-end">
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const email = loginForm.email.trim().toLowerCase();
+                    if (!email) {
+                      toast({ variant: "destructive", title: "Informe seu e-mail", description: "Digite o e-mail do cadastro para verificar o código." });
+                      return;
+                    }
+                    openVerificationForEmail(email);
+                  }}
+                  className="text-sm text-muted-foreground hover:text-accent transition-colors"
+                >
+                  Já tenho um código
+                </button>
                 <button type="button" onClick={() => { setShowForgotPassword(true); setResetEmail(loginForm.email); }} className="text-sm text-muted-foreground hover:text-accent transition-colors">
                   Esqueci minha senha
                 </button>
