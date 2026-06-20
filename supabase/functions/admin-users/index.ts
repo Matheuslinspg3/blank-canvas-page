@@ -75,88 +75,60 @@ Deno.serve(async (req) => {
       });
     }
 
-<<<<<<< Updated upstream
-    if (req.method === "POST") {
-      // Cria uma conta já com e-mail confirmado (Opção B): onboarding sem
-      // fricção para demo/venda. Restrito a developer (checado acima) e auditado.
-=======
-<<<<<<< Updated upstream
-=======
     if (req.method === "POST") {
       // Cria uma conta completa já com e-mail confirmado (Opção B): onboarding
       // sem fricção para demo/venda. Restrito a developer (checado acima) e
-      // auditado. A organização, profile, role e subscription são criados pelo
+      // auditado. Organização, profile, role e subscription são criados pelo
       // trigger handle_new_user a partir do user_metadata (mesma lógica do
       // signup normal) — não duplicamos essa lógica aqui.
->>>>>>> Stashed changes
       const body = await req.json();
       const rawEmail = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
       const password = typeof body.password === "string" ? body.password : "";
       const fullName = typeof body.full_name === "string" ? body.full_name.trim() : "";
       const reason = typeof body.reason === "string" ? body.reason.trim() : "";
-<<<<<<< Updated upstream
-=======
       const companyName = typeof body.company_name === "string" ? body.company_name.trim() : "";
       const phone = typeof body.phone === "string" ? body.phone.trim() : "";
       const documentNum = typeof body.document === "string" ? body.document.trim() : "";
       const accountType = body.account_type === "corretor_individual" ? "corretor_individual" : "imobiliaria";
       const selectedPlan = typeof body.selected_plan === "string" ? body.selected_plan : "starter";
-      // subscriptionMode: "trial" (respeita trial do plano) ou "active" (cortesia, sem cobrança)
       const subscriptionMode = body.subscription_mode === "active" ? "active" : "trial";
 
       const ALLOWED_PLANS = ["starter", "essencial", "business"];
       if (!ALLOWED_PLANS.includes(selectedPlan)) throw new Error("Plano inválido");
->>>>>>> Stashed changes
 
       const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail);
       if (!emailOk) throw new Error("E-mail inválido");
       if (password.length < 6) throw new Error("Password must be at least 6 characters");
-<<<<<<< Updated upstream
-=======
       if (!fullName) throw new Error("Nome completo é obrigatório");
       if (!companyName) throw new Error("Nome da empresa/corretor é obrigatório");
->>>>>>> Stashed changes
+
+      const metadata: Record<string, unknown> = {
+        full_name: fullName,
+        account_type: accountType,
+        company_name: companyName,
+        selected_plan: selectedPlan,
+      };
+      if (phone) metadata.phone = phone;
+      if (documentNum) metadata.document = documentNum;
 
       const { data: created, error: createErr } = await adminClient.auth.admin.createUser({
         email: rawEmail,
         password,
         email_confirm: true,
-<<<<<<< Updated upstream
-        user_metadata: fullName ? { full_name: fullName } : {},
+        user_metadata: metadata,
       });
       if (createErr) {
-        // Mensagem amigável para e-mail duplicado.
-=======
-        // O trigger handle_new_user lê estes campos para montar org+profile+role+subscription.
-        user_metadata: {
-          full_name: fullName,
-          account_type: accountType,
-          company_name: companyName,
-          phone: phone || undefined,
-          document: documentNum || undefined,
-          selected_plan: selectedPlan,
-        },
-      });
-      if (createErr) {
->>>>>>> Stashed changes
         if (/already.*registered|already.*exists|duplicate/i.test(createErr.message)) {
           throw new Error("Já existe uma conta com este e-mail");
         }
         throw createErr;
       }
 
-<<<<<<< Updated upstream
-      // Auditoria (best-effort: não derruba a criação se o log falhar).
-      const newUserId = created.user?.id;
-      if (newUserId) {
-=======
       const newUserId = created.user?.id;
 
-      // Descobre a organização recém-criada pelo trigger (via profile do usuário).
+      // Descobre a organização recém-criada pelo trigger (via profile).
       let orgId: string | null = null;
       if (newUserId) {
-        // Pequena espera: o trigger roda na mesma transação do insert em auth.users,
-        // então o profile já deve existir; mas tentamos com retry leve por robustez.
         for (let i = 0; i < 3 && !orgId; i++) {
           const { data: prof } = await adminClient
             .from("profiles").select("organization_id").eq("user_id", newUserId).maybeSingle();
@@ -165,8 +137,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Se o developer escolheu "active" (cortesia), promove a subscription de trial→active
-      // e zera o trial_end. Caso contrário, mantém o comportamento padrão do trigger.
+      // "active" (cortesia): promove a subscription trial→active e zera o trial.
       let subscriptionApplied = subscriptionMode;
       if (orgId && subscriptionMode === "active") {
         const { error: subErr } = await adminClient
@@ -175,33 +146,25 @@ Deno.serve(async (req) => {
           .eq("organization_id", orgId);
         if (subErr) {
           console.error("[admin-users] subscription activate failed:", subErr.message);
-          subscriptionApplied = "trial"; // não conseguiu promover; ficou no padrão
+          subscriptionApplied = "trial";
+        } else {
+          await adminClient.from("organizations").update({ trial_ends_at: null }).eq("id", orgId);
         }
-        // Alinha as datas de trial da própria organização.
-        await adminClient.from("organizations").update({ trial_ends_at: null }).eq("id", orgId);
       }
 
       // Auditoria (best-effort).
       if (newUserId) {
         const auditReason = [reason, `tipo=${accountType}`, `plano=${selectedPlan}`, `assinatura=${subscriptionApplied}`]
           .filter(Boolean).join(" | ");
->>>>>>> Stashed changes
         const { error: auditErr } = await adminClient.from("admin_created_accounts").insert({
           created_user_id: newUserId,
           created_user_email: rawEmail,
           created_by: user.id,
-<<<<<<< Updated upstream
-          reason: reason || null,
-=======
           reason: auditReason,
->>>>>>> Stashed changes
         });
         if (auditErr) console.error("[admin-users] audit insert failed:", auditErr.message);
       }
 
-<<<<<<< Updated upstream
-      return new Response(JSON.stringify({ success: true, user_id: newUserId, email: rawEmail }), {
-=======
       return new Response(JSON.stringify({
         success: true,
         user_id: newUserId,
@@ -211,15 +174,10 @@ Deno.serve(async (req) => {
         plan: selectedPlan,
         subscription: subscriptionApplied,
       }), {
->>>>>>> Stashed changes
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-<<<<<<< Updated upstream
-=======
->>>>>>> Stashed changes
->>>>>>> Stashed changes
     if (req.method === "PATCH") {
       const { user_id: targetUserId, new_password } = await req.json();
       if (!targetUserId || !new_password) throw new Error("user_id and new_password required");
