@@ -134,7 +134,7 @@ export default function MetaConnectionTab() {
       oauthUrl.searchParams.set("client_id", data.app_id);
       oauthUrl.searchParams.set("redirect_uri", redirectUri);
       oauthUrl.searchParams.set("state", state);
-      oauthUrl.searchParams.set("scope", "ads_read,ads_management,business_management,pages_show_list,pages_read_engagement");
+      oauthUrl.searchParams.set("scope", "ads_read,ads_management,business_management,pages_show_list,pages_read_engagement,pages_manage_ads,leads_retrieval,pages_manage_metadata");
       oauthUrl.searchParams.set("auth_type", "rerequest");
       oauthUrl.searchParams.set("response_type", "code");
       window.location.href = oauthUrl.toString();
