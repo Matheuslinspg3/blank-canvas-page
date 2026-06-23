@@ -33,7 +33,7 @@ export function CRMImportWizard({ open, onOpenChange, onImportComplete }: CRMImp
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="csv" className="flex-1 overflow-hidden flex flex-col">
+        <Tabs defaultValue="csv" className="flex-1 min-h-0 overflow-hidden flex flex-col">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="csv" className="gap-1.5 text-xs sm:text-sm">
               <FileSpreadsheet className="h-4 w-4" />
@@ -49,11 +49,11 @@ export function CRMImportWizard({ open, onOpenChange, onImportComplete }: CRMImp
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="csv" className="flex-1 overflow-hidden flex flex-col mt-4">
+          <TabsContent value="csv" className="flex-1 min-h-0 overflow-hidden flex flex-col mt-4">
             <CsvImportTab onClose={handleClose} />
           </TabsContent>
 
-          <TabsContent value="imobzi" className="flex-1 overflow-hidden flex flex-col mt-4">
+          <TabsContent value="imobzi" className="flex-1 min-h-0 overflow-hidden flex flex-col mt-4">
             <ImobziImportTab onClose={handleClose} />
           </TabsContent>
 
