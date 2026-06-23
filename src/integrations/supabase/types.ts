@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.4"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -432,6 +432,33 @@ export type Database = {
           created_by?: string | null
           email?: string
           id?: string
+        }
+        Relationships: []
+      }
+      admin_created_accounts: {
+        Row: {
+          created_at: string
+          created_by: string
+          created_user_email: string
+          created_user_id: string
+          id: string
+          reason: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          created_user_email: string
+          created_user_id: string
+          id?: string
+          reason?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          created_user_email?: string
+          created_user_id?: string
+          id?: string
+          reason?: string | null
         }
         Relationships: []
       }
@@ -1380,6 +1407,13 @@ export type Database = {
             foreignKeyName: "anuncios_gerados_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "properties_public_landing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "anuncios_gerados_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "vw_marketplace_status_drift"
             referencedColumns: ["property_id"]
           },
@@ -1508,6 +1542,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties_public_landing"
             referencedColumns: ["id"]
           },
           {
@@ -2794,6 +2835,13 @@ export type Database = {
             foreignKeyName: "contracts_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "properties_public_landing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "vw_marketplace_status_drift"
             referencedColumns: ["property_id"]
           },
@@ -3515,6 +3563,13 @@ export type Database = {
             foreignKeyName: "generated_arts_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "properties_public_landing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_arts_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "vw_marketplace_status_drift"
             referencedColumns: ["property_id"]
           },
@@ -3620,6 +3675,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_videos_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties_public_landing"
             referencedColumns: ["id"]
           },
           {
@@ -3834,6 +3896,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_run_items_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties_public_landing"
             referencedColumns: ["id"]
           },
           {
@@ -4800,6 +4869,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties_public_landing"
             referencedColumns: ["id"]
           },
           {
@@ -6518,6 +6594,13 @@ export type Database = {
             foreignKeyName: "property_groups_source_property_id_fkey"
             columns: ["source_property_id"]
             isOneToOne: false
+            referencedRelation: "properties_public_landing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_groups_source_property_id_fkey"
+            columns: ["source_property_id"]
+            isOneToOne: false
             referencedRelation: "vw_marketplace_status_drift"
             referencedColumns: ["property_id"]
           },
@@ -6597,6 +6680,13 @@ export type Database = {
             foreignKeyName: "property_images_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "properties_public_landing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_images_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "vw_marketplace_status_drift"
             referencedColumns: ["property_id"]
           },
@@ -6664,6 +6754,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: true
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_landing_content_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "properties_public_landing"
             referencedColumns: ["id"]
           },
           {
@@ -6754,6 +6851,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: true
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_landing_overrides_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "properties_public_landing"
             referencedColumns: ["id"]
           },
           {
@@ -6865,6 +6969,13 @@ export type Database = {
             foreignKeyName: "property_media_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "properties_public_landing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_media_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "vw_marketplace_status_drift"
             referencedColumns: ["property_id"]
           },
@@ -6947,6 +7058,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_owners_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties_public_landing"
             referencedColumns: ["id"]
           },
           {
@@ -7036,6 +7154,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_partnerships_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties_public_landing"
             referencedColumns: ["id"]
           },
           {
@@ -7136,6 +7261,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_share_links_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties_public_landing"
             referencedColumns: ["id"]
           },
           {
@@ -7247,6 +7379,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_status_history_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties_public_landing"
             referencedColumns: ["id"]
           },
           {
@@ -7376,6 +7515,13 @@ export type Database = {
             foreignKeyName: "property_visibility_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: true
+            referencedRelation: "properties_public_landing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_visibility_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
             referencedRelation: "vw_marketplace_status_drift"
             referencedColumns: ["property_id"]
           },
@@ -7481,6 +7627,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_visits_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties_public_landing"
             referencedColumns: ["id"]
           },
           {
@@ -8150,6 +8303,13 @@ export type Database = {
             foreignKeyName: "simulacoes_financiamento_imovel_id_fkey"
             columns: ["imovel_id"]
             isOneToOne: false
+            referencedRelation: "properties_public_landing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "simulacoes_financiamento_imovel_id_fkey"
+            columns: ["imovel_id"]
+            isOneToOne: false
             referencedRelation: "vw_marketplace_status_drift"
             referencedColumns: ["property_id"]
           },
@@ -8743,27 +8903,30 @@ export type Database = {
           created_at: string
           id: string
           last_seen_at: string
-          metadata: Json | null
+          metadata: Json
           onesignal_id: string
           platform: string
+          updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           last_seen_at?: string
-          metadata?: Json | null
+          metadata?: Json
           onesignal_id: string
-          platform?: string
+          platform: string
+          updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
           last_seen_at?: string
-          metadata?: Json | null
+          metadata?: Json
           onesignal_id?: string
           platform?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -9711,13 +9874,10 @@ export type Database = {
       }
       whatsapp_messages: {
         Row: {
-          ai_model: string | null
-          ai_provider: string | null
           broker_channel_id: string | null
           channel_type: string
           client_message_id: string | null
           created_at: string
-          estimated_cost_usd: number | null
           from_me: boolean
           id: string
           instance_name: string
@@ -9731,18 +9891,12 @@ export type Database = {
           remote_jid: string
           sender_type: string
           timestamp: string
-          tokens_input: number | null
-          tokens_output: number | null
-          tokens_total: number | null
         }
         Insert: {
-          ai_model?: string | null
-          ai_provider?: string | null
           broker_channel_id?: string | null
           channel_type?: string
           client_message_id?: string | null
           created_at?: string
-          estimated_cost_usd?: number | null
           from_me?: boolean
           id?: string
           instance_name: string
@@ -9756,18 +9910,12 @@ export type Database = {
           remote_jid: string
           sender_type?: string
           timestamp?: string
-          tokens_input?: number | null
-          tokens_output?: number | null
-          tokens_total?: number | null
         }
         Update: {
-          ai_model?: string | null
-          ai_provider?: string | null
           broker_channel_id?: string | null
           channel_type?: string
           client_message_id?: string | null
           created_at?: string
-          estimated_cost_usd?: number | null
           from_me?: boolean
           id?: string
           instance_name?: string
@@ -9781,9 +9929,6 @@ export type Database = {
           remote_jid?: string
           sender_type?: string
           timestamp?: string
-          tokens_input?: number | null
-          tokens_output?: number | null
-          tokens_total?: number | null
         }
         Relationships: [
           {
@@ -9858,6 +10003,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_property_rules_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties_public_landing"
             referencedColumns: ["id"]
           },
           {
@@ -10252,7 +10404,6 @@ export type Database = {
           images: string[] | null
           is_featured: boolean | null
           marketplace_contact_phone: string | null
-          marketplace_contact_phone_source: string | null
           organization_id: string | null
           parking_spots: number | null
           payment_options: string[] | null
@@ -10304,6 +10455,151 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_marketplace_orgs_missing_contact"
             referencedColumns: ["organization_id"]
+          },
+        ]
+      }
+      properties_public_landing: {
+        Row: {
+          address_city: string | null
+          address_neighborhood: string | null
+          address_state: string | null
+          amenities: string[] | null
+          area_built: number | null
+          area_total: number | null
+          area_useful: number | null
+          bathrooms: number | null
+          bedrooms: number | null
+          condominium_fee: number | null
+          created_at: string | null
+          description: string | null
+          development_name: string | null
+          featured: boolean | null
+          floor: number | null
+          id: string | null
+          iptu: number | null
+          iptu_monthly: number | null
+          latitude: number | null
+          launch_stage: Database["public"]["Enums"]["launch_stage"] | null
+          longitude: number | null
+          organization_id: string | null
+          parking_spots: number | null
+          payment_options: string[] | null
+          property_condition:
+            | Database["public"]["Enums"]["property_condition"]
+            | null
+          property_type_id: string | null
+          rent_price: number | null
+          sale_price: number | null
+          status: Database["public"]["Enums"]["property_status"] | null
+          suites: number | null
+          title: string | null
+          transaction_type:
+            | Database["public"]["Enums"]["transaction_type"]
+            | null
+          updated_at: string | null
+          youtube_url: string | null
+        }
+        Insert: {
+          address_city?: string | null
+          address_neighborhood?: string | null
+          address_state?: string | null
+          amenities?: string[] | null
+          area_built?: number | null
+          area_total?: number | null
+          area_useful?: number | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          condominium_fee?: number | null
+          created_at?: string | null
+          description?: string | null
+          development_name?: string | null
+          featured?: boolean | null
+          floor?: number | null
+          id?: string | null
+          iptu?: number | null
+          iptu_monthly?: number | null
+          latitude?: number | null
+          launch_stage?: Database["public"]["Enums"]["launch_stage"] | null
+          longitude?: number | null
+          organization_id?: string | null
+          parking_spots?: number | null
+          payment_options?: string[] | null
+          property_condition?:
+            | Database["public"]["Enums"]["property_condition"]
+            | null
+          property_type_id?: string | null
+          rent_price?: number | null
+          sale_price?: number | null
+          status?: Database["public"]["Enums"]["property_status"] | null
+          suites?: number | null
+          title?: string | null
+          transaction_type?:
+            | Database["public"]["Enums"]["transaction_type"]
+            | null
+          updated_at?: string | null
+          youtube_url?: string | null
+        }
+        Update: {
+          address_city?: string | null
+          address_neighborhood?: string | null
+          address_state?: string | null
+          amenities?: string[] | null
+          area_built?: number | null
+          area_total?: number | null
+          area_useful?: number | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          condominium_fee?: number | null
+          created_at?: string | null
+          description?: string | null
+          development_name?: string | null
+          featured?: boolean | null
+          floor?: number | null
+          id?: string | null
+          iptu?: number | null
+          iptu_monthly?: number | null
+          latitude?: number | null
+          launch_stage?: Database["public"]["Enums"]["launch_stage"] | null
+          longitude?: number | null
+          organization_id?: string | null
+          parking_spots?: number | null
+          payment_options?: string[] | null
+          property_condition?:
+            | Database["public"]["Enums"]["property_condition"]
+            | null
+          property_type_id?: string | null
+          rent_price?: number | null
+          sale_price?: number | null
+          status?: Database["public"]["Enums"]["property_status"] | null
+          suites?: number | null
+          title?: string | null
+          transaction_type?:
+            | Database["public"]["Enums"]["transaction_type"]
+            | null
+          updated_at?: string | null
+          youtube_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "properties_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "properties_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "vw_marketplace_orgs_missing_contact"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "properties_property_type_id_fkey"
+            columns: ["property_type_id"]
+            isOneToOne: false
+            referencedRelation: "property_types"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -10525,6 +10821,13 @@ export type Database = {
             foreignKeyName: "property_share_links_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "properties_public_landing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_share_links_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "vw_marketplace_status_drift"
             referencedColumns: ["property_id"]
           },
@@ -10562,62 +10865,6 @@ export type Database = {
           },
           {
             foreignKeyName: "properties_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "vw_marketplace_orgs_missing_contact"
-            referencedColumns: ["organization_id"]
-          },
-        ]
-      }
-      whatsapp_ai_cost_per_conversation: {
-        Row: {
-          ai_messages: number | null
-          first_message: string | null
-          last_message: string | null
-          organization_id: string | null
-          remote_jid: string | null
-          total_cost_usd: number | null
-          total_tokens: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "whatsapp_messages_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "whatsapp_messages_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "vw_marketplace_orgs_missing_contact"
-            referencedColumns: ["organization_id"]
-          },
-        ]
-      }
-      whatsapp_ai_cost_summary: {
-        Row: {
-          ai_messages: number | null
-          ai_model: string | null
-          ai_provider: string | null
-          month: string | null
-          organization_id: string | null
-          total_cost_usd: number | null
-          total_tokens: number | null
-          total_tokens_input: number | null
-          total_tokens_output: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "whatsapp_messages_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "whatsapp_messages_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "vw_marketplace_orgs_missing_contact"
@@ -10756,15 +11003,6 @@ export type Database = {
         Args: { p_batch_size?: number; p_org_id?: string }
         Returns: Json
       }
-      calculate_ai_cost: {
-        Args: {
-          p_model: string
-          p_provider: string
-          p_tokens_input: number
-          p_tokens_output: number
-        }
-        Returns: number
-      }
       can_access_marketplace: { Args: { org_id: string }; Returns: boolean }
       can_access_partnerships: { Args: { org_id: string }; Returns: boolean }
       check_ai_budget: {
@@ -10779,6 +11017,7 @@ export type Database = {
         Args: { p_chunk_size: number; p_run_id: string }
         Returns: string[]
       }
+      cleanup_cost_logs: { Args: never; Returns: Json }
       cleanup_expired_import_tokens: { Args: never; Returns: number }
       cleanup_expired_webauthn_challenges: { Args: never; Returns: undefined }
       cleanup_old_logs: { Args: never; Returns: undefined }
@@ -10911,7 +11150,6 @@ export type Database = {
         }
         Returns: string
       }
-      exec_sql: { Args: { sql_query: string }; Returns: Json }
       fix_user_without_organization: {
         Args: { p_email: string; p_full_name?: string; p_user_id: string }
         Returns: string
@@ -11474,122 +11712,65 @@ export type Database = {
           uf: string
         }[]
       }
-      search_properties_advanced:
-        | {
-            Args: {
-              p_amenities?: string[]
-              p_cities?: string[]
-              p_city?: string
-              p_launch_stage?: string
-              p_limit?: number
-              p_max_area?: number
-              p_max_beach_distance?: number
-              p_max_condominium?: number
-              p_max_price?: number
-              p_min_area?: number
-              p_min_bedrooms?: number
-              p_min_condominium?: number
-              p_min_parking?: number
-              p_min_price?: number
-              p_min_suites?: number
-              p_neighborhood?: string
-              p_neighborhoods?: string[]
-              p_offset?: number
-              p_organization_id: string
-              p_owner_id?: string
-              p_property_code?: string
-              p_property_condition?: string
-              p_property_type_id?: string
-              p_review_status?: string
-              p_search_text?: string
-              p_sort_by?: string
-              p_status?: string
-              p_transaction_type?: string
-            }
-            Returns: {
-              address_city: string
-              address_neighborhood: string
-              address_state: string
-              area_built: number
-              area_total: number
-              bathrooms: number
-              beach_distance_meters: number
-              bedrooms: number
-              cover_image_url: string
-              created_at: string
-              description: string
-              id: string
-              last_reviewed_at: string
-              parking_spots: number
-              property_code: string
-              property_type_id: string
-              rent_price: number
-              sale_price: number
-              status: string
-              title: string
-              total_count: number
-              transaction_type: string
-              updated_at: string
-            }[]
-          }
-        | {
-            Args: {
-              p_amenities?: string[]
-              p_cities?: string[]
-              p_city?: string
-              p_launch_stage?: string
-              p_limit?: number
-              p_max_area?: number
-              p_max_beach_distance?: number
-              p_max_condominium?: number
-              p_max_price?: number
-              p_min_area?: number
-              p_min_bedrooms?: number
-              p_min_condominium?: number
-              p_min_parking?: number
-              p_min_price?: number
-              p_min_suites?: number
-              p_neighborhood?: string
-              p_neighborhoods?: string[]
-              p_offset?: number
-              p_organization_id: string
-              p_owner_id?: string
-              p_property_code?: string
-              p_property_condition?: string
-              p_property_type_id?: string
-              p_property_type_ids?: string[]
-              p_review_status?: string
-              p_search_text?: string
-              p_sort_by?: string
-              p_status?: string
-              p_transaction_type?: string
-            }
-            Returns: {
-              address_city: string
-              address_neighborhood: string
-              address_state: string
-              area_built: number
-              area_total: number
-              bathrooms: number
-              beach_distance_meters: number
-              bedrooms: number
-              cover_image_url: string
-              created_at: string
-              description: string
-              id: string
-              last_reviewed_at: string
-              parking_spots: number
-              property_code: string
-              property_type_id: string
-              rent_price: number
-              sale_price: number
-              status: string
-              title: string
-              total_count: number
-              transaction_type: string
-              updated_at: string
-            }[]
-          }
+      search_properties_advanced: {
+        Args: {
+          p_amenities?: string[]
+          p_cities?: string[]
+          p_city?: string
+          p_launch_stage?: string
+          p_limit?: number
+          p_max_area?: number
+          p_max_beach_distance?: number
+          p_max_condominium?: number
+          p_max_price?: number
+          p_min_area?: number
+          p_min_bedrooms?: number
+          p_min_condominium?: number
+          p_min_parking?: number
+          p_min_price?: number
+          p_min_suites?: number
+          p_neighborhood?: string
+          p_neighborhoods?: string[]
+          p_offset?: number
+          p_organization_id: string
+          p_owner_id?: string
+          p_property_code?: string
+          p_property_condition?: string
+          p_property_type_id?: string
+          p_property_type_ids?: string[]
+          p_review_status?: string
+          p_search_text?: string
+          p_sort_by?: string
+          p_status?: string
+          p_streets?: string[]
+          p_transaction_type?: string
+        }
+        Returns: {
+          address_city: string
+          address_neighborhood: string
+          address_state: string
+          area_built: number
+          area_total: number
+          bathrooms: number
+          beach_distance_meters: number
+          bedrooms: number
+          cover_image_url: string
+          created_at: string
+          description: string
+          id: string
+          last_reviewed_at: string
+          parking_spots: number
+          property_code: string
+          property_type_id: string
+          rent_price: number
+          sale_price: number
+          status: string
+          title: string
+          total_count: number
+          transaction_type: string
+          updated_at: string
+        }[]
+      }
       search_properties_by_code: {
         Args: {
           p_code_prefix: string
@@ -11687,8 +11868,6 @@ export type Database = {
         | "developer"
         | "leader"
         | "sub_admin"
-        | "atendente"
-        | "desenvolvedor"
       billing_cycle: "monthly" | "yearly"
       channel_type:
         | "whatsapp"
@@ -11903,8 +12082,6 @@ export const Constants = {
         "developer",
         "leader",
         "sub_admin",
-        "atendente",
-        "desenvolvedor",
       ],
       billing_cycle: ["monthly", "yearly"],
       channel_type: [
