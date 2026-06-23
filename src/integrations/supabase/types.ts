@@ -11057,6 +11057,46 @@ export type Database = {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
       }
+      debug_amenities_overview: {
+        Args: never
+        Returns: {
+          amenity_id: string
+          category: string
+          duplicates_global: boolean
+          is_default: boolean
+          is_global: boolean
+          name: string
+          organization_id: string
+          organization_name: string
+        }[]
+      }
+      debug_invites_overview: {
+        Args: never
+        Returns: {
+          created_at: string
+          email: string
+          expires_at: string
+          invite_id: string
+          organization_id: string
+          organization_name: string
+          role: string
+          status: string
+          user_already_exists: boolean
+        }[]
+      }
+      debug_properties_visibility: {
+        Args: never
+        Returns: {
+          code: string
+          marketplace_active: boolean
+          organization_id: string
+          organization_name: string
+          property_id: string
+          status: string
+          title: string
+          updated_at: string
+        }[]
+      }
       deduct_ai_credits: {
         Args: {
           p_description?: string
