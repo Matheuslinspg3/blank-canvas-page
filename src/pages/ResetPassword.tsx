@@ -28,31 +28,60 @@ export default function ResetPassword() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  // Detecta se há sessão de recovery ativa
-  // Supabase processa o token automaticamente quando a página carrega com #access_token=...&type=recovery
+  // Detecta se há sessão de recovery ativa.
+  // O token chega no hash da URL (#access_token=...&type=recovery). Processamos
+  // explicitamente para evitar loading infinito quando o evento PASSWORD_RECOVERY
+  // não dispara a tempo ou o detectSessionInUrl falha.
   useEffect(() => {
     let mounted = true;
 
-    // Listener captura o evento PASSWORD_RECOVERY que o Supabase dispara após processar o hash
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const finish = () => { if (mounted) setCheckingSession(false); };
+
+    const subscription = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
       if (event === "PASSWORD_RECOVERY" || (session && event === "SIGNED_IN")) {
         setHasRecoverySession(true);
         setCheckingSession(false);
       }
-    });
+    }).data.subscription;
 
-    // Fallback: verifica sessão atual (caso o evento já tenha disparado antes do mount)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!mounted) return;
-      if (session) {
-        setHasRecoverySession(true);
+    const init = async () => {
+      try {
+        // 1) Tenta extrair tokens do hash da URL manualmente (fonte da verdade no recovery)
+        const hash = window.location.hash?.startsWith("#") ? window.location.hash.slice(1) : "";
+        const params = new URLSearchParams(hash);
+        const access_token = params.get("access_token");
+        const refresh_token = params.get("refresh_token");
+        const type = params.get("type");
+
+        if (access_token && refresh_token && (type === "recovery" || type === null)) {
+          const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+          if (!error && mounted) {
+            setHasRecoverySession(true);
+            // limpa o hash da URL por segurança
+            window.history.replaceState(null, "", window.location.pathname);
+            finish();
+            return;
+          }
+        }
+
+        // 2) Fallback: sessão já existente
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!mounted) return;
+        if (session) setHasRecoverySession(true);
+        finish();
+      } catch {
+        finish();
       }
-      setCheckingSession(false);
-    });
+    };
+
+    init();
+    // Timeout de seguranca: nunca deixa em loading infinito
+    const safety = setTimeout(finish, 5000);
 
     return () => {
       mounted = false;
+      clearTimeout(safety);
       subscription.unsubscribe();
     };
   }, []);
