@@ -252,6 +252,12 @@ const App = () => (
                             <RechargeApprovals />
                           </DeveloperRoute>
                         } />
+                        <Route path="/dev/visibility" element={
+                          <DeveloperRoute>
+                            <Suspense fallback={<div className="p-8">Carregando...</div>}><VisibilityDebug /></Suspense>
+                          </DeveloperRoute>
+                        } />
+                        
                         
                         {/* Admin route inside AppLayout */}
                         <Route path="/admin/auditoria" element={
