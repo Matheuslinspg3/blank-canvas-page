@@ -64,9 +64,11 @@ export function AmenitiesPickerDialog({ selected, onChange }: AmenitiesPickerDia
   const updateAmenity = useUpdateAmenity();
   const deleteAmenity = useDeleteAmenity();
 
-  const canEdit = (a: PropertyAmenity) => isAdminLike || a.created_by === profile?.user_id;
+  const isGlobal = (a: PropertyAmenity) => a.organization_id === null;
+  const canEdit = (a: PropertyAmenity) =>
+    !isGlobal(a) && (isAdminLike || a.created_by === profile?.user_id);
   const canDelete = (a: PropertyAmenity) =>
-    !a.is_default && (isAdminLike || a.created_by === profile?.user_id);
+    !isGlobal(a) && !a.is_default && (isAdminLike || a.created_by === profile?.user_id);
 
   const toggleAmenity = (name: string) => {
     onChange(
