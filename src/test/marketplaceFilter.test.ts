@@ -18,7 +18,9 @@ describe("useMarketplace cross-org visibility", () => {
     const end = src.indexOf("}, [organizationId");
     expect(start).toBeGreaterThan(0);
     expect(end).toBeGreaterThan(start);
-    const body = src.slice(start, end);
+    // strip single-line `// ...` comments so the explanatory note about the
+    // *removed* filter doesn't trigger a false positive.
+    const body = src.slice(start, end).replace(/\/\/[^\n]*/g, "");
     expect(body).not.toMatch(/\.neq\(\s*["']organization_id["']/);
   });
 
