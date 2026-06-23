@@ -1,1 +1,4 @@
 project_id = "lvkfndrspzxhxwybnnwl"
+
+[functions.remap-r2-urls]
+verify_jwt = false
