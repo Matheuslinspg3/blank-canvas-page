@@ -368,8 +368,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Envia email de recuperação de senha. Mensagem genérica no UI evita enumeração de emails.
   const forgotPassword = useCallback(async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-      redirectTo: `${window.location.origin}/reset-password`,
+    // Usa a edge function send-reset-email (gera o link via generateLink e envia via Resend
+    // com template estilizado e href real). O fluxo nativo resetPasswordForEmail nao substitui
+    // a variavel {{ .ConfirmationURL }} quando ha SMTP customizado, gerando botao sem link.
+    const { error } = await supabase.functions.invoke("send-reset-email", {
+      body: { email: email.trim().toLowerCase() },
     });
     return { error: error as Error | null };
   }, []);
