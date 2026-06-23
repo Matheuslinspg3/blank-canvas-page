@@ -80,7 +80,7 @@ export function SettingsProfileTab() {
     const updateData: Record<string, any> = { full_name: fullName, phone, creci: creci.trim() };
     if (creciChanged && !creci.trim()) { updateData.creci_verified = false; updateData.creci_verified_at = null; updateData.creci_verified_name = null; }
 
-    const { error } = await supabase.from("profiles").update(updateData).eq("id", profile.id);
+    const { error } = await supabase.from("profiles").update(updateData as any).eq("id", profile.id);
     setSavingProfile(false);
     if (error) toastError("Erro ao salvar perfil", undefined, { module: "Settings" });
     else { toast.success("Perfil atualizado com sucesso"); refreshProfile(); }

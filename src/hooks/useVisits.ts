@@ -141,7 +141,7 @@ export function useVisits(filters?: VisitFilters) {
 
       const { error } = await supabase
         .from("property_visits")
-        .update(updateData)
+        .update(updateData as any)
         .eq("id", visitId);
 
       if (error) throw error;

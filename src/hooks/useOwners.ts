@@ -310,7 +310,7 @@ export function useOwners() {
         if (ownerData.document && !currentOwner?.document) updates.document = ownerData.document;
 
         if (Object.keys(updates).length > 0) {
-          await supabase.from("owners").update(updates).eq("id", existing.id);
+          await supabase.from("owners").update(updates as any).eq("id", existing.id);
         }
       }
 

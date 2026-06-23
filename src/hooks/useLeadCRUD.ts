@@ -328,7 +328,7 @@ export function useLeadCRUD(opts: {
         inactivated_by: profile?.full_name || user?.email || null,
       };
       if (reason) updateData.inactivation_reason = reason;
-      const { error } = await supabase.from('leads').update(updateData).eq('id', id);
+      const { error } = await supabase.from('leads').update(updateData as any).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
