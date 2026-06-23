@@ -36,7 +36,7 @@ export function useMaintenanceMode() {
   // Realtime subscription for instant propagation
   useEffect(() => {
     const channel = supabase
-      .channel("maintenance-realtime")
+      .channel(`maintenance-realtime-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         {
