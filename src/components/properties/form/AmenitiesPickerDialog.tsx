@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRoles } from "@/hooks/useUserRole";
+import { isGlobalAmenity, canEditAmenity, canDeleteAmenity } from "@/lib/amenityPermissions";
 import { toast } from "sonner";
 
 interface AmenitiesPickerDialogProps {
@@ -64,11 +65,10 @@ export function AmenitiesPickerDialog({ selected, onChange }: AmenitiesPickerDia
   const updateAmenity = useUpdateAmenity();
   const deleteAmenity = useDeleteAmenity();
 
-  const isGlobal = (a: PropertyAmenity) => a.organization_id === null;
-  const canEdit = (a: PropertyAmenity) =>
-    !isGlobal(a) && (isAdminLike || a.created_by === profile?.user_id);
-  const canDelete = (a: PropertyAmenity) =>
-    !isGlobal(a) && !a.is_default && (isAdminLike || a.created_by === profile?.user_id);
+  const ctx = { userId: profile?.user_id, isAdminLike };
+  const isGlobal = isGlobalAmenity;
+  const canEdit = (a: PropertyAmenity) => canEditAmenity(a, ctx);
+  const canDelete = (a: PropertyAmenity) => canDeleteAmenity(a, ctx);
 
   const toggleAmenity = (name: string) => {
     onChange(
