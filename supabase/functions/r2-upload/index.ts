@@ -61,6 +61,7 @@ Deno.serve(async (req) => {
     const endpoint = (Deno.env.get('R2_ENDPOINT') ?? '').trim().replace(/\/$/, '');
     const bucket = (Deno.env.get('R2_BUCKET_NAME') ?? '').trim();
     const publicUrl = (Deno.env.get('R2_PUBLIC_URL') ?? '').trim().replace(/\/$/, '');
+    const supabaseUrl = (Deno.env.get('SUPABASE_URL') ?? '').trim().replace(/\/$/, '');
 
     // Debug credentials format
     console.log(`[r2-upload] Config: endpoint=${endpoint}, bucket=${bucket}`);
@@ -119,10 +120,10 @@ Deno.serve(async (req) => {
 
       const publicUrlFull = publicUrl && !publicUrl.includes('r2.cloudflarestorage.com')
         ? `${publicUrl}/${r2KeyFull}`
-        : `${endpoint}/${bucket}/${r2KeyFull}`;
+        : `${supabaseUrl}/functions/v1/r2-image-proxy?key=${encodeURIComponent(r2KeyFull)}`;
       const publicUrlThumb = publicUrl && !publicUrl.includes('r2.cloudflarestorage.com')
         ? `${publicUrl}/${r2KeyThumb}`
-        : `${endpoint}/${bucket}/${r2KeyThumb}`;
+        : `${supabaseUrl}/functions/v1/r2-image-proxy?key=${encodeURIComponent(r2KeyThumb)}`;
 
       console.log(`[r2-upload] OK: ${r2KeyFull}`);
 
@@ -154,7 +155,7 @@ Deno.serve(async (req) => {
     if (publicUrl && !publicUrl.includes('r2.cloudflarestorage.com')) {
       fileUrl = `${publicUrl}/${objectKey}`;
     } else {
-      fileUrl = `${endpoint}/${bucket}/${objectKey}`;
+      fileUrl = `${supabaseUrl}/functions/v1/r2-image-proxy?key=${encodeURIComponent(objectKey)}`;
     }
     console.log(`R2 OK: ${fileUrl}`);
 

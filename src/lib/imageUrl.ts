@@ -6,6 +6,10 @@
 const R2_PUBLIC_BASE = import.meta.env.VITE_R2_PUBLIC_URL || '';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 
+const isPrivateR2Url = (url: string) => url.includes('r2.cloudflarestorage.com');
+
+const isUsablePublicR2Base = (url: string) => !!url && !isPrivateR2Url(url);
+
 export type ImageVariantType = 'thumb' | 'full';
 
 export interface ImageRecord {
@@ -34,33 +38,42 @@ export function getImageUrl(
   if (image.storage_provider === 'r2') {
     const key = variant === 'thumb' ? image.r2_key_thumb : image.r2_key_full;
     if (key) {
-      // Use R2 public URL if configured, otherwise fall back to url field
-      if (R2_PUBLIC_BASE) {
+      // Use R2 public URL if configured; otherwise proxy the private object.
+      if (isUsablePublicR2Base(R2_PUBLIC_BASE)) {
         return `${R2_PUBLIC_BASE.replace(/\/$/, '')}/${key}`;
       }
+      return proxyR2Url(key);
     }
     // If R2 key exists but no public URL configured, use the stored url
-    if (image.url) return image.url;
+    if (image.url) return proxyImageUrl(image.url);
   }
 
   // Cloudinary / legacy images
   if (variant === 'thumb' && image.cached_thumbnail_url) {
-    return proxyCloudinaryUrl(image.cached_thumbnail_url);
+    return proxyImageUrl(image.cached_thumbnail_url);
   }
 
-  return image.url ? proxyCloudinaryUrl(image.url) : '/placeholder.svg';
+  return image.url ? proxyImageUrl(image.url) : '/placeholder.svg';
 }
 
 /**
- * Proxy Cloudinary URLs through Edge Function to avoid 401 errors.
- * Non-Cloudinary URLs are returned as-is.
+ * Proxy Cloudinary and private R2 URLs through Edge Functions.
+ * Public/non-managed URLs are returned as-is.
  */
-function proxyCloudinaryUrl(url: string): string {
+function proxyImageUrl(url: string): string {
   if (!url || !SUPABASE_URL) return url;
   if (url.includes('res.cloudinary.com')) {
     return `${SUPABASE_URL}/functions/v1/cloudinary-image-proxy?url=${encodeURIComponent(url)}`;
   }
+  if (isPrivateR2Url(url)) {
+    return `${SUPABASE_URL}/functions/v1/r2-image-proxy?url=${encodeURIComponent(url)}`;
+  }
   return url;
+}
+
+function proxyR2Url(key: string): string {
+  if (!key || !SUPABASE_URL) return '/placeholder.svg';
+  return `${SUPABASE_URL}/functions/v1/r2-image-proxy?key=${encodeURIComponent(key)}`;
 }
 
 /**

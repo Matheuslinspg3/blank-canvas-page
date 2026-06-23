@@ -2,3 +2,6 @@ project_id = "lvkfndrspzxhxwybnnwl"
 
 [functions.remap-r2-urls]
 verify_jwt = false
+
+[functions.r2-image-proxy]
+verify_jwt = false
