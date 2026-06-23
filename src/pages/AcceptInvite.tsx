@@ -230,16 +230,54 @@ export default function AcceptInvite() {
         },
       });
 
-      if (fnError || data?.error) {
-        const errMsg = (data?.error as string) || fnError?.message || "Erro ao criar conta";
+      // supabase-js não parseia o body em respostas não-2xx — extrai manualmente do FunctionsHttpError.
+      let errMsg: string | null = null;
+      if (fnError) {
+        const ctxResp: Response | undefined = (fnError as any)?.context;
+        if (ctxResp && typeof ctxResp.json === "function") {
+          try {
+            const body = await ctxResp.clone().json();
+            errMsg = body?.error || fnError.message;
+          } catch {
+            errMsg = fnError.message;
+          }
+        } else {
+          errMsg = fnError.message;
+        }
+      } else if (data?.error) {
+        errMsg = data.error as string;
+      }
 
+      if (errMsg) {
         if (errMsg === "email_already_registered") {
           toast({
-            variant: "destructive",
             title: "Email já cadastrado",
-            description: "Faça login e acesse este link novamente para aceitar o convite.",
+            description: "Tentando entrar com a senha informada para aceitar o convite...",
           });
-          setTimeout(() => navigate(`/auth?redirect=${encodeURIComponent(`/convite/${invite.id}`)}`), 1500);
+          // Tenta logar com a senha digitada e aceita o convite automaticamente.
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: form.email.trim().toLowerCase(),
+            password: form.password,
+          });
+          if (signInError) {
+            toast({
+              variant: "destructive",
+              title: "Senha incorreta",
+              description: "Esse email já tem conta. Faça login com a senha correta para aceitar o convite.",
+            });
+            setTimeout(
+              () => navigate(`/auth?redirect=${encodeURIComponent(`/convite/${invite.id}`)}`),
+              1500,
+            );
+            return;
+          }
+          // Logado: aceita o convite via função pública (usuário autenticado).
+          await supabase.functions.invoke("accept-invite", {
+            body: { invite_id: invite.id, org_code: form.orgCode.trim() },
+          });
+          setAccepted(true);
+          toast({ title: "Bem-vindo!", description: `Você agora faz parte de ${invite.org_name}` });
+          setTimeout(() => navigate("/dashboard"), 1200);
           return;
         }
 
