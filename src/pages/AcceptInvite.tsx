@@ -43,8 +43,8 @@ export default function AcceptInvite() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [accepted, setAccepted] = useState(false);
-  const [waitingEmailConfirmation, setWaitingEmailConfirmation] = useState(false);
   const acceptAttempted = useRef(false);
+
 
   const [form, setForm] = useState({ name: "", email: "", password: "", confirmPassword: "", orgCode: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
