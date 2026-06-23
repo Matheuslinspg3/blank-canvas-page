@@ -1,5 +1,5 @@
-const UPSTASH_REDIS_REST_URL = Deno.env.get("UPSTASH_REDIS_REST_URL")!;
-const UPSTASH_REDIS_REST_TOKEN = Deno.env.get("UPSTASH_REDIS_REST_TOKEN")!;
+const UPSTASH_REDIS_REST_URL = Deno.env.get("UPSTASH_REDIS_REST_URL");
+const UPSTASH_REDIS_REST_TOKEN = Deno.env.get("UPSTASH_REDIS_REST_TOKEN");
 
 export async function checkRateLimit(
   key: string,
@@ -7,6 +7,11 @@ export async function checkRateLimit(
   windowSeconds: number,
 ): Promise<{ allowed: boolean; remaining: number; resetIn: number }> {
   const redisKey = `ratelimit:${key}`;
+
+  // Fail-open if Upstash is not configured (e.g. fresh Supabase project without secrets)
+  if (!UPSTASH_REDIS_REST_URL || !UPSTASH_REDIS_REST_TOKEN) {
+    return { allowed: true, remaining: maxRequests, resetIn: windowSeconds };
+  }
 
   try {
     const incrResponse = await fetch(
