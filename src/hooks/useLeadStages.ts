@@ -94,7 +94,7 @@ export function useLeadStages() {
 
       const { data, error } = await supabase
         .from('lead_stages')
-        .update(updateData)
+        .update(updateData as any)
         .eq('id', id)
         .select()
         .single();
