@@ -310,33 +310,8 @@ export default function AcceptInvite() {
     );
   }
 
-  // Waiting for email confirmation
-  if (waitingEmailConfirmation) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
-        <div className="max-w-md w-full text-center space-y-6">
-          <HabitaeLogo variant="horizontal" size="lg" />
-          <Card>
-            <CardContent className="pt-6 space-y-4">
-              <Mail className="h-12 w-12 text-primary mx-auto" />
-              <h2 className="text-xl font-bold">Verifique seu email</h2>
-              <p className="text-muted-foreground">
-                Enviamos um link de confirmação para <span className="font-medium text-foreground">{form.email}</span>.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Clique no link do email para confirmar sua conta. Após a confirmação, você será redirecionado automaticamente para aceitar o convite.
-              </p>
-              <div className="pt-2">
-                <Button variant="outline" size="sm" onClick={() => setWaitingEmailConfirmation(false)}>
-                  Voltar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
+  // (Tela de "verifique seu email" removida — conta criada já confirmada via edge function.)
+
 
   // Accepted state
   if (accepted) {
