@@ -65,6 +65,7 @@ const DeveloperDashboard = lazy(() => lazyRetry(() => import("./pages/developer/
 const RechargeCredits = lazy(() => lazyRetry(() => import("./pages/RechargeCredits")));
 const RechargeHistory = lazy(() => lazyRetry(() => import("./pages/RechargeHistory")));
 const RechargeApprovals = lazy(() => lazyRetry(() => import("./pages/developer/RechargeApprovals")));
+const VisibilityDebug = lazy(() => lazyRetry(() => import("./pages/dev/VisibilityDebug")));
 const ImportPendencies = lazy(() => lazyRetry(() => import("./pages/ImportPendencies")));
 const Integrations = lazy(() => lazyRetry(() => import("./pages/Integrations")));
 const LandingPage = lazy(() => lazyRetry(() => import("./pages/LandingPage")));
