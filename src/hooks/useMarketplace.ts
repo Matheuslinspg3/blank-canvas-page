@@ -76,7 +76,8 @@ export function useMarketplace(
 
   const applyFilters = useCallback((q: any) => {
     let query = q.eq("status", "disponivel");
-    if (organizationId) query = query.neq("organization_id", organizationId);
+    // Mostra imóveis de todas as organizações, inclusive a própria.
+    // (Antes: query.neq("organization_id", organizationId) — escondia a própria org.)
     if (filters.transactionType && filters.transactionType !== "all") query = query.eq("transaction_type", filters.transactionType);
 
     // Multi-select: tipo de imóvel (OR dentro do campo)

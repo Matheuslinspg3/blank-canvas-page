@@ -43,8 +43,8 @@ export default function AcceptInvite() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [accepted, setAccepted] = useState(false);
-  const [waitingEmailConfirmation, setWaitingEmailConfirmation] = useState(false);
   const acceptAttempted = useRef(false);
+
 
   const [form, setForm] = useState({ name: "", email: "", password: "", confirmPassword: "", orgCode: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -216,46 +216,69 @@ export default function AcceptInvite() {
       return;
     }
 
-    // Validate org code
-    const { data: codeValid } = await supabase
-      .rpc("validate_invite_org_code", { p_org_id: invite.organization_id, p_code: form.orgCode.trim() });
-
-    if (!codeValid) {
-      setErrors({ orgCode: "Código da imobiliária incorreto" });
-      return;
-    }
-
     setIsSubmitting(true);
 
-    const { error: signUpError } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/convite/${invite.id}`,
-        data: {
-          full_name: form.name,
-          account_type: "corretor_individual",
+    try {
+      // Cria a conta já confirmada, valida o código e aceita o convite — tudo em uma chamada.
+      const { data, error: fnError } = await supabase.functions.invoke("accept-invite-signup", {
+        body: {
+          invite_id: invite.id,
+          email: form.email.trim().toLowerCase(),
+          password: form.password,
+          full_name: form.name.trim(),
+          org_code: form.orgCode.trim(),
         },
-      },
-    });
+      });
 
-    setIsSubmitting(false);
+      if (fnError || data?.error) {
+        const errMsg = (data?.error as string) || fnError?.message || "Erro ao criar conta";
 
-    if (signUpError) {
-      if (signUpError.message.includes("already registered")) {
-        toast({
-          variant: "destructive",
-          title: "Email já cadastrado",
-          description: "Faça login e acesse este link novamente para aceitar o convite.",
-        });
-      } else {
-        toast({ variant: "destructive", title: "Erro ao criar conta", description: signUpError.message });
+        if (errMsg === "email_already_registered") {
+          toast({
+            variant: "destructive",
+            title: "Email já cadastrado",
+            description: "Faça login e acesse este link novamente para aceitar o convite.",
+          });
+          setTimeout(() => navigate(`/auth?redirect=${encodeURIComponent(`/convite/${invite.id}`)}`), 1500);
+          return;
+        }
+
+        if (errMsg.toLowerCase().includes("código") || errMsg.toLowerCase().includes("codigo")) {
+          setErrors({ orgCode: "Código da imobiliária incorreto" });
+          return;
+        }
+
+        toast({ variant: "destructive", title: "Erro ao criar conta", description: errMsg });
+        return;
       }
-      return;
-    }
 
-    // Show email confirmation screen
-    setWaitingEmailConfirmation(true);
+      // Loga automaticamente — sem precisar confirmar email.
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: form.email.trim().toLowerCase(),
+        password: form.password,
+      });
+
+      if (signInError) {
+        toast({
+          title: "Conta criada!",
+          description: "Faça login para continuar.",
+        });
+        navigate("/auth");
+        return;
+      }
+
+      setAccepted(true);
+      toast({ title: "Bem-vindo!", description: `Você agora faz parte de ${invite.org_name}` });
+      setTimeout(() => navigate("/dashboard"), 1200);
+    } catch (err: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao criar conta",
+        description: err?.message || "Erro desconhecido",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Loading state
@@ -287,33 +310,8 @@ export default function AcceptInvite() {
     );
   }
 
-  // Waiting for email confirmation
-  if (waitingEmailConfirmation) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
-        <div className="max-w-md w-full text-center space-y-6">
-          <HabitaeLogo variant="horizontal" size="lg" />
-          <Card>
-            <CardContent className="pt-6 space-y-4">
-              <Mail className="h-12 w-12 text-primary mx-auto" />
-              <h2 className="text-xl font-bold">Verifique seu email</h2>
-              <p className="text-muted-foreground">
-                Enviamos um link de confirmação para <span className="font-medium text-foreground">{form.email}</span>.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Clique no link do email para confirmar sua conta. Após a confirmação, você será redirecionado automaticamente para aceitar o convite.
-              </p>
-              <div className="pt-2">
-                <Button variant="outline" size="sm" onClick={() => setWaitingEmailConfirmation(false)}>
-                  Voltar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
+  // (Tela de "verifique seu email" removida — conta criada já confirmada via edge function.)
+
 
   // Accepted state
   if (accepted) {

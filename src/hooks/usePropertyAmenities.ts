@@ -10,6 +10,7 @@ export interface PropertyAmenity {
   category: string;
   is_default: boolean;
   created_by: string | null;
+  organization_id: string | null;
 }
 
 export function usePropertyAmenities() {
@@ -19,12 +20,11 @@ export function usePropertyAmenities() {
   return useQuery({
     queryKey: ["property-amenities", orgId],
     queryFn: async () => {
-      if (!orgId) return [];
-
+      // RLS allows: organization_id IS NULL (global) OR organization_id = my org
       const { data, error } = await supabase
         .from("property_amenities")
-        .select("id, name, category, is_default, created_by")
-        .eq("organization_id", orgId)
+        .select("id, name, category, is_default, created_by, organization_id")
+        .order("is_default", { ascending: false })
         .order("category")
         .order("name");
 
@@ -58,7 +58,7 @@ export function useCreateAmenity() {
           is_default: false,
           created_by: profile.user_id,
         })
-        .select("id, name, category, is_default, created_by")
+        .select("id, name, category, is_default, created_by, organization_id")
         .single();
 
       if (error) {
@@ -86,7 +86,7 @@ export function useUpdateAmenity() {
         .from("property_amenities")
         .update({ name: name.trim(), category: category.trim() || "Geral" })
         .eq("id", id)
-        .select("id, name, category, is_default, created_by")
+        .select("id, name, category, is_default, created_by, organization_id")
         .single();
 
       if (error) {

@@ -6499,7 +6499,7 @@ export type Database = {
           id: string
           is_default: boolean
           name: string
-          organization_id: string
+          organization_id: string | null
         }
         Insert: {
           category?: string
@@ -6508,7 +6508,7 @@ export type Database = {
           id?: string
           is_default?: boolean
           name: string
-          organization_id: string
+          organization_id?: string | null
         }
         Update: {
           category?: string
@@ -6517,7 +6517,7 @@ export type Database = {
           id?: string
           is_default?: boolean
           name?: string
-          organization_id?: string
+          organization_id?: string | null
         }
         Relationships: [
           {
