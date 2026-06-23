@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRoles } from "@/hooks/useUserRole";
+import { isGlobalAmenity, canEditAmenity, canDeleteAmenity } from "@/lib/amenityPermissions";
 import { toast } from "sonner";
 
 interface AmenitiesPickerDialogProps {
