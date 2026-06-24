@@ -145,7 +145,7 @@ export default function Anuncios() {
 
           {/* ── RD Station ── */}
           <TabsContent value="rdstation" className="mt-4 space-y-4">
-            <FeatureFlagGate featureKey="has_rd_station">
+            <>{/* RD Station disponível para todos os usuários */}
               <Tabs value={rdTab} onValueChange={setRdTab}>
                 <TabsList className="w-full sm:w-auto">
                   <TabsTrigger value="conexao" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5">
