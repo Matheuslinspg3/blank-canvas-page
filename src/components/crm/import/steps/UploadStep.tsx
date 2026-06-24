@@ -75,7 +75,7 @@ export function UploadStep({ onParsed }: UploadStepProps) {
   return (
     <div className="space-y-4">
       <div
-        className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+        className={`border-2 border-dashed rounded-lg p-6 sm:p-8 text-center cursor-pointer transition-colors ${
           isDragOver ? 'border-primary bg-primary/5' : 'hover:border-primary'
         }`}
         onClick={() => fileInputRef.current?.click()}
@@ -122,7 +122,7 @@ export function UploadStep({ onParsed }: UploadStepProps) {
             </div>
           </div>
 
-          <ScrollArea className="h-48 border rounded-lg">
+          <ScrollArea className="h-40 sm:h-48 border rounded-lg">
             <Table>
               <TableHeader>
                 <TableRow>

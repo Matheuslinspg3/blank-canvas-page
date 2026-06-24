@@ -149,7 +149,7 @@ export function CsvImportTab({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       {/* Stepper */}
       {step < 5 && (
         <div className="flex items-center gap-1 mb-4 overflow-x-auto pb-1">
@@ -206,7 +206,7 @@ export function CsvImportTab({ onClose }: { onClose: () => void }) {
 
       {/* Navigation */}
       {step < 4 && (
-        <div className="flex justify-between mt-4 pt-4 border-t">
+        <div className="flex justify-between mt-4 pt-4 border-t shrink-0">
           <Button
             variant="outline"
             onClick={() => setStep(s => Math.max(0, s - 1))}
