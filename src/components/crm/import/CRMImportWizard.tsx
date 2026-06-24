@@ -25,7 +25,7 @@ export function CRMImportWizard({ open, onOpenChange, onImportComplete }: CRMImp
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[85dvh] overflow-hidden flex flex-col rounded-none sm:rounded-lg">
+      <DialogContent className="max-w-2xl h-[100dvh] max-h-[100dvh] sm:h-auto sm:max-h-[90dvh] overflow-hidden flex flex-col rounded-none sm:rounded-lg">
         <DialogHeader>
           <DialogTitle>Importar Leads</DialogTitle>
           <DialogDescription>
