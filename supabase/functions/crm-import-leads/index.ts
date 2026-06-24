@@ -54,6 +54,80 @@ function classifyTemperature(lead: LeadData): "frio" | "morno" | "quente" {
   return "frio";
 }
 
+const LEAD_STAGE_ENUM = [
+  "novo",
+  "contato",
+  "visita",
+  "proposta",
+  "negociacao",
+  "fechado_ganho",
+  "fechado_perdido",
+] as const;
+
+// Mapeia o nome do lead_stage (tabela) para o valor do enum lead_stage.
+function stageNameToEnum(name?: string | null): string | null {
+  if (!name) return null;
+  const n = name.toLowerCase().trim();
+  if (n.includes("novo")) return "novo";
+  if (n.includes("contato")) return "contato";
+  if (n.includes("visita")) return "visita";
+  if (n.includes("proposta")) return "proposta";
+  if (n.includes("negocia")) return "negociacao";
+  if (n.includes("ganho")) return "fechado_ganho";
+  if (n.includes("perdido")) return "fechado_perdido";
+  return null;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Resolve o target_stage vindo do front (que normalmente e o UUID do lead_stage)
+// para { id: lead_stage_id (uuid|null), enum: valor valido do enum lead_stage }.
+// Aceita tambem valores legados (string de enum) por compatibilidade.
+async function resolveTargetStage(
+  supabase: any,
+  targetStage: string | undefined,
+  organizationId: string,
+): Promise<{ id: string | null; enum: string }> {
+  // 1) Valor legado: ja e um enum valido (ex.: "novo").
+  if (targetStage && (LEAD_STAGE_ENUM as readonly string[]).includes(targetStage)) {
+    const { data: byName } = await supabase
+      .from("lead_stages")
+      .select("id, name, position")
+      .eq("organization_id", organizationId)
+      .order("position", { ascending: true });
+    const match = (byName || []).find(
+      (s: any) => stageNameToEnum(s.name) === targetStage,
+    );
+    return { id: match?.id ?? null, enum: targetStage };
+  }
+
+  // 2) UUID: busca o lead_stage e deriva o enum.
+  if (targetStage && UUID_RE.test(targetStage)) {
+    const { data: stage } = await supabase
+      .from("lead_stages")
+      .select("id, name, position, organization_id")
+      .eq("id", targetStage)
+      .maybeSingle();
+    if (stage && (stage.organization_id === organizationId || stage.organization_id === null)) {
+      const enumVal =
+        stageNameToEnum(stage.name) ??
+        LEAD_STAGE_ENUM[Math.min(stage.position ?? 0, LEAD_STAGE_ENUM.length - 1)] ??
+        "novo";
+      return { id: stage.id, enum: enumVal };
+    }
+  }
+
+  // 3) Fallback: primeiro estagio da organizacao + enum "novo".
+  const { data: first } = await supabase
+    .from("lead_stages")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .order("position", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  return { id: first?.id ?? null, enum: "novo" };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -367,6 +441,14 @@ async function processLeadBatch(
     .eq("organization_id", organizationId)
     .eq("is_active", true);
 
+  // Resolve target stage once for the whole batch.
+  // O front envia settings.target_stage como o ID (UUID) do lead_stage selecionado
+  // (ImportSettingsStep usa value={stage.id}). A coluna leads.stage e um enum
+  // (lead_stage) que NAO aceita UUID -> por isso a importacao falhava com
+  // 'invalid input value for enum lead_stage: "<uuid>"'. Aqui resolvemos tanto o
+  // lead_stage_id (UUID) quanto o valor de enum stage correspondente.
+  const resolvedStage = await resolveTargetStage(supabase, settings.target_stage, organizationId);
+
   const existingByEmail = new Map<string, any>();
   const existingByPhone = new Map<string, any>();
   (existingLeads || []).forEach((l: any) => {
@@ -427,7 +509,8 @@ async function processLeadBatch(
           source: lead.source || null,
           estimated_value: lead.estimated_value || null,
           notes: lead.notes || null,
-          stage: settings.target_stage || "novo",
+          stage: resolvedStage.enum,
+          lead_stage_id: resolvedStage.id,
           broker_id: settings.broker_id || lead.broker_id || null,
           organization_id: organizationId,
           created_by: userId,
