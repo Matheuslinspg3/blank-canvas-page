@@ -130,13 +130,30 @@ export default function MetaConnectionTab() {
         origin: window.location.origin,
       }));
       const redirectUri = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meta-oauth-callback`;
-      const oauthUrl = new URL("https://www.facebook.com/v21.0/dialog/oauth");
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const oauthBaseUrl = isMobile
+        ? "https://m.facebook.com/v21.0/dialog/oauth"
+        : "https://www.facebook.com/v21.0/dialog/oauth";
+      const oauthUrl = new URL(oauthBaseUrl);
       oauthUrl.searchParams.set("client_id", data.app_id);
       oauthUrl.searchParams.set("redirect_uri", redirectUri);
       oauthUrl.searchParams.set("state", state);
       oauthUrl.searchParams.set("scope", "ads_read,ads_management,business_management,pages_show_list,pages_read_engagement,pages_manage_ads,leads_retrieval,pages_manage_metadata");
       oauthUrl.searchParams.set("auth_type", "rerequest");
       oauthUrl.searchParams.set("response_type", "code");
+
+      if (isMobile) {
+        const newWindow = window.open(oauthUrl.toString(), "_blank", "noopener,noreferrer");
+        if (!newWindow) {
+          window.location.href = oauthUrl.toString();
+        }
+        toast({
+          title: "Abrindo conexão com Meta",
+          description: "No celular, se o Facebook abrir no app automaticamente, tente abrir o fluxo manualmente no Chrome.",
+        });
+        return;
+      }
+
       window.location.href = oauthUrl.toString();
     } catch {
       toast({ title: "Erro", description: "Falha ao iniciar conexão.", variant: "destructive" });
