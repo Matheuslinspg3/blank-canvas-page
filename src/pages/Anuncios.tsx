@@ -104,7 +104,7 @@ export default function Anuncios() {
 
           {/* ── Meta Ads ── */}
           <TabsContent value="meta" className="mt-4 space-y-4">
-            <FeatureFlagGate featureKey="has_meta_ads">
+            <>{/* Meta Ads disponível para todos os usuários */}
               <Tabs value={metaTab} onValueChange={setMetaTab}>
                 <TabsList className="w-full sm:w-auto">
                   <TabsTrigger value="conexao" className="flex-1 sm:flex-initial min-h-[40px] gap-1.5">
