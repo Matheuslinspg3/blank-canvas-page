@@ -28,6 +28,8 @@ export default function MetaConnectionTab() {
   const [stageId, setStageId] = useState(settings?.crm_stage_id ?? "");
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [isInitialSyncing, setIsInitialSyncing] = useState(false);
+  // Guarda o ultimo link de OAuth gerado no mobile para o fallback "copiar/abrir".
+  const [mobileOauthUrl, setMobileOauthUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (settings) {
@@ -130,7 +132,11 @@ export default function MetaConnectionTab() {
         origin: window.location.origin,
       }));
       const redirectUri = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meta-oauth-callback`;
-      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const ua = navigator.userAgent;
+      const isAndroid = /Android/i.test(ua);
+      const isIOS = /iPhone|iPad|iPod/i.test(ua);
+      const isMobile = isAndroid || isIOS;
+      // No mobile usamos m.facebook.com; no desktop, www.facebook.com.
       const oauthBaseUrl = isMobile
         ? "https://m.facebook.com/v21.0/dialog/oauth"
         : "https://www.facebook.com/v21.0/dialog/oauth";
@@ -141,20 +147,43 @@ export default function MetaConnectionTab() {
       oauthUrl.searchParams.set("scope", "ads_read,ads_management,business_management,pages_show_list,pages_read_engagement,pages_manage_ads,leads_retrieval,pages_manage_metadata");
       oauthUrl.searchParams.set("auth_type", "rerequest");
       oauthUrl.searchParams.set("response_type", "code");
+      const finalUrl = oauthUrl.toString();
 
-      if (isMobile) {
-        const newWindow = window.open(oauthUrl.toString(), "_blank", "noopener,noreferrer");
-        if (!newWindow) {
-          window.location.href = oauthUrl.toString();
-        }
+      // Android: o app do Facebook captura links facebook.com via App Links e
+      // abre no app (onde o fluxo falha). Para forcar o Chrome, usamos um
+      // Intent URL apontando para o package do Chrome, com browser_fallback_url.
+      if (isAndroid) {
+        setMobileOauthUrl(finalUrl);
+        const httpsless = finalUrl.replace(/^https?:\/\//, "");
+        const intentUrl =
+          `intent://${httpsless}#Intent;scheme=https;` +
+          `package=com.android.chrome;` +
+          `S.browser_fallback_url=${encodeURIComponent(finalUrl)};end`;
+        window.location.href = intentUrl;
         toast({
-          title: "Abrindo conexão com Meta",
-          description: "No celular, se o Facebook abrir no app automaticamente, tente abrir o fluxo manualmente no Chrome.",
+          title: "Abrindo conexão no Chrome",
+          description: "Se não abrir no Chrome, use o botão “Copiar link de conexão” e cole no navegador.",
         });
+        setIsRedirecting(false);
         return;
       }
 
-      window.location.href = oauthUrl.toString();
+      // iOS: nao ha intent equivalente; tenta nova aba e oferece o link manual.
+      if (isIOS) {
+        setMobileOauthUrl(finalUrl);
+        const newWindow = window.open(finalUrl, "_blank", "noopener,noreferrer");
+        if (!newWindow) {
+          window.location.href = finalUrl;
+        }
+        toast({
+          title: "Abrindo conexão com Meta",
+          description: "Se o app do Facebook abrir, use o botão “Copiar link de conexão” e cole no Safari/Chrome.",
+        });
+        setIsRedirecting(false);
+        return;
+      }
+
+      window.location.href = finalUrl;
     } catch {
       toast({ title: "Erro", description: "Falha ao iniciar conexão.", variant: "destructive" });
       setIsRedirecting(false);
@@ -180,6 +209,39 @@ export default function MetaConnectionTab() {
         connectLabel="Conectar com Meta"
         helpText="Clique para conectar sua conta do Meta Ads. Você será redirecionado para o Facebook."
       />
+
+      {/* Fallback mobile: se o app do Facebook capturar o link, o usuário
+          copia/abre o link de conexão manualmente no navegador. */}
+      {!isConnected && mobileOauthUrl && (
+        <div className="rounded-md border border-border bg-muted/40 p-3 text-sm space-y-2">
+          <p className="text-muted-foreground">
+            Abriu o app do Facebook em vez do navegador? Use o link abaixo no Chrome:
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(mobileOauthUrl);
+                  toast({ title: "Link copiado", description: "Cole no Chrome para conectar." });
+                } catch {
+                  toast({ title: "Não foi possível copiar", description: "Copie o link manualmente.", variant: "destructive" });
+                }
+              }}
+            >
+              Copiar link de conexão
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open(mobileOauthUrl, "_blank", "noopener,noreferrer")}
+            >
+              Abrir em nova aba
+            </Button>
+          </div>
+        </div>
+      )}
 
       <CrmAutomationCard
         autoSend={autoSend}
