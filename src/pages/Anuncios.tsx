@@ -171,7 +171,7 @@ export default function Anuncios() {
                 <TabsContent value="estatisticas" className="mt-4"><RDStationStatsContent /></TabsContent>
                 <TabsContent value="webhook_logs" className="mt-4"><RDWebhookTab /></TabsContent>
               </Tabs>
-            </FeatureFlagGate>
+            </>
           </TabsContent>
 
           {/* ── Gerador IA ── */}
