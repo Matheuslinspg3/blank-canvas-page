@@ -140,7 +140,7 @@ export default function Anuncios() {
                 <TabsContent value="anuncios" className="mt-4"><MetaAdsListContent /></TabsContent>
                 <TabsContent value="webhook_logs" className="mt-4"><MetaWebhookLogsTab /></TabsContent>
               </Tabs>
-            </FeatureFlagGate>
+            </>
           </TabsContent>
 
           {/* ── RD Station ── */}
