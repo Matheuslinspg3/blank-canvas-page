@@ -206,7 +206,7 @@ export function CsvImportTab({ onClose }: { onClose: () => void }) {
 
       {/* Navigation */}
       {step < 4 && (
-        <div className="flex justify-between mt-4 pt-4 border-t">
+        <div className="flex justify-between mt-4 pt-4 border-t shrink-0">
           <Button
             variant="outline"
             onClick={() => setStep(s => Math.max(0, s - 1))}
