@@ -278,8 +278,12 @@ export function useSubscription({ enabled = false }: { enabled?: boolean } = {})
 
   useEffect(() => {
     if (!orgId || !enabled) return;
+    // Sufixo aleatório no nome do canal evita o erro
+    // "cannot add postgres_changes callbacks ... after subscribe()" que ocorre
+    // quando o efeito remonta (React StrictMode/re-render) e tenta reutilizar
+    // um canal de nome fixo que ainda nao foi removido do client Supabase.
     const channel = supabase
-      .channel(`billing-${orgId}`)
+      .channel(`billing-${orgId}-${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
