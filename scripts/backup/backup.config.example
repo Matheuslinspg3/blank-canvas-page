@@ -1,0 +1,52 @@
+# ──────────────────────────────────────────────────────────────────────────
+# backup.config — configuração do backup diário
+# Copie para "backup.config" (sem .example) e preencha.
+# Este arquivo TEM SENHAS: deixe com permissão 600 (chmod 600 backup.config)
+# ──────────────────────────────────────────────────────────────────────────
+
+# Onde os backups serão guardados (no SEU PC Linux de backup)
+BACKUP_ROOT="$HOME/backups/porta-do-corretor"
+
+# Quantos dias manter (apaga automaticamente os mais antigos)
+RETENTION_DAYS=7
+
+# ── 1. BANCO SUPABASE ───────────────────────────────────────────────────────
+# Connection string do Postgres do Supabase.
+# Pegue em: Supabase → Project Settings → Database → Connection string (URI)
+# Use a porta 5432 (session) para pg_dump. Formato:
+#   postgresql://postgres.<REF>:<SENHA>@aws-1-<region>.pooler.supabase.com:5432/postgres
+SUPABASE_DB_URL="postgresql://postgres.lvkfndrspzxhxwybnnwl:SUA_SENHA_DO_BANCO@aws-1-sa-east-1.pooler.supabase.com:5432/postgres"
+
+# ── 2. ARQUIVOS / PASTAS para backup (adicione quantos quiser) ───────────────
+BACKUP_PATHS=(
+  "$HOME/projetos/porta-do-corretor"      # repo/código do projeto
+  # "$HOME/Documentos/imobiliaria"
+  # "/var/www/algum-site"
+)
+
+# Exclusões do tar (pastas pesadas e descartáveis). Ajuste se quiser.
+TAR_EXCLUDES="--exclude=node_modules --exclude=.git --exclude=dist --exclude=.next --exclude=*.log --exclude=.cache"
+
+# ── 3. SECRETS / .env / CONFIGS ─────────────────────────────────────────────
+SECRET_PATHS=(
+  "$HOME/projetos/porta-do-corretor/.env"
+  # "$HOME/.config/supabase"
+  # "$HOME/projetos/porta-do-corretor/supabase/.env"
+)
+
+# Senha para CRIPTOGRAFAR os secrets (AES-256 via gpg). FORTEMENTE recomendado.
+# Se deixar vazio, os secrets ficam só compactados (não criptografados).
+GPG_PASSPHRASE="troque-por-uma-senha-forte-aqui"
+
+# ── 4. LINKS / referências (vão para o INFO.md de cada backup) ───────────────
+LINKS=(
+  "Supabase projeto: https://supabase.com/dashboard/project/lvkfndrspzxhxwybnnwl"
+  "GitHub repo: https://github.com/Matheuslinspg3/blank-canvas-page"
+  "Cloudflare R2 bucket: habitae-images"
+)
+
+# ── 5. (OPCIONAL) Cópia off-site para R2/S3 via rclone ──────────────────────
+# Configure antes: rclone config  (crie um remote apontando pro seu R2/S3)
+# Depois preencha o nome do remote + bucket/pasta. Deixe vazio para desativar.
+# RCLONE_REMOTE="r2backup:meu-bucket/porta-do-corretor"
+RCLONE_REMOTE=""
