@@ -382,14 +382,17 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
     }
   };
 
-  // Salva o estado atual como rascunho, sem validação obrigatória.
+  // Salva como rascunho. Para registros novos, marca is_draft=true.
+  // Para registros existentes, preserva o estado atual (NUNCA rebaixa um
+  // imóvel já salvo/publicado para rascunho por engano).
   const handleSaveAsDraft = async () => {
     if (submittingRef.current) return;
     const { propertyData, ownerData } = buildPropertyData(form.getValues());
+    const isDraft = property ? !!property.is_draft : true;
     submittingRef.current = true;
     try {
-      // Rascunho nunca publica no marketplace automaticamente.
-      await onSubmit({ ...propertyData, is_draft: true } as PropertyFormData, images, ownerData, false, true);
+      // Rascunho novo nunca publica no marketplace automaticamente.
+      await onSubmit({ ...propertyData, is_draft: isDraft } as PropertyFormData, images, ownerData, property ? publishToMarketplace : false, !property);
       setShowUnsavedDialog(false);
       onOpenChange(false);
     } catch {
@@ -399,9 +402,11 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
     }
   };
 
-  // Intercepta o fechamento: pergunta sobre rascunho se houver alterações.
+  // Intercepta o fechamento: pergunta apenas se houver alterações reais.
+  // Para imóveis novos, a presença de imagens também conta como alteração.
   const handleRequestClose = (next: boolean) => {
-    if (!next && (form.formState.isDirty || images.length > 0)) {
+    const hasUnsaved = form.formState.isDirty || (!property && images.length > 0);
+    if (!next && hasUnsaved) {
       setShowUnsavedDialog(true);
       return;
     }
@@ -478,6 +483,7 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
       <UnsavedChangesDialog
         open={showUnsavedDialog}
         entityLabel="imóvel"
+        isExisting={!!property}
         isSaving={submittingRef.current || !!isSubmitting}
         onSaveDraft={handleSaveAsDraft}
         onDiscard={() => { setShowUnsavedDialog(false); onOpenChange(false); }}

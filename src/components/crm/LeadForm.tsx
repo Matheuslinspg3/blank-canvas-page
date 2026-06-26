@@ -302,14 +302,16 @@ export function LeadForm({
     onOpenChange(false);
   };
 
-  // Salva o estado atual como rascunho, sem validação obrigatória.
+  // Salva como rascunho. Em criação marca is_draft=true; em edição preserva
+  // o status atual (não rebaixa um lead já ativo para rascunho por engano).
   const handleSaveAsDraft = async () => {
-    await onSubmit(buildCleanData(form.getValues(), true));
+    const isDraft = lead ? !!lead.is_draft : true;
+    await onSubmit(buildCleanData(form.getValues(), isDraft));
     setShowUnsavedDialog(false);
     onOpenChange(false);
   };
 
-  // Intercepta o fechamento: pergunta sobre rascunho se houver alterações.
+  // Intercepta o fechamento: pergunta apenas se houver alterações reais.
   const handleRequestClose = (next: boolean) => {
     if (!next && form.formState.isDirty) {
       setShowUnsavedDialog(true);
@@ -503,6 +505,7 @@ export function LeadForm({
       <UnsavedChangesDialog
         open={showUnsavedDialog}
         entityLabel="lead"
+        isExisting={isEditing}
         isSaving={!!isLoading}
         onSaveDraft={handleSaveAsDraft}
         onDiscard={() => { setShowUnsavedDialog(false); onOpenChange(false); }}
