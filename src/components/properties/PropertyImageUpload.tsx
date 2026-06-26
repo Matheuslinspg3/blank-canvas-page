@@ -74,6 +74,8 @@ export function PropertyImageUpload({ images, onChange, maxImages = 200, organiz
       newImages[0].is_cover = true;
     }
 
+    // Evita que um arraste em andamento use um índice defasado
+    setDraggedIndex(null);
     onChange(newImages);
   };
 
@@ -93,17 +95,35 @@ export function PropertyImageUpload({ images, onChange, maxImages = 200, organiz
     e.preventDefault();
     if (draggedIndex === null || draggedIndex === index) return;
 
+    // Guarda contra índices defasados: se imagens foram removidas após
+    // o início do arraste, draggedIndex pode apontar para fora da lista.
+    if (
+      draggedIndex < 0 ||
+      draggedIndex >= images.length ||
+      index < 0 ||
+      index >= images.length
+    ) {
+      setDraggedIndex(null);
+      return;
+    }
+
     const newImages = [...images];
     const draggedImage = newImages[draggedIndex];
+    if (!draggedImage) {
+      setDraggedIndex(null);
+      return;
+    }
+
     newImages.splice(draggedIndex, 1);
     newImages.splice(index, 0, draggedImage);
 
-    // Atualizar display_order
-    newImages.forEach((img, i) => {
-      img.display_order = i;
-    });
+    // Atualizar display_order (sem mutar os objetos originais)
+    const reordered = newImages.map((img, i) => ({
+      ...img,
+      display_order: i,
+    }));
 
-    onChange(newImages);
+    onChange(reordered);
     setDraggedIndex(index);
   };
 

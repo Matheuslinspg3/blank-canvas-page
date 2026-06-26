@@ -18,6 +18,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { UnsavedChangesDialog } from '@/components/common/UnsavedChangesDialog';
 import {
   Select,
   SelectContent,
@@ -117,6 +118,7 @@ export function LeadForm({
 }: LeadFormProps) {
   const { neighborhoods: availableNeighborhoods, cities: availableCities } = usePropertyLocations();
   const [neighborhoodSearch, setNeighborhoodSearch] = useState('');
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
   const [citySearch, setCitySearch] = useState('');
   const [showNeighborhoodDropdown, setShowNeighborhoodDropdown] = useState(false);
   const [showCityDropdown, setShowCityDropdown] = useState(false);
@@ -264,13 +266,13 @@ export function LeadForm({
     });
   }, [activeTab]);
 
-  const handleSubmit = async (data: FormData) => {
-    const finalSource = data.source === 'outro' && data.custom_source 
-      ? data.custom_source 
+  const buildCleanData = (data: FormData, asDraft: boolean): CreateLeadInput => {
+    const finalSource = data.source === 'outro' && data.custom_source
+      ? data.custom_source
       : data.source;
 
-    const cleanData: CreateLeadInput = {
-      name: data.name,
+    return {
+      name: data.name?.trim() || 'Lead sem nome',
       phone: data.phone || undefined,
       email: data.email || undefined,
       source: finalSource || undefined,
@@ -290,10 +292,30 @@ export function LeadForm({
       preferred_neighborhoods: data.preferred_neighborhoods?.length ? data.preferred_neighborhoods : undefined,
       preferred_cities: data.preferred_cities?.length ? data.preferred_cities : undefined,
       additional_requirements: data.additional_requirements || undefined,
+      is_draft: asDraft,
     };
-    await onSubmit(cleanData);
+  };
+
+  const handleSubmit = async (data: FormData) => {
+    await onSubmit(buildCleanData(data, false));
     if (!isEditing) trackLeadCreated();
     onOpenChange(false);
+  };
+
+  // Salva o estado atual como rascunho, sem validação obrigatória.
+  const handleSaveAsDraft = async () => {
+    await onSubmit(buildCleanData(form.getValues(), true));
+    setShowUnsavedDialog(false);
+    onOpenChange(false);
+  };
+
+  // Intercepta o fechamento: pergunta sobre rascunho se houver alterações.
+  const handleRequestClose = (next: boolean) => {
+    if (!next && form.formState.isDirty) {
+      setShowUnsavedDialog(true);
+      return;
+    }
+    onOpenChange(next);
   };
 
   const phoneValue = form.watch('phone');
@@ -310,7 +332,7 @@ export function LeadForm({
   }, [open]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleRequestClose}>
       <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto mx-2 sm:mx-0 p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Editar Lead' : 'Novo Lead'}</DialogTitle>
@@ -465,7 +487,7 @@ export function LeadForm({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => onOpenChange(false)}
+                onClick={() => handleRequestClose(false)}
                 className="min-h-[44px]"
               >
                 Cancelar
@@ -478,6 +500,14 @@ export function LeadForm({
           </form>
         </Form>
       </DialogContent>
+      <UnsavedChangesDialog
+        open={showUnsavedDialog}
+        entityLabel="lead"
+        isSaving={!!isLoading}
+        onSaveDraft={handleSaveAsDraft}
+        onDiscard={() => { setShowUnsavedDialog(false); onOpenChange(false); }}
+        onKeepEditing={() => setShowUnsavedDialog(false)}
+      />
     </Dialog>
   );
 }

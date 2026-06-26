@@ -423,6 +423,16 @@ export default function Properties() {
   // No client-side sort or pagination needed.
   const paginatedProperties = filteredProperties;
 
+  // Separar rascunhos dos imóveis salvos (seções distintas na listagem)
+  const draftProperties = useMemo(
+    () => paginatedProperties.filter((p) => (p as PropertyWithDetails).is_draft),
+    [paginatedProperties]
+  );
+  const savedProperties = useMemo(
+    () => paginatedProperties.filter((p) => !(p as PropertyWithDetails).is_draft),
+    [paginatedProperties]
+  );
+
   // Reset page when filters change
   useEffect(() => { setCurrentPage(1); }, [filters]);
 
@@ -637,9 +647,9 @@ export default function Properties() {
     refetchPublishedIds();
   }, [editingProperty, updateProperty, createProperty, publishToMarketplace, hideFromMarketplace, publishedIds, refetchPublishedIds]);
 
-  const handleFormSubmit = async (data: PropertyFormData, images: PropertyImage[], ownerData?: { name?: string; phone?: string; email?: string; document?: string; notes?: string }, publishMarketplace?: boolean) => {
-    // Only check duplicates for new properties (not edits)
-    if (!editingProperty) {
+  const handleFormSubmit = async (data: PropertyFormData, images: PropertyImage[], ownerData?: { name?: string; phone?: string; email?: string; document?: string; notes?: string }, publishMarketplace?: boolean, asDraft?: boolean) => {
+    // Rascunhos não passam por verificação de duplicidade (dados ainda incompletos)
+    if (!editingProperty && !asDraft) {
       const street = (data as any).address_street;
       const number = (data as any).address_number;
       if (street) {
@@ -797,38 +807,97 @@ export default function Properties() {
         {!propertiesError && !isLoading && paginatedProperties.length > 0 && (
           <div className={isFetching ? 'opacity-60 transition-opacity duration-200' : 'transition-opacity duration-200'}>
             {viewMode === "grid" && (
-              <VirtualizedPropertyGrid
-                properties={paginatedProperties}
-                selectedIds={selectedIds}
-                isSelectionMode={isSelectionMode}
-                publishedIds={publishedIds}
-                onSelect={handleSelectProperty}
-                onEdit={handleEditClick}
-                onDelete={handleDeleteClick}
-                onPublish={handlePublishSingle}
-                onUnpublish={handleUnpublishSingle}
-                onDuplicate={handleDuplicate}
-                onChangeStatus={handleChangeStatus}
-                onLongPressSelect={handleLongPressSelect}
-                reviewSettings={reviewSettings}
-              />
+              <div className="space-y-6">
+                {draftProperties.length > 0 && (
+                  <section>
+                    <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-muted-foreground">
+                      Imóveis Rascunhos
+                      <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-600">{draftProperties.length}</span>
+                    </h2>
+                    <VirtualizedPropertyGrid
+                      properties={draftProperties}
+                      selectedIds={selectedIds}
+                      isSelectionMode={isSelectionMode}
+                      publishedIds={publishedIds}
+                      onSelect={handleSelectProperty}
+                      onEdit={handleEditClick}
+                      onDelete={handleDeleteClick}
+                      onPublish={handlePublishSingle}
+                      onUnpublish={handleUnpublishSingle}
+                      onDuplicate={handleDuplicate}
+                      onChangeStatus={handleChangeStatus}
+                      onLongPressSelect={handleLongPressSelect}
+                      reviewSettings={reviewSettings}
+                    />
+                  </section>
+                )}
+                <section>
+                  {draftProperties.length > 0 && (
+                    <h2 className="mb-3 text-base font-semibold text-muted-foreground">Imóveis Salvos</h2>
+                  )}
+                  <VirtualizedPropertyGrid
+                    properties={savedProperties}
+                    selectedIds={selectedIds}
+                    isSelectionMode={isSelectionMode}
+                    publishedIds={publishedIds}
+                    onSelect={handleSelectProperty}
+                    onEdit={handleEditClick}
+                    onDelete={handleDeleteClick}
+                    onPublish={handlePublishSingle}
+                    onUnpublish={handleUnpublishSingle}
+                    onDuplicate={handleDuplicate}
+                    onChangeStatus={handleChangeStatus}
+                    onLongPressSelect={handleLongPressSelect}
+                    reviewSettings={reviewSettings}
+                  />
+                </section>
+              </div>
             )}
 
             {viewMode === "list" && (
-              <VirtualizedPropertyList
-                properties={paginatedProperties}
-                selectedIds={selectedIds}
-                isSelectionMode={isSelectionMode}
-                publishedIds={publishedIds}
-                onSelect={handleSelectProperty}
-                onEdit={handleEditClick}
-                onDelete={handleDeleteClick}
-                onDuplicate={handleDuplicate}
-                onPublish={handlePublishSingle}
-                onUnpublish={handleUnpublishSingle}
-                onChangeStatus={handleChangeStatus}
-                reviewSettings={reviewSettings}
-              />
+              <div className="space-y-6">
+                {draftProperties.length > 0 && (
+                  <section>
+                    <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-muted-foreground">
+                      Imóveis Rascunhos
+                      <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-600">{draftProperties.length}</span>
+                    </h2>
+                    <VirtualizedPropertyList
+                      properties={draftProperties}
+                      selectedIds={selectedIds}
+                      isSelectionMode={isSelectionMode}
+                      publishedIds={publishedIds}
+                      onSelect={handleSelectProperty}
+                      onEdit={handleEditClick}
+                      onDelete={handleDeleteClick}
+                      onDuplicate={handleDuplicate}
+                      onPublish={handlePublishSingle}
+                      onUnpublish={handleUnpublishSingle}
+                      onChangeStatus={handleChangeStatus}
+                      reviewSettings={reviewSettings}
+                    />
+                  </section>
+                )}
+                <section>
+                  {draftProperties.length > 0 && (
+                    <h2 className="mb-3 text-base font-semibold text-muted-foreground">Imóveis Salvos</h2>
+                  )}
+                  <VirtualizedPropertyList
+                    properties={savedProperties}
+                    selectedIds={selectedIds}
+                    isSelectionMode={isSelectionMode}
+                    publishedIds={publishedIds}
+                    onSelect={handleSelectProperty}
+                    onEdit={handleEditClick}
+                    onDelete={handleDeleteClick}
+                    onDuplicate={handleDuplicate}
+                    onPublish={handlePublishSingle}
+                    onUnpublish={handleUnpublishSingle}
+                    onChangeStatus={handleChangeStatus}
+                    reviewSettings={reviewSettings}
+                  />
+                </section>
+              </div>
             )}
 
             {viewMode === "map" && (

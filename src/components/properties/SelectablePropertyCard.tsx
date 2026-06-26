@@ -89,6 +89,14 @@ export const SelectablePropertyCard = memo(function SelectablePropertyCard({
       onTouchMove={isMobile ? handleTouchMove : undefined}
       onClickCapture={handleCardClick}
     >
+      {property.is_draft && (
+        <div className="absolute top-3 right-3 z-10 rounded-md bg-amber-500/90 px-2 py-1 text-xs font-semibold text-white shadow-md backdrop-blur-sm">
+          Rascunho
+          {property.last_editor_name && (
+            <span className="ml-1 font-normal opacity-90">· {property.last_editor_name}</span>
+          )}
+        </div>
+      )}
       <div 
         className={cn(
           "absolute top-3 left-3 z-10 transition-all duration-200",
