@@ -14,6 +14,7 @@ export type Lead = Tables<'leads'> & {
   property?: { id: string; title: string } | null;
   broker?: { id: string; full_name: string } | null;
   interested_property_type?: Tables<'property_types'> | null;
+  last_editor_name?: string | null;
 };
 
 export type CreateLeadInput = {
@@ -39,6 +40,7 @@ export type CreateLeadInput = {
   preferred_cities?: string[];
   additional_requirements?: string;
   consent_voice_call?: boolean;
+  is_draft?: boolean;
 };
 
 export type UpdateLeadInput = Partial<CreateLeadInput> & { id: string };
@@ -72,6 +74,7 @@ export function useLeadCRUD(opts: {
           lead_stage_id, stage, position, property_id, broker_id,
           lead_type_id, interested_property_type_id, transaction_interest,
           notes, is_active, organization_id, created_by, created_at, updated_at,
+          is_draft, last_edited_by,
           conversion_identifier, traffic_source,
           lead_type:lead_types(id, name),
           interested_property_type:property_types(id, name)
@@ -101,10 +104,20 @@ export function useLeadCRUD(opts: {
           .map(b => [b.user_id, { id: b.user_id, full_name: b.full_name }])
       );
 
+      // Nomes de quem editou por último (para rascunhos)
+      const editorIds = [...new Set(data.filter(l => l.last_edited_by).map(l => l.last_edited_by as string))];
+      let editorsMap: Record<string, string | null> = {};
+      if (editorIds.length > 0) {
+        const { data: editors } = await supabase
+          .from('profiles').select('user_id, full_name').in('user_id', editorIds);
+        if (editors) editorsMap = Object.fromEntries(editors.map(e => [e.user_id, e.full_name]));
+      }
+
       const mapped = data.map(lead => ({
         ...lead,
         property: lead.property_id ? propertiesMap[lead.property_id] || null : null,
         broker: lead.broker_id ? brokersMap[lead.broker_id] || null : null,
+        last_editor_name: lead.last_edited_by ? editorsMap[lead.last_edited_by] ?? null : null,
       })) as Lead[];
 
       if (isBrokerOnly && user) {
@@ -184,6 +197,7 @@ export function useLeadCRUD(opts: {
         ...payload,
         organization_id: profile.organization_id,
         created_by: user.id, // sobrescrito pelo trigger; mantido para satisfazer o tipo
+        last_edited_by: user.id,
         lead_stage_id: lead_stage_id || defaultStageId,
         stage: 'novo',
         attribution_context: attribution,
@@ -254,7 +268,7 @@ export function useLeadCRUD(opts: {
       if (isAssistenteOnly && 'broker_id' in input && input.broker_id) {
         throw new Error('Assistentes não podem atribuir leads a um responsável.');
       }
-      const { data, error } = await supabase.from('leads').update(input).eq('id', id)
+      const { data, error } = await supabase.from('leads').update({ ...input, last_edited_by: user?.id }).eq('id', id)
         .select(`*, lead_type:lead_types(*)`).single();
       if (error) throw error;
       return data as Lead;

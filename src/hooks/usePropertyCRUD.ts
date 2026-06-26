@@ -19,6 +19,7 @@ export type PropertyImage = Tables<'property_images'>;
 export interface PropertyWithDetails extends Property {
   property_type: PropertyType | null;
   images: PropertyImage[];
+  last_editor_name?: string | null;
 }
 
 export type PropertyFormData = Omit<TablesInsert<'properties'>, 'id' | 'created_at' | 'updated_at' | 'organization_id' | 'created_by'>;
@@ -75,6 +76,7 @@ export function usePropertyCRUD(options?: { enabled?: boolean }) {
             address_street, address_number, address_complement, address_neighborhood, address_city, address_state, address_zipcode,
             latitude, longitude,
             description, property_type_id, organization_id, created_by, created_at, updated_at,
+            is_draft, last_edited_by,
             featured, amenities, property_condition, launch_stage, development_name,
             beach_distance_meters, captador_id, payment_options, youtube_url, marketplace_contact_phone, marketplace_contact_phone_source,
             property_type:property_types(id, name),
@@ -102,6 +104,28 @@ export function usePropertyCRUD(options?: { enabled?: boolean }) {
           hasMore = false;
         } else {
           from += PAGE_SIZE;
+        }
+      }
+
+      // Enriquecer com o nome de quem editou por último (rascunhos/lista)
+      const editorIds = Array.from(
+        new Set(
+          allData
+            .map((p) => (p as PropertyWithDetails).last_edited_by)
+            .filter((id): id is string => !!id)
+        )
+      );
+      if (editorIds.length > 0) {
+        const { data: editors } = await supabase
+          .from('profiles')
+          .select('user_id, full_name')
+          .in('user_id', editorIds);
+        const editorMap = Object.fromEntries(
+          (editors || []).map((e) => [e.user_id, e.full_name])
+        );
+        for (const p of allData) {
+          const eid = (p as PropertyWithDetails).last_edited_by;
+          p.last_editor_name = eid ? editorMap[eid] ?? null : null;
         }
       }
 
@@ -180,6 +204,7 @@ export function usePropertyCRUD(options?: { enabled?: boolean }) {
           marketplace_contact_phone_source: resolvedPhoneSource,
           organization_id: profile.organization_id,
           created_by: user!.id,
+          last_edited_by: user!.id,
         })
         .select()
         .single();
@@ -259,7 +284,7 @@ export function usePropertyCRUD(options?: { enabled?: boolean }) {
   const updateProperty = useMutation({
     mutationKey: ['properties', 'update'],
     mutationFn: async ({ id, data, images, ownerData }: { id: string; data: TablesUpdate<'properties'>; images?: ImageData[]; ownerData?: OwnerData }) => {
-      const { data: updated, error } = await supabase.from('properties').update(data).eq('id', id).select().single();
+      const { data: updated, error } = await supabase.from('properties').update({ ...data, last_edited_by: user!.id }).eq('id', id).select().single();
       if (error) throw normalizeError(error);
 
       if (images !== undefined) {

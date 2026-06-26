@@ -180,6 +180,8 @@ export function KanbanBoard() {
     const searchLower = search.toLowerCase();
     
     const applyFilters = (stageLeads: Lead[], stageId: string) => {
+      // Rascunhos não entram no funil do Kanban (exibidos em seção própria)
+      stageLeads = stageLeads.filter((lead) => !lead.is_draft);
       if (search) {
         stageLeads = stageLeads.filter(
           (lead) =>
@@ -362,6 +364,13 @@ export function KanbanBoard() {
     setEditingLead(null);
     setFormOpen(true);
   }, []);
+
+  const handleEditDraft = useCallback((lead: Lead) => {
+    setEditingLead(lead);
+    setFormOpen(true);
+  }, []);
+
+  const draftLeads = useMemo(() => (leads || []).filter((l) => l.is_draft), [leads]);
 
   const handleEditLead = useCallback(() => {
     setEditingLead(selectedLead);
@@ -594,6 +603,31 @@ export function KanbanBoard() {
           );
         })}
       </div>
+
+      {/* Seção de rascunhos (não entram no funil) */}
+      {draftLeads.length > 0 && (
+        <section className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+          <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-amber-700">
+            Leads Rascunhos
+            <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-xs">{draftLeads.length}</span>
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {draftLeads.map((lead) => (
+              <button
+                key={lead.id}
+                type="button"
+                onClick={() => handleEditDraft(lead)}
+                className="flex flex-col items-start rounded-md border bg-background px-3 py-2 text-left text-sm transition-colors hover:bg-accent"
+              >
+                <span className="font-medium">{lead.name}</span>
+                {lead.last_editor_name && (
+                  <span className="text-xs text-muted-foreground">Editado por {lead.last_editor_name}</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Bulk actions toolbar */}
       <LeadBulkToolbar

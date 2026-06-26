@@ -7,6 +7,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Form } from "@/components/ui/form";
+import { UnsavedChangesDialog } from "@/components/common/UnsavedChangesDialog";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -121,7 +122,7 @@ interface PropertyFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   property?: PropertyWithDetails | null;
-  onSubmit: (data: PropertyFormData, images: PropertyImage[], ownerData?: OwnerData, publishToMarketplace?: boolean) => Promise<void>;
+  onSubmit: (data: PropertyFormData, images: PropertyImage[], ownerData?: OwnerData, publishToMarketplace?: boolean, asDraft?: boolean) => Promise<void>;
   isSubmitting: boolean;
   prefillData?: Record<string, any> | null;
   isPublished?: boolean;
@@ -151,6 +152,7 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
   const [images, setImages] = useState<PropertyImage[]>([]);
   const [activeTab, setActiveTab] = useState("basic");
   const [publishToMarketplace, setPublishToMarketplace] = useState(false);
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
   const formStartRef = useRef(Date.now());
   // Guard against double-submit (rapid double-click, Enter+click, re-renders).
   const submittingRef = useRef(false);
@@ -311,6 +313,32 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
     return null;
   };
 
+  // Constrói o payload do imóvel a partir do formulário (reutilizado por salvar e rascunho).
+  const buildPropertyData = (data: FormData) => {
+    const { owner_name, owner_phone, owner_email, owner_document, owner_notes, area_useful, sale_price_financed, marketplace_contact_phone, marketplace_contact_phone_source, ...restData } = data;
+    const selectedType = propertyTypes.find(t => t.id === restData.property_type_id);
+    const autoTitle = [selectedType?.name, restData.address_neighborhood, restData.address_city].filter(Boolean).join(' - ') || 'Imóvel sem título';
+    const finalSource = (marketplace_contact_phone_source ?? "organization") as "organization" | "owner" | "custom";
+    const normalizedMpPhone = finalSource === "custom"
+      ? (marketplace_contact_phone && String(marketplace_contact_phone).trim() !== "" ? String(marketplace_contact_phone).trim() : null)
+      : null;
+    const propertyData = {
+      ...restData,
+      title: autoTitle,
+      area_useful: area_useful as any,
+      sale_price_financed: sale_price_financed as any,
+      marketplace_contact_phone: normalizedMpPhone as any,
+      marketplace_contact_phone_source: finalSource as any,
+      property_type_id: restData.property_type_id || (property as any)?.property_type_id || restData.property_type_id,
+      captador_id: (restData as any).captador_id || (property as any)?.captador_id || (restData as any).captador_id,
+    };
+    const ownerData: OwnerData | undefined = owner_name ? {
+      name: owner_name, phone: owner_phone || undefined, email: owner_email || undefined,
+      document: owner_document || undefined, notes: owner_notes || undefined,
+    } : undefined;
+    return { propertyData, ownerData };
+  };
+
   const handleSubmit = async (data: FormData) => {
     // Guardrail: bloqueia duplo submit (clique duplo, Enter+click, re-render).
     if (submittingRef.current) return;
@@ -326,33 +354,11 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
       );
       if (!ok) return;
     }
-    const { owner_name, owner_phone, owner_email, owner_document, owner_notes, area_useful, sale_price_financed, marketplace_contact_phone, marketplace_contact_phone_source, ...restData } = data;
-    const selectedType = propertyTypes.find(t => t.id === restData.property_type_id);
-    const autoTitle = [selectedType?.name, restData.address_neighborhood, restData.address_city].filter(Boolean).join(' - ') || 'Imóvel sem título';
-    // Defesa em profundidade: se source != custom, força telefone manual = null (trigger também faz).
-    const finalSource = (marketplace_contact_phone_source ?? "organization") as "organization" | "owner" | "custom";
-    const normalizedMpPhone = finalSource === "custom"
-      ? (marketplace_contact_phone && String(marketplace_contact_phone).trim() !== "" ? String(marketplace_contact_phone).trim() : null)
-      : null;
-    const propertyData = {
-      ...restData,
-      title: autoTitle,
-      area_useful: area_useful as any,
-      sale_price_financed: sale_price_financed as any,
-      marketplace_contact_phone: normalizedMpPhone as any,
-      marketplace_contact_phone_source: finalSource as any,
-      // Defesa: se em modo edição o form devolveu null por algum race no reset, preserva o valor original.
-      property_type_id: restData.property_type_id || (property as any)?.property_type_id || restData.property_type_id,
-      captador_id: (restData as any).captador_id || (property as any)?.captador_id || (restData as any).captador_id,
-    };
-    const ownerData: OwnerData | undefined = owner_name ? {
-      name: owner_name, phone: owner_phone || undefined, email: owner_email || undefined,
-      document: owner_document || undefined, notes: owner_notes || undefined,
-    } : undefined;
+    const { propertyData, ownerData } = buildPropertyData(data);
 
     submittingRef.current = true;
     try {
-      await onSubmit(propertyData as PropertyFormData, images, ownerData, publishToMarketplace);
+      await onSubmit({ ...propertyData, is_draft: false } as PropertyFormData, images, ownerData, publishToMarketplace, false);
       if (!property) trackPropertyCreated();
       // Só fecha o dialog em caso de sucesso — assim o usuário pode tentar
       // novamente sem perder os dados se algo falhar.
@@ -376,13 +382,39 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
     }
   };
 
+  // Salva o estado atual como rascunho, sem validação obrigatória.
+  const handleSaveAsDraft = async () => {
+    if (submittingRef.current) return;
+    const { propertyData, ownerData } = buildPropertyData(form.getValues());
+    submittingRef.current = true;
+    try {
+      // Rascunho nunca publica no marketplace automaticamente.
+      await onSubmit({ ...propertyData, is_draft: true } as PropertyFormData, images, ownerData, false, true);
+      setShowUnsavedDialog(false);
+      onOpenChange(false);
+    } catch {
+      // mantém aberto em caso de erro
+    } finally {
+      submittingRef.current = false;
+    }
+  };
+
+  // Intercepta o fechamento: pergunta sobre rascunho se houver alterações.
+  const handleRequestClose = (next: boolean) => {
+    if (!next && (form.formState.isDirty || images.length > 0)) {
+      setShowUnsavedDialog(true);
+      return;
+    }
+    onOpenChange(next);
+  };
+
   const TabErrorIndicator = ({ tabKey }: { tabKey: string }) => {
     if (!getTabHasErrors(tabKey)) return null;
     return <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive animate-pulse" />;
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleRequestClose}>
       <DialogContent className="max-w-4xl max-h-[90dvh] flex flex-col p-4 sm:p-6 overflow-hidden">
         <DialogHeader>
           <DialogTitle>{property ? "Editar Imóvel" : "Novo Imóvel"}</DialogTitle>
@@ -433,7 +465,7 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
                 </Label>
               </div>
               <div className="flex gap-2 w-full sm:w-auto">
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-initial min-h-[44px]">Cancelar</Button>
+                <Button type="button" variant="outline" onClick={() => handleRequestClose(false)} className="flex-1 sm:flex-initial min-h-[44px]">Cancelar</Button>
                 <Button type="submit" disabled={isSubmitting} className="flex-1 sm:flex-initial min-h-[44px]">
                   {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   {property ? "Salvar" : "Cadastrar"}
@@ -443,6 +475,14 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
           </form>
         </Form>
       </DialogContent>
+      <UnsavedChangesDialog
+        open={showUnsavedDialog}
+        entityLabel="imóvel"
+        isSaving={submittingRef.current || !!isSubmitting}
+        onSaveDraft={handleSaveAsDraft}
+        onDiscard={() => { setShowUnsavedDialog(false); onOpenChange(false); }}
+        onKeepEditing={() => setShowUnsavedDialog(false)}
+      />
     </Dialog>
   );
 }
