@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,6 +29,13 @@ const CustomDomainsManager = lazy(() => import("@/components/settings/CustomDoma
 export default function Settings() {
   const { isAdminOrAbove, isDeveloperOrLeader } = useUserRoles();
   const { theme, setTheme } = useTheme();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") || "profile";
+  const handleTabChange = (value: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", value);
+    setSearchParams(next, { replace: true });
+  };
 
   return (
     <div className="flex flex-col min-h-screen relative page-enter" data-clarity-mask="true">
@@ -49,7 +57,7 @@ export default function Settings() {
       />
 
       <div className="relative flex-1 p-4 sm:p-6">
-        <Tabs defaultValue="profile" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
           <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-1">
             <TabsList className="inline-flex w-auto min-w-full sm:min-w-0 h-auto flex-wrap sm:flex-nowrap gap-1 p-1">
               <TabsTrigger value="profile" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><User className="h-4 w-4 shrink-0" /><span>Perfil</span></TabsTrigger>

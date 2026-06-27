@@ -1560,6 +1560,135 @@ export type Database = {
           },
         ]
       }
+      backup_settings: {
+        Row: {
+          connected_at: string | null
+          connected_by: string | null
+          created_at: string
+          drive_account_email: string | null
+          drive_root_folder_id: string | null
+          enabled: boolean
+          frequency: Database["public"]["Enums"]["backup_frequency"]
+          include_photos: boolean
+          last_run_at: string | null
+          last_run_status: Database["public"]["Enums"]["backup_run_status"] | null
+          mirror_deletions: boolean
+          next_run_at: string | null
+          oauth_access_token: string | null
+          oauth_refresh_token: string | null
+          oauth_token_expires_at: string | null
+          organization_id: string
+          photo_original: boolean
+          photo_thumbnail: boolean
+          retention_days: number
+          run_hour: number
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          connected_at?: string | null
+          connected_by?: string | null
+          created_at?: string
+          drive_account_email?: string | null
+          drive_root_folder_id?: string | null
+          enabled?: boolean
+          frequency?: Database["public"]["Enums"]["backup_frequency"]
+          include_photos?: boolean
+          last_run_at?: string | null
+          last_run_status?: Database["public"]["Enums"]["backup_run_status"] | null
+          mirror_deletions?: boolean
+          next_run_at?: string | null
+          oauth_access_token?: string | null
+          oauth_refresh_token?: string | null
+          oauth_token_expires_at?: string | null
+          organization_id: string
+          photo_original?: boolean
+          photo_thumbnail?: boolean
+          retention_days?: number
+          run_hour?: number
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          connected_at?: string | null
+          connected_by?: string | null
+          created_at?: string
+          drive_account_email?: string | null
+          drive_root_folder_id?: string | null
+          enabled?: boolean
+          frequency?: Database["public"]["Enums"]["backup_frequency"]
+          include_photos?: boolean
+          last_run_at?: string | null
+          last_run_status?: Database["public"]["Enums"]["backup_run_status"] | null
+          mirror_deletions?: boolean
+          next_run_at?: string | null
+          oauth_access_token?: string | null
+          oauth_refresh_token?: string | null
+          oauth_token_expires_at?: string | null
+          organization_id?: string
+          photo_original?: boolean
+          photo_thumbnail?: boolean
+          retention_days?: number
+          run_hour?: number
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      backup_runs: {
+        Row: {
+          bytes_uploaded: number | null
+          created_at: string
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          leads_count: number | null
+          organization_id: string
+          photos_deleted: number | null
+          photos_uploaded: number | null
+          properties_count: number | null
+          snapshot_folder: string | null
+          started_at: string
+          status: Database["public"]["Enums"]["backup_run_status"]
+          trigger: string
+          triggered_by: string | null
+        }
+        Insert: {
+          bytes_uploaded?: number | null
+          created_at?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          leads_count?: number | null
+          organization_id: string
+          photos_deleted?: number | null
+          photos_uploaded?: number | null
+          properties_count?: number | null
+          snapshot_folder?: string | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["backup_run_status"]
+          trigger?: string
+          triggered_by?: string | null
+        }
+        Update: {
+          bytes_uploaded?: number | null
+          created_at?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          leads_count?: number | null
+          organization_id?: string
+          photos_deleted?: number | null
+          photos_uploaded?: number | null
+          properties_count?: number | null
+          snapshot_folder?: string | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["backup_run_status"]
+          trigger?: string
+          triggered_by?: string | null
+        }
+        Relationships: []
+      }
       audit_events: {
         Row: {
           acting_role: string | null
@@ -11905,6 +12034,8 @@ export type Database = {
     }
     Enums: {
       ad_entity_type: "campaign" | "adset" | "ad"
+      backup_frequency: "fixed_daily" | "hourly"
+      backup_run_status: "pending" | "running" | "success" | "partial" | "failed"
       ad_lead_status:
         | "new"
         | "read"

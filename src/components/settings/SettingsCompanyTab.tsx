@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Building2, Camera, Loader2, Search, ShieldCheck, ShieldAlert, Store, Building, User } from "lucide-react";
 import { PropertyReviewSettingsCard } from "./PropertyReviewSettingsCard";
+import { BackupSettingsCard } from "./BackupSettingsCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRoles } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
@@ -359,6 +360,8 @@ export function SettingsCompanyTab() {
       </Card>
 
       <PropertyReviewSettingsCard />
+
+      <BackupSettingsCard />
     </div>
   );
 }

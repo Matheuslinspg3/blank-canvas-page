@@ -9,3 +9,7 @@ verify_jwt = false
 [functions.accept-invite-signup]
 verify_jwt = false
 
+[functions.drive-oauth-callback]
+verify_jwt = false
+
+
